@@ -90,6 +90,22 @@ const GameSelector: React.FC<GameSelectorProps> = ({
             value={selectedGame?.id || ''}
             label="Choose NFL Game"
             onChange={handleGameChange}
+            MenuProps={{
+              PaperProps: {
+                style: {
+                  maxHeight: 300,
+                  zIndex: 1300, // Ensures menu appears above other elements
+                },
+              },
+              anchorOrigin: {
+                vertical: "bottom",
+                horizontal: "left",
+              },
+              transformOrigin: {
+                vertical: "top",
+                horizontal: "left",
+              },
+            }}
           >
             {games.map((game) => (
               <MenuItem key={game.id} value={game.id}>
