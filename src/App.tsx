@@ -12,11 +12,10 @@ import { useParlayGenerator } from './hooks/useParlayGenerator';
 import { useState } from 'react';
 import type { NFLGame } from './types/nfl';
 
-// Create a client
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000, // 5 minutes
+      staleTime: 5 * 60 * 1000,
       retry: 1,
     },
   },
@@ -25,11 +24,7 @@ const queryClient = new QueryClient({
 function AppContent() {
   const [selectedGame, setSelectedGame] = useState<NFLGame | null>(null);
   const { data: games, isLoading: gamesLoading } = useNFLGames();
-  const { 
-    generateParlay, 
-    data: generatedParlay, 
-    isLoading: parlayLoading 
-  } = useParlayGenerator();
+  const { mutate: generateParlay, data: generatedParlay, isPending: parlayLoading } = useParlayGenerator();
 
   const handleGameSelect = (game: NFLGame) => {
     setSelectedGame(game);

@@ -18,7 +18,7 @@ import {
 import type { GeneratedParlay, BetType } from '../types/parlay';
 
 interface ParlayDisplayProps {
-  parlay: GeneratedParlay | null;
+  parlay?: GeneratedParlay;
   loading: boolean;
 }
 
