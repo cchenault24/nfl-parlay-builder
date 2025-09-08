@@ -33,6 +33,11 @@ const GameSelector: React.FC<GameSelectorProps> = ({
   onGenerateParlay,
   canGenerate,
 }) => {
+  // Detect iOS devices
+  const isIOS = () => {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent);
+  };
+
   const handleGameChange = (event: SelectChangeEvent<string>) => {
     const gameId = event.target.value;
     const game = games.find(g => g.id === gameId);
@@ -43,6 +48,17 @@ const GameSelector: React.FC<GameSelectorProps> = ({
 
   const formatGameDisplay = (game: NFLGame) => {
     return `${game.awayTeam.displayName} @ ${game.homeTeam.displayName}`;
+  };
+
+  const formatGameDateTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      weekday: 'short',
+      month: 'short', 
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit'
+    });
   };
 
   if (loading) {
@@ -80,49 +96,13 @@ const GameSelector: React.FC<GameSelectorProps> = ({
             value={selectedGame?.id || ''}
             label="Choose NFL Game"
             onChange={handleGameChange}
-            // iOS-specific fixes
-            native={false}
+            native={isIOS()} // Use native select on iOS
             variant="outlined"
-            MenuProps={{
-              // Force the menu to appear properly on iOS
-              disablePortal: false,
-              anchorOrigin: {
-                vertical: 'bottom',
-                horizontal: 'left',
-              },
-              transformOrigin: {
-                vertical: 'top',
-                horizontal: 'left',
-              },
-              // Add specific styling for mobile
-              PaperProps: {
-                style: {
-                  maxHeight: '300px',
-                  backgroundColor: '#1e1e1e', // Match your dark theme
-                  color: 'white',
-                },
-              },
-              // Ensure proper z-index
-              sx: {
-                '& .MuiPaper-root': {
-                  zIndex: 1300,
-                },
-                '& .MuiMenuItem-root': {
-                  padding: '12px 16px',
-                  minHeight: '48px', // Better touch targets on mobile
-                  '&:hover': {
-                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                  },
-                },
-              },
-            }}
             sx={{
-              // Ensure the select itself works on mobile
               '& .MuiSelect-select': {
                 minHeight: '24px',
                 padding: '16.5px 14px',
               },
-              // Fix for iOS specifically
               '& .MuiOutlinedInput-notchedOutline': {
                 borderColor: 'rgba(255, 255, 255, 0.23)',
               },
@@ -134,41 +114,41 @@ const GameSelector: React.FC<GameSelectorProps> = ({
               },
             }}
           >
-            {games.map((game) => (
-              <MenuItem 
-                key={game.id} 
-                value={game.id}
-                sx={{
-                  padding: '12px 16px',
-                  minHeight: '48px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'flex-start',
-                  '&:hover': {
-                    backgroundColor: 'rgba(46, 125, 50, 0.1)',
-                  },
-                  '&.Mui-selected': {
-                    backgroundColor: 'rgba(46, 125, 50, 0.2)',
-                    '&:hover': {
-                      backgroundColor: 'rgba(46, 125, 50, 0.3)',
-                    },
-                  },
-                }}
-              >
-                <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                  {formatGameDisplay(game)}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {new Date(game.date).toLocaleDateString('en-US', { 
-                    weekday: 'short',
-                    month: 'short', 
-                    day: 'numeric',
-                    hour: 'numeric',
-                    minute: '2-digit'
-                  })}
-                </Typography>
-              </MenuItem>
-            ))}
+            {isIOS() ? (
+              // Native options for iOS
+              <>
+                <option value="" disabled>
+                  Choose NFL Game
+                </option>
+                {games.map((game) => (
+                  <option key={game.id} value={game.id}>
+                    {formatGameDisplay(game)} - {formatGameDateTime(game.date)}
+                  </option>
+                ))}
+              </>
+            ) : (
+              // MUI MenuItems for non-iOS
+              games.map((game) => (
+                <MenuItem 
+                  key={game.id} 
+                  value={game.id}
+                  sx={{
+                    padding: '12px 16px',
+                    minHeight: '48px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'flex-start',
+                  }}
+                >
+                  <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                    {formatGameDisplay(game)}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {formatGameDateTime(game.date)}
+                  </Typography>
+                </MenuItem>
+              ))
+            )}
           </Select>
         </FormControl>
 
@@ -187,7 +167,7 @@ const GameSelector: React.FC<GameSelectorProps> = ({
               sx={{ 
                 px: 4, 
                 py: 1.5,
-                minHeight: '48px', // Better touch target for mobile
+                minHeight: '48px',
               }}
             >
               Create 3-Leg Parlay
