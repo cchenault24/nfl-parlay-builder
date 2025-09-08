@@ -4,22 +4,23 @@ export interface ParlayLeg {
   id: string;
   betType: BetType;
   selection: string;
-  target: string; // e.g., "Chiefs -3.5", "Over 45.5", "Mahomes Over 250.5 Pass Yds"
+  target: string;
   reasoning: string;
-  confidence: number; // 1-10 scale
+  confidence: number;
+  odds: string;
 }
 
 export interface GeneratedParlay {
   id: string;
-  legs: [ParlayLeg, ParlayLeg, ParlayLeg]; // Always exactly 3 legs
+  legs: [ParlayLeg, ParlayLeg, ParlayLeg];
   gameContext: string;
   aiReasoning: string;
   overallConfidence: number;
-  estimatedOdds: string; // e.g., "+650"
+  estimatedOdds: string;
   createdAt: string;
 }
 
 export interface ParlayRequest {
   gameId: string;
-  legCount: 3; // Always 3 for MVP
+  legCount: 3;
 }

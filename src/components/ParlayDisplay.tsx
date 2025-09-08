@@ -14,8 +14,9 @@ import {
   TrendingUp as TrendingUpIcon,
   Sports as SportsIcon,
   Person as PersonIcon,
+  SmartToy as SmartToyIcon,
 } from '@mui/icons-material';
-import type { GeneratedParlay, BetType } from '../types/parlay';
+import type { GeneratedParlay, BetType, ParlayLeg } from '../types/parlay';
 
 interface ParlayDisplayProps {
   parlay: GeneratedParlay | null;
@@ -54,6 +55,33 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({ parlay, loading }) => {
     if (confidence >= 8) return 'success';
     if (confidence >= 6) return 'warning';
     return 'error';
+  };
+
+  const formatBetTarget = (leg: ParlayLeg) => {
+    if (leg.betType === 'player_prop') {
+      // If the target already has the correct format, use it
+      if (leg.target.includes('(') && leg.target.includes(')')) {
+        return leg.target;
+      }
+
+      // Otherwise, try to format it properly
+      const playerName = leg.selection;
+      const target = leg.target;
+
+      // Try to extract the bet details
+      const overUnderMatch = target.match(/(Over|Under)\s+([\d.]+)\s+(.+)/);
+
+      if (overUnderMatch && playerName && playerName !== target) {
+        const [, overUnder, value, statType] = overUnderMatch;
+        // We don't have easy access to team name here, so we'll show player name prominently
+        return `${playerName} - ${overUnder} ${value} ${statType}`;
+      }
+
+      // Fallback if parsing fails
+      return target;
+    }
+
+    return leg.target;
   };
 
   if (loading) {
@@ -111,16 +139,24 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({ parlay, loading }) => {
                     {getBetTypeIcon(leg.betType)}
                     <Typography variant="h6" sx={{ ml: 1, flex: 1 }}>
                       Leg {index + 1}
+                      <Chip
+                        label={leg.odds}
+                        variant="outlined"
+                        size="small"
+                        color="primary"
+                        sx={{ ml: 2 }}
+                      />
                     </Typography>
                     <Chip
                       label={leg.betType.replace('_', ' ').toUpperCase()}
                       color={getBetTypeColor(leg.betType) as any}
                       size="small"
+                      sx={{ mr: 1 }}
                     />
                   </Box>
 
                   <Typography variant="body1" fontWeight="bold" sx={{ mb: 1 }}>
-                    {leg.target}
+                    {formatBetTarget(leg)}
                   </Typography>
 
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -146,7 +182,6 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({ parlay, loading }) => {
             </Grid>
           ))}
         </Grid>
-
         <Divider sx={{ my: 2 }} />
 
         <Box>
@@ -166,6 +201,7 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({ parlay, loading }) => {
             </Typography>
           </Box>
         </Box>
+
       </CardContent>
     </Card>
   );

@@ -15,7 +15,7 @@ const openai = new OpenAI({
 
 export const generateParlay = async (game: NFLGame): Promise<GeneratedParlay> => {
   console.log('🤖 Starting AI parlay generation for:', game.awayTeam.displayName, '@', game.homeTeam.displayName);
-  
+
   try {
     // Fetch current rosters
     console.log('📋 Fetching current rosters...');
@@ -38,19 +38,19 @@ export const generateParlay = async (game: NFLGame): Promise<GeneratedParlay> =>
         }
       ],
       temperature: 0.9,
-      max_tokens: 1200, // Increased for roster data
+      max_tokens: 1200,
     });
 
     const response = completion.choices[0]?.message?.content;
     console.log('🎯 Raw AI response:', response);
-    
+
     if (!response) {
       throw new Error('No response from OpenAI');
     }
 
     const result = parseAIResponse(response, game);
     console.log('✅ Parsed parlay result:', result);
-    
+
     return result;
   } catch (error) {
     console.error('❌ Error generating parlay:', error);
@@ -62,20 +62,20 @@ export const generateParlay = async (game: NFLGame): Promise<GeneratedParlay> =>
 const createParlayPrompt = (game: NFLGame, homeRoster: NFLPlayer[], awayRoster: NFLPlayer[]): string => {
   const timestamp = Date.now();
   const randomSeed = Math.floor(Math.random() * 1000);
-  
+
   // Get key players by position
   const getKeyPlayers = (roster: NFLPlayer[]) => {
     const qbs = roster.filter(p => p.position === 'QB').slice(0, 2);
     const rbs = roster.filter(p => p.position === 'RB').slice(0, 3);
     const wrs = roster.filter(p => p.position === 'WR').slice(0, 4);
     const tes = roster.filter(p => p.position === 'TE').slice(0, 2);
-    
+
     return { qbs, rbs, wrs, tes };
   };
 
   const homeKeyPlayers = getKeyPlayers(homeRoster);
   const awayKeyPlayers = getKeyPlayers(awayRoster);
-  
+
   return `
 Analyze this NFL game: ${game.awayTeam.displayName} @ ${game.homeTeam.displayName}
 Date: ${new Date(game.date).toLocaleDateString()}
@@ -96,7 +96,14 @@ RBs: ${awayKeyPlayers.rbs.map(p => `${p.displayName} (#${p.jerseyNumber})`).join
 WRs: ${awayKeyPlayers.wrs.map(p => `${p.displayName} (#${p.jerseyNumber})`).join(', ')}
 TEs: ${awayKeyPlayers.tes.map(p => `${p.displayName} (#${p.jerseyNumber})`).join(', ')}
 
-Generate exactly 3 DIFFERENT bet recommendations using a mix of:
+Generate exactly 3 DIFFERENT bet recommendations with realistic odds:
+
+TYPICAL ODDS RANGES:
+- Spread bets: -105 to -115 (both sides)
+- Totals: -105 to -115 (both sides)
+- Moneyline: -200 to +180 (favorites negative, underdogs positive)
+- Player props: -105 to -130 (most common)
+- Long shot props: +150 to +300 (less likely outcomes)
 
 TEAM BETS:
 - Spread bets (team to cover)
@@ -109,7 +116,23 @@ PLAYER PROPS (USE ONLY PLAYERS LISTED ABOVE):
 - WR/TE receiving yards (typical range: 40-120)
 - Player touchdowns (anytime scorer)
 
-IMPORTANT: Only use players from the rosters provided above. Do not make up player names or use players not listed.
+IMPORTANT: Only use players from the rosters provided above.
+
+For player props, use this EXACT format:
+- selection: "PLAYER_FULL_NAME"
+- target: "PLAYER_FULL_NAME (TEAM_NAME) - Over/Under X.X Stat Type"
+- odds: Realistic betting odds (e.g., "-110", "+125", "-115")
+
+Example format:
+{
+  "id": "2",
+  "betType": "player_prop", 
+  "selection": "Caleb Williams",
+  "target": "Caleb Williams (Chicago Bears) - Over 250.5 Passing Yards",
+  "reasoning": "Williams has been averaging 280+ yards against weak secondaries",
+  "confidence": 7,
+  "odds": "-115"
+}
 
 Return response as valid JSON:
 {
@@ -120,15 +143,17 @@ Return response as valid JSON:
       "selection": "${game.homeTeam.displayName}",
       "target": "${game.homeTeam.displayName} -3.5",
       "reasoning": "Detailed reasoning",
-      "confidence": 8
+      "confidence": 8,
+      "odds": "-110"
     },
     {
       "id": "2", 
       "betType": "player_prop",
       "selection": "[EXACT PLAYER NAME FROM ROSTER]",
-      "target": "[PLAYER NAME] Over 275.5 Passing Yards",
+      "target": "[PLAYER NAME] ([TEAM NAME]) - Over/Under X.X [Stat Type]",
       "reasoning": "Player-specific analysis",
-      "confidence": 7
+      "confidence": 7,
+      "odds": "-115"
     },
     {
       "id": "3",
@@ -136,7 +161,8 @@ Return response as valid JSON:
       "selection": "Over",
       "target": "Over 45.5 Total Points",
       "reasoning": "Game flow analysis",
-      "confidence": 6
+      "confidence": 6,
+      "odds": "-105"
     }
   ],
   "gameContext": "Brief game summary",
@@ -145,7 +171,7 @@ Return response as valid JSON:
   "estimatedOdds": "+650"
 }
 
-Use only verified current players. Vary bet combinations. Confidence: 1-10.
+Use only verified current players. Include realistic odds for each leg. Vary bet combinations. Confidence: 1-10.
 `;
 };
 
@@ -169,6 +195,7 @@ const parseAIResponse = (response: string, game: NFLGame): GeneratedParlay => {
       target: leg.target || '',
       reasoning: leg.reasoning || 'No reasoning provided',
       confidence: Math.min(Math.max(leg.confidence || 5, 1), 10),
+      odds: leg.odds || '-110', // Add odds with default fallback
     }));
 
     return {
@@ -185,7 +212,6 @@ const parseAIResponse = (response: string, game: NFLGame): GeneratedParlay => {
     return createFallbackParlay(game);
   }
 };
-
 const createFallbackParlay = (game: NFLGame): GeneratedParlay => {
   return {
     id: `fallback-${Date.now()}`,
@@ -197,6 +223,7 @@ const createFallbackParlay = (game: NFLGame): GeneratedParlay => {
         target: `${game.homeTeam.displayName} -3.5`,
         reasoning: 'Home field advantage analysis',
         confidence: 6,
+        odds: '-110',
       },
       {
         id: 'fallback-2',
@@ -205,6 +232,7 @@ const createFallbackParlay = (game: NFLGame): GeneratedParlay => {
         target: 'Over 45.5 Total Points',
         reasoning: 'Both teams have strong offensive capabilities',
         confidence: 6,
+        odds: '-105',
       },
       {
         id: 'fallback-3',
@@ -213,6 +241,7 @@ const createFallbackParlay = (game: NFLGame): GeneratedParlay => {
         target: 'QB Over 250.5 Passing Yards',
         reasoning: 'Expected high-passing game script',
         confidence: 5,
+        odds: '-115',
       },
     ],
     gameContext: `${game.awayTeam.displayName} @ ${game.homeTeam.displayName}`,
