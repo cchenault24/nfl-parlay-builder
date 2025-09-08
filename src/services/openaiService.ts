@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import { fetchGameRosters } from './nflData';
 import { GeneratedParlay, NFLGame, NFLPlayer, ParlayLeg } from '../types';
+import { ROSTER_LIMITS, NFL_RIVALRIES, ODDS_RANGES, DEFAULTS, API_CONFIG } from '../config/constants';
 
 // Workaround for TypeScript env issue
 const getEnvVar = (name: string): string => {
@@ -12,24 +13,25 @@ const openai = new OpenAI({
   dangerouslyAllowBrowser: true,
 });
 
-export const generateParlay = async (game: NFLGame): Promise<GeneratedParlay> => {
-  try {
-    // Fetch current rosters
-    const { homeRoster, awayRoster } = await fetchGameRosters(game);
+// Helper Functions
+const getKeyPlayers = (roster: NFLPlayer[]) => ({
+  qbs: roster.filter(p => p.position === 'QB').slice(0, ROSTER_LIMITS.QB),
+  rbs: roster.filter(p => p.position === 'RB').slice(0, ROSTER_LIMITS.RB),
+  wrs: roster.filter(p => p.position === 'WR').slice(0, ROSTER_LIMITS.WR),
+  tes: roster.filter(p => p.position === 'TE').slice(0, ROSTER_LIMITS.TE)
+});
 
-    // Check if we got valid rosters
-    if (homeRoster.length === 0 || awayRoster.length === 0) {
-      return createFallbackParlay(game);
-    }
+const checkRivalryGame = (homeTeam: string, awayTeam: string): boolean => {
+  return NFL_RIVALRIES.some(rivalry =>
+    rivalry.includes(homeTeam) && rivalry.includes(awayTeam)
+  );
+};
 
-    const prompt = createParlayPrompt(game, homeRoster, awayRoster);
+const formatPlayerList = (players: NFLPlayer[]) => 
+  players.map(p => `${p.displayName} (#${p.jerseyNumber})`).join(', ') || 'None available';
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `You are an expert NFL betting analyst with 10+ years of experience. You specialize in creating profitable parlay combinations by analyzing team matchups, player performance trends, and situational factors.
+const createSystemPrompt = () => `
+You are an expert NFL betting analyst with 10+ years of experience. You specialize in creating profitable parlay combinations by analyzing team matchups, player performance trends, and situational factors.
 
 CRITICAL RULES:
 1. Generate exactly 3 different bet types for maximum diversification
@@ -38,55 +40,13 @@ CRITICAL RULES:
 4. Focus on high-confidence bets with solid reasoning
 5. Return valid JSON only - no markdown or extra text
 
-Your goal is to create a well-balanced parlay that maximizes value while maintaining reasonable probability of success.`
-        },
-        {
-          role: "user",
-          content: prompt
-        }
-      ],
-      temperature: 0.7, // Balanced creativity vs consistency
-      max_tokens: 1500,
-      top_p: 0.9,
-      frequency_penalty: 0.1,
-      presence_penalty: 0.1,
-    });
+Your goal is to create a well-balanced parlay that maximizes value while maintaining reasonable probability of success.`;
 
-    const response = completion.choices[0]?.message?.content;
-
-    if (!response) {
-      throw new Error('No response from OpenAI');
-    }
-
-    // Pass rosters to validation
-    const result = parseAIResponse(response, game, homeRoster, awayRoster);
-
-    return result;
-  } catch (error) {
-    return createFallbackParlay(game);
-  }
-};
-
-const createParlayPrompt = (game: NFLGame, homeRoster: NFLPlayer[], awayRoster: NFLPlayer[]): string => {
+const createGameContext = (game: NFLGame) => {
   const timestamp = Date.now();
   const randomSeed = Math.floor(Math.random() * 1000);
   const isRivalry = checkRivalryGame(game.homeTeam.name, game.awayTeam.name);
-
-  // Get key players by position - with better filtering
-  const getKeyPlayers = (roster: NFLPlayer[]) => {
-    const qbs = roster.filter(p => p.position === 'QB').slice(0, 2);
-    const rbs = roster.filter(p => p.position === 'RB').slice(0, 4);
-    const wrs = roster.filter(p => p.position === 'WR').slice(0, 6);
-    const tes = roster.filter(p => p.position === 'TE').slice(0, 3);
-
-    return { qbs, rbs, wrs, tes };
-  };
-
-  const homeKeyPlayers = getKeyPlayers(homeRoster);
-  const awayKeyPlayers = getKeyPlayers(awayRoster);
-
-
-  // Enhanced prompt with rivalry context
+  
   return `
 CRITICAL: You are analyzing a live NFL game with CURRENT 2024-2025 season rosters. 
 Use ONLY the players listed below - DO NOT use any player names from memory or training data.
@@ -94,24 +54,34 @@ Use ONLY the players listed below - DO NOT use any player names from memory or t
 GAME: ${game.awayTeam.displayName} @ ${game.homeTeam.displayName}
 Date: ${new Date(game.date).toLocaleDateString()}
 Week: ${game.week} | Season: ${game.season}
-${isRivalry ? '🔥 RIVALRY GAME - Expect higher intensity and unpredictable plays!' : ''}
+${isRivalry ? 'RIVALRY GAME - Expect higher intensity and unpredictable plays!' : ''}
 Analysis ID: ${timestamp}-${randomSeed}
+`;
+};
 
+const createRosterSection = (game: NFLGame, homeRoster: NFLPlayer[], awayRoster: NFLPlayer[]) => {
+  const homeKeyPlayers = getKeyPlayers(homeRoster);
+  const awayKeyPlayers = getKeyPlayers(awayRoster);
+  
+  return `
 === VERIFIED CURRENT ROSTERS (USE ONLY THESE PLAYERS) ===
 
 ${game.homeTeam.displayName} ACTIVE ROSTER:
-🏈 Quarterbacks: ${homeKeyPlayers.qbs.map(p => `${p.displayName} (#${p.jerseyNumber})`).join(', ') || 'None available'}
-🏃 Running Backs: ${homeKeyPlayers.rbs.map(p => `${p.displayName} (#${p.jerseyNumber})`).join(', ') || 'None available'}
-🙌 Wide Receivers: ${homeKeyPlayers.wrs.map(p => `${p.displayName} (#${p.jerseyNumber})`).join(', ') || 'None available'}
-🎯 Tight Ends: ${homeKeyPlayers.tes.map(p => `${p.displayName} (#${p.jerseyNumber})`).join(', ') || 'None available'}
+Quarterbacks: ${formatPlayerList(homeKeyPlayers.qbs)}
+Running Backs: ${formatPlayerList(homeKeyPlayers.rbs)}
+Wide Receivers: ${formatPlayerList(homeKeyPlayers.wrs)}
+Tight Ends: ${formatPlayerList(homeKeyPlayers.tes)}
 
 ${game.awayTeam.displayName} ACTIVE ROSTER:
-🏈 Quarterbacks: ${awayKeyPlayers.qbs.map(p => `${p.displayName} (#${p.jerseyNumber})`).join(', ') || 'None available'}
-🏃 Running Backs: ${awayKeyPlayers.rbs.map(p => `${p.displayName} (#${p.jerseyNumber})`).join(', ') || 'None available'}
-🙌 Wide Receivers: ${awayKeyPlayers.wrs.map(p => `${p.displayName} (#${p.jerseyNumber})`).join(', ') || 'None available'}
-🎯 Tight Ends: ${awayKeyPlayers.tes.map(p => `${p.displayName} (#${p.jerseyNumber})`).join(', ') || 'None available'}
+Quarterbacks: ${formatPlayerList(awayKeyPlayers.qbs)}
+Running Backs: ${formatPlayerList(awayKeyPlayers.rbs)}
+Wide Receivers: ${formatPlayerList(awayKeyPlayers.wrs)}
+Tight Ends: ${formatPlayerList(awayKeyPlayers.tes)}
+`;
+};
 
-⚠️ MANDATORY RULES:
+const createBettingGuidelines = (game: NFLGame) => `
+MANDATORY RULES:
 1. For player props, use EXACT player names from the rosters above
 2. DO NOT use players like "Saquon Barkley" if not listed above
 3. DO NOT use players from previous seasons or other teams
@@ -125,11 +95,13 @@ BETTING OPTIONS:
 - Player Props: ONLY from verified rosters above
 
 REALISTIC ODDS:
-- Spread: -105 to -115
-- Totals: -105 to -115  
-- Moneyline: -150 to +130
-- Player Props: -110 to -125
+- Spread: ${ODDS_RANGES.SPREAD}
+- Totals: ${ODDS_RANGES.TOTALS}
+- Moneyline: ${ODDS_RANGES.MONEYLINE}
+- Player Props: ${ODDS_RANGES.PLAYER_PROPS}
+`;
 
+const createJSONFormat = (game: NFLGame) => `
 REQUIRED JSON FORMAT:
 {
   "legs": [
@@ -168,113 +140,48 @@ REQUIRED JSON FORMAT:
 }
 
 Generate exactly 3 different bet types. Use current verified rosters only. Return valid JSON.`;
+
+const createParlayPrompt = (game: NFLGame, homeRoster: NFLPlayer[], awayRoster: NFLPlayer[]): string => {
+  return [
+    createGameContext(game),
+    createRosterSection(game, homeRoster, awayRoster),
+    createBettingGuidelines(game),
+    createJSONFormat(game)
+  ].join('\n');
 };
 
-const checkRivalryGame = (homeTeam: string, awayTeam: string): boolean => {
-  const rivalries = [
-    ['Cowboys', 'Eagles'], ['Patriots', 'Jets'], ['Packers', 'Bears'],
-    ['Ravens', 'Steelers'], ['Chiefs', 'Raiders'], ['49ers', 'Seahawks'],
-    // Add more rivalries as needed
-  ];
+const validatePlayerProp = (leg: any, homeRoster: NFLPlayer[], awayRoster: NFLPlayer[]): boolean => {
+  if (leg.betType !== 'player_prop') return true;
 
-  return rivalries.some(rivalry =>
-    (rivalry.includes(homeTeam) && rivalry.includes(awayTeam))
+  const allPlayers = [...homeRoster, ...awayRoster];
+  const playerNames = allPlayers.map(p => p.displayName.toLowerCase());
+  const legPlayerName = leg.selection?.toLowerCase() || '';
+
+  return playerNames.some(name =>
+    name.includes(legPlayerName) || legPlayerName.includes(name)
   );
-};
-
-const parseAIResponse = (
-  response: string,
-  game: NFLGame,
-  homeRoster: NFLPlayer[],
-  awayRoster: NFLPlayer[]
-): GeneratedParlay => {
-  try {
-    const jsonMatch = response.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error('No JSON found in AI response');
-    }
-
-    const parsed = JSON.parse(jsonMatch[0]);
-
-    if (!parsed.legs || !Array.isArray(parsed.legs) || parsed.legs.length !== 3) {
-      throw new Error('Invalid parlay structure from AI');
-    }
-
-    // Use validatePlayerProp to filter out invalid player bets
-    const validLegs = parsed.legs.filter((leg: any) => {
-      return validatePlayerProp(leg, homeRoster, awayRoster);
-    });
-
-    // If we lost legs due to invalid players, add safe alternatives
-    while (validLegs.length < 3) {
-      const safeAlternative = {
-        id: `safe-${validLegs.length + 1}`,
-        betType: validLegs.length % 2 === 0 ? 'total' : 'spread',
-        selection: validLegs.length % 2 === 0 ? 'Over' : game.homeTeam.displayName,
-        target: validLegs.length % 2 === 0 ?
-          `Over ${(Math.random() * 10 + 42).toFixed(1)} Total Points` :
-          `${game.homeTeam.displayName} -${(Math.random() * 6 + 1).toFixed(1)}`,
-        reasoning: validLegs.length % 2 === 0 ?
-          'Safe total points bet based on team tendencies' :
-          'Home field advantage analysis',
-        confidence: 6,
-        odds: '-110'
-      };
-      validLegs.push(safeAlternative);
-    }
-
-    const validatedLegs: ParlayLeg[] = validLegs.slice(0, 3).map((leg: any, index: number) => ({
-      id: leg.id || `leg-${index + 1}`,
-      betType: leg.betType || 'spread',
-      selection: leg.selection || '',
-      target: leg.target || '',
-      reasoning: leg.reasoning || 'No reasoning provided',
-      confidence: Math.min(Math.max(leg.confidence || 5, 1), 10),
-      odds: leg.odds || '-110',
-    }));
-
-    // Use calculateParlayOdds to get realistic combined odds
-    const individualOdds = validatedLegs.map(leg => leg.odds);
-    const calculatedOdds = calculateParlayOdds(individualOdds);
-
-    return {
-      id: `parlay-${Date.now()}`,
-      legs: validatedLegs as [ParlayLeg, ParlayLeg, ParlayLeg],
-      gameContext: parsed.gameContext || `${game.awayTeam.displayName} @ ${game.homeTeam.displayName}`,
-      aiReasoning: parsed.aiReasoning || 'AI analysis provided',
-      overallConfidence: Math.min(Math.max(parsed.overallConfidence || 6, 1), 10),
-      estimatedOdds: calculatedOdds,
-      createdAt: new Date().toISOString(),
-    };
-  } catch (error) {
-    return createFallbackParlay(game);
-  }
 };
 
 const calculateParlayOdds = (individualOdds: string[]): string => {
   try {
-    // Convert odds to decimal, multiply, convert back to American
     const decimalOdds = individualOdds.map(odds => {
       const num = parseInt(odds);
-      if (num > 0) return (num / 100) + 1;
-      return (100 / Math.abs(num)) + 1;
+      return num > 0 ? (num / 100) + 1 : (100 / Math.abs(num)) + 1;
     });
 
     const combinedDecimal = decimalOdds.reduce((acc, odds) => acc * odds, 1);
-    const americanOdds = combinedDecimal >= 2 ?
+    return combinedDecimal >= 2 ?
       `+${Math.round((combinedDecimal - 1) * 100)}` :
       `-${Math.round(100 / (combinedDecimal - 1))}`;
-
-    return americanOdds;
   } catch {
-    return '+550'; // Reasonable fallback
+    return '+550';
   }
 };
 
 const createFallbackParlay = (game: NFLGame): GeneratedParlay => {
-  const isHomeFavorite = Math.random() > 0.4; // 60% chance home is favorite
-  const spread = (Math.random() * 6 + 1).toFixed(1); // 1.5 to 7.5 point spread
-  const total = (Math.random() * 10 + 42).toFixed(1); // 42.5 to 52.5 total
+  const isHomeFavorite = Math.random() > 0.4;
+  const spread = (Math.random() * 6 + 1).toFixed(1);
+  const total = (Math.random() * 10 + 42).toFixed(1);
 
   return {
     id: `fallback-${Date.now()}`,
@@ -286,7 +193,7 @@ const createFallbackParlay = (game: NFLGame): GeneratedParlay => {
         target: `${isHomeFavorite ? game.homeTeam.displayName : game.awayTeam.displayName} ${isHomeFavorite ? '-' : '+'}${spread}`,
         reasoning: `${isHomeFavorite ? 'Home field advantage' : 'Road team value'} with strong recent form and favorable matchup.`,
         confidence: 7,
-        odds: '-110',
+        odds: DEFAULTS.DEFAULT_ODDS,
       },
       {
         id: 'fallback-2',
@@ -310,26 +217,103 @@ const createFallbackParlay = (game: NFLGame): GeneratedParlay => {
     gameContext: `${game.awayTeam.displayName} @ ${game.homeTeam.displayName} - Week ${game.week}`,
     aiReasoning: 'Balanced fallback parlay combining spread value, total points analysis, and quarterback performance.',
     overallConfidence: 6,
-    estimatedOdds: '+525',
+    estimatedOdds: DEFAULTS.FALLBACK_ODDS,
     createdAt: new Date().toISOString(),
   };
 };
 
-const validatePlayerProp = (leg: any, homeRoster: NFLPlayer[], awayRoster: NFLPlayer[]): boolean => {
-  if (leg.betType !== 'player_prop') return true;
+const parseAIResponse = (response: string, game: NFLGame, homeRoster: NFLPlayer[], awayRoster: NFLPlayer[]): GeneratedParlay => {
+  try {
+    const jsonMatch = response.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error('No JSON found in AI response');
+    }
 
-  const allPlayers = [...homeRoster, ...awayRoster];
-  const playerNames = allPlayers.map(p => p.displayName.toLowerCase());
-  const legPlayerName = leg.selection?.toLowerCase() || '';
+    const parsed = JSON.parse(jsonMatch[0]);
 
-  // Check if the player exists in current rosters
-  const playerExists = playerNames.some(name =>
-    name.includes(legPlayerName) || legPlayerName.includes(name)
-  );
+    if (!parsed.legs || !Array.isArray(parsed.legs) || parsed.legs.length !== 3) {
+      throw new Error('Invalid parlay structure from AI');
+    }
 
-  if (!playerExists) {
-    return false;
+    const validLegs = parsed.legs.filter((leg: any) => validatePlayerProp(leg, homeRoster, awayRoster));
+
+    // Add safe alternatives if needed
+    while (validLegs.length < 3) {
+      const safeAlternative = {
+        id: `safe-${validLegs.length + 1}`,
+        betType: validLegs.length % 2 === 0 ? 'total' : 'spread',
+        selection: validLegs.length % 2 === 0 ? 'Over' : game.homeTeam.displayName,
+        target: validLegs.length % 2 === 0 ?
+          `Over ${(Math.random() * 10 + 42).toFixed(1)} Total Points` :
+          `${game.homeTeam.displayName} -${(Math.random() * 6 + 1).toFixed(1)}`,
+        reasoning: validLegs.length % 2 === 0 ?
+          'Safe total points bet based on team tendencies' :
+          'Home field advantage analysis',
+        confidence: DEFAULTS.DEFAULT_CONFIDENCE,
+        odds: DEFAULTS.DEFAULT_ODDS
+      };
+      validLegs.push(safeAlternative);
+    }
+
+    const validatedLegs: ParlayLeg[] = validLegs.slice(0, 3).map((leg: any, index: number) => ({
+      id: leg.id || `leg-${index + 1}`,
+      betType: leg.betType || 'spread',
+      selection: leg.selection || '',
+      target: leg.target || '',
+      reasoning: leg.reasoning || 'No reasoning provided',
+      confidence: Math.min(Math.max(leg.confidence || DEFAULTS.DEFAULT_CONFIDENCE, DEFAULTS.CONFIDENCE_MIN), DEFAULTS.CONFIDENCE_MAX),
+      odds: leg.odds || DEFAULTS.DEFAULT_ODDS,
+    }));
+
+    const individualOdds = validatedLegs.map(leg => leg.odds);
+    const calculatedOdds = calculateParlayOdds(individualOdds);
+
+    return {
+      id: `parlay-${Date.now()}`,
+      legs: validatedLegs as [ParlayLeg, ParlayLeg, ParlayLeg],
+      gameContext: parsed.gameContext || `${game.awayTeam.displayName} @ ${game.homeTeam.displayName}`,
+      aiReasoning: parsed.aiReasoning || 'AI analysis provided',
+      overallConfidence: Math.min(Math.max(parsed.overallConfidence || DEFAULTS.DEFAULT_CONFIDENCE, DEFAULTS.CONFIDENCE_MIN), DEFAULTS.CONFIDENCE_MAX),
+      estimatedOdds: calculatedOdds,
+      createdAt: new Date().toISOString(),
+    };
+  } catch (error) {
+    return createFallbackParlay(game);
   }
+};
 
-  return true;
+// Main Export
+export const generateParlay = async (game: NFLGame): Promise<GeneratedParlay> => {
+  try {
+    const { homeRoster, awayRoster } = await fetchGameRosters(game);
+
+    if (homeRoster.length === 0 || awayRoster.length === 0) {
+      return createFallbackParlay(game);
+    }
+
+    const prompt = createParlayPrompt(game, homeRoster, awayRoster);
+
+    const completion = await openai.chat.completions.create({
+      model: API_CONFIG.OPENAI_MODEL,
+      messages: [
+        { role: "system", content: createSystemPrompt() },
+        { role: "user", content: prompt }
+      ],
+      temperature: API_CONFIG.OPENAI_TEMPERATURE,
+      max_tokens: API_CONFIG.OPENAI_MAX_TOKENS,
+      top_p: 0.9,
+      frequency_penalty: 0.1,
+      presence_penalty: 0.1,
+    });
+
+    const response = completion.choices[0]?.message?.content;
+
+    if (!response) {
+      throw new Error('No response from OpenAI');
+    }
+
+    return parseAIResponse(response, game, homeRoster, awayRoster);
+  } catch (error) {
+    return createFallbackParlay(game);
+  }
 };

@@ -1,16 +1,15 @@
 import axios from "axios";
 import { NFLGame, NFLPlayer } from "../types";
 import { ESPNScoreboardResponse, ESPNRosterResponse, ESPNAthlete } from "../types/espn";
-
-const ESPN_BASE_URL = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl';
+import { API_CONFIG } from "../config/constants";
 
 export const fetchCurrentWeekGames = async (): Promise<NFLGame[]> => {
   try {
-    const response = await axios.get(`${ESPN_BASE_URL}/scoreboard`);
+    const response = await axios.get(`${API_CONFIG.ESPN_BASE_URL}/scoreboard`);
     const data: ESPNScoreboardResponse = response.data;
 
     if (!data.events || data.events.length === 0) {
-      console.warn('⚠️ No events found in ESPN response');
+      console.warn('No events found in ESPN response');
       return [];
     }
 
@@ -24,7 +23,7 @@ export const fetchCurrentWeekGames = async (): Promise<NFLGame[]> => {
       const awayCompetitor = competition.competitors.find(c => c.homeAway === 'away');
 
       if (!homeCompetitor || !awayCompetitor) {
-        console.error('❌ Missing competitor data:', {
+        console.error('Missing competitor data:', {
           eventId: event.id,
           competitors: competition.competitors.map(c => ({ id: c.id, homeAway: c.homeAway }))
         });
@@ -64,7 +63,7 @@ export const fetchCurrentWeekGames = async (): Promise<NFLGame[]> => {
 
   } catch (error) {
     if (axios.isAxiosError(error)) {
-      console.error('📡 Axios error details:', {
+      console.error('Axios error details:', {
         status: error.response?.status,
         statusText: error.response?.statusText,
         data: error.response?.data
@@ -76,19 +75,17 @@ export const fetchCurrentWeekGames = async (): Promise<NFLGame[]> => {
 
 export const fetchTeamRoster = async (teamId: string): Promise<NFLPlayer[]> => {
   try {
-    const response = await axios.get(`${ESPN_BASE_URL}/teams/${teamId}/roster`);
+    const response = await axios.get(`${API_CONFIG.ESPN_BASE_URL}/teams/${teamId}/roster`);
     const data: ESPNRosterResponse = response.data;
 
     if (!data.athletes || data.athletes.length === 0) {
-      console.warn(`⚠️ No athletes found for team ${teamId}`);
+      console.warn(`No athletes found for team ${teamId}`);
       return [];
     }
 
-    // ESPN groups athletes by position, we need to flatten them
     const allAthletes: ESPNAthlete[] = data.athletes.flatMap(group =>
       group.items || []
     );
-
 
     const players: NFLPlayer[] = allAthletes.map((athlete) => {
       return {
@@ -104,9 +101,9 @@ export const fetchTeamRoster = async (teamId: string): Promise<NFLPlayer[]> => {
     return players;
 
   } catch (error) {
-    console.error(`❌ Error fetching roster for team ${teamId}:`, error);
+    console.error(`Error fetching roster for team ${teamId}:`, error);
     if (axios.isAxiosError(error)) {
-      console.error('📡 Axios error details:', {
+      console.error('Axios error details:', {
         status: error.response?.status,
         statusText: error.response?.statusText,
         url: error.config?.url
@@ -126,7 +123,7 @@ export const fetchGameRosters = async (game: NFLGame): Promise<{ homeRoster: NFL
     return { homeRoster, awayRoster };
 
   } catch (error) {
-    console.error('❌ Error fetching game rosters:', error);
+    console.error('Error fetching game rosters:', error);
     return { homeRoster: [], awayRoster: [] };
   }
 };
@@ -143,9 +140,9 @@ function mapESPNStatus(espnStatus: string): NFLGame['status'] {
       return 'postponed';
     case 'STATUS_CANCELED':
     case 'STATUS_CANCELLED':
-      return 'postponed'; // Map cancelled to postponed since we don't have a cancelled status
+      return 'postponed';
     default:
-      console.warn(`⚠️ Unknown ESPN status: ${espnStatus}, defaulting to 'scheduled'`);
+      console.warn(`Unknown ESPN status: ${espnStatus}, defaulting to 'scheduled'`);
       return 'scheduled';
   }
 }
