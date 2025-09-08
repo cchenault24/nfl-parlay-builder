@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { NFLGame } from '../types/nfl';
+import type { NFLGame, NFLPlayer } from '../types/nfl';
 
 // ESPN API endpoints (free, no key required)
 const ESPN_BASE_URL = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl';
@@ -42,5 +42,39 @@ export const fetchCurrentWeekGames = async (): Promise<NFLGame[]> => {
   } catch (error) {
     console.error('Error fetching NFL games:', error);
     throw new Error('Failed to fetch NFL games');
+  }
+};
+
+export const fetchTeamRoster = async (teamId: string): Promise<NFLPlayer[]> => {
+  try {
+    const response = await axios.get(`${ESPN_BASE_URL}/teams/${teamId}/roster`);
+    const athletes = response.data.athletes || [];
+    
+    return athletes.map((athlete: any) => ({
+      id: athlete.id,
+      name: athlete.name,
+      displayName: athlete.displayName,
+      position: athlete.position?.abbreviation || athlete.position?.name || 'Unknown',
+      jerseyNumber: athlete.jersey || '',
+      experience: athlete.experience?.years || 0,
+      college: athlete.college?.name || '',
+    }));
+  } catch (error) {
+    console.error(`Error fetching roster for team ${teamId}:`, error);
+    return []; // Return empty array on error
+  }
+};
+
+export const fetchGameRosters = async (game: NFLGame): Promise<{ homeRoster: NFLPlayer[], awayRoster: NFLPlayer[] }> => {
+  try {
+    const [homeRoster, awayRoster] = await Promise.all([
+      fetchTeamRoster(game.homeTeam.id),
+      fetchTeamRoster(game.awayTeam.id)
+    ]);
+    
+    return { homeRoster, awayRoster };
+  } catch (error) {
+    console.error('Error fetching game rosters:', error);
+    return { homeRoster: [], awayRoster: [] };
   }
 };

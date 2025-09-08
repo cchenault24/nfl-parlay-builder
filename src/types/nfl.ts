@@ -48,3 +48,18 @@ export interface NewsItem {
   url: string;
   teamIds: string[];
 }
+
+export interface NFLPlayer {
+  id: string;
+  name: string;
+  displayName: string;
+  position: string;
+  jerseyNumber: string;
+  experience: number;
+  college?: string;
+}
+
+export interface NFLRoster {
+  teamId: string;
+  players: NFLPlayer[];
+}

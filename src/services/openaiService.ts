@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
-import type { NFLGame } from '../types/nfl';
+import type { NFLGame, NFLPlayer } from '../types/nfl';
 import type { GeneratedParlay } from '../types/parlay';
+import { fetchGameRosters } from './nflData';
 
 // Workaround for TypeScript env issue
 const getEnvVar = (name: string): string => {
@@ -14,17 +15,22 @@ const openai = new OpenAI({
 
 export const generateParlay = async (game: NFLGame): Promise<GeneratedParlay> => {
   console.log('🤖 Starting AI parlay generation for:', game.awayTeam.displayName, '@', game.homeTeam.displayName);
-
+  
   try {
-    const prompt = createParlayPrompt(game);
-    console.log('📝 Sending prompt to OpenAI:', prompt);
+    // Fetch current rosters
+    console.log('📋 Fetching current rosters...');
+    const { homeRoster, awayRoster } = await fetchGameRosters(game);
+    console.log('✅ Rosters fetched:', { homeCount: homeRoster.length, awayCount: awayRoster.length });
+
+    const prompt = createParlayPrompt(game, homeRoster, awayRoster);
+    console.log('📝 Sending prompt to OpenAI with roster data');
 
     const completion = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
       messages: [
         {
           role: "system",
-          content: "You are an expert NFL betting analyst. Generate exactly 3 different bet recommendations for a single NFL game. Be creative and vary your selections each time you're asked. Mix spread bets and player props based on your confidence. Return response as valid JSON only."
+          content: "You are an expert NFL betting analyst. Generate exactly 3 different bet recommendations for a single NFL game using ONLY the current roster information provided. Mix spread bets and player props based on your confidence. Return response as valid JSON only."
         },
         {
           role: "user",
@@ -32,19 +38,19 @@ export const generateParlay = async (game: NFLGame): Promise<GeneratedParlay> =>
         }
       ],
       temperature: 0.9,
-      max_tokens: 1000,
+      max_tokens: 1200, // Increased for roster data
     });
 
     const response = completion.choices[0]?.message?.content;
     console.log('🎯 Raw AI response:', response);
-
+    
     if (!response) {
       throw new Error('No response from OpenAI');
     }
 
     const result = parseAIResponse(response, game);
     console.log('✅ Parsed parlay result:', result);
-
+    
     return result;
   } catch (error) {
     console.error('❌ Error generating parlay:', error);
@@ -53,72 +59,93 @@ export const generateParlay = async (game: NFLGame): Promise<GeneratedParlay> =>
   }
 };
 
-const createParlayPrompt = (game: NFLGame): string => {
+const createParlayPrompt = (game: NFLGame, homeRoster: NFLPlayer[], awayRoster: NFLPlayer[]): string => {
   const timestamp = Date.now();
   const randomSeed = Math.floor(Math.random() * 1000);
+  
+  // Get key players by position
+  const getKeyPlayers = (roster: NFLPlayer[]) => {
+    const qbs = roster.filter(p => p.position === 'QB').slice(0, 2);
+    const rbs = roster.filter(p => p.position === 'RB').slice(0, 3);
+    const wrs = roster.filter(p => p.position === 'WR').slice(0, 4);
+    const tes = roster.filter(p => p.position === 'TE').slice(0, 2);
+    
+    return { qbs, rbs, wrs, tes };
+  };
 
+  const homeKeyPlayers = getKeyPlayers(homeRoster);
+  const awayKeyPlayers = getKeyPlayers(awayRoster);
+  
   return `
 Analyze this NFL game: ${game.awayTeam.displayName} @ ${game.homeTeam.displayName}
 Date: ${new Date(game.date).toLocaleDateString()}
 Week: ${game.week}
 Analysis ID: ${timestamp}-${randomSeed}
 
-Generate exactly 3 DIFFERENT bet recommendations. Be creative and vary your selections each time. Consider multiple angles:
+CURRENT ROSTERS - USE ONLY THESE PLAYERS FOR PROPS:
 
-POTENTIAL BET TYPES to mix and match:
+${game.homeTeam.displayName} Key Players:
+QBs: ${homeKeyPlayers.qbs.map(p => `${p.displayName} (#${p.jerseyNumber})`).join(', ')}
+RBs: ${homeKeyPlayers.rbs.map(p => `${p.displayName} (#${p.jerseyNumber})`).join(', ')}  
+WRs: ${homeKeyPlayers.wrs.map(p => `${p.displayName} (#${p.jerseyNumber})`).join(', ')}
+TEs: ${homeKeyPlayers.tes.map(p => `${p.displayName} (#${p.jerseyNumber})`).join(', ')}
+
+${game.awayTeam.displayName} Key Players:
+QBs: ${awayKeyPlayers.qbs.map(p => `${p.displayName} (#${p.jerseyNumber})`).join(', ')}
+RBs: ${awayKeyPlayers.rbs.map(p => `${p.displayName} (#${p.jerseyNumber})`).join(', ')}
+WRs: ${awayKeyPlayers.wrs.map(p => `${p.displayName} (#${p.jerseyNumber})`).join(', ')}
+TEs: ${awayKeyPlayers.tes.map(p => `${p.displayName} (#${p.jerseyNumber})`).join(', ')}
+
+Generate exactly 3 DIFFERENT bet recommendations using a mix of:
+
+TEAM BETS:
 - Spread bets (team to cover)
 - Over/Under total points
-- Moneyline (straight win)
-- Player passing yards props
-- Player rushing yards props  
-- Player receiving yards props
-- Player touchdown props
-- Team total points
+- Moneyline, team totals
 
-VARY YOUR APPROACH each time by considering:
-- Different players for props
-- Different bet types
-- Different confidence levels
-- Weather conditions (if outdoor game)
-- Recent team form
-- Head-to-head history
-- Key player matchups
+PLAYER PROPS (USE ONLY PLAYERS LISTED ABOVE):
+- QB passing yards (typical range: 200-350)
+- RB rushing yards (typical range: 50-150) 
+- WR/TE receiving yards (typical range: 40-120)
+- Player touchdowns (anytime scorer)
 
-Return response as valid JSON with this structure:
+IMPORTANT: Only use players from the rosters provided above. Do not make up player names or use players not listed.
+
+Return response as valid JSON:
 {
   "legs": [
     {
       "id": "1",
       "betType": "spread",
-      "selection": "Chiefs",
-      "target": "Chiefs -3.5",
-      "reasoning": "Detailed reasoning specific to this analysis",
+      "selection": "${game.homeTeam.displayName}",
+      "target": "${game.homeTeam.displayName} -3.5",
+      "reasoning": "Detailed reasoning",
       "confidence": 8
     },
     {
       "id": "2", 
       "betType": "player_prop",
-      "selection": "Patrick Mahomes",
-      "target": "Mahomes Over 280.5 Passing Yards",
-      "reasoning": "Specific reasoning for this prop bet",
+      "selection": "[EXACT PLAYER NAME FROM ROSTER]",
+      "target": "[PLAYER NAME] Over 275.5 Passing Yards",
+      "reasoning": "Player-specific analysis",
       "confidence": 7
     },
     {
       "id": "3",
       "betType": "total",
-      "selection": "Under",
-      "target": "Under 48.5 Total Points",
-      "reasoning": "Weather/defensive reasoning",
+      "selection": "Over",
+      "target": "Over 45.5 Total Points",
+      "reasoning": "Game flow analysis",
       "confidence": 6
     }
   ],
-  "gameContext": "Brief summary focusing on different aspects each time",
-  "aiReasoning": "Overall analysis that varies your approach and logic",
+  "gameContext": "Brief game summary",
+  "aiReasoning": "Overall parlay strategy",
   "overallConfidence": 7,
   "estimatedOdds": "+650"
 }
 
-Be creative and generate DIFFERENT combinations each time. Confidence: 1-10 scale.
+Use only verified current players. Vary bet combinations. Confidence: 1-10.
 `;
 };
 
