@@ -33,11 +33,6 @@ const GameSelector: React.FC<GameSelectorProps> = ({
   onGenerateParlay,
   canGenerate,
 }) => {
-  // Detect iOS devices
-  const isIOS = () => {
-    return /iPad|iPhone|iPod/.test(navigator.userAgent);
-  };
-
   const handleGameChange = (event: SelectChangeEvent<string>) => {
     const gameId = event.target.value;
     const game = games.find(g => g.id === gameId);
@@ -96,8 +91,37 @@ const GameSelector: React.FC<GameSelectorProps> = ({
             value={selectedGame?.id || ''}
             label="Choose NFL Game"
             onChange={handleGameChange}
-            native={isIOS()} // Use native select on iOS
+            native={false}
             variant="outlined"
+            MenuProps={{
+              anchorOrigin: {
+                vertical: 'bottom',
+                horizontal: 'left',
+              },
+              transformOrigin: {
+                vertical: 'top',
+                horizontal: 'left',
+              },
+              PaperProps: {
+                style: {
+                  maxHeight: '300px',
+                  backgroundColor: '#1e1e1e',
+                  color: 'white',
+                },
+              },
+              sx: {
+                '& .MuiPaper-root': {
+                  zIndex: 1300,
+                },
+                '& .MuiMenuItem-root': {
+                  padding: '12px 16px',
+                  minHeight: '48px',
+                  '&:hover': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                  },
+                },
+              },
+            }}
             sx={{
               '& .MuiSelect-select': {
                 minHeight: '24px',
@@ -114,41 +138,35 @@ const GameSelector: React.FC<GameSelectorProps> = ({
               },
             }}
           >
-            {isIOS() ? (
-              // Native options for iOS
-              <>
-                <option value="" disabled>
-                  Choose NFL Game
-                </option>
-                {games.map((game) => (
-                  <option key={game.id} value={game.id}>
-                    {formatGameDisplay(game)} - {formatGameDateTime(game.date)}
-                  </option>
-                ))}
-              </>
-            ) : (
-              // MUI MenuItems for non-iOS
-              games.map((game) => (
-                <MenuItem 
-                  key={game.id} 
-                  value={game.id}
-                  sx={{
-                    padding: '12px 16px',
-                    minHeight: '48px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'flex-start',
-                  }}
-                >
-                  <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                    {formatGameDisplay(game)}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {formatGameDateTime(game.date)}
-                  </Typography>
-                </MenuItem>
-              ))
-            )}
+            {games.map((game) => (
+              <MenuItem 
+                key={game.id} 
+                value={game.id}
+                sx={{
+                  padding: '12px 16px',
+                  minHeight: '48px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'flex-start',
+                  '&:hover': {
+                    backgroundColor: 'rgba(46, 125, 50, 0.1)',
+                  },
+                  '&.Mui-selected': {
+                    backgroundColor: 'rgba(46, 125, 50, 0.2)',
+                    '&:hover': {
+                      backgroundColor: 'rgba(46, 125, 50, 0.3)',
+                    },
+                  },
+                }}
+              >
+                <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                  {formatGameDisplay(game)}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {formatGameDateTime(game.date)}
+                </Typography>
+              </MenuItem>
+            ))}
           </Select>
         </FormControl>
 
