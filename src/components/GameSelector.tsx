@@ -14,7 +14,7 @@ import {
 } from '@mui/material';
 import { SelectChangeEvent } from '@mui/material/Select';
 import { Casino as CasinoIcon } from '@mui/icons-material';
-import type { NFLGame } from '../types/nfl';
+import type { NFLGame } from '../types';
 
 interface GameSelectorProps {
   games: NFLGame[];

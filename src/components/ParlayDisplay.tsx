@@ -15,7 +15,7 @@ import {
   Sports as SportsIcon,
   Person as PersonIcon,
 } from '@mui/icons-material';
-import type { GeneratedParlay, BetType, ParlayLeg } from '../types/parlay';
+import type { GeneratedParlay, BetType, ParlayLeg } from '../types';
 
 interface ParlayDisplayProps {
   parlay?: GeneratedParlay;

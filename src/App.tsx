@@ -10,7 +10,7 @@ import ParlayDisplay from './components/ParlayDisplay';
 import { useNFLGames } from './hooks/useNFLGames';
 import { useParlayGenerator } from './hooks/useParlayGenerator';
 import { useState } from 'react';
-import type { NFLGame } from './types/nfl';
+import { NFLGame } from './types';
 
 const queryClient = new QueryClient({
   defaultOptions: {
