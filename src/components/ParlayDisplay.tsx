@@ -14,12 +14,11 @@ import {
   TrendingUp as TrendingUpIcon,
   Sports as SportsIcon,
   Person as PersonIcon,
-  SmartToy as SmartToyIcon,
 } from '@mui/icons-material';
 import type { GeneratedParlay, BetType, ParlayLeg } from '../types/parlay';
 
 interface ParlayDisplayProps {
-  parlay: GeneratedParlay | null;
+  parlay?: GeneratedParlay;
   loading: boolean;
 }
 
