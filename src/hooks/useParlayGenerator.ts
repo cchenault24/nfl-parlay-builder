@@ -1,6 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
 import { generateParlay } from '../services/openaiService';
-import type { NFLGame } from '../types/nfl';
 
 export const useParlayGenerator = () => {
   return useMutation({
