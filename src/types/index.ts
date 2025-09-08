@@ -1,5 +1,3 @@
-// src/types/index.ts - Complete types file
-
 // ===== BET TYPES =====
 export type BetType = 'spread' | 'total' | 'moneyline' | 'player_prop';
 
@@ -21,7 +19,7 @@ export interface NFLGame {
   awayTeam: NFLTeam;
   week: number;
   season: number;
-  status: string; // Flexible string to handle any ESPN API status
+  status: 'scheduled' | 'in_progress' | 'final' | 'postponed';
 }
 
 export interface NFLPlayer {
@@ -32,6 +30,11 @@ export interface NFLPlayer {
   jerseyNumber: string;
   experience: number;
   college?: string;
+}
+
+export interface GameRosters {
+  homeRoster: NFLPlayer[];
+  awayRoster: NFLPlayer[];
 }
 
 export interface TeamStats {
@@ -65,11 +68,6 @@ export interface NewsItem {
   teamIds: string[];
 }
 
-export interface NFLRoster {
-  teamId: string;
-  players: NFLPlayer[];
-}
-
 // ===== PARLAY TYPES =====
 export interface ParlayLeg {
   id: string;
@@ -95,25 +93,3 @@ export interface ParlayRequest {
   gameId: string;
   legCount: 3;
 }
-
-// ===== ADDITIONAL HELPER TYPES =====
-export interface GameRosters {
-  homeRoster: NFLPlayer[];
-  awayRoster: NFLPlayer[];
-}
-
-// ===== COMPONENT PROP TYPES =====
-export interface GameSelectorProps {
-  games: NFLGame[];
-  onGameSelect: (game: NFLGame) => void;
-  loading: boolean;
-  selectedGame: NFLGame | null;
-  onGenerateParlay: () => void;
-  canGenerate: boolean;
-}
-
-export interface ParlayDisplayProps {
-  parlay?: GeneratedParlay;
-  loading: boolean;
-}
-
