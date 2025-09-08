@@ -1,3 +1,4 @@
+// src/App.tsx - Updated with error boundary and constants
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -7,16 +8,18 @@ import Box from '@mui/material/Box';
 import { theme } from './theme';
 import GameSelector from './components/GameSelector';
 import ParlayDisplay from './components/ParlayDisplay';
+import ErrorBoundary from './components/ErrorBoundary';
 import { useNFLGames } from './hooks/useNFLGames';
 import { useParlayGenerator } from './hooks/useParlayGenerator';
 import { useState } from 'react';
 import { NFLGame } from './types';
+import { CACHE_CONFIG } from './config/constants';
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000,
-      retry: 1,
+      staleTime: CACHE_CONFIG.NFL_GAMES_STALE_TIME,
+      retry: CACHE_CONFIG.QUERY_RETRY_COUNT,
     },
   },
 });
@@ -70,7 +73,9 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <AppContent />
+        <ErrorBoundary>
+          <AppContent />
+        </ErrorBoundary>
       </ThemeProvider>
     </QueryClientProvider>
   );
