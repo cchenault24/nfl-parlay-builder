@@ -1,4 +1,3 @@
-// src/App.tsx (Updated with Authentication)
 import { useState } from 'react';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
@@ -13,7 +12,9 @@ import GameSelector from './components/GameSelector';
 import ParlayDisplay from './components/ParlayDisplay';
 import { UserMenu } from './components/auth/UserMenu';
 import { ParlayHistory } from './components/ParlayHistory';
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthGate } from './components/auth/AuthGate';
+import { LoadingScreen } from './components/LoadingScreen';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { useNFLGames } from './hooks/useNFLGames';
 import { useParlayGenerator } from './hooks/useParlayGenerator';
 import { NFLGame } from './types';
@@ -28,6 +29,7 @@ const queryClient = new QueryClient({
 });
 
 function AppContent() {
+  const { user, loading } = useAuth();
   const [selectedGame, setSelectedGame] = useState<NFLGame | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const { data: games, isLoading: gamesLoading } = useNFLGames();
@@ -43,6 +45,17 @@ function AppContent() {
     }
   };
 
+  // Show loading screen while checking authentication
+  if (loading) {
+    return <LoadingScreen />;
+  }
+
+  // Show authentication gate if user is not signed in
+  if (!user) {
+    return <AuthGate />;
+  }
+
+  // Show main app for authenticated users
   return (
     <Box sx={{ flexGrow: 1 }}>
       {/* App Bar */}

@@ -1,3 +1,4 @@
+// src/components/auth/AuthModal.tsx
 import React, { useState } from 'react';
 import {
   Dialog,
@@ -8,17 +9,15 @@ import {
   TextField,
   Box,
   Typography,
-  Divider,
   Alert,
   IconButton,
 } from '@mui/material';
 import {
-  Google as GoogleIcon,
   Close as CloseIcon,
   Email as EmailIcon,
   Lock as LockIcon,
 } from '@mui/icons-material';
-import { signInWithGoogle, signInWithEmail, signUpWithEmail } from '../../config/firebase';
+import { signInWithEmail, signUpWithEmail } from '../../config/firebase';
 
 interface AuthModalProps {
   open: boolean;
@@ -32,19 +31,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ open, onClose }) => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
-  const handleGoogleSignIn = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      await signInWithGoogle();
-      onClose();
-    } catch (error: any) {
-      setError(error.message || 'Failed to sign in with Google');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,28 +91,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ open, onClose }) => {
             </Alert>
           )}
 
-          {/* Google Sign In */}
-          <Button
-            variant="outlined"
-            size="large"
-            startIcon={<GoogleIcon />}
-            onClick={handleGoogleSignIn}
-            disabled={loading}
-            sx={{ 
-              py: 1.5,
-              textTransform: 'none',
-              fontSize: '1rem',
-            }}
-          >
-            Continue with Google
-          </Button>
-
-          <Divider sx={{ my: 1 }}>
-            <Typography variant="caption" color="text.secondary">
-              or continue with email
-            </Typography>
-          </Divider>
-
           {/* Email Form */}
           <Box component="form" onSubmit={handleEmailAuth} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <TextField
@@ -136,8 +100,49 @@ export const AuthModal: React.FC<AuthModalProps> = ({ open, onClose }) => {
               onChange={(e) => setEmail(e.target.value)}
               required
               fullWidth
+              autoComplete="email"
               InputProps={{
                 startAdornment: <EmailIcon sx={{ mr: 1, color: 'text.secondary' }} />,
+              }}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  backgroundColor: 'transparent',
+                  '& fieldset': {
+                    borderColor: 'rgba(255, 255, 255, 0.23)',
+                  },
+                  '&:hover fieldset': {
+                    borderColor: 'rgba(255, 255, 255, 0.4)',
+                  },
+                  '&.Mui-focused fieldset': {
+                    borderColor: '#2e7d32',
+                  },
+                  '& input': {
+                    backgroundColor: 'transparent !important',
+                    boxShadow: 'none !important',
+                    '&:-webkit-autofill': {
+                      WebkitBoxShadow: '0 0 0 1000px transparent inset !important',
+                      WebkitTextFillColor: '#ffffff !important',
+                      backgroundColor: 'transparent !important',
+                      transition: 'background-color 5000s ease-in-out 0s !important',
+                      boxShadow: 'inset 0 0 0 1000px transparent !important',
+                    },
+                    '&:-webkit-autofill:hover': {
+                      WebkitBoxShadow: '0 0 0 1000px transparent inset !important',
+                      WebkitTextFillColor: '#ffffff !important',
+                      backgroundColor: 'transparent !important',
+                    },
+                    '&:-webkit-autofill:focus': {
+                      WebkitBoxShadow: '0 0 0 1000px transparent inset !important',
+                      WebkitTextFillColor: '#ffffff !important',
+                      backgroundColor: 'transparent !important',
+                    },
+                    '&:-webkit-autofill:active': {
+                      WebkitBoxShadow: '0 0 0 1000px transparent inset !important',
+                      WebkitTextFillColor: '#ffffff !important',
+                      backgroundColor: 'transparent !important',
+                    },
+                  },
+                },
               }}
             />
 
@@ -148,8 +153,49 @@ export const AuthModal: React.FC<AuthModalProps> = ({ open, onClose }) => {
               onChange={(e) => setPassword(e.target.value)}
               required
               fullWidth
+              autoComplete="current-password"
               InputProps={{
                 startAdornment: <LockIcon sx={{ mr: 1, color: 'text.secondary' }} />,
+              }}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  backgroundColor: 'transparent',
+                  '& fieldset': {
+                    borderColor: 'rgba(255, 255, 255, 0.23)',
+                  },
+                  '&:hover fieldset': {
+                    borderColor: 'rgba(255, 255, 255, 0.4)',
+                  },
+                  '&.Mui-focused fieldset': {
+                    borderColor: '#2e7d32',
+                  },
+                  '& input': {
+                    backgroundColor: 'transparent !important',
+                    boxShadow: 'none !important',
+                    '&:-webkit-autofill': {
+                      WebkitBoxShadow: '0 0 0 1000px transparent inset !important',
+                      WebkitTextFillColor: '#ffffff !important',
+                      backgroundColor: 'transparent !important',
+                      transition: 'background-color 5000s ease-in-out 0s !important',
+                      boxShadow: 'inset 0 0 0 1000px transparent !important',
+                    },
+                    '&:-webkit-autofill:hover': {
+                      WebkitBoxShadow: '0 0 0 1000px transparent inset !important',
+                      WebkitTextFillColor: '#ffffff !important',
+                      backgroundColor: 'transparent !important',
+                    },
+                    '&:-webkit-autofill:focus': {
+                      WebkitBoxShadow: '0 0 0 1000px transparent inset !important',
+                      WebkitTextFillColor: '#ffffff !important',
+                      backgroundColor: 'transparent !important',
+                    },
+                    '&:-webkit-autofill:active': {
+                      WebkitBoxShadow: '0 0 0 1000px transparent inset !important',
+                      WebkitTextFillColor: '#ffffff !important',
+                      backgroundColor: 'transparent !important',
+                    },
+                  },
+                },
               }}
             />
 
@@ -161,8 +207,49 @@ export const AuthModal: React.FC<AuthModalProps> = ({ open, onClose }) => {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
                 fullWidth
+                autoComplete="new-password"
                 InputProps={{
                   startAdornment: <LockIcon sx={{ mr: 1, color: 'text.secondary' }} />,
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    backgroundColor: 'transparent',
+                    '& fieldset': {
+                      borderColor: 'rgba(255, 255, 255, 0.23)',
+                    },
+                    '&:hover fieldset': {
+                      borderColor: 'rgba(255, 255, 255, 0.4)',
+                    },
+                    '&.Mui-focused fieldset': {
+                      borderColor: '#2e7d32',
+                    },
+                    '& input': {
+                      backgroundColor: 'transparent !important',
+                      boxShadow: 'none !important',
+                      '&:-webkit-autofill': {
+                        WebkitBoxShadow: '0 0 0 1000px transparent inset !important',
+                        WebkitTextFillColor: '#ffffff !important',
+                        backgroundColor: 'transparent !important',
+                        transition: 'background-color 5000s ease-in-out 0s !important',
+                        boxShadow: 'inset 0 0 0 1000px transparent !important',
+                      },
+                      '&:-webkit-autofill:hover': {
+                        WebkitBoxShadow: '0 0 0 1000px transparent inset !important',
+                        WebkitTextFillColor: '#ffffff !important',
+                        backgroundColor: 'transparent !important',
+                      },
+                      '&:-webkit-autofill:focus': {
+                        WebkitBoxShadow: '0 0 0 1000px transparent inset !important',
+                        WebkitTextFillColor: '#ffffff !important',
+                        backgroundColor: 'transparent !important',
+                      },
+                      '&:-webkit-autofill:active': {
+                        WebkitBoxShadow: '0 0 0 1000px transparent inset !important',
+                        WebkitTextFillColor: '#ffffff !important',
+                        backgroundColor: 'transparent !important',
+                      },
+                    },
+                  },
                 }}
               />
             )}
@@ -193,4 +280,4 @@ export const AuthModal: React.FC<AuthModalProps> = ({ open, onClose }) => {
       </DialogActions>
     </Dialog>
   );
-};// 
+};
