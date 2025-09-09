@@ -20,6 +20,7 @@ import {
   Login as LoginIcon,
 } from '@mui/icons-material';
 import { AuthModal } from './AuthModal';
+import ParlAIdLogo from '../ParlAIdLogo';
 
 export const AuthGate: React.FC = () => {
   const [authModalOpen, setAuthModalOpen] = useState(false);
@@ -73,24 +74,10 @@ export const AuthGate: React.FC = () => {
             </Paper>
           </Box>
 
-          <Typography
-            variant="h2"
-            component="h1"
-            gutterBottom
-            sx={{
-              fontWeight: 800,
-              background: 'linear-gradient(135deg, #2e7d32 0%, #4caf50 100%)',
-              backgroundClip: 'text',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              mb: 2,
-            }}
-          >
-            NFL Parlay Builder
-          </Typography>
+              <ParlAIdLogo variant="h3" showIcon={false} size="large" />
 
           <Typography
-            variant="h5"
+            variant="h6"
             color="text.secondary"
             sx={{ mb: 4, maxWidth: '600px', mx: 'auto', lineHeight: 1.4 }}
           >

@@ -1,23 +1,23 @@
-import { useState } from 'react';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
-import AppBar from '@mui/material/AppBar';
-import Toolbar from '@mui/material/Toolbar';
 import { theme } from './theme';
 import GameSelector from './components/GameSelector';
 import ParlayDisplay from './components/ParlayDisplay';
+import { useNFLGames } from './hooks/useNFLGames';
+import { useParlayGenerator } from './hooks/useParlayGenerator';
+import { useState } from 'react';
+import { NFLGame } from './types';
+import ParlAIdLogo from './components/ParlAIdLogo';
+import { AppBar, Toolbar } from '@mui/material';
 import { UserMenu } from './components/auth/UserMenu';
-import { ParlayHistory } from './components/ParlayHistory';
 import { AuthGate } from './components/auth/AuthGate';
 import { LoadingScreen } from './components/LoadingScreen';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { useNFLGames } from './hooks/useNFLGames';
-import { useParlayGenerator } from './hooks/useParlayGenerator';
-import { NFLGame } from './types';
+import { ParlayHistory } from './components/ParlayHistory';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -58,43 +58,50 @@ function AppContent() {
   // Show main app for authenticated users
   return (
     <Box sx={{ flexGrow: 1 }}>
-      {/* App Bar */}
+    {/* App Bar */}
       <AppBar position="static" sx={{ mb: 4 }}>
         <Toolbar>
           <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1 }}>
-            <Typography variant="h6" component="div" sx={{ fontWeight: 700 }}>
-              NFL Parlay Builder
-            </Typography>
+            <ParlAIdLogo variant="h6" showIcon={true} size="small" />
           </Box>
           <UserMenu onViewHistory={() => setHistoryOpen(true)} />
         </Toolbar>
       </AppBar>
-
-      <Container maxWidth="md">
-        <Box sx={{ my: 4 }}>
-          <Typography variant="h3" component="h1" gutterBottom align="center">
-            AI-Powered Parlay Generator
-          </Typography>
-          
-          <Typography variant="h6" color="text.secondary" align="center" sx={{ mb: 4 }}>
-            Get intelligent 3-leg parlays for NFL games
-          </Typography>
-
-          <GameSelector
-            games={games || []}
-            onGameSelect={handleGameSelect}
-            loading={gamesLoading}
-            selectedGame={selectedGame}
-            onGenerateParlay={handleGenerateParlay}
-            canGenerate={!!selectedGame && !parlayLoading}
-          />
-
-          <ParlayDisplay
-            parlay={generatedParlay}
-            loading={parlayLoading}
-          />
+    <Container maxWidth="md">
+      <Box sx={{ my: 4 }}>
+        {/* ParlAId Header with Orbitron Font */}
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2 }}>
+          <ParlAIdLogo variant="h3" showIcon={false} size="large" />
         </Box>
-      </Container>
+        
+        <Typography 
+          variant="h6" 
+          color="text.secondary" 
+          align="center" 
+          sx={{ 
+            mb: 4,
+            fontWeight: 400,
+            letterSpacing: '0.5px'
+          }}
+        >
+          AI-Powered NFL Parlay Generator
+        </Typography>
+
+        <GameSelector
+          games={games || []}
+          onGameSelect={handleGameSelect}
+          loading={gamesLoading}
+          selectedGame={selectedGame}
+          onGenerateParlay={handleGenerateParlay}
+          canGenerate={!!selectedGame && !parlayLoading}
+        />
+
+        <ParlayDisplay
+          parlay={generatedParlay}
+          loading={parlayLoading}
+        />
+      </Box>
+    </Container>
 
       {/* Parlay History Modal */}
       <ParlayHistory
@@ -111,7 +118,7 @@ function App() {
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <AuthProvider>
-          <AppContent />
+        <AppContent />
         </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>
