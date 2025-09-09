@@ -1,6 +1,16 @@
 import { BetType, ParlayLeg } from "../types";
 
 
+// Workaround for TypeScript env issue
+/**
+ * Utility to get environment variables
+ * 
+ * @param name Environment variable name
+ * @returns Value or empty string if not found
+ */
+export const getEnvVar = (name: string): string => {
+  return (import.meta as any).env[name] || '';
+};
 
 /**
  * Get the color for a bet type (for MUI components)

@@ -1,4 +1,5 @@
-import React from 'react';
+// src/components/ParlayDisplay.tsx (Complete Updated Version)
+import React, { useState } from 'react';
 import {
   Card,
   CardContent,
@@ -9,13 +10,20 @@ import {
   Grid,
   Divider,
   LinearProgress,
+  Button,
+  Alert,
 } from '@mui/material';
 import {
   TrendingUp as TrendingUpIcon,
   Sports as SportsIcon,
   Person as PersonIcon,
+  Save as SaveIcon,
+  Login as LoginIcon,
 } from '@mui/icons-material';
 import type { GeneratedParlay, BetType, ParlayLeg } from '../types';
+import { useAuth } from '../contexts/AuthContext';
+import { saveParlayToUser } from '../config/firebase';
+import { AuthModal } from './auth/AuthModal';
 
 interface ParlayDisplayProps {
   parlay?: GeneratedParlay;
@@ -23,6 +31,12 @@ interface ParlayDisplayProps {
 }
 
 const ParlayDisplay: React.FC<ParlayDisplayProps> = ({ parlay, loading }) => {
+  const { user } = useAuth();
+  const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+
   const getBetTypeIcon = (betType: BetType) => {
     switch (betType) {
       case 'player_prop':
@@ -83,6 +97,30 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({ parlay, loading }) => {
     return leg.target;
   };
 
+  const handleSaveParlay = async () => {
+    if (!user) {
+      setAuthModalOpen(true);
+      return;
+    }
+
+    if (!parlay) return;
+
+    setSaving(true);
+    setSaveError('');
+    setSaveSuccess(false);
+
+    try {
+      await saveParlayToUser(user.uid, parlay);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000); // Clear success message after 3 seconds
+    } catch (error) {
+      setSaveError('Failed to save parlay. Please try again.');
+      console.error('Error saving parlay:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <Card>
@@ -112,97 +150,134 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({ parlay, loading }) => {
   }
 
   return (
-    <Card>
-      <CardContent>
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-          <TrendingUpIcon sx={{ mr: 1 }} />
-          <Typography variant="h6">
-            AI Generated Parlay
-          </Typography>
-          <Box sx={{ ml: 'auto' }}>
-            <Chip
-              label={parlay.estimatedOdds}
-              color="primary"
-              variant="outlined"
-              size="small"
-            />
+    <>
+      <Card>
+        <CardContent>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+            <TrendingUpIcon sx={{ mr: 1 }} />
+            <Typography variant="h6">
+              AI Generated Parlay
+            </Typography>
+            <Box sx={{ ml: 'auto' }}>
+              <Chip
+                label={parlay.estimatedOdds}
+                color="primary"
+                variant="outlined"
+                size="small"
+              />
+            </Box>
           </Box>
-        </Box>
 
-        <Grid container spacing={2} sx={{ mb: 3 }}>
-          {parlay.legs.map((leg, index) => (
-            <Grid item xs={12} key={leg.id}>
-              <Card variant="outlined">
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    {getBetTypeIcon(leg.betType)}
-                    <Typography variant="h6" sx={{ ml: 1, flex: 1 }}>
-                      Leg {index + 1}
+          {/* Save/Success/Error Messages */}
+          {saveSuccess && (
+            <Alert severity="success" sx={{ mb: 2 }}>
+              Parlay saved successfully! Check your history to view it again.
+            </Alert>
+          )}
+
+          {saveError && (
+            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setSaveError('')}>
+              {saveError}
+            </Alert>
+          )}
+
+          <Grid container spacing={2} sx={{ mb: 3 }}>
+            {parlay.legs.map((leg, index) => (
+              <Grid item xs={12} key={leg.id}>
+                <Card variant="outlined">
+                  <CardContent>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                      {getBetTypeIcon(leg.betType)}
+                      <Typography variant="h6" sx={{ ml: 1, flex: 1 }}>
+                        Leg {index + 1}
+                        <Chip
+                          label={leg.odds}
+                          variant="outlined"
+                          size="small"
+                          color="primary"
+                          sx={{ ml: 2 }}
+                        />
+                      </Typography>
                       <Chip
-                        label={leg.odds}
-                        variant="outlined"
+                        label={leg.betType.replace('_', ' ').toUpperCase()}
+                        color={getBetTypeColor(leg.betType) as any}
                         size="small"
-                        color="primary"
-                        sx={{ ml: 2 }}
+                        sx={{ mr: 1 }}
                       />
+                    </Box>
+
+                    <Typography variant="body1" fontWeight="bold" sx={{ mb: 1 }}>
+                      {formatBetTarget(leg)}
                     </Typography>
-                    <Chip
-                      label={leg.betType.replace('_', ' ').toUpperCase()}
-                      color={getBetTypeColor(leg.betType) as any}
-                      size="small"
-                      sx={{ mr: 1 }}
-                    />
-                  </Box>
 
-                  <Typography variant="body1" fontWeight="bold" sx={{ mb: 1 }}>
-                    {formatBetTarget(leg)}
-                  </Typography>
-
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    {leg.reasoning}
-                  </Typography>
-
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <Typography variant="caption" sx={{ mr: 1 }}>
-                      AI Confidence:
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                      {leg.reasoning}
                     </Typography>
-                    <LinearProgress
-                      variant="determinate"
-                      value={leg.confidence * 10}
-                      color={getConfidenceColor(leg.confidence) as any}
-                      sx={{ flex: 1, mr: 1 }}
-                    />
-                    <Typography variant="caption" fontWeight="bold">
-                      {leg.confidence}/10
-                    </Typography>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
-        <Divider sx={{ my: 2 }} />
 
-        <Box>
-          <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 1 }}>
-            AI Analysis:
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            {parlay.aiReasoning}
-          </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <Typography variant="caption" sx={{ mr: 1 }}>
+                        AI Confidence:
+                      </Typography>
+                      <LinearProgress
+                        variant="determinate"
+                        value={leg.confidence * 10}
+                        color={getConfidenceColor(leg.confidence) as any}
+                        sx={{ flex: 1, mr: 1 }}
+                      />
+                      <Typography variant="caption" fontWeight="bold">
+                        {leg.confidence}/10
+                      </Typography>
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+          
+          <Divider sx={{ my: 2 }} />
 
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-            <Typography variant="caption" color="text.secondary">
-              Overall Confidence: {parlay.overallConfidence}/10
+          <Box>
+            <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 1 }}>
+              AI Analysis:
             </Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>
-              ✨ Generated by AI • {new Date(parlay.createdAt).toLocaleTimeString()}
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {parlay.aiReasoning}
             </Typography>
+
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+              <Typography variant="caption" color="text.secondary">
+                Overall Confidence: {parlay.overallConfidence}/10
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>
+                ✨ Generated by AI • {new Date(parlay.createdAt).toLocaleTimeString()}
+              </Typography>
+            </Box>
+
+            {/* Save Button */}
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+              <Button
+                variant="outlined"
+                startIcon={user ? <SaveIcon /> : <LoginIcon />}
+                onClick={handleSaveParlay}
+                disabled={saving}
+                sx={{ 
+                  px: 3,
+                  py: 1,
+                  textTransform: 'none',
+                }}
+              >
+                {saving ? 'Saving...' : (user ? 'Save Parlay' : 'Sign In to Save')}
+              </Button>
+            </Box>
           </Box>
-        </Box>
+        </CardContent>
+      </Card>
 
-      </CardContent>
-    </Card>
+      <AuthModal
+        open={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+      />
+    </>
   );
 };
 

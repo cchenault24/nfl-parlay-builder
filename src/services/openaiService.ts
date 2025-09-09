@@ -2,11 +2,7 @@ import OpenAI from 'openai';
 import { fetchGameRosters } from './nflData';
 import { GeneratedParlay, NFLGame, NFLPlayer, ParlayLeg } from '../types';
 import { ROSTER_LIMITS, NFL_RIVALRIES, ODDS_RANGES, DEFAULTS, API_CONFIG } from '../config/constants';
-
-// Workaround for TypeScript env issue
-const getEnvVar = (name: string): string => {
-  return (import.meta as any).env[name] || '';
-};
+import { getEnvVar } from '../utils';
 
 const openai = new OpenAI({
   apiKey: getEnvVar('VITE_OPENAI_API_KEY'),
