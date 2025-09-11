@@ -37,26 +37,33 @@ export const ParlayHistory: React.FC<ParlayHistoryProps> = ({ open, onClose }) =
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (open && user) {
-      fetchParlays();
+    if (!open || !user) {
+      return;
     }
-  }, [open, user]);
-
-  const fetchParlays = async () => {
-    if (!user) return;
 
     setLoading(true);
     setError('');
-    try {
-      const userParlays = await getUserParlays(user.uid);
-      setParlays(userParlays as GeneratedParlay[]);
-    } catch (error) {
-      setError('Failed to load parlay history');
-      console.error('Error fetching parlays:', error);
-    } finally {
+
+    // getUserParlays returns an unsubscribe function for the real-time listener
+    const unsubscribe = getUserParlays(user.uid, (parlayData) => {
+      setParlays(parlayData as GeneratedParlay[]);
       setLoading(false);
+    });
+
+    // Clean up the listener when component unmounts or modal closes
+    return () => {
+      unsubscribe();
+    };
+  }, [open, user]);
+
+  // Reset state when modal closes
+  useEffect(() => {
+    if (!open) {
+      setParlays([]);
+      setLoading(false);
+      setError('');
     }
-  };
+  }, [open]);
 
   const formatDate = (timestamp: any) => {
     if (!timestamp) return 'Unknown date';
@@ -82,6 +89,12 @@ export const ParlayHistory: React.FC<ParlayHistoryProps> = ({ open, onClose }) =
     }
   };
 
+  const getConfidenceColor = (confidence: number) => {
+    if (confidence >= 8) return 'success';
+    if (confidence >= 6) return 'warning';
+    return 'error';
+  };
+
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -105,89 +118,79 @@ export const ParlayHistory: React.FC<ParlayHistoryProps> = ({ open, onClose }) =
           </Alert>
         ) : parlays.length === 0 ? (
           <Box sx={{ textAlign: 'center', py: 4 }}>
-            <CasinoIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+            <CasinoIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
             <Typography variant="h6" color="text.secondary" gutterBottom>
-              No parlays yet
+              No Parlays Yet
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Generate your first AI parlay to see it here!
+              Create your first parlay to see it here!
             </Typography>
           </Box>
         ) : (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Box sx={{ maxHeight: '60vh', overflowY: 'auto' }}>
             {parlays.map((parlay) => (
-              <Card key={parlay.id} variant="outlined">
+              <Card key={parlay.id || Math.random()} sx={{ mb: 2 }}>
                 <CardContent>
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                    <Typography variant="h6" component="div">
-                      {parlay.gameContext}
+                    <Typography variant="h6" gutterBottom>
+                      {parlay.gameContext || 'NFL Parlay'}
                     </Typography>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Chip
-                        label={parlay.estimatedOdds}
-                        color="primary"
-                        variant="outlined"
-                        size="small"
-                      />
-                      <Typography variant="caption" color="text.secondary">
-                        {formatDate(parlay.savedAt || parlay.createdAt)}
-                      </Typography>
-                    </Box>
+                    <Chip
+                      label={parlay.estimatedOdds || 'N/A'}
+                      color="primary"
+                      variant="outlined"
+                      size="small"
+                    />
                   </Box>
+                  
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    Saved: {formatDate(parlay.savedAt)}
+                  </Typography>
 
-                  <Grid container spacing={1} sx={{ mb: 2 }}>
-                    {parlay.legs.map((leg, index) => (
-                      <Grid item xs={12} sm={4} key={leg.id}>
-                        <Card variant="outlined" sx={{ height: '100%' }}>
-                          <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                              <Typography variant="caption" fontWeight="medium">
-                                Leg {index + 1}
-                              </Typography>
+                  <Grid container spacing={2}>
+                    {parlay.legs?.map((leg, index) => (
+                      <Grid item xs={12} key={index}>
+                        <Box
+                          sx={{
+                            p: 2,
+                            border: '1px solid',
+                            borderColor: 'divider',
+                            borderRadius: 1,
+                            bgcolor: 'background.paper',
+                          }}
+                        >
+                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                               <Chip
-                                label={leg.betType.replace('_', ' ').toUpperCase()}
+                                label={leg.betType.replace('_', ' ')}
                                 color={getBetTypeColor(leg.betType) as any}
                                 size="small"
-                                sx={{ height: 20, fontSize: '0.7rem' }}
-                              />
-                            </Box>
-                            <Typography variant="body2" fontWeight="bold" sx={{ mb: 1, lineHeight: 1.2 }}>
-                              {leg.target}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                              {leg.reasoning.length > 60 ? `${leg.reasoning.substring(0, 60)}...` : leg.reasoning}
-                            </Typography>
-                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                              <Chip
-                                label={leg.odds}
                                 variant="outlined"
-                                size="small"
-                                sx={{ height: 20, fontSize: '0.7rem' }}
                               />
-                              <Typography variant="caption" fontWeight="bold">
-                                {leg.confidence}/10
+                              <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                                {leg.odds}
                               </Typography>
                             </Box>
-                          </CardContent>
-                        </Card>
+                            <Chip
+                              label={`${leg.confidence}/10`}
+                              color={getConfidenceColor(leg.confidence) as any}
+                              size="small"
+                            />
+                          </Box>
+                          
+                          <Typography variant="body1" sx={{ fontWeight: 'medium', mb: 1 }}>
+                            {leg.target}
+                          </Typography>
+                          
+                          {leg.reasoning && (
+                            <Typography variant="body2" color="text.secondary">
+                              {leg.reasoning}
+                            </Typography>
+                          )}
+                        </Box>
                       </Grid>
                     ))}
                   </Grid>
-
-                  <Divider sx={{ my: 1 }} />
-
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                    <strong>AI Analysis:</strong> {parlay.aiReasoning}
-                  </Typography>
-
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <Typography variant="caption" color="text.secondary">
-                      Overall Confidence: {parlay.overallConfidence}/10
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      ✨ Generated by AI
-                    </Typography>
-                  </Box>
                 </CardContent>
               </Card>
             ))}
@@ -195,10 +198,8 @@ export const ParlayHistory: React.FC<ParlayHistoryProps> = ({ open, onClose }) =
         )}
       </DialogContent>
 
-      <DialogActions sx={{ px: 3, pb: 3 }}>
-        <Button onClick={onClose} variant="outlined">
-          Close
-        </Button>
+      <DialogActions>
+        <Button onClick={onClose}>Close</Button>
       </DialogActions>
     </Dialog>
   );
