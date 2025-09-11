@@ -211,18 +211,6 @@ const GameSelector: React.FC<GameSelectorProps> = ({
                         <Typography variant="body1" sx={{ fontWeight: 500, flex: 1 }}>
                           {formatGameDisplay(game)}
                         </Typography>
-                        <Typography 
-                          variant="caption" 
-                          sx={{ 
-                            color: statusInfo.color === 'error' ? '#f44336' :
-                                   statusInfo.color === 'warning' ? '#ff9800' :
-                                   statusInfo.color === 'success' ? '#4caf50' : 'text.secondary',
-                            fontWeight: 500,
-                            fontSize: '0.7rem',
-                          }}
-                        >
-                          {statusInfo.label}
-                        </Typography>
                       </Box>
                       <Typography variant="caption" color="text.secondary">
                         {formatGameDateTime(game.date)}

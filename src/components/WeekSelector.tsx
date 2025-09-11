@@ -9,13 +9,18 @@ import {
   Paper,
   Fade,
   useTheme,
+  Chip,
 } from '@mui/material';
 import {
   ExpandMore as ExpandMoreIcon,
   CalendarToday as CalendarIcon,
   Check as CheckIcon,
   SportsFootball as FootballIcon,
+  Lock as LockIcon,
+  Schedule as ScheduleIcon,
+  CheckCircle as CheckCircleIcon,
 } from '@mui/icons-material';
+import { useCurrentWeek } from '../hooks/useCurrentWeek';
 
 interface WeekSelectorProps {
   currentWeek: number;
@@ -33,6 +38,9 @@ const WeekSelector: React.FC<WeekSelectorProps> = ({
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
   const theme = useTheme();
+  
+  // Get the actual current NFL week to determine what's in the past
+  const { currentWeek: actualCurrentWeek } = useCurrentWeek();
 
   const handleClick = (event: React.MouseEvent<HTMLElement>) => {
     if (!loading) {
@@ -45,8 +53,11 @@ const WeekSelector: React.FC<WeekSelectorProps> = ({
   };
 
   const handleWeekSelect = (week: number) => {
-    onWeekChange(week);
-    handleClose();
+    // Only allow selection if week is not in the past
+    if (!isWeekPassed(week)) {
+      onWeekChange(week);
+      handleClose();
+    }
   };
 
   const getWeekLabel = (week: number) => {
@@ -66,6 +77,111 @@ const WeekSelector: React.FC<WeekSelectorProps> = ({
       return 'Super Bowl';
     }
     return 'Season';
+  };
+
+  const isWeekPassed = (week: number): boolean => {
+    return week < (actualCurrentWeek || 1);
+  };
+
+  const isWeekCurrent = (week: number): boolean => {
+    return week === (actualCurrentWeek || 1);
+  };
+
+  const isWeekFuture = (week: number): boolean => {
+    return week > (actualCurrentWeek || 1);
+  };
+
+  const getWeekStatus = (week: number): 'past' | 'current' | 'future' => {
+    if (isWeekPassed(week)) return 'past';
+    if (isWeekCurrent(week)) return 'current';
+    return 'future';
+  };
+
+  const getWeekIcon = (week: number) => {
+    const status = getWeekStatus(week);
+    const isSelected = week === currentWeek;
+
+    if (isSelected) {
+      return <CheckIcon sx={{ fontSize: 20, color: theme.palette.primary.main }} />;
+    }
+
+    switch (status) {
+      case 'past':
+        return <CheckCircleIcon sx={{ fontSize: 16, color: 'text.disabled', opacity: 0.5 }} />;
+      case 'current':
+        return <ScheduleIcon sx={{ fontSize: 16, color: theme.palette.warning.main }} />;
+      case 'future':
+        return <FootballIcon sx={{ fontSize: 16, color: 'text.secondary', opacity: 0.6 }} />;
+      default:
+        return <FootballIcon sx={{ fontSize: 16, color: 'text.secondary', opacity: 0.6 }} />;
+    }
+  };
+
+  const getWeekStatusChip = (week: number) => {
+    const status = getWeekStatus(week);
+    
+    switch (status) {
+      case 'past':
+        return (
+          <Chip
+            label="Completed"
+            size="small"
+            sx={{
+              height: 18,
+              fontSize: '0.65rem',
+              fontWeight: 600,
+              backgroundColor: 'rgba(158, 158, 158, 0.2)',
+              color: 'rgba(158, 158, 158, 0.8)',
+              border: '1px solid rgba(158, 158, 158, 0.3)',
+              '& .MuiChip-label': {
+                px: 1,
+              },
+            }}
+          />
+        );
+      case 'current':
+        return (
+          <Chip
+            label="Live"
+            size="small"
+            sx={{
+              height: 18,
+              fontSize: '0.65rem',
+              fontWeight: 600,
+              backgroundColor: 'rgba(255, 152, 0, 0.25)',
+              color: '#ff9800',
+              border: '1px solid #ff9800',
+              '& .MuiChip-label': {
+                px: 1,
+              },
+            }}
+          />
+        );
+      case 'future':
+        return (
+          <Chip
+            label="Upcoming"
+            size="small"
+            sx={{
+              height: 18,
+              fontSize: '0.65rem',
+              fontWeight: 600,
+              backgroundColor: 'rgba(46, 125, 50, 0.25)',
+              color: '#2e7d32',
+              border: '1px solid #2e7d32',
+              '& .MuiChip-label': {
+                px: 1,
+              },
+            }}
+          />
+        );
+      default:
+        return null;
+    }
+  };
+
+  const getCurrentWeekStatusChip = () => {
+    return getWeekStatusChip(currentWeek);
   };
 
   return (
@@ -112,33 +228,53 @@ const WeekSelector: React.FC<WeekSelectorProps> = ({
           },
         }}
       >
-        {/* NFL Badge */}
+        {/* Top row with NFL badge and status chip */}
         <Box
           sx={{
             position: 'absolute',
-            top: 6,
+            top: 4,
             left: 6,
-            backgroundColor: 'rgba(255, 255, 255, 0.2)',
-            borderRadius: 1,
-            px: 1,
-            py: 0.25,
+            right: 6,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
           }}
         >
-          <Typography 
-            variant="caption" 
-            sx={{ 
-              fontSize: '0.65rem', 
-              fontWeight: 700,
-              color: 'white',
-              letterSpacing: '0.5px',
+          {/* NFL Badge */}
+          <Box
+            sx={{
+              backgroundColor: 'rgba(255, 255, 255, 0.25)',
+              borderRadius: 1,
+              px: 1,
+              py: 0.25,
             }}
           >
-            NFL
-          </Typography>
+            <Typography 
+              variant="caption" 
+              sx={{ 
+                fontSize: '0.65rem', 
+                fontWeight: 700,
+                color: 'white',
+                letterSpacing: '0.5px',
+              }}
+            >
+              NFL
+            </Typography>
+          </Box>
+
+          {/* Week Status Badge */}
+          {getCurrentWeekStatusChip()}
         </Box>
 
         {/* Main Content */}
-        <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', px: 2, pt: 1 }}>
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          width: '100%', 
+          px: 2, 
+          pt: 2.5, // Add top padding to account for top row
+          pb: 1,
+        }}>
           <FootballIcon 
             sx={{ 
               fontSize: 24, 
@@ -157,6 +293,7 @@ const WeekSelector: React.FC<WeekSelectorProps> = ({
                 color: 'white',
                 lineHeight: 1.2,
                 textShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                mb: 0.25,
               }}
             >
               {getWeekLabel(currentWeek)}
@@ -224,7 +361,7 @@ const WeekSelector: React.FC<WeekSelectorProps> = ({
         PaperProps={{
           sx: {
             maxHeight: 420,
-            width: 240,
+            width: 280,
             mt: 1,
             backgroundColor: '#1a1a1a',
             backgroundImage: 'linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)',
@@ -267,85 +404,139 @@ const WeekSelector: React.FC<WeekSelectorProps> = ({
               opacity: 0.8,
             }}
           >
-            2024-25 Season
+            2024-25 Season • Week {actualCurrentWeek} is current
           </Typography>
         </Box>
         
         {/* Week Options */}
         <Box sx={{ maxHeight: 300, overflowY: 'auto' }}>
-          {availableWeeks.map((week) => (
-            <MenuItem
-              key={week}
-              onClick={() => handleWeekSelect(week)}
-              selected={week === currentWeek}
-              sx={{
-                minHeight: 52,
-                px: 3,
-                py: 1.5,
-                position: 'relative',
-                '&:hover': {
-                  backgroundColor: 'rgba(46, 125, 50, 0.1)',
-                  '&::before': {
-                    opacity: 1,
-                  },
-                },
-                '&.Mui-selected': {
-                  backgroundColor: 'rgba(46, 125, 50, 0.2)',
+          {availableWeeks.map((week) => {
+            const isPast = isWeekPassed(week);
+            const isSelected = week === currentWeek;
+            const status = getWeekStatus(week);
+            
+            return (
+              <MenuItem
+                key={week}
+                onClick={() => handleWeekSelect(week)}
+                selected={isSelected}
+                disabled={isPast}
+                sx={{
+                  minHeight: 60,
+                  px: 3,
+                  py: 1.5,
+                  position: 'relative',
+                  opacity: isPast ? 0.5 : 1,
+                  cursor: isPast ? 'not-allowed' : 'pointer',
                   '&:hover': {
-                    backgroundColor: 'rgba(46, 125, 50, 0.25)',
+                    backgroundColor: isPast ? 'transparent' : 'rgba(46, 125, 50, 0.1)',
+                    '&::before': {
+                      opacity: isPast ? 0 : 1,
+                    },
                   },
-                  '&::after': {
+                  '&.Mui-selected': {
+                    backgroundColor: 'rgba(46, 125, 50, 0.2)',
+                    '&:hover': {
+                      backgroundColor: 'rgba(46, 125, 50, 0.25)',
+                    },
+                    '&::after': {
+                      content: '""',
+                      position: 'absolute',
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: 4,
+                      backgroundColor: theme.palette.primary.main,
+                    },
+                  },
+                  '&.Mui-disabled': {
+                    opacity: 0.4,
+                    '& .MuiListItemIcon-root': {
+                      opacity: 0.5,
+                    },
+                    '& .MuiListItemText-root': {
+                      opacity: 0.5,
+                    },
+                  },
+                  '&::before': {
                     content: '""',
                     position: 'absolute',
                     left: 0,
                     top: 0,
+                    right: 0,
                     bottom: 0,
-                    width: 4,
-                    backgroundColor: theme.palette.primary.main,
+                    background: 'linear-gradient(90deg, rgba(46, 125, 50, 0.05) 0%, transparent 100%)',
+                    opacity: 0,
+                    transition: 'opacity 0.2s ease',
                   },
-                },
-                '&::before': {
-                  content: '""',
-                  position: 'absolute',
-                  left: 0,
-                  top: 0,
-                  right: 0,
-                  bottom: 0,
-                  background: 'linear-gradient(90deg, rgba(46, 125, 50, 0.05) 0%, transparent 100%)',
-                  opacity: 0,
-                  transition: 'opacity 0.2s ease',
-                },
-              }}
-            >
-              <ListItemIcon sx={{ minWidth: 40 }}>
-                {week === currentWeek ? (
-                  <CheckIcon sx={{ fontSize: 20, color: theme.palette.primary.main }} />
-                ) : (
-                  <FootballIcon sx={{ fontSize: 16, color: 'text.secondary', opacity: 0.6 }} />
-                )}
-              </ListItemIcon>
-              <ListItemText>
-                <Typography 
-                  variant="body1" 
-                  sx={{ 
-                    fontWeight: week === currentWeek ? 700 : 500,
-                    color: week === currentWeek ? theme.palette.primary.main : 'text.primary',
-                  }}
-                >
-                  {getWeekLabel(week)}
-                </Typography>
-                <Typography 
-                  variant="caption" 
-                  sx={{ 
-                    color: 'text.secondary',
-                    fontSize: '0.7rem',
-                  }}
-                >
-                  {getWeekDescription(week)}
-                </Typography>
-              </ListItemText>
-            </MenuItem>
-          ))}
+                }}
+              >
+                <ListItemIcon sx={{ minWidth: 40 }}>
+                  {isPast ? (
+                    <LockIcon sx={{ fontSize: 16, color: 'text.disabled' }} />
+                  ) : (
+                    getWeekIcon(week)
+                  )}
+                </ListItemIcon>
+                <ListItemText sx={{ pr: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Box>
+                      <Typography 
+                        variant="body1" 
+                        sx={{ 
+                          fontWeight: isSelected ? 700 : 500,
+                          color: isPast 
+                            ? 'text.disabled' 
+                            : isSelected 
+                              ? theme.palette.primary.main 
+                              : 'text.primary',
+                          textDecoration: isPast ? 'line-through' : 'none',
+                        }}
+                      >
+                        {getWeekLabel(week)}
+                      </Typography>
+                      <Typography 
+                        variant="caption" 
+                        sx={{ 
+                          color: isPast ? 'text.disabled' : 'text.secondary',
+                          fontSize: '0.7rem',
+                        }}
+                      >
+                        {getWeekDescription(week)}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ ml: 1 }}>
+                      {getWeekStatusChip(week)}
+                    </Box>
+                  </Box>
+                </ListItemText>
+              </MenuItem>
+            );
+          })}
+        </Box>
+        
+        {/* Footer with info */}
+        <Box 
+          sx={{ 
+            px: 3, 
+            py: 1.5, 
+            borderTop: '1px solid rgba(46, 125, 50, 0.2)',
+            background: 'rgba(46, 125, 50, 0.05)',
+          }}
+        >
+          <Typography 
+            variant="caption" 
+            sx={{ 
+              color: 'text.secondary',
+              fontSize: '0.65rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.5,
+            }}
+          >
+            <LockIcon sx={{ fontSize: 12 }} />
+            Past weeks are unavailable for betting
+          </Typography>
         </Box>
       </Menu>
     </>
