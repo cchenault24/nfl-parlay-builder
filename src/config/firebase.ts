@@ -1,20 +1,39 @@
-// src/config/firebase.ts
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, User } from 'firebase/auth';
-import { getFirestore, doc, setDoc, getDoc, collection, addDoc, query, where, orderBy, getDocs, Timestamp } from 'firebase/firestore';
+import { 
+  getAuth, 
+  GoogleAuthProvider, 
+  signInWithPopup, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signOut, 
+  User,
+  onAuthStateChanged // Import onAuthStateChanged
+} from 'firebase/auth';
+import { 
+  getFirestore, 
+  doc, 
+  setDoc, 
+  getDoc, 
+  collection, 
+  addDoc, 
+  query, 
+  where, 
+  orderBy, 
+  onSnapshot, 
+  Timestamp 
+} from 'firebase/firestore';
 
-// Workaround for TypeScript env issue
-const getEnvVar = (name: string): string => {
-  return (import.meta as any).env[name] || '';
-};
+// Your Vite environment variables are already typed. 
+// You can ensure this by creating a `vite-env.d.ts` file in your `src` directory with:
+// /// <reference types="vite/client" />
 
 const firebaseConfig = {
-  apiKey: getEnvVar('VITE_FIREBASE_API_KEY'),
-  authDomain: getEnvVar('VITE_FIREBASE_AUTH_DOMAIN'),
-  projectId: getEnvVar('VITE_FIREBASE_PROJECT_ID'),
-  storageBucket: getEnvVar('VITE_FIREBASE_STORAGE_BUCKET'),
-  messagingSenderId: getEnvVar('VITE_FIREBASE_MESSAGING_SENDER_ID'),
-  appId: getEnvVar('VITE_FIREBASE_APP_ID'),
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
 // Initialize Firebase
@@ -35,11 +54,11 @@ export const signInWithEmail = (email: string, password: string) =>
 export const signUpWithEmail = (email: string, password: string) => 
   createUserWithEmailAndPassword(auth, email, password);
 export const logOut = () => signOut(auth);
+export const onAuthUserChanged = (callback: (user: User | null) => void) => onAuthStateChanged(auth, callback);
+
 
 // User profile functions
-export const createUserProfile = async (user: User | null, additionalData?: any) => {
-  if (!user) return;
-  
+export const createUserProfile = async (user: User, additionalData?: any) => {
   const userRef = doc(db, 'users', user.uid);
   const userSnap = await getDoc(userRef);
   
@@ -51,12 +70,13 @@ export const createUserProfile = async (user: User | null, additionalData?: any)
       await setDoc(userRef, {
         displayName: displayName || email?.split('@')[0] || 'User',
         email,
-        photoURL,
+        photoURL: photoURL || `https://api.dicebear.com/8.x/initials/svg?seed=${email}`,
         createdAt,
         ...additionalData
       });
     } catch (error) {
       console.error('Error creating user profile:', error);
+      throw error;
     }
   }
   
@@ -84,20 +104,31 @@ export const saveParlayToUser = async (userId: string, parlayData: any) => {
   }
 };
 
-export const getUserParlays = async (userId: string) => {
-  try {
-    const parlaysQuery = query(
-      collection(db, 'parlays'),
-      where('userId', '==', userId),
-      orderBy('savedAt', 'desc')
-    );
-    const querySnapshot = await getDocs(parlaysQuery);
-    return querySnapshot.docs.map(doc => ({
+/**
+ * Listens for real-time updates to a user's parlays.
+ * @param userId The ID of the user.
+ * @param callback A function that will be called with the updated list of parlays.
+ * @returns The unsubscribe function to detach the listener.
+ */
+export const getUserParlays = (userId: string, callback: (parlays: any[]) => void) => {
+  const parlaysQuery = query(
+    collection(db, 'parlays'),
+    where('userId', '==', userId),
+    orderBy('savedAt', 'desc')
+  );
+
+  // onSnapshot returns an unsubscribe function that you can call
+  // to detach the listener when the component unmounts.
+  const unsubscribe = onSnapshot(parlaysQuery, (querySnapshot) => {
+    const parlays = querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     }));
-  } catch (error) {
+    callback(parlays);
+  }, (error) => {
     console.error('Error fetching user parlays:', error);
-    return [];
-  }
+    callback([]);
+  });
+
+  return unsubscribe;
 };
