@@ -65,21 +65,6 @@ const GameSelector: React.FC<GameSelectorProps> = ({
     });
   };
 
-  const getGameStatusChip = (game: NFLGame) => {
-    const now = new Date();
-    const gameDate = new Date(game.date);
-    
-    if (game.status === 'final') {
-      return { label: 'Final', color: 'default' as const };
-    } else if (game.status === 'in_progress') {
-      return { label: 'Live', color: 'error' as const };
-    } else if (gameDate < now) {
-      return { label: 'Started', color: 'warning' as const };
-    } else {
-      return { label: 'Scheduled', color: 'success' as const };
-    }
-  };
-
   if (loading && !games.length) {
     return (
       <Card sx={{ mb: 3 }}>
@@ -179,9 +164,7 @@ const GameSelector: React.FC<GameSelectorProps> = ({
                   },
                 }}
               >
-                {games.map((game) => {
-                  const statusInfo = getGameStatusChip(game);
-                  
+                {games.map((game) => {                  
                   return (
                     <MenuItem 
                       key={game.id} 

@@ -87,10 +87,6 @@ const WeekSelector: React.FC<WeekSelectorProps> = ({
     return week === (actualCurrentWeek || 1);
   };
 
-  const isWeekFuture = (week: number): boolean => {
-    return week > (actualCurrentWeek || 1);
-  };
-
   const getWeekStatus = (week: number): 'past' | 'current' | 'future' => {
     if (isWeekPassed(week)) return 'past';
     if (isWeekCurrent(week)) return 'current';
@@ -413,7 +409,6 @@ const WeekSelector: React.FC<WeekSelectorProps> = ({
           {availableWeeks.map((week) => {
             const isPast = isWeekPassed(week);
             const isSelected = week === currentWeek;
-            const status = getWeekStatus(week);
             
             return (
               <MenuItem
