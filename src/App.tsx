@@ -8,7 +8,6 @@ import { theme } from "./theme";
 import GameSelector from "./components/GameSelector";
 import ParlayDisplay from "./components/ParlayDisplay";
 import { useState, useEffect } from "react";
-import { NFLGame } from "./types";
 import { useAvailableWeeks } from "./hooks/useAvailableWeek";
 import { useCurrentWeek } from "./hooks/useCurrentWeek";
 import { useNFLGames } from "./hooks/useNFLGames";

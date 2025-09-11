@@ -1,6 +1,6 @@
 // src/store/useParlayStore.ts
 import { create } from "zustand";
-import { GeneratedParlay, NFLGame } from "../types";
+import { NFLGame } from "../types";
 
 interface ParlayStore {
   // State
