@@ -4,12 +4,26 @@ import { ESPNScoreboardResponse, ESPNRosterResponse, ESPNAthlete } from "../type
 import { API_CONFIG } from "../config/constants";
 
 export const fetchCurrentWeekGames = async (): Promise<NFLGame[]> => {
+  return fetchGamesByWeek(); // Use current week by default
+};
+
+export const fetchGamesByWeek = async (week?: number, year?: number): Promise<NFLGame[]> => {
   try {
-    const response = await axios.get(`${API_CONFIG.ESPN_BASE_URL}/scoreboard`);
+    // Build URL with optional week parameter
+    let url = `${API_CONFIG.ESPN_BASE_URL}/scoreboard`;
+    
+    if (week && year) {
+      url += `?seasontype=2&week=${week}&year=${year}`;
+    } else if (week) {
+      // Get current year if not provided
+      const currentYear = new Date().getFullYear();
+      url += `?seasontype=2&week=${week}&year=${currentYear}`;
+    }
+
+    const response = await axios.get(url);
     const data: ESPNScoreboardResponse = response.data;
 
     if (!data.events || data.events.length === 0) {
-      console.warn('No events found in ESPN response');
       return [];
     }
 
@@ -23,10 +37,6 @@ export const fetchCurrentWeekGames = async (): Promise<NFLGame[]> => {
       const awayCompetitor = competition.competitors.find(c => c.homeAway === 'away');
 
       if (!homeCompetitor || !awayCompetitor) {
-        console.error('Missing competitor data:', {
-          eventId: event.id,
-          competitors: competition.competitors.map(c => ({ id: c.id, homeAway: c.homeAway }))
-        });
         throw new Error(`Missing team data for game ${event.id}`);
       }
 
@@ -62,15 +72,37 @@ export const fetchCurrentWeekGames = async (): Promise<NFLGame[]> => {
     return games;
 
   } catch (error) {
-    if (axios.isAxiosError(error)) {
-      console.error('Axios error details:', {
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data
-      });
-    }
-    throw new Error('Failed to fetch NFL games from ESPN API');
+    throw new Error(`Failed to fetch NFL games from ESPN API for week ${week || 'current'}`);
   }
+};
+
+// Helper function to get current NFL week with intelligent advancement logic
+export const getCurrentNFLWeek = async (): Promise<number> => {
+  try {
+    const response = await axios.get(`${API_CONFIG.ESPN_BASE_URL}/scoreboard`);
+    const data: ESPNScoreboardResponse = response.data;
+    
+    if (data.week && data.week.number) {
+      const apiWeek = data.week.number;
+      
+      // Check if all games in the current week are finished
+      // If so, advance to next week after Tuesday midnight local time
+      const adjustedWeek = await getAdjustedWeekBasedOnCompletion(apiWeek, data.events || []);
+      
+      return adjustedWeek;
+    }
+    
+    // Fallback: estimate based on date if API doesn't provide week
+    return estimateCurrentWeek();
+  } catch (error) {
+    return estimateCurrentWeek();
+  }
+};
+
+// Get available weeks for the current season
+export const getAvailableWeeks = async (): Promise<number[]> => {
+  // Return all regular season weeks (1-18)
+  return Array.from({ length: 18 }, (_, i) => i + 1);
 };
 
 export const fetchTeamRoster = async (teamId: string): Promise<NFLPlayer[]> => {
@@ -79,10 +111,10 @@ export const fetchTeamRoster = async (teamId: string): Promise<NFLPlayer[]> => {
     const data: ESPNRosterResponse = response.data;
 
     if (!data.athletes || data.athletes.length === 0) {
-      console.warn(`No athletes found for team ${teamId}`);
       return [];
     }
 
+    // ESPN groups athletes by position, we need to flatten them
     const allAthletes: ESPNAthlete[] = data.athletes.flatMap(group =>
       group.items || []
     );
@@ -101,14 +133,6 @@ export const fetchTeamRoster = async (teamId: string): Promise<NFLPlayer[]> => {
     return players;
 
   } catch (error) {
-    console.error(`Error fetching roster for team ${teamId}:`, error);
-    if (axios.isAxiosError(error)) {
-      console.error('Axios error details:', {
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        url: error.config?.url
-      });
-    }
     return [];
   }
 };
@@ -123,9 +147,105 @@ export const fetchGameRosters = async (game: NFLGame): Promise<{ homeRoster: NFL
     return { homeRoster, awayRoster };
 
   } catch (error) {
-    console.error('Error fetching game rosters:', error);
     return { homeRoster: [], awayRoster: [] };
   }
+};
+
+// Check if we should advance to the next week based on game completion
+const getAdjustedWeekBasedOnCompletion = async (currentWeek: number, currentWeekEvents: any[]): Promise<number> => {
+  try {
+    // If there are no events for the current week, advance to next week
+    if (!currentWeekEvents || currentWeekEvents.length === 0) {
+      return Math.min(currentWeek + 1, 18);
+    }
+
+    // Check if all games in the current week are completed
+    const allGamesCompleted = currentWeekEvents.every(event => {
+      const status = event.status?.type?.name;
+      return status === 'STATUS_FINAL';
+    });
+
+    if (allGamesCompleted) {
+      // All games are done, check if enough time has passed (Tuesday midnight local time)
+      const shouldAdvance = await shouldAdvanceToNextWeek(currentWeekEvents);
+      
+      if (shouldAdvance) {
+        return Math.min(currentWeek + 1, 18);
+      }
+    }
+
+    // Games are still ongoing or not enough time passed, stay in current week
+    return currentWeek;
+
+  } catch (error) {
+    return currentWeek;
+  }
+};
+
+// Check if enough time has passed after games to advance to next week
+const shouldAdvanceToNextWeek = async (weekEvents: any[]): Promise<boolean> => {
+  try {
+    // Find the latest game end time
+    let latestGameTime = new Date(0);
+    
+    weekEvents.forEach(event => {
+      const gameDate = new Date(event.date);
+      if (gameDate > latestGameTime) {
+        latestGameTime = gameDate;
+      }
+    });
+
+    // Advance at Tuesday midnight in the user's local timezone
+    const advanceTime = new Date(latestGameTime);
+    advanceTime.setDate(advanceTime.getDate() + 1); // Next day (Tuesday)
+    advanceTime.setHours(0, 0, 0, 0); // Midnight in user's local time
+
+    const now = new Date();
+    return now >= advanceTime;
+
+  } catch (error) {
+    return false;
+  }
+};
+
+// Enhanced fallback estimation that considers game completion
+const estimateCurrentWeek = (): number => {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  
+  // Calculate NFL season start (first Thursday after Labor Day)
+  const seasonStart = new Date(currentYear, 8, 5); // September 5th baseline
+  
+  // Find the first Thursday
+  const seasonStartDayOfWeek = seasonStart.getDay();
+  const daysUntilThursday = (4 - seasonStartDayOfWeek + 7) % 7;
+  if (daysUntilThursday === 0 && seasonStartDayOfWeek !== 4) {
+    seasonStart.setDate(seasonStart.getDate() + 7);
+  } else {
+    seasonStart.setDate(seasonStart.getDate() + daysUntilThursday);
+  }
+  
+  // If we're before the season start, return week 1
+  if (now < seasonStart) {
+    return 1;
+  }
+  
+  // Calculate weeks since season start
+  const diffTime = now.getTime() - seasonStart.getTime();
+  const diffWeeks = Math.floor(diffTime / (1000 * 60 * 60 * 24 * 7)) + 1;
+  
+  // Add advancement logic for mid-week
+  let estimatedWeek = Math.min(Math.max(diffWeeks, 1), 18);
+  
+  // If it's Tuesday or later, consider advancing to next week
+  const currentDayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, 2 = Tuesday, etc.
+  const isAdvancementDay = currentDayOfWeek >= 2; // Tuesday (2) or later
+  
+  if (isAdvancementDay && estimatedWeek < 18) {
+    estimatedWeek = Math.min(estimatedWeek + 1, 18);
+  }
+  
+  return estimatedWeek;
 };
 
 function mapESPNStatus(espnStatus: string): NFLGame['status'] {
@@ -140,9 +260,8 @@ function mapESPNStatus(espnStatus: string): NFLGame['status'] {
       return 'postponed';
     case 'STATUS_CANCELED':
     case 'STATUS_CANCELLED':
-      return 'postponed';
+      return 'postponed'; // Map cancelled to postponed since we don't have a cancelled status
     default:
-      console.warn(`Unknown ESPN status: ${espnStatus}, defaulting to 'scheduled'`);
       return 'scheduled';
   }
 }

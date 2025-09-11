@@ -10,10 +10,10 @@ import {
   Button,
   Box,
   CircularProgress,
-  Chip,
 } from '@mui/material';
 import { SelectChangeEvent } from '@mui/material/Select';
 import { Casino as CasinoIcon } from '@mui/icons-material';
+import WeekSelector from './WeekSelector';
 import type { NFLGame } from '../types';
 
 interface GameSelectorProps {
@@ -23,6 +23,11 @@ interface GameSelectorProps {
   selectedGame: NFLGame | null;
   onGenerateParlay: () => void;
   canGenerate: boolean;
+  // Week selector props
+  currentWeek: number;
+  onWeekChange: (week: number) => void;
+  availableWeeks: number[];
+  weekLoading?: boolean;
 }
 
 const GameSelector: React.FC<GameSelectorProps> = ({
@@ -32,6 +37,10 @@ const GameSelector: React.FC<GameSelectorProps> = ({
   selectedGame,
   onGenerateParlay,
   canGenerate,
+  currentWeek,
+  onWeekChange,
+  availableWeeks,
+  weekLoading = false,
 }) => {
   const handleGameChange = (event: SelectChangeEvent<string>) => {
     const gameId = event.target.value;
@@ -56,7 +65,22 @@ const GameSelector: React.FC<GameSelectorProps> = ({
     });
   };
 
-  if (loading) {
+  const getGameStatusChip = (game: NFLGame) => {
+    const now = new Date();
+    const gameDate = new Date(game.date);
+    
+    if (game.status === 'final') {
+      return { label: 'Final', color: 'default' as const };
+    } else if (game.status === 'in_progress') {
+      return { label: 'Live', color: 'error' as const };
+    } else if (gameDate < now) {
+      return { label: 'Started', color: 'warning' as const };
+    } else {
+      return { label: 'Scheduled', color: 'success' as const };
+    }
+  };
+
+  if (loading && !games.length) {
     return (
       <Card sx={{ mb: 3 }}>
         <CardContent sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
@@ -74,123 +98,164 @@ const GameSelector: React.FC<GameSelectorProps> = ({
           Select Game
         </Typography>
         
-        <Box sx={{ mb: 3 }}>
-          <Chip 
-            label={`Week ${games[0]?.week || 'Current'} Games`} 
-            color="primary" 
-            size="small"
-            sx={{ mb: 2 }}
+        <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
+          <WeekSelector
+            currentWeek={currentWeek}
+            onWeekChange={onWeekChange}
+            availableWeeks={availableWeeks}
+            loading={weekLoading || loading}
           />
+          
+          {games.length > 0 && (
+            <Typography variant="body2" color="text.secondary">
+              {games.length} game{games.length !== 1 ? 's' : ''} available
+            </Typography>
+          )}
         </Box>
 
-        <FormControl fullWidth sx={{ mb: 3 }}>
-          <InputLabel id="game-select-label">Choose NFL Game</InputLabel>
-          <Select
-            labelId="game-select-label"
-            id="game-select"
-            value={selectedGame?.id || ''}
-            label="Choose NFL Game"
-            onChange={handleGameChange}
-            native={false}
-            variant="outlined"
-            MenuProps={{
-              anchorOrigin: {
-                vertical: 'bottom',
-                horizontal: 'left',
-              },
-              transformOrigin: {
-                vertical: 'top',
-                horizontal: 'left',
-              },
-              PaperProps: {
-                style: {
-                  maxHeight: '300px',
-                  backgroundColor: '#1e1e1e',
-                  color: 'white',
-                },
-              },
-              sx: {
-                '& .MuiPaper-root': {
-                  zIndex: 1300,
-                },
-                '& .MuiMenuItem-root': {
-                  padding: '12px 16px',
-                  minHeight: '48px',
-                  '&:hover': {
-                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+        {games.length === 0 && !loading ? (
+          <Box sx={{ textAlign: 'center', py: 3 }}>
+            <Typography variant="body1" color="text.secondary">
+              No games found for Week {currentWeek}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              Try selecting a different week
+            </Typography>
+          </Box>
+        ) : (
+          <>
+            <FormControl fullWidth sx={{ mb: 3 }} disabled={loading}>
+              <InputLabel id="game-select-label">Choose NFL Game</InputLabel>
+              <Select
+                labelId="game-select-label"
+                id="game-select"
+                value={selectedGame?.id || ''}
+                label="Choose NFL Game"
+                onChange={handleGameChange}
+                native={false}
+                variant="outlined"
+                MenuProps={{
+                  anchorOrigin: {
+                    vertical: 'bottom',
+                    horizontal: 'left',
                   },
-                },
-              },
-            }}
-            sx={{
-              '& .MuiSelect-select': {
-                minHeight: '24px',
-                padding: '16.5px 14px',
-              },
-              '& .MuiOutlinedInput-notchedOutline': {
-                borderColor: 'rgba(255, 255, 255, 0.23)',
-              },
-              '&:hover .MuiOutlinedInput-notchedOutline': {
-                borderColor: 'rgba(255, 255, 255, 0.4)',
-              },
-              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                borderColor: '#2e7d32',
-              },
-            }}
-          >
-            {games.map((game) => (
-              <MenuItem 
-                key={game.id} 
-                value={game.id}
-                sx={{
-                  padding: '12px 16px',
-                  minHeight: '48px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'flex-start',
-                  '&:hover': {
-                    backgroundColor: 'rgba(46, 125, 50, 0.1)',
+                  transformOrigin: {
+                    vertical: 'top',
+                    horizontal: 'left',
                   },
-                  '&.Mui-selected': {
-                    backgroundColor: 'rgba(46, 125, 50, 0.2)',
-                    '&:hover': {
-                      backgroundColor: 'rgba(46, 125, 50, 0.3)',
+                  PaperProps: {
+                    style: {
+                      maxHeight: '300px',
+                      backgroundColor: '#1e1e1e',
+                      color: 'white',
+                    },
+                  },
+                  sx: {
+                    '& .MuiPaper-root': {
+                      zIndex: 1300,
+                    },
+                    '& .MuiMenuItem-root': {
+                      padding: '12px 16px',
+                      minHeight: '48px',
+                      '&:hover': {
+                        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                      },
                     },
                   },
                 }}
+                sx={{
+                  '& .MuiSelect-select': {
+                    minHeight: '24px',
+                    padding: '16.5px 14px',
+                  },
+                  '& .MuiOutlinedInput-notchedOutline': {
+                    borderColor: 'rgba(255, 255, 255, 0.23)',
+                  },
+                  '&:hover .MuiOutlinedInput-notchedOutline': {
+                    borderColor: 'rgba(255, 255, 255, 0.4)',
+                  },
+                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                    borderColor: '#2e7d32',
+                  },
+                }}
               >
-                <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                  {formatGameDisplay(game)}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {formatGameDateTime(game.date)}
-                </Typography>
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+                {games.map((game) => {
+                  const statusInfo = getGameStatusChip(game);
+                  
+                  return (
+                    <MenuItem 
+                      key={game.id} 
+                      value={game.id}
+                      disabled={game.status === 'final'} // Disable completed games
+                      sx={{
+                        padding: '12px 16px',
+                        minHeight: '48px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'flex-start',
+                        opacity: game.status === 'final' ? 0.6 : 1,
+                        '&:hover': {
+                          backgroundColor: game.status === 'final' 
+                            ? 'transparent' 
+                            : 'rgba(46, 125, 50, 0.1)',
+                        },
+                        '&.Mui-selected': {
+                          backgroundColor: 'rgba(46, 125, 50, 0.2)',
+                          '&:hover': {
+                            backgroundColor: 'rgba(46, 125, 50, 0.3)',
+                          },
+                        },
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+                        <Typography variant="body1" sx={{ fontWeight: 500, flex: 1 }}>
+                          {formatGameDisplay(game)}
+                        </Typography>
+                        <Typography 
+                          variant="caption" 
+                          sx={{ 
+                            color: statusInfo.color === 'error' ? '#f44336' :
+                                   statusInfo.color === 'warning' ? '#ff9800' :
+                                   statusInfo.color === 'success' ? '#4caf50' : 'text.secondary',
+                            fontWeight: 500,
+                            fontSize: '0.7rem',
+                          }}
+                        >
+                          {statusInfo.label}
+                        </Typography>
+                      </Box>
+                      <Typography variant="caption" color="text.secondary">
+                        {formatGameDateTime(game.date)}
+                      </Typography>
+                    </MenuItem>
+                  );
+                })}
+              </Select>
+            </FormControl>
 
-        {selectedGame && (
-          <Box sx={{ textAlign: 'center' }}>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Selected: <strong>{formatGameDisplay(selectedGame)}</strong>
-            </Typography>
-            
-            <Button
-              variant="contained"
-              size="large"
-              startIcon={<CasinoIcon />}
-              onClick={onGenerateParlay}
-              disabled={!canGenerate}
-              sx={{ 
-                px: 4, 
-                py: 1.5,
-                minHeight: '48px',
-              }}
-            >
-              Create 3-Leg Parlay
-            </Button>
-          </Box>
+            {selectedGame && (
+              <Box sx={{ textAlign: 'center' }}>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Selected: <strong>{formatGameDisplay(selectedGame)}</strong>
+                </Typography>
+                
+                <Button
+                  variant="contained"
+                  size="large"
+                  startIcon={<CasinoIcon />}
+                  onClick={onGenerateParlay}
+                  disabled={!canGenerate || loading}
+                  sx={{ 
+                    px: 4, 
+                    py: 1.5,
+                    minHeight: '48px',
+                  }}
+                >
+                  {loading ? 'Loading...' : 'Create 3-Leg Parlay'}
+                </Button>
+              </Box>
+            )}
+          </>
         )}
       </CardContent>
     </Card>

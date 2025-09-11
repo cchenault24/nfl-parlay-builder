@@ -1,12 +1,15 @@
 import { useMutation } from '@tanstack/react-query';
 import { generateParlay } from '../services/openaiService';
-import { NFLGame } from '../types';
+import { NFLGame, GeneratedParlay } from '../types';
 
 export const useParlayGenerator = () => {
   const mutation = useMutation({
     mutationFn: (game: NFLGame) => generateParlay(game),
     onError: (error) => {
       console.error('Error generating parlay:', error);
+    },
+    onSuccess: (data: GeneratedParlay) => {
+      console.log('✅ Parlay generated successfully:', data.id);
     },
   });
 
@@ -17,5 +20,6 @@ export const useParlayGenerator = () => {
     isError: mutation.isError,
     error: mutation.error,
     reset: mutation.reset,
+    isSuccess: mutation.isSuccess,
   };
 };

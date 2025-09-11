@@ -1,13 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
-import { fetchCurrentWeekGames } from '../services/nflData';
+import { fetchGamesByWeek, fetchCurrentWeekGames } from '../services/nflData';
 import { NFLGame } from '../types';
 
-export const useNFLGames = () => {
+export const useNFLGames = (week?: number) => {
   const query = useQuery({
-    queryKey: ['nfl-games', 'current-week'],
-    queryFn: fetchCurrentWeekGames,
-    staleTime: 10 * 60 * 1000,
-    gcTime: 30 * 60 * 1000,
+    queryKey: ['nfl-games', week || 'current'],
+    queryFn: () => week ? fetchGamesByWeek(week) : fetchCurrentWeekGames(),
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 30 * 60 * 1000,    // 30 minutes
   });
 
   return {
