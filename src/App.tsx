@@ -13,19 +13,27 @@ import { useAvailableWeeks } from './hooks/useAvailableWeek';
 import { useCurrentWeek } from './hooks/useCurrentWeek';
 import { useNFLGames } from './hooks/useNFLGames';
 import { useParlayGenerator } from './hooks/useParlayGenerator';
+import ParlAIdLogo from './components/ParlAIdLogo';
+import { AppBar, Toolbar } from '@mui/material';
+import { UserMenu } from './components/auth/UserMenu';
+import { AuthGate } from './components/auth/AuthGate';
+import { LoadingScreen } from './components/LoadingScreen';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { ParlayHistory } from './components/ParlayHistory';
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000, // 5 minutes
+      staleTime: 5 * 60 * 1000,
       retry: 1,
     },
   },
 });
 
 function AppContent() {
+  const { user, loading } = useAuth();
   const [selectedGame, setSelectedGame] = useState<NFLGame | null>(null);
-  
+  const [historyOpen, setHistoryOpen] = useState(false);
   // Get current week from API
   const { currentWeek, isLoading: weekLoading } = useCurrentWeek();
   const { availableWeeks } = useAvailableWeeks();
@@ -46,6 +54,7 @@ function AppContent() {
   
   const { mutate: generateParlay, data: generatedParlay, isPending: parlayLoading, reset: resetParlay } = useParlayGenerator();
 
+
   const handleGameSelect = (game: NFLGame) => {
     setSelectedGame(game);
     resetParlay();
@@ -63,28 +72,56 @@ function AppContent() {
     }
   };
 
-  const isLoading = weekLoading || gamesLoading;
+  // Show loading screen while checking authentication
+  if (loading) {
+    return <LoadingScreen />;
+  }
 
+  // Show authentication gate if user is not signed in
+  if (!user) {
+    return <AuthGate />;
+  }
+
+  // Show main app for authenticated users
   return (
+    <Box sx={{ flexGrow: 1 }}>
+    {/* App Bar */}
+      <AppBar position="static" sx={{ mb: 4 }}>
+        <Toolbar>
+          <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1 }}>
+            <ParlAIdLogo variant="h6" showIcon={true} size="small" />
+          </Box>
+          <UserMenu onViewHistory={() => setHistoryOpen(true)} />
+        </Toolbar>
+      </AppBar>
     <Container maxWidth="md">
       <Box sx={{ my: 4 }}>
-        <Typography variant="h3" component="h1" gutterBottom align="center">
-          NFL Parlay Builder
-        </Typography>
+        {/* ParlAId Header with Orbitron Font */}
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2 }}>
+          <ParlAIdLogo variant="h3" showIcon={false} size="large" />
+        </Box>
         
-        <Typography variant="h6" color="text.secondary" align="center" sx={{ mb: 4 }}>
-          AI-Powered 3-Leg Parlay Generator
+        <Typography 
+          variant="h6" 
+          color="text.secondary" 
+          align="center" 
+          sx={{ 
+            mb: 4,
+            fontWeight: 400,
+            letterSpacing: '0.5px'
+          }}
+        >
+          AI-Powered NFL Parlay Generator
         </Typography>
 
         <GameSelector
           games={games || []}
           onGameSelect={handleGameSelect}
-          loading={isLoading}
+          loading={gamesLoading}
           selectedGame={selectedGame}
           onGenerateParlay={handleGenerateParlay}
           canGenerate={!!selectedGame && !parlayLoading}
-          // Week selector props
-          currentWeek={selectedWeek} // Use selectedWeek as the display week
+          currentWeek={selectedWeek}
           onWeekChange={handleWeekChange}
           availableWeeks={availableWeeks}
           weekLoading={weekLoading}
@@ -96,6 +133,13 @@ function AppContent() {
         />
       </Box>
     </Container>
+
+      {/* Parlay History Modal */}
+      <ParlayHistory
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+      />
+    </Box>
   );
 }
 
@@ -104,7 +148,9 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
+        <AuthProvider>
         <AppContent />
+        </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );
