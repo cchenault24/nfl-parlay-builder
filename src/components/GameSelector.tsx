@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 import {
   Card,
   CardContent,
@@ -10,17 +10,17 @@ import {
   Button,
   Box,
   CircularProgress,
-} from '@mui/material';
-import { SelectChangeEvent } from '@mui/material/Select';
-import { Casino as CasinoIcon } from '@mui/icons-material';
-import WeekSelector from './WeekSelector';
-import type { NFLGame } from '../types';
+} from "@mui/material";
+import { SelectChangeEvent } from "@mui/material/Select";
+import { Casino as CasinoIcon } from "@mui/icons-material";
+import WeekSelector from "./WeekSelector";
+import type { NFLGame } from "../types";
+import useParlayStore from "../store/parlayStore";
+import { useParlayGenerator } from "../hooks/useParlayGenerator";
 
 interface GameSelectorProps {
   games: NFLGame[];
-  onGameSelect: (game: NFLGame) => void;
   loading: boolean;
-  selectedGame: NFLGame | null;
   onGenerateParlay: () => void;
   canGenerate: boolean;
   // Week selector props
@@ -32,9 +32,7 @@ interface GameSelectorProps {
 
 const GameSelector: React.FC<GameSelectorProps> = ({
   games,
-  onGameSelect,
   loading,
-  selectedGame,
   onGenerateParlay,
   canGenerate,
   currentWeek,
@@ -42,11 +40,16 @@ const GameSelector: React.FC<GameSelectorProps> = ({
   availableWeeks,
   weekLoading = false,
 }) => {
+  const selectedGame = useParlayStore((state) => state.selectedGame);
+  const setSelectedGame = useParlayStore((state) => state.setSelectedGame);
+  const { reset: resetParlay } = useParlayGenerator();
+
   const handleGameChange = (event: SelectChangeEvent<string>) => {
     const gameId = event.target.value;
-    const game = games.find(g => g.id === gameId);
+    const game = games.find((g) => g.id === gameId);
     if (game) {
-      onGameSelect(game);
+      setSelectedGame(game);
+      resetParlay();
     }
   };
 
@@ -56,19 +59,19 @@ const GameSelector: React.FC<GameSelectorProps> = ({
 
   const formatGameDateTime = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'short',
-      month: 'short', 
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit'
+    return date.toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
     });
   };
 
   if (loading && !games.length) {
     return (
       <Card sx={{ mb: 3 }}>
-        <CardContent sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+        <CardContent sx={{ display: "flex", justifyContent: "center", py: 4 }}>
           <CircularProgress />
           <Typography sx={{ ml: 2 }}>Loading NFL games...</Typography>
         </CardContent>
@@ -82,24 +85,24 @@ const GameSelector: React.FC<GameSelectorProps> = ({
         <Typography variant="h6" gutterBottom>
           Select Game
         </Typography>
-        
-        <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
+
+        <Box sx={{ mb: 3, display: "flex", alignItems: "center", gap: 2 }}>
           <WeekSelector
             currentWeek={currentWeek}
             onWeekChange={onWeekChange}
             availableWeeks={availableWeeks}
             loading={weekLoading || loading}
           />
-          
+
           {games.length > 0 && (
             <Typography variant="body2" color="text.secondary">
-              {games.length} game{games.length !== 1 ? 's' : ''} available
+              {games.length} game{games.length !== 1 ? "s" : ""} available
             </Typography>
           )}
         </Box>
 
         {games.length === 0 && !loading ? (
-          <Box sx={{ textAlign: 'center', py: 3 }}>
+          <Box sx={{ textAlign: "center", py: 3 }}>
             <Typography variant="body1" color="text.secondary">
               No games found for Week {currentWeek}
             </Typography>
@@ -114,84 +117,95 @@ const GameSelector: React.FC<GameSelectorProps> = ({
               <Select
                 labelId="game-select-label"
                 id="game-select"
-                value={selectedGame?.id || ''}
+                value={selectedGame?.id || ""}
                 label="Choose NFL Game"
                 onChange={handleGameChange}
                 native={false}
                 variant="outlined"
                 MenuProps={{
                   anchorOrigin: {
-                    vertical: 'bottom',
-                    horizontal: 'left',
+                    vertical: "bottom",
+                    horizontal: "left",
                   },
                   transformOrigin: {
-                    vertical: 'top',
-                    horizontal: 'left',
+                    vertical: "top",
+                    horizontal: "left",
                   },
                   PaperProps: {
                     style: {
-                      maxHeight: '300px',
-                      backgroundColor: '#1e1e1e',
-                      color: 'white',
+                      maxHeight: "300px",
+                      backgroundColor: "#1e1e1e",
+                      color: "white",
                     },
                   },
                   sx: {
-                    '& .MuiPaper-root': {
+                    "& .MuiPaper-root": {
                       zIndex: 1300,
                     },
-                    '& .MuiMenuItem-root': {
-                      padding: '12px 16px',
-                      minHeight: '48px',
-                      '&:hover': {
-                        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                    "& .MuiMenuItem-root": {
+                      padding: "12px 16px",
+                      minHeight: "48px",
+                      "&:hover": {
+                        backgroundColor: "rgba(255, 255, 255, 0.1)",
                       },
                     },
                   },
                 }}
                 sx={{
-                  '& .MuiSelect-select': {
-                    minHeight: '24px',
-                    padding: '16.5px 14px',
+                  "& .MuiSelect-select": {
+                    minHeight: "24px",
+                    padding: "16.5px 14px",
                   },
-                  '& .MuiOutlinedInput-notchedOutline': {
-                    borderColor: 'rgba(255, 255, 255, 0.23)',
+                  "& .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "rgba(255, 255, 255, 0.23)",
                   },
-                  '&:hover .MuiOutlinedInput-notchedOutline': {
-                    borderColor: 'rgba(255, 255, 255, 0.4)',
+                  "&:hover .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "rgba(255, 255, 255, 0.4)",
                   },
-                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                    borderColor: '#2e7d32',
+                  "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "#2e7d32",
                   },
                 }}
               >
-                {games.map((game) => {                  
+                {games.map((game) => {
                   return (
-                    <MenuItem 
-                      key={game.id} 
+                    <MenuItem
+                      key={game.id}
                       value={game.id}
-                      disabled={game.status === 'final'} // Disable completed games
+                      disabled={game.status === "final"} // Disable completed games
                       sx={{
-                        padding: '12px 16px',
-                        minHeight: '48px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'flex-start',
-                        opacity: game.status === 'final' ? 0.6 : 1,
-                        '&:hover': {
-                          backgroundColor: game.status === 'final' 
-                            ? 'transparent' 
-                            : 'rgba(46, 125, 50, 0.1)',
+                        padding: "12px 16px",
+                        minHeight: "48px",
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "flex-start",
+                        opacity: game.status === "final" ? 0.6 : 1,
+                        "&:hover": {
+                          backgroundColor:
+                            game.status === "final"
+                              ? "transparent"
+                              : "rgba(46, 125, 50, 0.1)",
                         },
-                        '&.Mui-selected': {
-                          backgroundColor: 'rgba(46, 125, 50, 0.2)',
-                          '&:hover': {
-                            backgroundColor: 'rgba(46, 125, 50, 0.3)',
+                        "&.Mui-selected": {
+                          backgroundColor: "rgba(46, 125, 50, 0.2)",
+                          "&:hover": {
+                            backgroundColor: "rgba(46, 125, 50, 0.3)",
                           },
                         },
                       }}
                     >
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
-                        <Typography variant="body1" sx={{ fontWeight: 500, flex: 1 }}>
+                      <Box
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 1,
+                          width: "100%",
+                        }}
+                      >
+                        <Typography
+                          variant="body1"
+                          sx={{ fontWeight: 500, flex: 1 }}
+                        >
                           {formatGameDisplay(game)}
                         </Typography>
                       </Box>
@@ -205,24 +219,28 @@ const GameSelector: React.FC<GameSelectorProps> = ({
             </FormControl>
 
             {selectedGame && (
-              <Box sx={{ textAlign: 'center' }}>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              <Box sx={{ textAlign: "center" }}>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ mb: 2 }}
+                >
                   Selected: <strong>{formatGameDisplay(selectedGame)}</strong>
                 </Typography>
-                
+
                 <Button
                   variant="contained"
                   size="large"
                   startIcon={<CasinoIcon />}
                   onClick={onGenerateParlay}
                   disabled={!canGenerate || loading}
-                  sx={{ 
-                    px: 4, 
+                  sx={{
+                    px: 4,
                     py: 1.5,
-                    minHeight: '48px',
+                    minHeight: "48px",
                   }}
                 >
-                  {loading ? 'Loading...' : 'Create 3-Leg Parlay'}
+                  {loading ? "Loading..." : "Create 3-Leg Parlay"}
                 </Button>
               </Box>
             )}
