@@ -3,6 +3,10 @@ on:
   issues:
     types: [opened]
 
+permissions:
+  issues: write
+  contents: read
+
 jobs:
   format-issue:
     runs-on: ubuntu-latest
@@ -15,17 +19,28 @@ jobs:
           const repo = context.repo;
           const body = issue.body || '';
           
+          console.log('Original title:', issue.title);
+          console.log('Issue number:', issue.number);
+          
           // Update title to include actual issue number
           let title = issue.title;
           if (title.includes('NPB-#:')) {
-            title = title.replace('NPB-#:', `NPB-${issue.number}:`);
+            const newTitle = title.replace('NPB-#:', `NPB-${issue.number}:`);
+            console.log('Updating title to:', newTitle);
             
-            await github.rest.issues.update({
-              owner: repo.owner,
-              repo: repo.repo,
-              issue_number: issue.number,
-              title: title
-            });
+            try {
+              await github.rest.issues.update({
+                owner: repo.owner,
+                repo: repo.repo,
+                issue_number: issue.number,
+                title: newTitle
+              });
+              console.log('Title updated successfully');
+            } catch (error) {
+              console.error('Failed to update title:', error);
+            }
+          } else {
+            console.log('Title does not contain NPB-#:, skipping title update');
           }
           
           // Parse form data from issue body
@@ -72,9 +87,14 @@ ${data.acceptanceCriteria}
 ${data.filesToCreate}`;
           
           // Update the issue with the formatted body
-          await github.rest.issues.update({
-            owner: repo.owner,
-            repo: repo.repo,
-            issue_number: issue.number,
-            body: formattedBody
-          });
+          try {
+            await github.rest.issues.update({
+              owner: repo.owner,
+              repo: repo.repo,
+              issue_number: issue.number,
+              body: formattedBody
+            });
+            console.log('Body updated successfully');
+          } catch (error) {
+            console.error('Failed to update body:', error);
+          }
