@@ -4,12 +4,13 @@ import { Save as SaveIcon, Login as LoginIcon } from "@mui/icons-material";
 import { useAuth } from "../../contexts/AuthContext";
 import { saveParlayToUser } from "../../config/firebase";
 import useParlayStore from "../../store/parlayStore";
+import useModalStore from "../../store/modalStore";
 
 const ParlayDisplay: React.FC = () => {
   const { user } = useAuth();
   const [saving, setSaving] = useState(false);
   const parlay = useParlayStore((state) => state.parlay);
-  // const setAuthModalOpen = useModalStore((state) => state.setAuthModalOpen);
+  const setAuthModalOpen = useModalStore((state) => state.setAuthModalOpen);
   const setSaveParlaySuccess = useParlayStore(
     (state) => state.setSaveParlaySuccess
   );
@@ -19,7 +20,7 @@ const ParlayDisplay: React.FC = () => {
 
   const handleSaveParlay = async () => {
     if (!user) {
-      // setAuthModalOpen(true);
+      setAuthModalOpen(true);
       return;
     }
 
