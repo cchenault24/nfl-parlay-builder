@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -7,22 +7,18 @@ import {
   Chip,
   Grid,
   Divider,
-  Button,
-  Alert,
 } from "@mui/material";
 import {
   TrendingUp as TrendingUpIcon,
-  Save as SaveIcon,
-  Login as LoginIcon,
 } from "@mui/icons-material";
 import type { GeneratedParlay } from "../../types";
-import { useAuth } from "../../contexts/AuthContext";
-import { saveParlayToUser } from "../../config/firebase";
 import { AuthModal } from "../auth/AuthModal";
 import ParlayLoading from "./ParlayLoading";
 import ParlayLanding from "./ParlayLanding";
 import ParlayLegView from "./ParlayLegView";
 import ParlayDisplayFooter from "./ParlayDisplayFooter";
+import useParlayStore from "../../store/parlayStore";
+import useModalStore from "../../store/modalStore";
 
 interface ParlayDisplayProps {
   parlay?: GeneratedParlay;
@@ -30,35 +26,15 @@ interface ParlayDisplayProps {
 }
 
 const ParlayDisplay: React.FC<ParlayDisplayProps> = ({ parlay, loading }) => {
-  const { user } = useAuth();
-  const [saving, setSaving] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
-  const [saveError, setSaveError] = useState("");
-  const [authModalOpen, setAuthModalOpen] = useState(false);
+  // Store state and actions
+  const setParlay = useParlayStore((state) => state.setParlay);
+  const authModalOpen = useModalStore((state) => state.authModalOpen);
+  const setAuthModalOpen = useModalStore((state) => state.setAuthModalOpen);
 
-  const handleSaveParlay = async () => {
-    if (!user) {
-      setAuthModalOpen(true);
-      return;
-    }
-
-    if (!parlay) return;
-
-    setSaving(true);
-    setSaveError("");
-    setSaveSuccess(false);
-
-    try {
-      await saveParlayToUser(user.uid, parlay);
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000); // Clear success message after 3 seconds
-    } catch (error) {
-      setSaveError("Failed to save parlay. Please try again.");
-      console.error("Error saving parlay:", error);
-    } finally {
-      setSaving(false);
-    }
-  };
+  // Sync parlay prop with store whenever it changes
+  useEffect(() => {
+    setParlay(parlay || null);
+  }, [parlay, setParlay]);
 
   if (loading) {
     return <ParlayLoading />;
@@ -85,23 +61,6 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({ parlay, loading }) => {
             </Box>
           </Box>
 
-          {/* Save/Success/Error Messages */}
-          {saveSuccess && (
-            <Alert severity="success" sx={{ mb: 2 }}>
-              Parlay saved successfully! Check your history to view it again.
-            </Alert>
-          )}
-
-          {saveError && (
-            <Alert
-              severity="error"
-              sx={{ mb: 2 }}
-              onClose={() => setSaveError("")}
-            >
-              {saveError}
-            </Alert>
-          )}
-
           <Grid container spacing={2} sx={{ mb: 3 }}>
             {parlay.legs.map((leg, index) => (
               <ParlayLegView key={leg.id} leg={leg} index={index} />
@@ -110,11 +69,15 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({ parlay, loading }) => {
 
           <Divider sx={{ my: 2 }} />
 
+          {/* Footer now gets parlay from store */}
           <ParlayDisplayFooter />
         </CardContent>
       </Card>
 
-      <AuthModal open={authModalOpen} onClose={() => setAuthModalOpen(false)} />
+      <AuthModal 
+        open={authModalOpen} 
+        onClose={() => setAuthModalOpen(false)} 
+      />
     </>
   );
 };

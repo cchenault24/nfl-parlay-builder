@@ -33,6 +33,7 @@ const queryClient = new QueryClient({
 function AppContent() {
   const selectedGame = useParlayStore((state) => state.selectedGame);
   const setSelectedGame = useParlayStore((state) => state.setSelectedGame);
+  const parlay = useParlayStore((state) => state.parlay);
 
   const { user, loading } = useAuth();
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -56,7 +57,6 @@ function AppContent() {
 
   const {
     mutate: generateParlay,
-    data: generatedParlay,
     isPending: parlayLoading,
     reset: resetParlay,
   } = useParlayGenerator();
@@ -78,15 +78,13 @@ function AppContent() {
     return <LoadingScreen />;
   }
 
-  // Show authentication gate if user is not signed in
+  // Show authentication gate if not authenticated
   if (!user) {
     return <AuthGate />;
   }
 
-  // Show main app for authenticated users
   return (
-    <Box sx={{ flexGrow: 1 }}>
-      {/* App Bar */}
+    <>
       <AppBar position="static" sx={{ mb: 4 }}>
         <Toolbar>
           <Box sx={{ display: "flex", alignItems: "center", flexGrow: 1 }}>
@@ -95,51 +93,32 @@ function AppContent() {
           <UserMenu onViewHistory={() => setHistoryOpen(true)} />
         </Toolbar>
       </AppBar>
-      <Container maxWidth="md">
-        <Box sx={{ my: 4 }}>
-          {/* ParlAId Header with Orbitron Font */}
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              mb: 2,
-            }}
-          >
-            <ParlAIdLogo variant="h3" showIcon={false} size="large" />
-          </Box>
 
-          <Typography
-            variant="h6"
-            color="text.secondary"
-            align="center"
-            sx={{
-              mb: 4,
-              fontWeight: 400,
-              letterSpacing: "0.5px",
-            }}
-          >
-            AI-Powered NFL Parlay Generator
-          </Typography>
+      <Container maxWidth="lg" sx={{ py: 4 }}>
+        <Typography variant="h4" component="h1" gutterBottom align="center">
+          NFL Parlay Builder
+        </Typography>
 
-          <GameSelector
-            games={games || []}
-            loading={gamesLoading}
-            onGenerateParlay={handleGenerateParlay}
-            canGenerate={!!selectedGame && !parlayLoading}
-            currentWeek={selectedWeek}
-            onWeekChange={handleWeekChange}
-            availableWeeks={availableWeeks}
-            weekLoading={weekLoading}
-          />
+        <GameSelector
+          games={games || []}
+          loading={gamesLoading || weekLoading}
+          onGenerateParlay={handleGenerateParlay}
+          canGenerate={!!selectedGame && !parlayLoading}
+          currentWeek={selectedWeek}
+          onWeekChange={handleWeekChange}
+          availableWeeks={availableWeeks}
+          weekLoading={weekLoading}
+        />
 
-          <ParlayDisplay parlay={generatedParlay} loading={parlayLoading} />
-        </Box>
+        {/* ParlayDisplay now gets parlay from store automatically */}
+        <ParlayDisplay parlay={parlay || undefined} loading={parlayLoading} />
+
+        <ParlayHistory
+          open={historyOpen}
+          onClose={() => setHistoryOpen(false)}
+        />
       </Container>
-
-      {/* Parlay History Modal */}
-      <ParlayHistory open={historyOpen} onClose={() => setHistoryOpen(false)} />
-    </Box>
+    </>
   );
 }
 

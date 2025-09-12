@@ -1,15 +1,21 @@
 import React, { useState } from "react";
-import { Typography, Box, Button } from "@mui/material";
+import { Typography, Box, Button, Alert } from "@mui/material";
 import { Save as SaveIcon, Login as LoginIcon } from "@mui/icons-material";
 import { useAuth } from "../../contexts/AuthContext";
 import { saveParlayToUser } from "../../config/firebase";
 import useParlayStore from "../../store/parlayStore";
 import useModalStore from "../../store/modalStore";
 
-const ParlayDisplay: React.FC = () => {
+const ParlayDisplayFooter: React.FC = () => {
   const { user } = useAuth();
   const [saving, setSaving] = useState(false);
+
+  // Get parlay and state management from store
   const parlay = useParlayStore((state) => state.parlay);
+  const saveParlaySuccess = useParlayStore((state) => state.saveParlaySuccess);
+  const saveParlayError = useParlayStore((state) => state.saveParlayError);
+
+  // Store actions
   const setAuthModalOpen = useModalStore((state) => state.setAuthModalOpen);
   const setSaveParlaySuccess = useParlayStore(
     (state) => state.setSaveParlaySuccess
@@ -33,7 +39,7 @@ const ParlayDisplay: React.FC = () => {
     try {
       await saveParlayToUser(user.uid, parlay);
       setSaveParlaySuccess(true);
-      setTimeout(() => setSaveParlaySuccess(false), 3000); // Clear success message after 3 seconds
+      setTimeout(() => setSaveParlaySuccess(false), 3000);
     } catch (error) {
       setSaveParlayError("Failed to save parlay. Please try again.");
       console.error("Error saving parlay:", error);
@@ -45,6 +51,23 @@ const ParlayDisplay: React.FC = () => {
   return (
     parlay && (
       <Box>
+        {/* Success/Error Messages */}
+        {saveParlaySuccess && (
+          <Alert severity="success" sx={{ mb: 2 }}>
+            Parlay saved successfully! Check your history to view it again.
+          </Alert>
+        )}
+
+        {saveParlayError && (
+          <Alert
+            severity="error"
+            sx={{ mb: 2 }}
+            onClose={() => setSaveParlayError("")}
+          >
+            {saveParlayError}
+          </Alert>
+        )}
+
         <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 1 }}>
           AI Analysis:
         </Typography>
@@ -94,4 +117,4 @@ const ParlayDisplay: React.FC = () => {
   );
 };
 
-export default ParlayDisplay;
+export default ParlayDisplayFooter;
