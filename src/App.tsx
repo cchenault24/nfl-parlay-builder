@@ -6,7 +6,7 @@ import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
 import { theme } from "./theme";
 import GameSelector from "./components/GameSelector";
-import ParlayDisplay from "./components/ParlayDisplay";
+import ParlayDisplay from "./components/display/ParlayDisplay";
 import { useState, useEffect } from "react";
 import { useAvailableWeeks } from "./hooks/useAvailableWeek";
 import { useCurrentWeek } from "./hooks/useCurrentWeek";
