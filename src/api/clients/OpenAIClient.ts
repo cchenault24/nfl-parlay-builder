@@ -1,4 +1,3 @@
-// src/api/clients/OpenAIClient.ts
 import OpenAI from 'openai'
 import { API_CONFIG, ENV } from '../../config/api'
 import {
@@ -30,16 +29,16 @@ export class OpenAIClient extends BaseAPIClient implements IOpenAIClient {
   }
 
   async get<T>(
-    endpoint: string,
-    config?: APIRequestConfig
+    _endpoint: string,
+    _config?: APIRequestConfig
   ): Promise<APIResponse<T>> {
     throw new Error('GET method not supported for OpenAI client')
   }
 
   async post<T>(
-    endpoint: string,
-    data?: any,
-    config?: APIRequestConfig
+    _endpoint: string,
+    _data?: any,
+    _config?: APIRequestConfig
   ): Promise<APIResponse<T>> {
     return this.withRetry(async () => {
       try {
@@ -47,22 +46,22 @@ export class OpenAIClient extends BaseAPIClient implements IOpenAIClient {
         // This method is here for interface compliance
         throw new Error('Use specific OpenAI methods instead of generic POST')
       } catch (error) {
-        this.handleOpenAIError(error, endpoint)
+        this.handleOpenAIError(error, _endpoint)
       }
     })
   }
 
   async put<T>(
-    endpoint: string,
-    data?: any,
-    config?: APIRequestConfig
+    _endpoint: string,
+    _data?: any,
+    _config?: APIRequestConfig
   ): Promise<APIResponse<T>> {
     throw new Error('PUT method not supported for OpenAI client')
   }
 
   async delete<T>(
-    endpoint: string,
-    config?: APIRequestConfig
+    _endpoint: string,
+    _config?: APIRequestConfig
   ): Promise<APIResponse<T>> {
     throw new Error('DELETE method not supported for OpenAI client')
   }
@@ -120,7 +119,7 @@ export class OpenAIClient extends BaseAPIClient implements IOpenAIClient {
   /**
    * OpenAI-specific error handling
    */
-  private handleOpenAIError(error: any, endpoint: string): never {
+  private handleOpenAIError(error: any, _endpoint: string): never {
     // Handle OpenAI SDK specific errors
     if (error.status) {
       const status = error.status

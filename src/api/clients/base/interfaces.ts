@@ -1,4 +1,3 @@
-// src/api/clients/base/interfaces.ts
 import { APIResponse } from './types'
 
 /**

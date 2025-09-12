@@ -1,22 +1,21 @@
-// src/components/auth/AuthModal.tsx
-import React, { useState } from 'react'
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  TextField,
-  Box,
-  Typography,
-  Alert,
-  IconButton,
-} from '@mui/material'
 import {
   Close as CloseIcon,
   Email as EmailIcon,
   Lock as LockIcon,
 } from '@mui/icons-material'
+import {
+  Alert,
+  Box,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  IconButton,
+  TextField,
+  Typography,
+} from '@mui/material'
+import React, { useState } from 'react'
 import { signInWithEmail, signUpWithEmail } from '../../config/firebase'
 
 interface AuthModalProps {

@@ -1,4 +1,3 @@
-// src/api/clients/base/APIClient.ts
 import { APIError } from '../../errors'
 import { APIConfig, APIRequestConfig, APIResponse } from './types'
 
