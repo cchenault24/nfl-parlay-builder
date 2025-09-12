@@ -1,0 +1,87 @@
+name: Task/Feature Request
+description: Create a new task or feature request
+title: 'NPB-#: '
+labels: ['task']
+body:
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - Low
+        - Medium
+        - High
+        - Critical
+    validations:
+      required: true
+
+  - type: input
+    id: estimated_time
+    attributes:
+      label: Estimated Time
+      placeholder: 'e.g., 6-8 hours, 2-3 days'
+    validations:
+      required: true
+
+  - type: dropdown
+    id: difficulty
+    attributes:
+      label: Difficulty
+      options:
+        - Beginner
+        - Intermediate
+        - Advanced
+        - Expert
+    validations:
+      required: true
+
+  - type: input
+    id: prerequisites
+    attributes:
+      label: Prerequisites
+      placeholder: 'e.g., All above tickets, Issue #NPB-123, Feature X completed'
+    validations:
+      required: false
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      placeholder: 'Provide a detailed description of what needs to be implemented...'
+    validations:
+      required: true
+
+  - type: textarea
+    id: requirements
+    attributes:
+      label: Requirements
+      placeholder: |
+        * Requirement 1
+        * Requirement 2
+        * Requirement 3
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance Criteria
+      placeholder: |
+        * Criteria 1
+        * Criteria 2  
+        * Criteria 3
+    validations:
+      required: true
+
+  - type: textarea
+    id: files_to_create
+    attributes:
+      label: Files to Create
+      placeholder: |
+        ```
+        src/components/Component.tsx
+        src/services/Service.ts
+        src/hooks/useHook.ts
+        ```
+    validations:
+      required: false
