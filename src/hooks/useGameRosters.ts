@@ -1,14 +1,18 @@
 import { useQuery } from '@tanstack/react-query'
-import { fetchGameRosters } from '../services/nflData'
-import { NFLGame, GameRosters } from '../types'
+import { getNFLDataService } from '../services/container'
+import { GameRosters, NFLGame } from '../types'
 
 export const useGameRosters = (game?: NFLGame) => {
+  const nflDataService = getNFLDataService()
+
   const query = useQuery({
     queryKey: ['game-rosters', game?.id],
-    queryFn: () =>
-      game
-        ? fetchGameRosters(game)
-        : Promise.resolve({ homeRoster: [], awayRoster: [] }),
+    queryFn: async (): Promise<GameRosters> => {
+      if (!game) {
+        return { homeRoster: [], awayRoster: [] }
+      }
+      return await nflDataService.getGameRosters(game)
+    },
     enabled: !!game, // Only run query if game is provided
     staleTime: 24 * 60 * 60 * 1000, // 24 hours (rosters change infrequently)
     gcTime: 7 * 24 * 60 * 60 * 1000, // 7 days

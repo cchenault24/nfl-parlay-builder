@@ -1,4 +1,3 @@
-// src/api/clients/ESPNClient.ts
 import axios, { AxiosError, AxiosInstance } from 'axios'
 import { API_CONFIG } from '../../config/api'
 import { ESPNError, ESPNGamesError, ESPNRosterError } from '../errors'
@@ -27,28 +26,6 @@ export class ESPNClient extends BaseAPIClient implements INFLClient {
         'Content-Type': 'application/json',
       },
     })
-
-    // Add request interceptor for logging in development
-    this.axiosInstance.interceptors.request.use(config => {
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`[ESPN API] ${config.method?.toUpperCase()} ${config.url}`)
-      }
-      return config
-    })
-
-    // Add response interceptor for logging and error handling
-    this.axiosInstance.interceptors.response.use(
-      response => {
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`[ESPN API] ${response.status} ${response.config.url}`)
-        }
-        return response
-      },
-      error => {
-        // Let individual methods handle their specific errors
-        return Promise.reject(error)
-      }
-    )
   }
 
   async get<T>(
@@ -154,8 +131,13 @@ export class ESPNClient extends BaseAPIClient implements INFLClient {
 
   async getGamesByWeek(week: number): Promise<APIResponse<any>> {
     try {
+      const currentYear = new Date().getFullYear()
       return await this.get('/scoreboard', {
-        params: { week },
+        params: {
+          seasontype: 2, // Regular season
+          week: week,
+          year: currentYear,
+        },
       })
     } catch (error) {
       throw new ESPNGamesError(week, error as Error)

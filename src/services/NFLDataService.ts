@@ -1,9 +1,11 @@
+// src/services/NFLDataService.ts
 import { INFLClient } from '../api'
 import { GameRosters, NFLGame, NFLPlayer } from '../types'
 
 // ESPN API response types (based on your existing code)
 interface ESPNCompetitor {
   id: string
+  homeAway: 'home' | 'away'
   team: {
     id: string
     name: string
@@ -15,10 +17,15 @@ interface ESPNCompetitor {
   }
 }
 
+interface ESPNCompetition {
+  id: string
+  competitors: ESPNCompetitor[]
+}
+
 interface ESPNEvent {
   id: string
   date: string
-  competitors: ESPNCompetitor[]
+  competitions: ESPNCompetition[]
   week?: {
     number: number
   }
@@ -45,6 +52,7 @@ interface ESPNScoreboardResponse {
 interface ESPNAthlete {
   id: string
   displayName: string
+  fullName?: string
   position?: {
     name: string
     abbreviation: string
@@ -93,24 +101,29 @@ export class NFLDataService {
    * Get current NFL week number
    */
   async getCurrentWeek(): Promise<number> {
-    const response = await this.nflClient.getCurrentWeek()
-    const data: ESPNScoreboardResponse = response.data
+    try {
+      const response = await this.nflClient.getCurrentWeek()
+      const data: ESPNScoreboardResponse = response.data
 
-    if (data.week && data.week.number) {
-      const apiWeek = data.week.number
+      if (data.week && data.week.number) {
+        const apiWeek = data.week.number
 
-      // Check if all games in the current week are finished
-      // If so, advance to next week after Tuesday midnight local time
-      const adjustedWeek = await this.getAdjustedWeekBasedOnCompletion(
-        apiWeek,
-        data.events || []
-      )
+        // Check if all games in the current week are finished
+        // If so, advance to next week after Tuesday midnight local time
+        const adjustedWeek = await this.getAdjustedWeekBasedOnCompletion(
+          apiWeek,
+          data.events || []
+        )
 
-      return adjustedWeek
+        return adjustedWeek
+      }
+
+      // Fallback: estimate based on date if API doesn't provide week
+      return this.estimateCurrentWeek()
+    } catch (error) {
+      // Fallback to estimated week on error
+      return this.estimateCurrentWeek()
     }
-
-    // Fallback: estimate based on date if API doesn't provide week
-    return this.estimateCurrentWeek()
   }
 
   /**
@@ -170,17 +183,21 @@ export class NFLDataService {
     }
 
     return data.events.map((event: ESPNEvent) => {
-      const homeCompetitor =
-        event.competitors.find(c => c.team.id !== undefined) ||
-        event.competitors[0]
-      const awayCompetitor =
-        event.competitors.find(c => c !== homeCompetitor) ||
-        event.competitors[1]
+      // ESPN API structure: event.competitions[0].competitors
+      const competition = event.competitions?.[0]
+      if (!competition) {
+        throw new Error(`No competition data for event ${event.id}`)
+      }
+
+      const homeCompetitor = competition.competitors.find(
+        c => c.homeAway === 'home'
+      )
+      const awayCompetitor = competition.competitors.find(
+        c => c.homeAway === 'away'
+      )
 
       if (!homeCompetitor || !awayCompetitor) {
-        throw new Error(
-          `Invalid game data: missing competitors for event ${event.id}`
-        )
+        throw new Error(`Missing team data for game ${event.id}`)
       }
 
       const game: NFLGame = {
