@@ -68,7 +68,9 @@ export const ParlayHistory: React.FC<ParlayHistoryProps> = ({
   }, [open])
 
   const formatDate = (timestamp: any) => {
-    if (!timestamp) return 'Unknown date'
+    if (!timestamp) {
+      return 'Unknown date'
+    }
 
     // Handle Firestore Timestamp
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp)
@@ -97,8 +99,12 @@ export const ParlayHistory: React.FC<ParlayHistoryProps> = ({
   }
 
   const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 8) return 'success'
-    if (confidence >= 6) return 'warning'
+    if (confidence >= 8) {
+      return 'success'
+    }
+    if (confidence >= 6) {
+      return 'warning'
+    }
     return 'error'
   }
 

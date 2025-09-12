@@ -37,8 +37,12 @@ export const getBetTypeColor = (
 export const getConfidenceColor = (
   confidence: number
 ): 'success' | 'warning' | 'error' => {
-  if (confidence >= 8) return 'success'
-  if (confidence >= 6) return 'warning'
+  if (confidence >= 8) {
+    return 'success'
+  }
+  if (confidence >= 6) {
+    return 'warning'
+  }
   return 'error'
 }
 
@@ -76,7 +80,9 @@ export const calculateParlayOdds = (individualOdds: string[]): string => {
     // Convert odds to decimal, multiply, convert back to American
     const decimalOdds = individualOdds.map(odds => {
       const num = parseInt(odds)
-      if (num > 0) return num / 100 + 1
+      if (num > 0) {
+        return num / 100 + 1
+      }
       return 100 / Math.abs(num) + 1
     })
 

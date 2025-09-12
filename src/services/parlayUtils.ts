@@ -9,7 +9,9 @@ export const calculateParlayOdds = (individualOdds: string[]): string => {
   try {
     const decimalOdds = individualOdds.map(odds => {
       const num = parseInt(odds)
-      if (num > 0) return num / 100 + 1
+      if (num > 0) {
+        return num / 100 + 1
+      }
       return 100 / Math.abs(num) + 1
     })
 
@@ -30,7 +32,9 @@ export const validatePlayerProp = (
   homeRoster: NFLPlayer[],
   awayRoster: NFLPlayer[]
 ): boolean => {
-  if (leg.betType !== 'player_prop') return true
+  if (leg.betType !== 'player_prop') {
+    return true
+  }
 
   const allPlayers = [...homeRoster, ...awayRoster]
   const playerNames = allPlayers.map(p => p.displayName.toLowerCase())

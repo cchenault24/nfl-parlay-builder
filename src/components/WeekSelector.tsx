@@ -88,8 +88,12 @@ const WeekSelector: React.FC<WeekSelectorProps> = ({
   }
 
   const getWeekStatus = (week: number): 'past' | 'current' | 'future' => {
-    if (isWeekPassed(week)) return 'past'
-    if (isWeekCurrent(week)) return 'current'
+    if (isWeekPassed(week)) {
+      return 'past'
+    }
+    if (isWeekCurrent(week)) {
+      return 'current'
+    }
     return 'future'
   }
 

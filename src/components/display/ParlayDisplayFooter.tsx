@@ -28,7 +28,9 @@ const ParlayDisplayFooter: React.FC = () => {
       return
     }
 
-    if (!parlay) return
+    if (!parlay) {
+      return
+    }
 
     setSaving(true)
     setSaveParlayError('')

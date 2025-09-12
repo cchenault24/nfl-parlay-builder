@@ -45,8 +45,12 @@ const ParlayLegView: React.FC<ParlayLegViewProps> = ({ leg, index }) => {
   }
 
   const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 8) return 'success'
-    if (confidence >= 6) return 'warning'
+    if (confidence >= 8) {
+      return 'success'
+    }
+    if (confidence >= 6) {
+      return 'warning'
+    }
     return 'error'
   }
 
