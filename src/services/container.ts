@@ -1,8 +1,9 @@
+// src/services/container.ts
 /**
  * Service Container for Dependency Injection
  * Creates and manages service instances with their dependencies
  */
-import { ESPNClient } from '../api'
+import { ESPNClient, OpenAIClient } from '../api'
 import { NFLDataService } from './NFLDataService'
 
 /**
@@ -52,6 +53,20 @@ export class ServiceContainer {
   }
 
   /**
+   * Get or create OpenAI Client
+   */
+  getOpenAIClient(): OpenAIClient {
+    const key = 'OpenAIClient'
+
+    if (!this.services.has(key)) {
+      const client = new OpenAIClient()
+      this.services.set(key, client)
+    }
+
+    return this.services.get(key)
+  }
+
+  /**
    * Clear all cached services (useful for testing)
    */
   clear(): void {
@@ -72,3 +87,4 @@ export const getContainer = () => ServiceContainer.getInstance()
 // Convenience functions for getting specific services
 export const getNFLDataService = () => getContainer().getNFLDataService()
 export const getESPNClient = () => getContainer().getESPNClient()
+export const getOpenAIClient = () => getContainer().getOpenAIClient()

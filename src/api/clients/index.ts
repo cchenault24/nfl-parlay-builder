@@ -8,3 +8,4 @@ export type {
   IOpenAIClient,
 } from './base'
 export { ESPNClient } from './ESPNClient'
+export { OpenAIClient } from './OpenAIClient'
