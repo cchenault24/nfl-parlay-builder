@@ -1,112 +1,112 @@
 // src/types/index.ts (Updated with Auth Support)
 // ===== BET TYPES =====
-export type BetType = 'spread' | 'total' | 'moneyline' | 'player_prop';
+export type BetType = 'spread' | 'total' | 'moneyline' | 'player_prop'
 
 // ===== NFL TYPES =====
 export interface NFLTeam {
-  id: string;
-  name: string;
-  displayName: string;
-  abbreviation: string;
-  color: string;
-  alternateColor: string;
-  logo: string;
+  id: string
+  name: string
+  displayName: string
+  abbreviation: string
+  color: string
+  alternateColor: string
+  logo: string
 }
 
 export interface NFLGame {
-  id: string;
-  date: string;
-  homeTeam: NFLTeam;
-  awayTeam: NFLTeam;
-  week: number;
-  season: number;
-  status: 'scheduled' | 'in_progress' | 'final' | 'postponed';
+  id: string
+  date: string
+  homeTeam: NFLTeam
+  awayTeam: NFLTeam
+  week: number
+  season: number
+  status: 'scheduled' | 'in_progress' | 'final' | 'postponed'
 }
 
 export interface NFLPlayer {
-  id: string;
-  name: string;
-  displayName: string;
-  position: string;
-  jerseyNumber: string;
-  experience: number;
-  college?: string;
+  id: string
+  name: string
+  displayName: string
+  position: string
+  jerseyNumber: string
+  experience: number
+  college?: string
 }
 
 export interface GameRosters {
-  homeRoster: NFLPlayer[];
-  awayRoster: NFLPlayer[];
+  homeRoster: NFLPlayer[]
+  awayRoster: NFLPlayer[]
 }
 
 export interface TeamStats {
-  teamId: string;
-  passingYards: number;
-  rushingYards: number;
-  totalYards: number;
-  pointsPerGame: number;
-  pointsAllowed: number;
-  turnovers: number;
-  record: string;
+  teamId: string
+  passingYards: number
+  rushingYards: number
+  totalYards: number
+  pointsPerGame: number
+  pointsAllowed: number
+  turnovers: number
+  record: string
 }
 
 export interface PlayerStats {
-  playerId: string;
-  name: string;
-  position: string;
-  teamId: string;
-  passingYards?: number;
-  rushingYards?: number;
-  receivingYards?: number;
-  touchdowns: number;
-  receptions?: number;
+  playerId: string
+  name: string
+  position: string
+  teamId: string
+  passingYards?: number
+  rushingYards?: number
+  receivingYards?: number
+  touchdowns: number
+  receptions?: number
 }
 
 export interface NewsItem {
-  title: string;
-  description: string;
-  publishedDate: string;
-  url: string;
-  teamIds: string[];
+  title: string
+  description: string
+  publishedDate: string
+  url: string
+  teamIds: string[]
 }
 
 // ===== PARLAY TYPES =====
 export interface ParlayLeg {
-  id: string;
-  betType: BetType;
-  selection: string;
-  target: string;
-  reasoning: string;
-  confidence: number;
-  odds: string;
+  id: string
+  betType: BetType
+  selection: string
+  target: string
+  reasoning: string
+  confidence: number
+  odds: string
 }
 
 export interface GeneratedParlay {
-  id: string;
-  legs: [ParlayLeg, ParlayLeg, ParlayLeg];
-  gameContext: string;
-  aiReasoning: string;
-  overallConfidence: number;
-  estimatedOdds: string;
-  createdAt: string;
-  savedAt?: any; // Firestore Timestamp when saved to user's history
+  id: string
+  legs: [ParlayLeg, ParlayLeg, ParlayLeg]
+  gameContext: string
+  aiReasoning: string
+  overallConfidence: number
+  estimatedOdds: string
+  createdAt: string
+  savedAt?: any // Firestore Timestamp when saved to user's history
 }
 
 export interface ParlayRequest {
-  gameId: string;
-  legCount: 3;
+  gameId: string
+  legCount: 3
 }
 
 // ===== AUTH TYPES =====
 export interface UserProfile {
-  uid: string;
-  displayName: string;
-  email: string;
-  photoURL?: string;
-  createdAt: any; // Firestore Timestamp
-  savedParlays?: string[]; // Array of parlay IDs
+  uid: string
+  displayName: string
+  email: string
+  photoURL?: string
+  createdAt: any // Firestore Timestamp
+  savedParlays?: string[] // Array of parlay IDs
 }
 
 export interface SavedParlay extends GeneratedParlay {
-  userId: string;
-  savedAt: any; // Firestore Timestamp
+  userId: string
+  savedAt: any // Firestore Timestamp
 }

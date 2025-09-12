@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect } from 'react'
 import {
   Card,
   CardContent,
@@ -7,51 +7,49 @@ import {
   Chip,
   Grid,
   Divider,
-} from "@mui/material";
-import {
-  TrendingUp as TrendingUpIcon,
-} from "@mui/icons-material";
-import type { GeneratedParlay } from "../../types";
-import { AuthModal } from "../auth/AuthModal";
-import ParlayLoading from "./ParlayLoading";
-import ParlayLanding from "./ParlayLanding";
-import ParlayLegView from "./ParlayLegView";
-import ParlayDisplayFooter from "./ParlayDisplayFooter";
-import useParlayStore from "../../store/parlayStore";
-import useModalStore from "../../store/modalStore";
+} from '@mui/material'
+import { TrendingUp as TrendingUpIcon } from '@mui/icons-material'
+import type { GeneratedParlay } from '../../types'
+import { AuthModal } from '../auth/AuthModal'
+import ParlayLoading from './ParlayLoading'
+import ParlayLanding from './ParlayLanding'
+import ParlayLegView from './ParlayLegView'
+import ParlayDisplayFooter from './ParlayDisplayFooter'
+import useParlayStore from '../../store/parlayStore'
+import useModalStore from '../../store/modalStore'
 
 interface ParlayDisplayProps {
-  parlay?: GeneratedParlay;
-  loading: boolean;
+  parlay?: GeneratedParlay
+  loading: boolean
 }
 
 const ParlayDisplay: React.FC<ParlayDisplayProps> = ({ parlay, loading }) => {
   // Store state and actions
-  const setParlay = useParlayStore((state) => state.setParlay);
-  const authModalOpen = useModalStore((state) => state.authModalOpen);
-  const setAuthModalOpen = useModalStore((state) => state.setAuthModalOpen);
+  const setParlay = useParlayStore(state => state.setParlay)
+  const authModalOpen = useModalStore(state => state.authModalOpen)
+  const setAuthModalOpen = useModalStore(state => state.setAuthModalOpen)
 
   // Sync parlay prop with store whenever it changes
   useEffect(() => {
-    setParlay(parlay || null);
-  }, [parlay, setParlay]);
+    setParlay(parlay || null)
+  }, [parlay, setParlay])
 
   if (loading) {
-    return <ParlayLoading />;
+    return <ParlayLoading />
   }
 
   if (!parlay) {
-    return <ParlayLanding />;
+    return <ParlayLanding />
   }
 
   return (
     <>
       <Card>
         <CardContent>
-          <Box sx={{ display: "flex", alignItems: "center", mb: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
             <TrendingUpIcon sx={{ mr: 1 }} />
             <Typography variant="h6">AI Generated Parlay</Typography>
-            <Box sx={{ ml: "auto" }}>
+            <Box sx={{ ml: 'auto' }}>
               <Chip
                 label={parlay.estimatedOdds}
                 color="primary"
@@ -74,12 +72,9 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({ parlay, loading }) => {
         </CardContent>
       </Card>
 
-      <AuthModal 
-        open={authModalOpen} 
-        onClose={() => setAuthModalOpen(false)} 
-      />
+      <AuthModal open={authModalOpen} onClose={() => setAuthModalOpen(false)} />
     </>
-  );
-};
+  )
+}
 
-export default ParlayDisplay;
+export default ParlayDisplay

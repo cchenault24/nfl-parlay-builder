@@ -1,4 +1,4 @@
-import React from "react";
+import React from 'react'
 import {
   Card,
   CardContent,
@@ -7,84 +7,81 @@ import {
   Chip,
   Grid,
   LinearProgress,
-} from "@mui/material";
-import {
-  Sports as SportsIcon,
-  Person as PersonIcon,
-} from "@mui/icons-material";
-import type { BetType, ParlayLeg } from "../../types";
+} from '@mui/material'
+import { Sports as SportsIcon, Person as PersonIcon } from '@mui/icons-material'
+import type { BetType, ParlayLeg } from '../../types'
 
 interface ParlayLegViewProps extends React.HTMLAttributes<HTMLDivElement> {
-  leg: ParlayLeg;
-  index: number;
+  leg: ParlayLeg
+  index: number
 }
 
 const ParlayLegView: React.FC<ParlayLegViewProps> = ({ leg, index }) => {
   const getBetTypeIcon = (betType: BetType) => {
     switch (betType) {
-      case "player_prop":
-        return <PersonIcon />;
-      case "spread":
-      case "total":
-      case "moneyline":
+      case 'player_prop':
+        return <PersonIcon />
+      case 'spread':
+      case 'total':
+      case 'moneyline':
       default:
-        return <SportsIcon />;
+        return <SportsIcon />
     }
-  };
+  }
 
   const getBetTypeColor = (betType: BetType) => {
     switch (betType) {
-      case "spread":
-        return "primary";
-      case "total":
-        return "secondary";
-      case "moneyline":
-        return "success";
-      case "player_prop":
-        return "info";
+      case 'spread':
+        return 'primary'
+      case 'total':
+        return 'secondary'
+      case 'moneyline':
+        return 'success'
+      case 'player_prop':
+        return 'info'
       default:
-        return "default";
+        return 'default'
     }
-  };
+  }
 
   const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 8) return "success";
-    if (confidence >= 6) return "warning";
-    return "error";
-  };
+    if (confidence >= 8) return 'success'
+    if (confidence >= 6) return 'warning'
+    return 'error'
+  }
 
   const formatBetTarget = (leg: ParlayLeg) => {
-    if (leg.betType === "player_prop") {
+    if (leg.betType === 'player_prop') {
       // If the target already has the correct format, use it
-      if (leg.target.includes("(") && leg.target.includes(")")) {
-        return leg.target;
+      if (leg.target.includes('(') && leg.target.includes(')')) {
+        return leg.target
       }
 
       // Otherwise, try to format it properly
-      const playerName = leg.selection;
-      const target = leg.target;
+      const playerName = leg.selection
+      const target = leg.target
 
       // Try to extract the bet details
-      const overUnderMatch = target.match(/(Over|Under)\s+([\d.]+)\s+(.+)/);
+      const overUnderMatch = target.match(/(Over|Under)\s+([\d.]+)\s+(.+)/)
 
       if (overUnderMatch && playerName && playerName !== target) {
-        const [, overUnder, value, statType] = overUnderMatch;
+        const [, overUnder, value, statType] = overUnderMatch
         // We don't have easy access to team name here, so we'll show player name prominently
-        return `${playerName} - ${overUnder} ${value} ${statType}`;
+        return `${playerName} - ${overUnder} ${value} ${statType}`
       }
 
       // Fallback if parsing fails
-      return target;
+      return target
     }
 
-    return leg.target;
-  };
+    return leg.target
+  }
 
   return (
     <Grid item xs={12} key={leg.id}>
       <Card variant="outlined">
         <CardContent>
-          <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
             {getBetTypeIcon(leg.betType)}
             <Typography variant="h6" sx={{ ml: 1, flex: 1 }}>
               Leg {index + 1}
@@ -97,7 +94,7 @@ const ParlayLegView: React.FC<ParlayLegViewProps> = ({ leg, index }) => {
               />
             </Typography>
             <Chip
-              label={leg.betType.replace("_", " ").toUpperCase()}
+              label={leg.betType.replace('_', ' ').toUpperCase()}
               color={getBetTypeColor(leg.betType) as any}
               size="small"
               sx={{ mr: 1 }}
@@ -112,7 +109,7 @@ const ParlayLegView: React.FC<ParlayLegViewProps> = ({ leg, index }) => {
             {leg.reasoning}
           </Typography>
 
-          <Box sx={{ display: "flex", alignItems: "center" }}>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <Typography variant="caption" sx={{ mr: 1 }}>
               AI Confidence:
             </Typography>
@@ -129,7 +126,7 @@ const ParlayLegView: React.FC<ParlayLegViewProps> = ({ leg, index }) => {
         </CardContent>
       </Card>
     </Grid>
-  );
-};
+  )
+}
 
-export default ParlayLegView;
+export default ParlayLegView

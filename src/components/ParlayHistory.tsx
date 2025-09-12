@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react'
 import {
   Dialog,
   DialogTitle,
@@ -14,89 +14,103 @@ import {
   CircularProgress,
   Alert,
   Grid,
-} from '@mui/material';
+} from '@mui/material'
 import {
   Close as CloseIcon,
   Casino as CasinoIcon,
   TrendingUp as TrendingUpIcon,
-} from '@mui/icons-material';
-import { useAuth } from '../contexts/AuthContext';
-import { getUserParlays } from '../config/firebase';
-import { GeneratedParlay } from '../types';
+} from '@mui/icons-material'
+import { useAuth } from '../contexts/AuthContext'
+import { getUserParlays } from '../config/firebase'
+import { GeneratedParlay } from '../types'
 
 interface ParlayHistoryProps {
-  open: boolean;
-  onClose: () => void;
+  open: boolean
+  onClose: () => void
 }
 
-export const ParlayHistory: React.FC<ParlayHistoryProps> = ({ open, onClose }) => {
-  const { user } = useAuth();
-  const [parlays, setParlays] = useState<GeneratedParlay[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+export const ParlayHistory: React.FC<ParlayHistoryProps> = ({
+  open,
+  onClose,
+}) => {
+  const { user } = useAuth()
+  const [parlays, setParlays] = useState<GeneratedParlay[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     if (!open || !user) {
-      return;
+      return
     }
 
-    setLoading(true);
-    setError('');
+    setLoading(true)
+    setError('')
 
     // getUserParlays returns an unsubscribe function for the real-time listener
-    const unsubscribe = getUserParlays(user.uid, (parlayData) => {
-      setParlays(parlayData as GeneratedParlay[]);
-      setLoading(false);
-    });
+    const unsubscribe = getUserParlays(user.uid, parlayData => {
+      setParlays(parlayData as GeneratedParlay[])
+      setLoading(false)
+    })
 
     // Clean up the listener when component unmounts or modal closes
     return () => {
-      unsubscribe();
-    };
-  }, [open, user]);
+      unsubscribe()
+    }
+  }, [open, user])
 
   // Reset state when modal closes
   useEffect(() => {
     if (!open) {
-      setParlays([]);
-      setLoading(false);
-      setError('');
+      setParlays([])
+      setLoading(false)
+      setError('')
     }
-  }, [open]);
+  }, [open])
 
   const formatDate = (timestamp: any) => {
-    if (!timestamp) return 'Unknown date';
-    
+    if (!timestamp) return 'Unknown date'
+
     // Handle Firestore Timestamp
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp)
     return date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
       hour: 'numeric',
       minute: '2-digit',
-    });
-  };
+    })
+  }
 
   const getBetTypeColor = (betType: string) => {
     switch (betType) {
-      case 'spread': return 'primary';
-      case 'total': return 'secondary';
-      case 'moneyline': return 'success';
-      case 'player_prop': return 'info';
-      default: return 'default';
+      case 'spread':
+        return 'primary'
+      case 'total':
+        return 'secondary'
+      case 'moneyline':
+        return 'success'
+      case 'player_prop':
+        return 'info'
+      default:
+        return 'default'
     }
-  };
+  }
 
   const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 8) return 'success';
-    if (confidence >= 6) return 'warning';
-    return 'error';
-  };
+    if (confidence >= 8) return 'success'
+    if (confidence >= 6) return 'warning'
+    return 'error'
+  }
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <DialogTitle
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <TrendingUpIcon />
           <Typography variant="h6">Parlay History</Typography>
@@ -127,10 +141,17 @@ export const ParlayHistory: React.FC<ParlayHistoryProps> = ({ open, onClose }) =
           </Box>
         ) : (
           <Box sx={{ maxHeight: '60vh', overflowY: 'auto' }}>
-            {parlays.map((parlay) => (
+            {parlays.map(parlay => (
               <Card key={parlay.id || Math.random()} sx={{ mb: 2 }}>
                 <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      mb: 2,
+                    }}
+                  >
                     <Typography variant="h6" gutterBottom>
                       {parlay.gameContext || 'NFL Parlay'}
                     </Typography>
@@ -141,8 +162,12 @@ export const ParlayHistory: React.FC<ParlayHistoryProps> = ({ open, onClose }) =
                       size="small"
                     />
                   </Box>
-                  
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ mb: 2 }}
+                  >
                     Saved: {formatDate(parlay.savedAt)}
                   </Typography>
 
@@ -158,15 +183,31 @@ export const ParlayHistory: React.FC<ParlayHistoryProps> = ({ open, onClose }) =
                             bgcolor: 'background.paper',
                           }}
                         >
-                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              mb: 1,
+                            }}
+                          >
+                            <Box
+                              sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 1,
+                              }}
+                            >
                               <Chip
                                 label={leg.betType.replace('_', ' ')}
                                 color={getBetTypeColor(leg.betType) as any}
                                 size="small"
                                 variant="outlined"
                               />
-                              <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                              <Typography
+                                variant="body2"
+                                sx={{ fontWeight: 'bold' }}
+                              >
                                 {leg.odds}
                               </Typography>
                             </Box>
@@ -176,11 +217,14 @@ export const ParlayHistory: React.FC<ParlayHistoryProps> = ({ open, onClose }) =
                               size="small"
                             />
                           </Box>
-                          
-                          <Typography variant="body1" sx={{ fontWeight: 'medium', mb: 1 }}>
+
+                          <Typography
+                            variant="body1"
+                            sx={{ fontWeight: 'medium', mb: 1 }}
+                          >
                             {leg.target}
                           </Typography>
-                          
+
                           {leg.reasoning && (
                             <Typography variant="body2" color="text.secondary">
                               {leg.reasoning}
@@ -201,5 +245,5 @@ export const ParlayHistory: React.FC<ParlayHistoryProps> = ({ open, onClose }) =
         <Button onClick={onClose}>Close</Button>
       </DialogActions>
     </Dialog>
-  );
-};
+  )
+}

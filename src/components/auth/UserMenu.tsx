@@ -1,5 +1,5 @@
 // src/components/auth/UserMenu.tsx
-import React, { useState } from 'react';
+import React, { useState } from 'react'
 import {
   Box,
   Button,
@@ -9,47 +9,47 @@ import {
   Typography,
   Divider,
   ListItemIcon,
-} from '@mui/material';
+} from '@mui/material'
 import {
   AccountCircle as AccountIcon,
   History as HistoryIcon,
   Logout as LogoutIcon,
   Login as LoginIcon,
-} from '@mui/icons-material';
-import { useAuth } from '../../contexts/AuthContext';
-import { logOut } from '../../config/firebase';
-import { AuthModal } from './AuthModal';
+} from '@mui/icons-material'
+import { useAuth } from '../../contexts/AuthContext'
+import { logOut } from '../../config/firebase'
+import { AuthModal } from './AuthModal'
 
 interface UserMenuProps {
-  onViewHistory?: () => void;
+  onViewHistory?: () => void
 }
 
 export const UserMenu: React.FC<UserMenuProps> = ({ onViewHistory }) => {
-  const { user, userProfile } = useAuth();
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const { user, userProfile } = useAuth()
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
+  const [authModalOpen, setAuthModalOpen] = useState(false)
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
-    setAnchorEl(event.currentTarget);
-  };
+    setAnchorEl(event.currentTarget)
+  }
 
   const handleMenuClose = () => {
-    setAnchorEl(null);
-  };
+    setAnchorEl(null)
+  }
 
   const handleLogout = async () => {
     try {
-      await logOut();
-      handleMenuClose();
+      await logOut()
+      handleMenuClose()
     } catch (error) {
-      console.error('Error signing out:', error);
+      console.error('Error signing out:', error)
     }
-  };
+  }
 
   const handleViewHistory = () => {
-    handleMenuClose();
-    onViewHistory?.();
-  };
+    handleMenuClose()
+    onViewHistory?.()
+  }
 
   if (!user) {
     return (
@@ -67,7 +67,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({ onViewHistory }) => {
           onClose={() => setAuthModalOpen(false)}
         />
       </>
-    );
+    )
   }
 
   return (
@@ -87,9 +87,14 @@ export const UserMenu: React.FC<UserMenuProps> = ({ onViewHistory }) => {
           alt={userProfile?.displayName || user.displayName || 'User'}
           sx={{ width: 32, height: 32 }}
         >
-          {(userProfile?.displayName || user.displayName || 'U')[0].toUpperCase()}
+          {(userProfile?.displayName ||
+            user.displayName ||
+            'U')[0].toUpperCase()}
         </Avatar>
-        <Typography variant="body2" sx={{ display: { xs: 'none', sm: 'block' } }}>
+        <Typography
+          variant="body2"
+          sx={{ display: { xs: 'none', sm: 'block' } }}
+        >
           {userProfile?.displayName || user.displayName || 'User'}
         </Typography>
       </Button>
@@ -145,5 +150,5 @@ export const UserMenu: React.FC<UserMenuProps> = ({ onViewHistory }) => {
         </MenuItem>
       </Menu>
     </Box>
-  );
-};
+  )
+}

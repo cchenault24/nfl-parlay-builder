@@ -1,30 +1,30 @@
-import { useMutation } from '@tanstack/react-query';
-import { generateParlay } from '../services/openaiService';
-import { NFLGame, GeneratedParlay } from '../types';
-import useParlayStore from '../store/parlayStore';
+import { useMutation } from '@tanstack/react-query'
+import { generateParlay } from '../services/openaiService'
+import { NFLGame, GeneratedParlay } from '../types'
+import useParlayStore from '../store/parlayStore'
 
 export const useParlayGenerator = () => {
-  const setParlay = useParlayStore((state) => state.setParlay);
+  const setParlay = useParlayStore(state => state.setParlay)
 
   const mutation = useMutation({
     mutationFn: (game: NFLGame) => generateParlay(game),
-    onError: (error) => {
-      console.error('Error generating parlay:', error);
+    onError: error => {
+      console.error('Error generating parlay:', error)
       // Clear parlay on error
-      setParlay(null);
+      setParlay(null)
     },
     onSuccess: (data: GeneratedParlay) => {
-      console.log('✅ Parlay generated successfully:', data.id);
+      console.log('✅ Parlay generated successfully:', data.id)
       // Save parlay to store on success
-      setParlay(data);
+      setParlay(data)
     },
-  });
+  })
 
   // Custom reset that also clears store
   const resetWithStore = () => {
-    mutation.reset();
-    setParlay(null);
-  };
+    mutation.reset()
+    setParlay(null)
+  }
 
   return {
     mutate: mutation.mutate,
@@ -34,5 +34,5 @@ export const useParlayGenerator = () => {
     error: mutation.error,
     reset: resetWithStore,
     isSuccess: mutation.isSuccess,
-  };
-};
+  }
+}

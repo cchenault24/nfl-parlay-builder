@@ -1,5 +1,5 @@
 // src/components/auth/AuthModal.tsx
-import React, { useState } from 'react';
+import React, { useState } from 'react'
 import {
   Dialog,
   DialogTitle,
@@ -11,70 +11,78 @@ import {
   Typography,
   Alert,
   IconButton,
-} from '@mui/material';
+} from '@mui/material'
 import {
   Close as CloseIcon,
   Email as EmailIcon,
   Lock as LockIcon,
-} from '@mui/icons-material';
-import { signInWithEmail, signUpWithEmail } from '../../config/firebase';
+} from '@mui/icons-material'
+import { signInWithEmail, signUpWithEmail } from '../../config/firebase'
 
 interface AuthModalProps {
-  open: boolean;
-  onClose: () => void;
+  open: boolean
+  onClose: () => void
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({ open, onClose }) => {
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [isSignUp, setIsSignUp] = useState(false)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
   const handleEmailAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
+    e.preventDefault()
+    setLoading(true)
+    setError('')
 
     if (isSignUp && password !== confirmPassword) {
-      setError('Passwords do not match');
-      setLoading(false);
-      return;
+      setError('Passwords do not match')
+      setLoading(false)
+      return
     }
 
     try {
       if (isSignUp) {
-        await signUpWithEmail(email, password);
+        await signUpWithEmail(email, password)
       } else {
-        await signInWithEmail(email, password);
+        await signInWithEmail(email, password)
       }
-      onClose();
-      resetForm();
+      onClose()
+      resetForm()
     } catch (error: any) {
-      const errorMessage = error.code?.replace('auth/', '').replace(/-/g, ' ') || 'Authentication failed';
-      setError(errorMessage);
+      const errorMessage =
+        error.code?.replace('auth/', '').replace(/-/g, ' ') ||
+        'Authentication failed'
+      setError(errorMessage)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const resetForm = () => {
-    setEmail('');
-    setPassword('');
-    setConfirmPassword('');
-    setError('');
-    setIsSignUp(false);
-  };
+    setEmail('')
+    setPassword('')
+    setConfirmPassword('')
+    setError('')
+    setIsSignUp(false)
+  }
 
   const handleClose = () => {
-    resetForm();
-    onClose();
-  };
+    resetForm()
+    onClose()
+  }
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <DialogTitle
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
         <Typography variant="h6">
           {isSignUp ? 'Create Account' : 'Sign In'}
         </Typography>
@@ -92,17 +100,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({ open, onClose }) => {
           )}
 
           {/* Email Form */}
-          <Box component="form" onSubmit={handleEmailAuth} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Box
+            component="form"
+            onSubmit={handleEmailAuth}
+            sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
+          >
             <TextField
               label="Email"
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={e => setEmail(e.target.value)}
               required
               fullWidth
               autoComplete="email"
               InputProps={{
-                startAdornment: <EmailIcon sx={{ mr: 1, color: 'text.secondary' }} />,
+                startAdornment: (
+                  <EmailIcon sx={{ mr: 1, color: 'text.secondary' }} />
+                ),
               }}
               sx={{
                 '& .MuiOutlinedInput-root': {
@@ -120,24 +134,29 @@ export const AuthModal: React.FC<AuthModalProps> = ({ open, onClose }) => {
                     backgroundColor: 'transparent !important',
                     boxShadow: 'none !important',
                     '&:-webkit-autofill': {
-                      WebkitBoxShadow: '0 0 0 1000px transparent inset !important',
+                      WebkitBoxShadow:
+                        '0 0 0 1000px transparent inset !important',
                       WebkitTextFillColor: '#ffffff !important',
                       backgroundColor: 'transparent !important',
-                      transition: 'background-color 5000s ease-in-out 0s !important',
+                      transition:
+                        'background-color 5000s ease-in-out 0s !important',
                       boxShadow: 'inset 0 0 0 1000px transparent !important',
                     },
                     '&:-webkit-autofill:hover': {
-                      WebkitBoxShadow: '0 0 0 1000px transparent inset !important',
+                      WebkitBoxShadow:
+                        '0 0 0 1000px transparent inset !important',
                       WebkitTextFillColor: '#ffffff !important',
                       backgroundColor: 'transparent !important',
                     },
                     '&:-webkit-autofill:focus': {
-                      WebkitBoxShadow: '0 0 0 1000px transparent inset !important',
+                      WebkitBoxShadow:
+                        '0 0 0 1000px transparent inset !important',
                       WebkitTextFillColor: '#ffffff !important',
                       backgroundColor: 'transparent !important',
                     },
                     '&:-webkit-autofill:active': {
-                      WebkitBoxShadow: '0 0 0 1000px transparent inset !important',
+                      WebkitBoxShadow:
+                        '0 0 0 1000px transparent inset !important',
                       WebkitTextFillColor: '#ffffff !important',
                       backgroundColor: 'transparent !important',
                     },
@@ -150,12 +169,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ open, onClose }) => {
               label="Password"
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={e => setPassword(e.target.value)}
               required
               fullWidth
               autoComplete="current-password"
               InputProps={{
-                startAdornment: <LockIcon sx={{ mr: 1, color: 'text.secondary' }} />,
+                startAdornment: (
+                  <LockIcon sx={{ mr: 1, color: 'text.secondary' }} />
+                ),
               }}
               sx={{
                 '& .MuiOutlinedInput-root': {
@@ -173,24 +194,29 @@ export const AuthModal: React.FC<AuthModalProps> = ({ open, onClose }) => {
                     backgroundColor: 'transparent !important',
                     boxShadow: 'none !important',
                     '&:-webkit-autofill': {
-                      WebkitBoxShadow: '0 0 0 1000px transparent inset !important',
+                      WebkitBoxShadow:
+                        '0 0 0 1000px transparent inset !important',
                       WebkitTextFillColor: '#ffffff !important',
                       backgroundColor: 'transparent !important',
-                      transition: 'background-color 5000s ease-in-out 0s !important',
+                      transition:
+                        'background-color 5000s ease-in-out 0s !important',
                       boxShadow: 'inset 0 0 0 1000px transparent !important',
                     },
                     '&:-webkit-autofill:hover': {
-                      WebkitBoxShadow: '0 0 0 1000px transparent inset !important',
+                      WebkitBoxShadow:
+                        '0 0 0 1000px transparent inset !important',
                       WebkitTextFillColor: '#ffffff !important',
                       backgroundColor: 'transparent !important',
                     },
                     '&:-webkit-autofill:focus': {
-                      WebkitBoxShadow: '0 0 0 1000px transparent inset !important',
+                      WebkitBoxShadow:
+                        '0 0 0 1000px transparent inset !important',
                       WebkitTextFillColor: '#ffffff !important',
                       backgroundColor: 'transparent !important',
                     },
                     '&:-webkit-autofill:active': {
-                      WebkitBoxShadow: '0 0 0 1000px transparent inset !important',
+                      WebkitBoxShadow:
+                        '0 0 0 1000px transparent inset !important',
                       WebkitTextFillColor: '#ffffff !important',
                       backgroundColor: 'transparent !important',
                     },
@@ -204,12 +230,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ open, onClose }) => {
                 label="Confirm Password"
                 type="password"
                 value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
+                onChange={e => setConfirmPassword(e.target.value)}
                 required
                 fullWidth
                 autoComplete="new-password"
                 InputProps={{
-                  startAdornment: <LockIcon sx={{ mr: 1, color: 'text.secondary' }} />,
+                  startAdornment: (
+                    <LockIcon sx={{ mr: 1, color: 'text.secondary' }} />
+                  ),
                 }}
                 sx={{
                   '& .MuiOutlinedInput-root': {
@@ -227,24 +255,29 @@ export const AuthModal: React.FC<AuthModalProps> = ({ open, onClose }) => {
                       backgroundColor: 'transparent !important',
                       boxShadow: 'none !important',
                       '&:-webkit-autofill': {
-                        WebkitBoxShadow: '0 0 0 1000px transparent inset !important',
+                        WebkitBoxShadow:
+                          '0 0 0 1000px transparent inset !important',
                         WebkitTextFillColor: '#ffffff !important',
                         backgroundColor: 'transparent !important',
-                        transition: 'background-color 5000s ease-in-out 0s !important',
+                        transition:
+                          'background-color 5000s ease-in-out 0s !important',
                         boxShadow: 'inset 0 0 0 1000px transparent !important',
                       },
                       '&:-webkit-autofill:hover': {
-                        WebkitBoxShadow: '0 0 0 1000px transparent inset !important',
+                        WebkitBoxShadow:
+                          '0 0 0 1000px transparent inset !important',
                         WebkitTextFillColor: '#ffffff !important',
                         backgroundColor: 'transparent !important',
                       },
                       '&:-webkit-autofill:focus': {
-                        WebkitBoxShadow: '0 0 0 1000px transparent inset !important',
+                        WebkitBoxShadow:
+                          '0 0 0 1000px transparent inset !important',
                         WebkitTextFillColor: '#ffffff !important',
                         backgroundColor: 'transparent !important',
                       },
                       '&:-webkit-autofill:active': {
-                        WebkitBoxShadow: '0 0 0 1000px transparent inset !important',
+                        WebkitBoxShadow:
+                          '0 0 0 1000px transparent inset !important',
                         WebkitTextFillColor: '#ffffff !important',
                         backgroundColor: 'transparent !important',
                       },
@@ -261,7 +294,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ open, onClose }) => {
               disabled={loading}
               sx={{ py: 1.5, mt: 1 }}
             >
-              {loading ? 'Loading...' : (isSignUp ? 'Create Account' : 'Sign In')}
+              {loading ? 'Loading...' : isSignUp ? 'Create Account' : 'Sign In'}
             </Button>
           </Box>
         </Box>
@@ -279,5 +312,5 @@ export const AuthModal: React.FC<AuthModalProps> = ({ open, onClose }) => {
         </Typography>
       </DialogActions>
     </Dialog>
-  );
-};
+  )
+}

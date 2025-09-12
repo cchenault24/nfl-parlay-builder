@@ -1,25 +1,25 @@
-import { ThemeProvider } from "@mui/material/styles";
-import CssBaseline from "@mui/material/CssBaseline";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import Container from "@mui/material/Container";
-import Typography from "@mui/material/Typography";
-import Box from "@mui/material/Box";
-import { theme } from "./theme";
-import GameSelector from "./components/GameSelector";
-import ParlayDisplay from "./components/display/ParlayDisplay";
-import { useState, useEffect } from "react";
-import { useAvailableWeeks } from "./hooks/useAvailableWeek";
-import { useCurrentWeek } from "./hooks/useCurrentWeek";
-import { useNFLGames } from "./hooks/useNFLGames";
-import { useParlayGenerator } from "./hooks/useParlayGenerator";
-import ParlAIdLogo from "./components/ParlAIdLogo";
-import { AppBar, Toolbar } from "@mui/material";
-import { UserMenu } from "./components/auth/UserMenu";
-import { AuthGate } from "./components/auth/AuthGate";
-import { LoadingScreen } from "./components/LoadingScreen";
-import { AuthProvider, useAuth } from "./contexts/AuthContext";
-import { ParlayHistory } from "./components/ParlayHistory";
-import useParlayStore from "./store/parlayStore";
+import { ThemeProvider } from '@mui/material/styles'
+import CssBaseline from '@mui/material/CssBaseline'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import Container from '@mui/material/Container'
+import Typography from '@mui/material/Typography'
+import Box from '@mui/material/Box'
+import { theme } from './theme'
+import GameSelector from './components/GameSelector'
+import ParlayDisplay from './components/display/ParlayDisplay'
+import { useState, useEffect } from 'react'
+import { useAvailableWeeks } from './hooks/useAvailableWeek'
+import { useCurrentWeek } from './hooks/useCurrentWeek'
+import { useNFLGames } from './hooks/useNFLGames'
+import { useParlayGenerator } from './hooks/useParlayGenerator'
+import ParlAIdLogo from './components/ParlAIdLogo'
+import { AppBar, Toolbar } from '@mui/material'
+import { UserMenu } from './components/auth/UserMenu'
+import { AuthGate } from './components/auth/AuthGate'
+import { LoadingScreen } from './components/LoadingScreen'
+import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { ParlayHistory } from './components/ParlayHistory'
+import useParlayStore from './store/parlayStore'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -28,66 +28,66 @@ const queryClient = new QueryClient({
       retry: 1,
     },
   },
-});
+})
 
 function AppContent() {
-  const selectedGame = useParlayStore((state) => state.selectedGame);
-  const setSelectedGame = useParlayStore((state) => state.setSelectedGame);
-  const parlay = useParlayStore((state) => state.parlay);
+  const selectedGame = useParlayStore(state => state.selectedGame)
+  const setSelectedGame = useParlayStore(state => state.setSelectedGame)
+  const parlay = useParlayStore(state => state.parlay)
 
-  const { user, loading } = useAuth();
-  const [historyOpen, setHistoryOpen] = useState(false);
+  const { user, loading } = useAuth()
+  const [historyOpen, setHistoryOpen] = useState(false)
   // Get current week from API
-  const { currentWeek, isLoading: weekLoading } = useCurrentWeek();
-  const { availableWeeks } = useAvailableWeeks();
+  const { currentWeek, isLoading: weekLoading } = useCurrentWeek()
+  const { availableWeeks } = useAvailableWeeks()
 
   // Initialize selectedWeek with currentWeek
-  const [selectedWeek, setSelectedWeek] = useState<number>(currentWeek || 1);
+  const [selectedWeek, setSelectedWeek] = useState<number>(currentWeek || 1)
 
   // Keep selectedWeek in sync with currentWeek when it changes
   useEffect(() => {
     if (currentWeek && currentWeek !== selectedWeek) {
-      setSelectedWeek(currentWeek);
+      setSelectedWeek(currentWeek)
     }
-  }, [currentWeek]);
+  }, [currentWeek])
 
   // Always use selectedWeek (which defaults to currentWeek)
-  const weekToFetch = selectedWeek;
-  const { data: games, isLoading: gamesLoading } = useNFLGames(weekToFetch);
+  const weekToFetch = selectedWeek
+  const { data: games, isLoading: gamesLoading } = useNFLGames(weekToFetch)
 
   const {
     mutate: generateParlay,
     isPending: parlayLoading,
     reset: resetParlay,
-  } = useParlayGenerator();
+  } = useParlayGenerator()
 
   const handleWeekChange = (week: number) => {
-    setSelectedWeek(week);
-    setSelectedGame(null);
-    resetParlay();
-  };
+    setSelectedWeek(week)
+    setSelectedGame(null)
+    resetParlay()
+  }
 
   const handleGenerateParlay = () => {
     if (selectedGame) {
-      generateParlay(selectedGame);
+      generateParlay(selectedGame)
     }
-  };
+  }
 
   // Show loading screen while checking authentication
   if (loading) {
-    return <LoadingScreen />;
+    return <LoadingScreen />
   }
 
   // Show authentication gate if not authenticated
   if (!user) {
-    return <AuthGate />;
+    return <AuthGate />
   }
 
   return (
     <>
       <AppBar position="static" sx={{ mb: 4 }}>
         <Toolbar>
-          <Box sx={{ display: "flex", alignItems: "center", flexGrow: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1 }}>
             <ParlAIdLogo variant="h6" showIcon={true} size="small" />
           </Box>
           <UserMenu onViewHistory={() => setHistoryOpen(true)} />
@@ -119,7 +119,7 @@ function AppContent() {
         />
       </Container>
     </>
-  );
+  )
 }
 
 function App() {
@@ -132,7 +132,7 @@ function App() {
         </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>
-  );
+  )
 }
 
-export default App;
+export default App
