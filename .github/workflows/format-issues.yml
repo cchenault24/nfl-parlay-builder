@@ -11,90 +11,95 @@ jobs:
   format-issue:
     runs-on: ubuntu-latest
     steps:
-    - name: Format issue with custom layout and NPB prefix
-      uses: actions/github-script@v6
-      with:
-        script: |
-          const issue = context.payload.issue;
-          const repo = context.repo;
-          const body = issue.body || '';
-          
-          console.log('Original title:', issue.title);
-          console.log('Issue number:', issue.number);
-          
-          // Update title to include actual issue number
-          let title = issue.title;
-          if (title.includes('NPB-#:')) {
-            const newTitle = title.replace('NPB-#:', `NPB-${issue.number}:`);
-            console.log('Updating title to:', newTitle);
-            
+      - name: Format issue with custom layout and NPB prefix
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const repo = context.repo;
+            const body = issue.body || '';
+
+            console.log('Original title:', issue.title);
+            console.log('Issue number:', issue.number);
+
+            // Update title to include actual issue number
+            let title = issue.title;
+            if (title.includes('NPB-#:')) {
+              const newTitle = title.replace('NPB-#:', `NPB-${issue.number}:`);
+              console.log('Updating title to:', newTitle);
+              
+              try {
+                await github.rest.issues.update({
+                  owner: repo.owner,
+                  repo: repo.repo,
+                  issue_number: issue.number,
+                  title: newTitle
+                });
+                console.log('Title updated successfully');
+              } catch (error) {
+                console.error('Failed to update title:', error);
+              }
+            } else {
+              console.log('Title does not contain NPB-#:, skipping title update');
+            }
+
+            // Parse form data from issue body
+            const sections = {};
+            const lines = body.split('\n');
+            let currentSection = '';
+            let currentContent = [];
+
+            for (const line of lines) {
+              if (line.startsWith('### ')) {
+                if (currentSection) {
+                  sections[currentSection] = currentContent.join('\n').trim();
+                }
+                currentSection = line.replace('### ', '').trim();
+                currentContent = [];
+              } else if (currentSection) {
+                if (currentContent.length > 0 || line.trim() !== '') {
+                  currentContent.push(line);
+                }
+              }
+            }
+
+            if (currentSection) {
+              sections[currentSection] = currentContent.join('\n').trim();
+            }
+
+            Object.keys(sections).forEach(key => {
+              if (sections[key] === '_No response_' || sections[key] === '*No response*') {
+                sections[key] = '';
+              }
+            });
+
+            const data = {
+              priority: sections['Priority'] || 'Medium',
+              estimatedTime: sections['Estimated Time'] || '',
+              difficulty: sections['Difficulty'] || '',
+              prerequisites: sections['Prerequisites'] || '',
+              description: sections['Description'] || '',
+              requirements: sections['Requirements'] || '',
+              acceptanceCriteria: sections['Acceptance Criteria'] || '',
+              filesToCreate: sections['Files to Create'] || ''
+            };
+
+            // Format the new issue body with your exact layout
+            const formattedBody = "**Priority:** " + data.priority + " **Estimated Time:** " + data.estimatedTime + " **Difficulty:** " + data.difficulty + " **Prerequisites:** " + data.prerequisites + "\n\n" +
+              "**Description**\n" + data.description + "\n\n" +
+              "**Requirements**\n" + data.requirements + "\n\n" +
+              "**Acceptance Criteria**\n" + data.acceptanceCriteria + "\n\n" +
+              "**Files to Create**\n" + data.filesToCreate;
+
+            // Update the issue with the formatted body
             try {
               await github.rest.issues.update({
                 owner: repo.owner,
                 repo: repo.repo,
                 issue_number: issue.number,
-                title: newTitle
+                body: formattedBody
               });
-              console.log('Title updated successfully');
+              console.log('Body updated successfully');
             } catch (error) {
-              console.error('Failed to update title:', error);
+              console.error('Failed to update body:', error);
             }
-          } else {
-            console.log('Title does not contain NPB-#:, skipping title update');
-          }
-          
-          // Parse form data from issue body
-          const parseFormData = (body) => {
-            const data = {};
-            
-            // Extract form responses using regex patterns
-            const priorityMatch = body.match(/### Priority\s*\n\s*(.+)/);
-            const timeMatch = body.match(/### Estimated Time\s*\n\s*(.+)/);
-            const difficultyMatch = body.match(/### Difficulty\s*\n\s*(.+)/);
-            const prereqMatch = body.match(/### Prerequisites\s*\n\s*(.+)/);
-            const descMatch = body.match(/### Description\s*\n\s*([\s\S]*?)(?=###|$)/);
-            const reqMatch = body.match(/### Requirements\s*\n\s*([\s\S]*?)(?=###|$)/);
-            const criteriaMatch = body.match(/### Acceptance Criteria\s*\n\s*([\s\S]*?)(?=###|$)/);
-            const filesMatch = body.match(/### Files to Create\s*\n\s*([\s\S]*?)(?=###|$)/);
-            
-            return {
-              priority: priorityMatch ? priorityMatch[1].trim() : 'Medium',
-              estimatedTime: timeMatch ? timeMatch[1].trim() : '',
-              difficulty: difficultyMatch ? difficultyMatch[1].trim() : '',
-              prerequisites: prereqMatch ? prereqMatch[1].trim() : '',
-              description: descMatch ? descMatch[1].trim() : '',
-              requirements: reqMatch ? reqMatch[1].trim() : '',
-              acceptanceCriteria: criteriaMatch ? criteriaMatch[1].trim() : '',
-              filesToCreate: filesMatch ? filesMatch[1].trim() : ''
-            };
-          };
-          
-          const data = parseFormData(body);
-          
-          // Format the new issue body with your exact layout
-          const formattedBody = `**Priority:** ${data.priority} **Estimated Time:** ${data.estimatedTime} **Difficulty:** ${data.difficulty} **Prerequisites:** ${data.prerequisites}
-
-**Description**
-${data.description}
-
-**Requirements**
-${data.requirements}
-
-**Acceptance Criteria**
-${data.acceptanceCriteria}
-
-**Files to Create**
-${data.filesToCreate}`;
-          
-          // Update the issue with the formatted body
-          try {
-            await github.rest.issues.update({
-              owner: repo.owner,
-              repo: repo.repo,
-              issue_number: issue.number,
-              body: formattedBody
-            });
-            console.log('Body updated successfully');
-          } catch (error) {
-            console.error('Failed to update body:', error);
-          }
