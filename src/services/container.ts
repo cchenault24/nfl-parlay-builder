@@ -5,6 +5,7 @@
  */
 import { ESPNClient, OpenAIClient } from '../api'
 import { NFLDataService } from './NFLDataService'
+import { ParlayService } from './ParlayService'
 
 /**
  * Service container that creates and manages service instances
@@ -32,6 +33,22 @@ export class ServiceContainer {
     if (!this.services.has(key)) {
       const espnClient = this.getESPNClient()
       const service = new NFLDataService(espnClient)
+      this.services.set(key, service)
+    }
+
+    return this.services.get(key)
+  }
+
+  /**
+   * Get or create Parlay Service with NFL and OpenAI Client dependencies
+   */
+  getParlayService(): ParlayService {
+    const key = 'ParlayService'
+
+    if (!this.services.has(key)) {
+      const nflClient = this.getESPNClient()
+      const openaiClient = this.getOpenAIClient()
+      const service = new ParlayService(nflClient, openaiClient)
       this.services.set(key, service)
     }
 
@@ -88,3 +105,4 @@ export const getContainer = () => ServiceContainer.getInstance()
 export const getNFLDataService = () => getContainer().getNFLDataService()
 export const getESPNClient = () => getContainer().getESPNClient()
 export const getOpenAIClient = () => getContainer().getOpenAIClient()
+export const getParlayService = () => getContainer().getParlayService()
