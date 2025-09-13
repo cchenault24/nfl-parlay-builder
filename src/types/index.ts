@@ -79,6 +79,18 @@ export interface ParlayLeg {
   odds: string
 }
 
+export interface GameSummary {
+  matchupAnalysis: string // Offensive vs defensive matchups (e.g., "Chiefs explosive offense vs Bills top-ranked pass defense")
+  gameFlow:
+    | 'high_scoring_shootout'
+    | 'defensive_grind'
+    | 'balanced_tempo'
+    | 'potential_blowout'
+  keyFactors: string[] // 3-5 key factors shaping the game
+  prediction: string // Overall game prediction/expectation (2-3 sentences)
+  confidence: number // 1-10 confidence in the summary analysis
+}
+
 export interface GeneratedParlay {
   id: string
   legs: [ParlayLeg, ParlayLeg, ParlayLeg]
@@ -88,6 +100,7 @@ export interface GeneratedParlay {
   estimatedOdds: string
   createdAt: string
   savedAt?: any // Firestore Timestamp when saved to user's history
+  gameSummary?: GameSummary
 }
 
 export interface ParlayRequest {
