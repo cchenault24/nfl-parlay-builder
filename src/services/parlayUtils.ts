@@ -1,34 +1,34 @@
 import { GeneratedParlay, NFLGame, NFLPlayer, ParlayLeg } from '../types'
 import {
+  PARLAY_STRATEGIES,
   StrategyConfig,
   VarietyFactors,
-  PARLAY_STRATEGIES,
 } from './parlayStrategies'
 
+/**
+ * Calculate parlay odds from individual American odds
+ */
 export const calculateParlayOdds = (individualOdds: string[]): string => {
   try {
     const decimalOdds = individualOdds.map(odds => {
       const num = parseInt(odds)
-      if (num > 0) {
-        return num / 100 + 1
-      }
-      return 100 / Math.abs(num) + 1
+      return num > 0 ? num / 100 + 1 : 100 / Math.abs(num) + 1
     })
 
     const combinedDecimal = decimalOdds.reduce((acc, odds) => acc * odds, 1)
-    const americanOdds =
-      combinedDecimal >= 2
-        ? `+${Math.round((combinedDecimal - 1) * 100)}`
-        : `-${Math.round(100 / (combinedDecimal - 1))}`
-
-    return americanOdds
+    return combinedDecimal >= 2
+      ? `+${Math.round((combinedDecimal - 1) * 100)}`
+      : `-${Math.round(100 / (combinedDecimal - 1))}`
   } catch {
     return '+550'
   }
 }
 
+/**
+ * Validate that a player prop references a real player from current rosters
+ */
 export const validatePlayerProp = (
-  leg: any,
+  leg: Record<string, unknown>,
   homeRoster: NFLPlayer[],
   awayRoster: NFLPlayer[]
 ): boolean => {
@@ -38,25 +38,26 @@ export const validatePlayerProp = (
 
   const allPlayers = [...homeRoster, ...awayRoster]
   const playerNames = allPlayers.map(p => p.displayName.toLowerCase())
-  const legPlayerName = leg.selection?.toLowerCase() || ''
+  const legPlayerName = (leg.selection as string)?.toLowerCase() || ''
 
-  const playerExists = playerNames.some(
+  return playerNames.some(
     name => name.includes(legPlayerName) || legPlayerName.includes(name)
   )
-
-  return playerExists
 }
 
+/**
+ * Create strategy-appropriate alternative leg when validation fails
+ */
 export const createStrategyAlternative = (
   legIndex: number,
   game: NFLGame,
   strategy: StrategyConfig,
   varietyFactors: VarietyFactors
-): any => {
+): ParlayLeg => {
   const alternatives = [
     {
       id: `alt-${legIndex + 1}`,
-      betType: 'spread',
+      betType: 'spread' as const,
       selection:
         Math.random() > 0.5
           ? game.homeTeam.displayName
@@ -68,7 +69,7 @@ export const createStrategyAlternative = (
     },
     {
       id: `alt-${legIndex + 1}`,
-      betType: 'total',
+      betType: 'total' as const,
       selection: Math.random() > 0.5 ? 'Over' : 'Under',
       target: `${Math.random() > 0.5 ? 'Over' : 'Under'} ${(Math.random() * 10 + 42).toFixed(1)} Total Points`,
       reasoning: `${varietyFactors.gameScript} game script supports this total`,
@@ -77,7 +78,7 @@ export const createStrategyAlternative = (
     },
     {
       id: `alt-${legIndex + 1}`,
-      betType: 'moneyline',
+      betType: 'moneyline' as const,
       selection:
         Math.random() > 0.6
           ? game.homeTeam.displayName
@@ -94,18 +95,19 @@ export const createStrategyAlternative = (
   return alternatives[legIndex % alternatives.length]
 }
 
+/**
+ * Create fallback parlay when AI generation fails
+ */
 export const createFallbackParlay = (
   game: NFLGame,
   varietyFactors?: VarietyFactors
 ): GeneratedParlay => {
-  const isHomeFavorite = Math.random() > 0.4
-  const spread = (Math.random() * 6 + 1).toFixed(1)
-  const total = (Math.random() * 10 + 42).toFixed(1)
-
-  // Add variety to fallback based on strategy
   const strategy = varietyFactors
     ? PARLAY_STRATEGIES[varietyFactors.strategy]
     : PARLAY_STRATEGIES.conservative
+  const isHomeFavorite = Math.random() > 0.4
+  const spread = (Math.random() * 6 + 1).toFixed(1)
+  const total = (Math.random() * 10 + 42).toFixed(1)
 
   return {
     id: `fallback-${Date.now()}`,
@@ -152,6 +154,9 @@ export const createFallbackParlay = (
   }
 }
 
+/**
+ * Parse and validate AI response with enhanced error handling
+ */
 export const parseAIResponse = (
   response: string,
   game: NFLGame,
@@ -165,7 +170,24 @@ export const parseAIResponse = (
       throw new Error('No JSON found in AI response')
     }
 
-    const parsed = JSON.parse(jsonMatch[0])
+    let jsonStr = jsonMatch[0].trim()
+
+    // Clean common JSON formatting issues
+    jsonStr = jsonStr
+      .replace(/\r?\n|\r/g, ' ') // Replace newlines
+      .replace(/\s+/g, ' ') // Normalize whitespace
+      .replace(/,\s*}/g, '}') // Remove trailing commas
+      .replace(/,\s*]/g, ']')
+      .replace(/[\u201C\u201D]/g, '"') // Smart quotes
+      .replace(/[\u2018\u2019]/g, "'")
+      .replace(/`/g, '"') // Backticks
+      .replace(/\*\*"([^"]+)"\*\*/g, '"$1"') // Bold formatting
+      .replace(/\*\*([^*]+)\*\*/g, '$1')
+      .replace(/\[([^\]]+)\]/g, '"$1"') // Bracket notation
+      .replace(/""\s*([^"]+)\s*""/g, '"$1"') // Double quotes
+
+    const parsed = JSON.parse(jsonStr)
+    const strategy = PARLAY_STRATEGIES[varietyFactors.strategy]
 
     if (
       !parsed.legs ||
@@ -175,57 +197,74 @@ export const parseAIResponse = (
       throw new Error('Invalid parlay structure from AI')
     }
 
-    // Use validatePlayerProp to filter out invalid player bets
-    const validLegs = parsed.legs.filter((leg: any) => {
-      return validatePlayerProp(leg, homeRoster, awayRoster)
-    })
-
-    // If we lost legs due to invalid players, add strategy-appropriate alternatives
-    while (validLegs.length < 3) {
-      const strategy = PARLAY_STRATEGIES[varietyFactors.strategy]
-      const safeAlternative = createStrategyAlternative(
-        validLegs.length,
-        game,
-        strategy,
-        varietyFactors
+    // Validate and process legs
+    const validatedLegs = parsed.legs
+      .filter((leg: unknown) =>
+        validatePlayerProp(
+          leg as Record<string, unknown>,
+          homeRoster,
+          awayRoster
+        )
       )
-      validLegs.push(safeAlternative)
+      .slice(0, 3)
+
+    // Fill missing legs with alternatives
+    while (validatedLegs.length < 3) {
+      validatedLegs.push(
+        createStrategyAlternative(
+          validatedLegs.length,
+          game,
+          strategy,
+          varietyFactors
+        )
+      )
     }
 
-    const validatedLegs: ParlayLeg[] = validLegs
-      .slice(0, 3)
-      .map((leg: any, index: number) => ({
+    const finalLegs: ParlayLeg[] = validatedLegs.map(
+      (leg: any, index: number) => ({
         id: leg.id || `leg-${index + 1}`,
         betType: leg.betType || 'spread',
         selection: leg.selection || '',
         target: leg.target || '',
-        reasoning: leg.reasoning || 'Strategy-based selection',
+        reasoning: leg.reasoning || 'Strategic selection based on analysis',
         confidence: Math.min(Math.max(leg.confidence || 5, 1), 10),
         odds: leg.odds || '-110',
-      }))
-
-    // Use calculateParlayOdds to get realistic combined odds
-    const individualOdds = validatedLegs.map(leg => leg.odds)
-    const calculatedOdds = calculateParlayOdds(individualOdds)
-
-    // Add strategy info to context
-    const strategyName = PARLAY_STRATEGIES[varietyFactors.strategy].name
+      })
+    )
 
     return {
       id: `parlay-${Date.now()}`,
-      legs: validatedLegs as [ParlayLeg, ParlayLeg, ParlayLeg],
-      gameContext: `${game.awayTeam.displayName} @ ${game.homeTeam.displayName} - ${strategyName}`,
+      legs: finalLegs as [ParlayLeg, ParlayLeg, ParlayLeg],
+      gameContext: `${game.awayTeam.displayName} @ ${game.homeTeam.displayName} - ${strategy.name}`,
       aiReasoning:
         parsed.aiReasoning ||
-        `${strategyName} approach: ${PARLAY_STRATEGIES[varietyFactors.strategy].description}`,
+        `${strategy.name} approach: ${strategy.description}`,
       overallConfidence: Math.min(
         Math.max(parsed.overallConfidence || 6, 1),
         10
       ),
-      estimatedOdds: calculatedOdds,
+      estimatedOdds: calculateParlayOdds(finalLegs.map(leg => leg.odds)),
       createdAt: new Date().toISOString(),
     }
   } catch (error) {
+    console.error('Error parsing AI response:', error)
     return createFallbackParlay(game, varietyFactors)
   }
+}
+
+/**
+ * Extract strategy name from parlay for diversity tracking
+ */
+export const getStrategyFromParlay = (parlay: GeneratedParlay): string => {
+  const contextMatch = parlay.gameContext.match(/ - (.+)$/)
+  if (contextMatch) {
+    return contextMatch[1]
+  }
+
+  const strategies = Object.values(PARLAY_STRATEGIES).map(s => s.name)
+  const foundStrategy = strategies.find(name =>
+    parlay.aiReasoning.toLowerCase().includes(name.toLowerCase())
+  )
+
+  return foundStrategy || 'Unknown Strategy'
 }

@@ -47,7 +47,8 @@ export class ServiceContainer {
     if (!this.services.has(key)) {
       const nflClient = this.getESPNClient()
       const openaiClient = this.getOpenAIClient()
-      const service = new ParlayService(nflClient, openaiClient)
+      const nflDataService = this.getNFLDataService() // Add this line
+      const service = new ParlayService(nflClient, openaiClient, nflDataService) // Add third parameter
       this.services.set(key, service)
     }
 

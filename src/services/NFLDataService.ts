@@ -119,7 +119,7 @@ export class NFLDataService {
 
       // Fallback: estimate based on date if API doesn't provide week
       return this.estimateCurrentWeek()
-    } catch (error) {
+    } catch {
       // Fallback to estimated week on error
       return this.estimateCurrentWeek()
     }
@@ -146,14 +146,19 @@ export class NFLDataService {
    * This is a business logic operation that combines multiple API calls
    */
   async getGameRosters(game: NFLGame): Promise<GameRosters> {
-    const [homeRosterResponse, awayRosterResponse] = await Promise.all([
-      this.nflClient.getTeamRoster(game.homeTeam.id),
-      this.nflClient.getTeamRoster(game.awayTeam.id),
-    ])
+    try {
+      const [homeRosterResponse, awayRosterResponse] = await Promise.all([
+        this.nflClient.getTeamRoster(game.homeTeam.id),
+        this.nflClient.getTeamRoster(game.awayTeam.id),
+      ])
 
-    return {
-      homeRoster: this.transformRosterResponse(homeRosterResponse.data),
-      awayRoster: this.transformRosterResponse(awayRosterResponse.data),
+      return {
+        homeRoster: this.transformRosterResponse(homeRosterResponse.data),
+        awayRoster: this.transformRosterResponse(awayRosterResponse.data),
+      }
+    } catch (error) {
+      console.error('Error fetching game rosters:', error)
+      return { homeRoster: [], awayRoster: [] }
     }
   }
 
@@ -230,37 +235,57 @@ export class NFLDataService {
     })
   }
 
-  private transformRosterResponse(data: ESPNRosterResponse): NFLPlayer[] {
-    if (!data.athletes || data.athletes.length === 0) {
+  public transformRosterResponse(data: ESPNRosterResponse): NFLPlayer[] {
+    const rosterData = data as { athletes?: Array<{ items?: ESPNAthlete[] }> }
+    if (!rosterData.athletes || rosterData.athletes.length === 0) {
       return []
     }
 
     // ESPN groups athletes by position, we need to flatten them
-    const allAthletes: ESPNAthlete[] = data.athletes.flatMap(
+    const allAthletes: ESPNAthlete[] = rosterData.athletes.flatMap(
       group => group.items || []
     )
 
-    return allAthletes.map(athlete => ({
-      id: athlete.id,
-      name: athlete.displayName,
-      displayName: athlete.displayName,
-      position:
-        athlete.position?.abbreviation || athlete.position?.name || 'N/A',
-      jerseyNumber: athlete.jersey || '0',
-      experience: athlete.experience?.years || 0,
-      college: athlete.college?.name,
-    }))
+    return allAthletes.map((athlete: ESPNAthlete) => {
+      const athleteData = athlete as {
+        id: string
+        displayName: string
+        position?: { abbreviation?: string; name?: string }
+        jersey?: string
+        experience?: { years?: number }
+        college?: { name?: string }
+      }
+
+      return {
+        id: athleteData.id,
+        name: athleteData.displayName,
+        displayName: athleteData.displayName,
+        position:
+          athleteData.position?.abbreviation ||
+          athleteData.position?.name ||
+          'N/A',
+        jerseyNumber: athleteData.jersey || '0',
+        experience: athleteData.experience?.years || 0,
+        college: athleteData.college?.name,
+      }
+    })
   }
 
   private mapGameStatus(statusName?: string): NFLGame['status'] {
-    if (!statusName) return 'scheduled'
+    if (!statusName) {
+      return 'scheduled'
+    }
 
     const status = statusName.toLowerCase()
-    if (status.includes('final')) return 'final'
-    if (status.includes('progress') || status.includes('live'))
+    if (status.includes('final')) {
+      return 'final'
+    }
+    if (status.includes('progress') || status.includes('live')) {
       return 'in_progress'
-    if (status.includes('postponed') || status.includes('delayed'))
+    }
+    if (status.includes('postponed') || status.includes('delayed')) {
       return 'postponed'
+    }
     return 'scheduled'
   }
 

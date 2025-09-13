@@ -10,9 +10,8 @@ export const useNFLGames = (week?: number) => {
     queryFn: async (): Promise<NFLGame[]> => {
       if (week) {
         return await nflDataService.getGamesByWeek(week)
-      } else {
-        return await nflDataService.getCurrentWeekGames()
       }
+      return await nflDataService.getCurrentWeekGames()
     },
     staleTime: 10 * 60 * 1000, // 10 minutes
     gcTime: 30 * 60 * 1000, // 30 minutes

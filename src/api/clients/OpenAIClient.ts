@@ -1,4 +1,9 @@
 import OpenAI from 'openai'
+import {
+  ResponseFormatJSONObject,
+  ResponseFormatJSONSchema,
+  ResponseFormatText,
+} from 'openai/resources.mjs'
 import { API_CONFIG, ENV } from '../../config/api'
 import {
   OpenAIError,
@@ -80,6 +85,10 @@ export class OpenAIClient extends BaseAPIClient implements IOpenAIClient {
     frequency_penalty?: number
     presence_penalty?: number
     seed?: number
+    response_format?:
+      | ResponseFormatText
+      | ResponseFormatJSONSchema
+      | ResponseFormatJSONObject
   }): Promise<APIResponse<any>> {
     try {
       const completion = await this.openai.chat.completions.create({
@@ -91,6 +100,7 @@ export class OpenAIClient extends BaseAPIClient implements IOpenAIClient {
         frequency_penalty: params.frequency_penalty,
         presence_penalty: params.presence_penalty,
         seed: params.seed,
+        response_format: params.response_format,
       })
 
       return {
@@ -111,7 +121,7 @@ export class OpenAIClient extends BaseAPIClient implements IOpenAIClient {
         max_tokens: 1,
       })
       return true
-    } catch (error) {
+    } catch {
       return false
     }
   }
