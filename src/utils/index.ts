@@ -117,12 +117,46 @@ export const formatGameDate = (dateString: string): string => {
  */
 export const isRivalryGame = (team1: string, team2: string): boolean => {
   const rivalries = [
+    // --- NFC East ---
     ['Cowboys', 'Eagles'],
-    ['Patriots', 'Jets'],
+    ['Cowboys', 'Giants'],
+    ['Cowboys', 'Commanders'],
+    ['Eagles', 'Giants'],
+
+    // --- NFC North ---
     ['Packers', 'Bears'],
-    ['Ravens', 'Steelers'],
-    ['Chiefs', 'Raiders'],
+    ['Packers', 'Vikings'],
+    ['Bears', 'Vikings'],
+
+    // --- NFC South ---
+    ['Saints', 'Falcons'],
+    ['Panthers', 'Falcons'],
+
+    // --- NFC West ---
     ['49ers', 'Seahawks'],
+    ['49ers', 'Rams'],
+    ['49ers', 'Cowboys'], // Historic/Playoff Rivalry
+
+    // --- AFC East ---
+    ['Patriots', 'Jets'],
+    ['Bills', 'Dolphins'],
+    ['Bills', 'Patriots'],
+    ['Colts', 'Patriots'], // Historic Rivalry
+
+    // --- AFC North ---
+    ['Ravens', 'Steelers'],
+    ['Steelers', 'Bengals'],
+    ['Steelers', 'Browns'],
+
+    // --- AFC South ---
+    ['Colts', 'Titans'],
+    ['Texans', 'Titans'],
+
+    // --- AFC West ---
+    ['Chiefs', 'Raiders'],
+    ['Chiefs', 'Broncos'],
+    ['Chiefs', 'Bills'], // Modern Playoff Rivalry
+    ['Raiders', 'Broncos'],
   ]
 
   return rivalries.some(
