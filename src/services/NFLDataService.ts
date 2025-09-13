@@ -253,14 +253,20 @@ export class NFLDataService {
   }
 
   private mapGameStatus(statusName?: string): NFLGame['status'] {
-    if (!statusName) return 'scheduled'
+    if (!statusName) {
+      return 'scheduled'
+    }
 
     const status = statusName.toLowerCase()
-    if (status.includes('final')) return 'final'
-    if (status.includes('progress') || status.includes('live'))
+    if (status.includes('final')) {
+      return 'final'
+    }
+    if (status.includes('progress') || status.includes('live')) {
       return 'in_progress'
-    if (status.includes('postponed') || status.includes('delayed'))
+    }
+    if (status.includes('postponed') || status.includes('delayed')) {
       return 'postponed'
+    }
     return 'scheduled'
   }
 
