@@ -1,6 +1,3 @@
-// src/services/parlayUtils.ts
-// Enhanced with chain-of-thought parsing and validation
-
 import { GeneratedParlay, NFLGame, NFLPlayer, ParlayLeg } from '../types'
 import {
   ChainOfThoughtReasoning,

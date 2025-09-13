@@ -1,64 +1,9 @@
-// src/services/promptGenerators.ts
-// Enhanced with chain-of-thought reasoning methodology
-
 import { NFLGame, NFLPlayer } from '../types'
 import {
   PARLAY_STRATEGIES,
   StrategyConfig,
   VarietyFactors,
 } from './parlayStrategies'
-
-// /**
-//  * Creates chain-of-thought instructions for analytical reasoning
-//  */
-// const createChainOfThoughtInstructions = (
-//   config?: ChainOfThoughtConfig
-// ): string => {
-//   if (!config) return '' // If no config, skip chain-of-thought instructions
-
-//   return `
-// 🧠 CHAIN-OF-THOUGHT ANALYTICAL PROCESS:
-
-// You MUST follow this step-by-step reasoning process for each bet recommendation:
-
-// STEP 1: DATA GATHERING & ANALYSIS
-// - Identify ALL relevant data points from provided rosters, stats, and context
-// - Cite specific players, numbers, matchups, and situational factors
-// - Note what data is missing or uncertain
-
-// STEP 2: STRATEGIC FRAMEWORK APPLICATION
-// - Apply your assigned betting strategy to the available data
-// - Explain how this bet fits your strategic approach
-// - Consider alternative approaches and why you rejected them
-
-// STEP 3: RISK-REWARD EVALUATION
-// - Assess likelihood of success based on data analysis
-// - Identify primary risk factors that could cause bet failure
-// - Evaluate potential upside vs downside scenarios
-
-// STEP 4: CONFIDENCE CALIBRATION
-// - Justify your confidence score with specific reasoning
-// - Explain what would make you more/less confident
-// - Acknowledge uncertainties and unknown factors
-
-// CRITICAL REQUIREMENTS:
-// ✅ Each analytical step MUST cite specific data sources
-// ✅ Use exact player names and statistics from provided rosters
-// ✅ Acknowledge when data is limited or uncertain
-// ✅ Show your logical reasoning process clearly
-// ✅ Justify confidence scores with concrete evidence
-// ❌ Never make claims without citing supporting data
-// ❌ Avoid generic reasoning without specific analysis
-// ❌ Don't ignore contradictory evidence or risk factors
-
-// 📊 DATA CITATION REQUIREMENTS:
-// For EVERY claim in your reasoning, you MUST cite the specific data source:
-// - ROSTER DATA: "Based on current roster: [Player Name] (#[Jersey]) - [Position]"
-// - MATCHUP ANALYSIS: "Historical matchup data shows: [Specific stat or trend]"
-// - SITUATIONAL FACTORS: "Given [specific situation]: [relevant impact on bet]"
-// - STRATEGY ALIGNMENT: "This fits [Strategy Name] because: [specific strategic reasoning]"
-// `
-// }
 
 export const createSystemPrompt = (strategy: StrategyConfig): string => {
   return `You are an expert NFL betting analyst. Create a 3-leg parlay with clear football reasoning.
@@ -161,28 +106,3 @@ Return this exact JSON format:
   "estimatedOdds": "+550"
 }`
 }
-
-// // Helper functions
-// const generateRandomElements = (): string[] => {
-//   return [
-//     `Weather Factor: ${['Clear', 'Light Rain', 'Windy', 'Cold', 'Dome'][Math.floor(Math.random() * 5)]}`,
-//     `Public Betting: ${['Heavily on Home', 'Favoring Away', 'Split', 'Avoiding Totals'][Math.floor(Math.random() * 4)]}`,
-//     `Injury Report: ${['Key players healthy', 'Minor concerns', 'Questionable status'][Math.floor(Math.random() * 3)]}`,
-//     `Recent Form: ${['Hot streak', 'Inconsistent', 'Struggling', 'Breakout potential'][Math.floor(Math.random() * 4)]}`,
-//   ]
-// }
-
-// const checkRivalryGame = (homeTeam: string, awayTeam: string): boolean => {
-//   const rivalries = [
-//     ['Cowboys', 'Eagles'],
-//     ['Patriots', 'Jets'],
-//     ['Packers', 'Bears'],
-//     ['Ravens', 'Steelers'],
-//     ['Chiefs', 'Raiders'],
-//     ['49ers', 'Seahawks'],
-//   ]
-
-//   return rivalries.some(
-//     rivalry => rivalry.includes(homeTeam) && rivalry.includes(awayTeam)
-//   )
-// }
