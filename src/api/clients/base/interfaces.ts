@@ -1,3 +1,8 @@
+import {
+  ResponseFormatJSONObject,
+  ResponseFormatJSONSchema,
+  ResponseFormatText,
+} from 'openai/resources.mjs'
 import { APIResponse } from './types'
 
 /**
@@ -49,6 +54,10 @@ export interface IOpenAIClient {
     frequency_penalty?: number
     presence_penalty?: number
     seed?: number
+    response_format?:
+      | ResponseFormatText
+      | ResponseFormatJSONSchema
+      | ResponseFormatJSONObject
   }): Promise<APIResponse<any>>
 
   /**

@@ -135,7 +135,7 @@ export class ESPNClient extends BaseAPIClient implements INFLClient {
       return await this.get('/scoreboard', {
         params: {
           seasontype: 2, // Regular season
-          week: week,
+          week,
           year: currentYear,
         },
       })

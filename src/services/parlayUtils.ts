@@ -488,8 +488,10 @@ const processLegsWithEnhancedReasoning = (
       // Use summary or create one from detailed reasoning
       reasoning =
         leg.reasoning ||
-        leg.chainOfThoughtReasoning.strategicRationale?.substring(0, 200) +
-          '...' ||
+        `${leg.chainOfThoughtReasoning.strategicRationale?.substring(
+          0,
+          200
+        )}...` ||
         'Enhanced analytical reasoning applied'
 
       confidence =

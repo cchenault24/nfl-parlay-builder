@@ -1,6 +1,3 @@
-// src/services/ParlayService.ts
-// Enhanced with chain-of-thought reasoning capabilities
-
 import { INFLClient, IOpenAIClient } from '../api'
 import { API_CONFIG } from '../config/api'
 import {
@@ -12,7 +9,6 @@ import {
   ParlayLeg,
 } from '../types'
 import {
-  ChainOfThoughtConfig,
   ChainOfThoughtReasoning,
   ReasoningValidation,
 } from '../types/reasoning'
@@ -22,7 +18,6 @@ import {
   StrategyConfig,
   VarietyFactors,
 } from './parlayStrategies'
-import { createFallbackParlay } from './parlayUtils'
 import { createParlayPrompt, createSystemPrompt } from './promptGenerators'
 
 /**
@@ -31,14 +26,6 @@ import { createParlayPrompt, createSystemPrompt } from './promptGenerators'
  * Coordinates between NFL data and OpenAI clients
  */
 export class ParlayService {
-  private cotConfig: ChainOfThoughtConfig = {
-    requireMinimumSteps: 4,
-    requireDataCitations: true,
-    includeValidationPrompt: true,
-    confidenceJustificationDepth: 'detailed',
-    allowUncertaintyAcknowledgment: true,
-  }
-
   constructor(
     private nflClient: INFLClient,
     private openaiClient: IOpenAIClient
@@ -57,10 +44,10 @@ export class ParlayService {
       // Step 1: Get team rosters for accurate player props
       const rosters = await this.getGameRosters(game)
 
-      // Step 2: Validate rosters - fallback if insufficient data
+      // Step 2: Validate rosters - throw error if insufficient data
       if (rosters.homeRoster.length === 0 || rosters.awayRoster.length === 0) {
-        console.warn('⚠️ No roster data available, using fallback')
-        return createFallbackParlay(game)
+        console.warn('⚠️ No roster data available')
+        throw new Error('Insufficient roster data to generate parlay')
       }
 
       console.log(
@@ -76,17 +63,12 @@ export class ParlayService {
       )
 
       // Step 4: Create enhanced AI prompts with chain-of-thought instructions
-      const systemPrompt = createSystemPrompt(
-        strategy,
-        varietyFactors,
-        this.cotConfig
-      )
+      const systemPrompt = createSystemPrompt(strategy)
       const userPrompt = createParlayPrompt(
         game,
         rosters.homeRoster,
         rosters.awayRoster,
-        varietyFactors,
-        this.cotConfig
+        varietyFactors
       )
 
       // Step 5: Generate parlay using OpenAI with enhanced parameters
@@ -109,7 +91,7 @@ export class ParlayService {
       return parlay
     } catch (error) {
       console.error('❌ Error generating parlay:', error)
-      return createFallbackParlay(game)
+      throw error // Re-throw the error instead of creating fallback
     }
   }
 
@@ -173,7 +155,8 @@ export class ParlayService {
         }
       } catch (error) {
         console.error(`❌ Error generating parlay ${i + 1}:`, error)
-        parlays.push(createFallbackParlay(game))
+        // Skip this parlay instead of using fallback
+        continue
       }
     }
 
@@ -202,6 +185,7 @@ export class ParlayService {
           content: userPrompt,
         },
       ],
+      response_format: { type: 'json_object' },
       temperature: strategy.temperature * 0.8, // Slightly lower for better consistency
       max_tokens: 3000, // Increased for detailed chain-of-thought reasoning
       top_p: 0.9,
@@ -227,15 +211,7 @@ export class ParlayService {
   ): GeneratedParlay {
     try {
       console.log(`📝 Parsing enhanced AI response (${response.length} chars)`)
-
-      // Extract JSON from response
-      const jsonMatch = response.match(/\{[\s\S]*\}/)
-      if (!jsonMatch) {
-        console.warn('No JSON found in AI response, using fallback')
-        throw new Error('No JSON found in AI response')
-      }
-
-      const parsed = JSON.parse(jsonMatch[0])
+      const parsed = JSON.parse(response)
       const strategy = PARLAY_STRATEGIES[varietyFactors.strategy]
 
       // Validate basic structure
@@ -244,7 +220,7 @@ export class ParlayService {
         !Array.isArray(parsed.legs) ||
         parsed.legs.length !== 3
       ) {
-        console.warn('Invalid parlay structure from AI, using fallback')
+        console.error('Invalid parlay structure:', parsed)
         throw new Error('Invalid parlay structure from AI')
       }
 
@@ -253,8 +229,7 @@ export class ParlayService {
         parsed.legs,
         homeRoster,
         awayRoster,
-        strategy,
-        varietyFactors
+        strategy
       )
 
       // Calculate parlay odds
@@ -282,6 +257,7 @@ export class ParlayService {
       return parlay
     } catch (error) {
       console.error('Error parsing enhanced AI response:', error)
+      console.error('Raw AI response:', response)
       throw error
     }
   }
@@ -290,8 +266,7 @@ export class ParlayService {
     rawLegs: unknown[],
     homeRoster: NFLPlayer[],
     awayRoster: NFLPlayer[],
-    strategy: StrategyConfig,
-    varietyFactors: VarietyFactors
+    strategy: StrategyConfig
   ): ParlayLeg[] {
     const processedLegs: ParlayLeg[] = []
 
@@ -303,18 +278,7 @@ export class ParlayService {
         leg.betType === 'player_prop' &&
         !this.validatePlayerProp(leg, homeRoster, awayRoster)
       ) {
-        console.warn(`Invalid player in leg ${i + 1}, creating alternative`)
-        processedLegs.push(
-          this.createStrategyAlternative(
-            i,
-            {
-              homeTeam: { displayName: 'Home' },
-              awayTeam: { displayName: 'Away' },
-            } as NFLGame,
-            strategy,
-            varietyFactors
-          )
-        )
+        console.warn(`Invalid player in leg ${i + 1}, skipping`)
         continue
       }
 
@@ -323,12 +287,12 @@ export class ParlayService {
       let confidence: number
 
       if (leg.chainOfThoughtReasoning) {
-        // Enhanced reasoning available - validate it
-        const validation = this.validateChainOfThought(
-          leg.chainOfThoughtReasoning as ChainOfThoughtReasoning,
-          strategy
-        )
+        // Enhanced reasoning available - validate it internally
+        const chainOfThought =
+          leg.chainOfThoughtReasoning as ChainOfThoughtReasoning
 
+        // Validate the detailed reasoning internally (for our analytics)
+        const validation = this.validateChainOfThought(chainOfThought, strategy)
         if (validation.validationErrors.length > 0) {
           console.warn(
             `Validation errors in leg ${i + 1}:`,
@@ -336,13 +300,10 @@ export class ParlayService {
           )
         }
 
-        // Use summary or create one from detailed reasoning
-        const chainOfThought =
-          leg.chainOfThoughtReasoning as ChainOfThoughtReasoning
+        // Use the direct reasoning provided by AI (should be user-friendly)
         reasoning =
           (leg.reasoning as string) ||
-          chainOfThought.strategicRationale?.substring(0, 200) + '...' ||
-          'Enhanced analytical reasoning applied'
+          'Strong value based on current matchup analysis and team performance trends'
 
         confidence =
           chainOfThought.confidenceBreakdown?.score ||
@@ -352,7 +313,7 @@ export class ParlayService {
         // Basic reasoning - use as-is
         reasoning =
           (leg.reasoning as string) ||
-          `${strategy.name} selection based on strategic analysis`
+          'Solid value based on current matchup factors and situational analysis'
         confidence = (leg.confidence as number) || strategy.confidenceRange[0]
       }
 
@@ -370,6 +331,12 @@ export class ParlayService {
       })
     }
 
+    if (processedLegs.length !== 3) {
+      throw new Error(
+        `Generated only ${processedLegs.length} valid legs, need exactly 3`
+      )
+    }
+
     return processedLegs
   }
 
@@ -378,7 +345,9 @@ export class ParlayService {
     homeRoster: NFLPlayer[],
     awayRoster: NFLPlayer[]
   ): boolean {
-    if (leg.betType !== 'player_prop') return true
+    if (leg.betType !== 'player_prop') {
+      return true
+    }
 
     const allPlayers = [...homeRoster, ...awayRoster]
     const playerNames = allPlayers.map(p => p.displayName.toLowerCase())
@@ -406,53 +375,6 @@ export class ParlayService {
         : 6,
       validationErrors: [],
     }
-  }
-
-  private createStrategyAlternative(
-    legIndex: number,
-    game: NFLGame,
-    strategy: StrategyConfig,
-    varietyFactors: VarietyFactors
-  ): ParlayLeg {
-    const alternatives = [
-      {
-        id: `alt-${legIndex + 1}`,
-        betType: 'spread' as const,
-        selection:
-          Math.random() > 0.5
-            ? game.homeTeam.displayName
-            : game.awayTeam.displayName,
-        target: `${Math.random() > 0.5 ? game.homeTeam.displayName : game.awayTeam.displayName} ${Math.random() > 0.5 ? '-' : '+'}${(Math.random() * 6 + 1).toFixed(1)}`,
-        reasoning: `${strategy.name} selection based on ${varietyFactors.focusArea} analysis with enhanced reasoning`,
-        confidence: strategy.confidenceRange[0],
-        odds: '-110',
-      },
-      {
-        id: `alt-${legIndex + 1}`,
-        betType: 'total' as const,
-        selection: Math.random() > 0.5 ? 'Over' : 'Under',
-        target: `${Math.random() > 0.5 ? 'Over' : 'Under'} ${(Math.random() * 10 + 42).toFixed(1)} Total Points`,
-        reasoning: `${varietyFactors.gameScript} game script supports this total with detailed analysis`,
-        confidence: strategy.confidenceRange[1],
-        odds: '-105',
-      },
-      {
-        id: `alt-${legIndex + 1}`,
-        betType: 'moneyline' as const,
-        selection:
-          Math.random() > 0.6
-            ? game.homeTeam.displayName
-            : game.awayTeam.displayName,
-        target: `${Math.random() > 0.6 ? game.homeTeam.displayName : game.awayTeam.displayName} Moneyline`,
-        reasoning: `${strategy.name} value play based on situational factors and enhanced analytical framework`,
-        confidence: Math.floor(
-          (strategy.confidenceRange[0] + strategy.confidenceRange[1]) / 2
-        ),
-        odds: Math.random() > 0.5 ? '+110' : '-120',
-      },
-    ]
-
-    return alternatives[legIndex % alternatives.length]
   }
 
   private calculateParlayOdds(individualOdds: string[]): string {
