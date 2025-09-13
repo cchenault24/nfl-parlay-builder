@@ -1,11 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
+import { getNFLDataService } from '../services/container'
 
 export const useAvailableWeeks = () => {
+  const nflDataService = getNFLDataService()
+
   const query = useQuery({
     queryKey: ['available-weeks-v2'],
-    queryFn: () => {
-      // Return all regular season weeks (1-18)
-      return Array.from({ length: 18 }, (_, i) => i + 1)
+    queryFn: async (): Promise<number[]> => {
+      return await nflDataService.getAvailableWeeks()
     },
     staleTime: 60 * 60 * 1000, // 1 hour
     gcTime: 24 * 60 * 60 * 1000, // 24 hours

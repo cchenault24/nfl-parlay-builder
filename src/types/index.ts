@@ -1,4 +1,3 @@
-// src/types/index.ts (Updated with Auth Support)
 // ===== BET TYPES =====
 export type BetType = 'spread' | 'total' | 'moneyline' | 'player_prop'
 

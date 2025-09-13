@@ -1,23 +1,22 @@
-// src/components/auth/UserMenu.tsx
-import React, { useState } from 'react'
-import {
-  Box,
-  Button,
-  Avatar,
-  Menu,
-  MenuItem,
-  Typography,
-  Divider,
-  ListItemIcon,
-} from '@mui/material'
 import {
   AccountCircle as AccountIcon,
   History as HistoryIcon,
-  Logout as LogoutIcon,
   Login as LoginIcon,
+  Logout as LogoutIcon,
 } from '@mui/icons-material'
-import { useAuth } from '../../contexts/AuthContext'
+import {
+  Avatar,
+  Box,
+  Button,
+  Divider,
+  ListItemIcon,
+  Menu,
+  MenuItem,
+  Typography,
+} from '@mui/material'
+import React, { useState } from 'react'
 import { logOut } from '../../config/firebase'
+import { useAuth } from '../../contexts/AuthContext'
 import { AuthModal } from './AuthModal'
 
 interface UserMenuProps {

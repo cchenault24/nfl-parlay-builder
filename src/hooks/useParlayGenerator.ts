@@ -1,13 +1,16 @@
 import { useMutation } from '@tanstack/react-query'
-import { generateParlay } from '../services/openaiService'
-import { NFLGame, GeneratedParlay } from '../types'
+import { getParlayService } from '../services/container'
 import useParlayStore from '../store/parlayStore'
+import { GeneratedParlay, NFLGame } from '../types'
 
 export const useParlayGenerator = () => {
   const setParlay = useParlayStore(state => state.setParlay)
+  const parlayService = getParlayService()
 
   const mutation = useMutation({
-    mutationFn: (game: NFLGame) => generateParlay(game),
+    mutationFn: async (game: NFLGame): Promise<GeneratedParlay> => {
+      return await parlayService.generateParlay(game)
+    },
     onError: error => {
       console.error('Error generating parlay:', error)
       // Clear parlay on error
