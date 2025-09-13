@@ -15,6 +15,8 @@ import {
   ListItemIcon,
   ListItemText,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material'
 import React from 'react'
 import type { GameSummary } from '../../types'
@@ -28,6 +30,10 @@ const GameSummaryView: React.FC<GameSummaryViewProps> = ({
   gameSummary,
   gameContext,
 }) => {
+  const theme = useTheme()
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
+  const isSmall = useMediaQuery(theme.breakpoints.down('sm'))
+
   // Helper function to safely render matchup analysis
   const renderMatchupAnalysis = (analysis: string | any): string => {
     if (typeof analysis === 'string') {
@@ -148,13 +154,31 @@ const GameSummaryView: React.FC<GameSummaryViewProps> = ({
     >
       <CardContent>
         {/* Header */}
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-          <AnalyticsIcon sx={{ mr: 1, color: 'primary.main' }} />
-          <Typography variant="h6" component="h3">
-            AI Game Analysis
-          </Typography>
+        <Box sx={{ mb: 2 }}>
+          {/* Title Row */}
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+            <AnalyticsIcon sx={{ mr: 1, color: 'primary.main' }} />
+            <Typography
+              variant="h6"
+              component="h3"
+              sx={{
+                flexGrow: 1,
+                fontSize: isSmall ? '1.1rem' : '1.25rem',
+              }}
+            >
+              AI Game Analysis
+            </Typography>
+          </Box>
+
+          {/* Chips Row - Use breakpoint-based logic */}
           <Box
-            sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}
+            sx={{
+              display: 'flex',
+              flexDirection: isMobile ? 'column' : 'row',
+              alignItems: isMobile ? 'flex-start' : 'center',
+              justifyContent: isMobile ? 'flex-start' : 'flex-end',
+              gap: isMobile ? theme.spacing(1) : theme.spacing(1),
+            }}
           >
             <Chip
               icon={gameFlowDisplay.icon}
@@ -162,18 +186,36 @@ const GameSummaryView: React.FC<GameSummaryViewProps> = ({
               color={gameFlowDisplay.color}
               variant="outlined"
               size="small"
+              sx={{
+                fontSize: isSmall ? '0.7rem' : '0.75rem',
+                height: isSmall ? 28 : 32,
+                width: 'fit-content',
+              }}
             />
             <Chip
               label={`${gameSummary.confidence}/10 Confidence`}
               color={getConfidenceColor(gameSummary.confidence)}
               variant="filled"
               size="small"
+              sx={{
+                fontSize: isSmall ? '0.7rem' : '0.75rem',
+                height: isSmall ? 28 : 32,
+                width: 'fit-content',
+              }}
             />
           </Box>
         </Box>
 
         {/* Game Context */}
-        <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+        <Typography
+          variant="subtitle2"
+          color="text.secondary"
+          gutterBottom
+          sx={{
+            fontSize: isSmall ? '0.8rem' : '0.875rem',
+            mb: 2,
+          }}
+        >
           {gameContext}
         </Typography>
 
@@ -181,22 +223,44 @@ const GameSummaryView: React.FC<GameSummaryViewProps> = ({
 
         {/* Matchup Analysis */}
         <Box sx={{ mb: 3 }}>
-          <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600 }}>
+          <Typography
+            variant="subtitle1"
+            gutterBottom
+            sx={{
+              fontWeight: 600,
+              fontSize: isSmall ? '1rem' : '1.1rem',
+            }}
+          >
             Matchup Analysis
           </Typography>
-          <Typography variant="body2" color="text.secondary" paragraph>
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            paragraph
+            sx={{
+              fontSize: isSmall ? '0.85rem' : '0.875rem',
+              lineHeight: isSmall ? 1.4 : 1.5,
+            }}
+          >
             {matchupText}
           </Typography>
         </Box>
 
         {/* Key Factors */}
         <Box sx={{ mb: 3 }}>
-          <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600 }}>
+          <Typography
+            variant="subtitle1"
+            gutterBottom
+            sx={{
+              fontWeight: 600,
+              fontSize: isSmall ? '1rem' : '1.1rem',
+            }}
+          >
             Key Factors
           </Typography>
           <List dense sx={{ pt: 0 }}>
             {keyFactorsList.map((factor, index) => (
-              <ListItem key={index} sx={{ py: 0.5 }}>
+              <ListItem key={index} sx={{ py: 0.5, px: 0 }}>
                 <ListItemIcon sx={{ minWidth: 32 }}>
                   <CheckCircleIcon
                     fontSize="small"
@@ -209,6 +273,7 @@ const GameSummaryView: React.FC<GameSummaryViewProps> = ({
                   primaryTypographyProps={{
                     variant: 'body2',
                     color: 'text.secondary',
+                    fontSize: isSmall ? '0.85rem' : '0.875rem',
                   }}
                 />
               </ListItem>
@@ -218,7 +283,14 @@ const GameSummaryView: React.FC<GameSummaryViewProps> = ({
 
         {/* Game Prediction */}
         <Box>
-          <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600 }}>
+          <Typography
+            variant="subtitle1"
+            gutterBottom
+            sx={{
+              fontWeight: 600,
+              fontSize: isSmall ? '1rem' : '1.1rem',
+            }}
+          >
             Game Prediction
           </Typography>
           <Typography
@@ -230,6 +302,8 @@ const GameSummaryView: React.FC<GameSummaryViewProps> = ({
               borderLeft: '3px solid',
               borderLeftColor: 'primary.main',
               py: 1,
+              fontSize: isSmall ? '0.85rem' : '0.875rem',
+              lineHeight: isSmall ? 1.4 : 1.5,
             }}
           >
             {predictionText}
