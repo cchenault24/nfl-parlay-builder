@@ -12,12 +12,14 @@ import {
   ChainOfThoughtReasoning,
   ReasoningValidation,
 } from '../types/reasoning'
+import { NFLDataService } from './NFLDataService'
 import {
   generateVarietyFactors,
   PARLAY_STRATEGIES,
   StrategyConfig,
   VarietyFactors,
 } from './parlayStrategies'
+import { calculateParlayOdds } from './parlayUtils'
 import { createParlayPrompt, createSystemPrompt } from './promptGenerators'
 
 /**
@@ -28,7 +30,8 @@ import { createParlayPrompt, createSystemPrompt } from './promptGenerators'
 export class ParlayService {
   constructor(
     private nflClient: INFLClient,
-    private openaiClient: IOpenAIClient
+    private openaiClient: IOpenAIClient,
+    private nflDataService: NFLDataService
   ) {}
 
   /**
@@ -37,10 +40,6 @@ export class ParlayService {
    */
   async generateParlay(game: NFLGame): Promise<GeneratedParlay> {
     try {
-      console.log(
-        `🧠 Generating parlay with chain-of-thought reasoning for ${game.awayTeam.displayName} @ ${game.homeTeam.displayName}`
-      )
-
       // Step 1: Get team rosters for accurate player props
       const rosters = await this.getGameRosters(game)
 
@@ -50,17 +49,9 @@ export class ParlayService {
         throw new Error('Insufficient roster data to generate parlay')
       }
 
-      console.log(
-        `📊 Roster data: ${rosters.homeRoster.length} home, ${rosters.awayRoster.length} away`
-      )
-
       // Step 3: Generate variety factors for this parlay
       const varietyFactors: VarietyFactors = generateVarietyFactors()
       const strategy = PARLAY_STRATEGIES[varietyFactors.strategy]
-
-      console.log(
-        `🎯 Strategy: ${strategy.name} (${strategy.riskProfile} risk)`
-      )
 
       // Step 4: Create enhanced AI prompts with chain-of-thought instructions
       const systemPrompt = createSystemPrompt(strategy)
@@ -87,7 +78,6 @@ export class ParlayService {
         varietyFactors
       )
 
-      console.log(`✅ Enhanced parlay generated successfully`)
       return parlay
     } catch (error) {
       console.error('❌ Error generating parlay:', error)
@@ -107,8 +97,12 @@ export class ParlayService {
       ])
 
       return {
-        homeRoster: this.transformRosterResponse(homeRosterResponse.data),
-        awayRoster: this.transformRosterResponse(awayRosterResponse.data),
+        homeRoster: this.nflDataService.transformRosterResponse(
+          homeRosterResponse.data
+        ),
+        awayRoster: this.nflDataService.transformRosterResponse(
+          awayRosterResponse.data
+        ),
       }
     } catch (error) {
       console.error('Error fetching game rosters:', error)
@@ -126,8 +120,6 @@ export class ParlayService {
   ): Promise<GeneratedParlay[]> {
     const parlays: GeneratedParlay[] = []
     const usedStrategies = new Set<string>()
-
-    console.log(`🎲 Generating ${count} parlays with strategy diversity`)
 
     for (let i = 0; i < count; i++) {
       try {
@@ -147,8 +139,6 @@ export class ParlayService {
         usedStrategies.add(strategy)
         parlays.push(parlay)
 
-        console.log(`✅ Generated parlay ${i + 1}/${count}: ${strategy}`)
-
         // Add small delay to avoid potential rate limiting
         if (i < count - 1) {
           await this.delay(100)
@@ -160,9 +150,6 @@ export class ParlayService {
       }
     }
 
-    console.log(
-      `📊 Batch generation complete: ${parlays.length} parlays generated`
-    )
     return parlays
   }
 
@@ -210,7 +197,6 @@ export class ParlayService {
     varietyFactors: VarietyFactors
   ): GeneratedParlay {
     try {
-      console.log(`📝 Parsing enhanced AI response (${response.length} chars)`)
       const parsed = JSON.parse(response)
       const strategy = PARLAY_STRATEGIES[varietyFactors.strategy]
 
@@ -234,7 +220,7 @@ export class ParlayService {
 
       // Calculate parlay odds
       const individualOdds = validatedLegs.map(leg => leg.odds)
-      const calculatedOdds = this.calculateParlayOdds(individualOdds)
+      const calculatedOdds = calculateParlayOdds(individualOdds)
 
       const parlay: GeneratedParlay = {
         id: `parlay-${Date.now()}`,
@@ -251,9 +237,6 @@ export class ParlayService {
         createdAt: new Date().toISOString(),
       }
 
-      console.log(
-        `✅ Successfully parsed enhanced parlay with ${validatedLegs.length} validated legs`
-      )
       return parlay
     } catch (error) {
       console.error('Error parsing enhanced AI response:', error)
@@ -377,28 +360,6 @@ export class ParlayService {
     }
   }
 
-  private calculateParlayOdds(individualOdds: string[]): string {
-    try {
-      const decimalOdds = individualOdds.map(odds => {
-        const num = parseInt(odds)
-        if (num > 0) {
-          return num / 100 + 1
-        }
-        return 100 / Math.abs(num) + 1
-      })
-
-      const combinedDecimal = decimalOdds.reduce((acc, odds) => acc * odds, 1)
-      const americanOdds =
-        combinedDecimal >= 2
-          ? `+${Math.round((combinedDecimal - 1) * 100)}`
-          : `-${Math.round(100 / (combinedDecimal - 1))}`
-
-      return americanOdds
-    } catch {
-      return '+550'
-    }
-  }
-
   private getStrategyFromParlay(parlay: GeneratedParlay): string {
     // Try to extract strategy from gameContext
     const contextMatch = parlay.gameContext.match(/ - (.+)$/)
@@ -417,40 +378,5 @@ export class ParlayService {
 
   private delay(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms))
-  }
-
-  private transformRosterResponse(data: unknown): NFLPlayer[] {
-    const rosterData = data as { athletes?: Array<{ items?: unknown[] }> }
-
-    if (!rosterData.athletes || rosterData.athletes.length === 0) {
-      return []
-    }
-
-    // ESPN groups athletes by position, we need to flatten them
-    const allAthletes = rosterData.athletes.flatMap(group => group.items || [])
-
-    return allAthletes.map((athlete: unknown) => {
-      const athleteData = athlete as {
-        id: string
-        displayName: string
-        position?: { abbreviation?: string; name?: string }
-        jersey?: string
-        experience?: { years?: number }
-        college?: { name?: string }
-      }
-
-      return {
-        id: athleteData.id,
-        name: athleteData.displayName,
-        displayName: athleteData.displayName,
-        position:
-          athleteData.position?.abbreviation ||
-          athleteData.position?.name ||
-          'N/A',
-        jerseyNumber: athleteData.jersey || '0',
-        experience: athleteData.experience?.years || 0,
-        college: athleteData.college?.name,
-      }
-    })
   }
 }

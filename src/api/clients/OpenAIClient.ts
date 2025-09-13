@@ -121,7 +121,7 @@ export class OpenAIClient extends BaseAPIClient implements IOpenAIClient {
         max_tokens: 1,
       })
       return true
-    } catch (error) {
+    } catch {
       return false
     }
   }

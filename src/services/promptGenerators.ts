@@ -13,7 +13,7 @@ CONFIDENCE RANGE: ${strategy.confidenceRange[0]}-${strategy.confidenceRange[1]}/
 
 RULES:
 1. Use ONLY players from provided rosters
-2. Explain picks with specific football logic (matchups, trends, conditions)  
+2. Explain picks with specific football logic (matchups, trends, conditions)
 3. NEVER use strategy names in reasoning - users want football analysis
 4. Return valid JSON only
 5. Generate exactly 3 different bet types
@@ -75,7 +75,7 @@ Return this exact JSON format:
     {
       "id": "1",
       "betType": "player_prop",
-      "selection": "Player Name", 
+      "selection": "Player Name",
       "target": "Over 75.5 rushing yards",
       "reasoning": "Specific football explanation why this bet makes sense",
       "confidence": ${strategy.confidenceRange[0]},
@@ -85,7 +85,7 @@ Return this exact JSON format:
       "id": "2",
       "betType": "spread",
       "selection": "Team Name",
-      "target": "-3.5 points", 
+      "target": "-3.5 points",
       "reasoning": "Football logic for why this team covers",
       "confidence": ${strategy.confidenceRange[1]},
       "odds": "-110"
