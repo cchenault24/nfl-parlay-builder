@@ -1,22 +1,23 @@
-import React, { useEffect } from 'react'
+import { TrendingUp as TrendingUpIcon } from '@mui/icons-material'
 import {
+  Box,
   Card,
   CardContent,
-  Typography,
-  Box,
   Chip,
-  Grid,
   Divider,
+  Grid,
+  Typography,
 } from '@mui/material'
-import { TrendingUp as TrendingUpIcon } from '@mui/icons-material'
+import React, { useEffect } from 'react'
+import useModalStore from '../../store/modalStore'
+import useParlayStore from '../../store/parlayStore'
 import type { GeneratedParlay } from '../../types'
 import { AuthModal } from '../auth/AuthModal'
-import ParlayLoading from './ParlayLoading'
+import GameSummaryView from './GameSummaryView'
+import ParlayDisplayFooter from './ParlayDisplayFooter'
 import ParlayLanding from './ParlayLanding'
 import ParlayLegView from './ParlayLegView'
-import ParlayDisplayFooter from './ParlayDisplayFooter'
-import useParlayStore from '../../store/parlayStore'
-import useModalStore from '../../store/modalStore'
+import ParlayLoading from './ParlayLoading'
 
 interface ParlayDisplayProps {
   parlay?: GeneratedParlay
@@ -44,6 +45,13 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({ parlay, loading }) => {
 
   return (
     <>
+      {parlay.gameSummary && (
+        <GameSummaryView
+          gameSummary={parlay.gameSummary}
+          gameContext={parlay.gameContext}
+        />
+      )}
+
       <Card>
         <CardContent>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>

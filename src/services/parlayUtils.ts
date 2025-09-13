@@ -1,157 +1,68 @@
-import { GeneratedParlay, NFLGame, NFLPlayer, ParlayLeg } from '../types'
 import {
-  PARLAY_STRATEGIES,
-  StrategyConfig,
-  VarietyFactors,
-} from './parlayStrategies'
+  GameSummary,
+  GeneratedParlay,
+  NFLGame,
+  NFLPlayer,
+  ParlayLeg,
+} from '../types'
+import { PARLAY_STRATEGIES, VarietyFactors } from './parlayStrategies'
 
 /**
- * Calculate parlay odds from individual American odds
+ * Calculate combined parlay odds from individual leg odds
+ * Converts American odds to decimal, multiplies, then back to American
  */
 export const calculateParlayOdds = (individualOdds: string[]): string => {
   try {
-    const decimalOdds = individualOdds.map(odds => {
-      const num = parseInt(odds)
-      return num > 0 ? num / 100 + 1 : 100 / Math.abs(num) + 1
-    })
-
+    const decimalOdds = individualOdds.map(americanToDecimal)
     const combinedDecimal = decimalOdds.reduce((acc, odds) => acc * odds, 1)
-    return combinedDecimal >= 2
-      ? `+${Math.round((combinedDecimal - 1) * 100)}`
-      : `-${Math.round(100 / (combinedDecimal - 1))}`
-  } catch {
-    return '+550'
+    return decimalToAmerican(combinedDecimal)
+  } catch (error) {
+    console.error('Error calculating parlay odds:', error)
+    return '+500' // Fallback odds
   }
 }
 
 /**
- * Validate that a player prop references a real player from current rosters
+ * Convert American odds to decimal odds
+ */
+const americanToDecimal = (americanOdds: string): number => {
+  const odds = parseInt(americanOdds.replace(/[+-]/, ''))
+  if (americanOdds.startsWith('-')) {
+    return 1 + 100 / odds
+  } else {
+    return 1 + odds / 100
+  }
+}
+
+/**
+ * Convert decimal odds to American odds
+ */
+const decimalToAmerican = (decimalOdds: number): string => {
+  if (decimalOdds >= 2) {
+    return `+${Math.round((decimalOdds - 1) * 100)}`
+  } else {
+    return `-${Math.round(100 / (decimalOdds - 1))}`
+  }
+}
+
+/**
+ * Validate player prop against roster
  */
 export const validatePlayerProp = (
   leg: Record<string, unknown>,
   homeRoster: NFLPlayer[],
   awayRoster: NFLPlayer[]
 ): boolean => {
-  if (leg.betType !== 'player_prop') {
-    return true
-  }
+  if (leg.betType !== 'player_prop') return true
 
   const allPlayers = [...homeRoster, ...awayRoster]
-  const playerNames = allPlayers.map(p => p.displayName.toLowerCase())
-  const legPlayerName = (leg.selection as string)?.toLowerCase() || ''
+  const playerName = leg.selection as string
 
-  return playerNames.some(
-    name => name.includes(legPlayerName) || legPlayerName.includes(name)
+  return allPlayers.some(
+    player =>
+      player.displayName.toLowerCase().includes(playerName.toLowerCase()) ||
+      player.name.toLowerCase().includes(playerName.toLowerCase())
   )
-}
-
-/**
- * Create strategy-appropriate alternative leg when validation fails
- */
-export const createStrategyAlternative = (
-  legIndex: number,
-  game: NFLGame,
-  strategy: StrategyConfig,
-  varietyFactors: VarietyFactors
-): ParlayLeg => {
-  const alternatives = [
-    {
-      id: `alt-${legIndex + 1}`,
-      betType: 'spread' as const,
-      selection:
-        Math.random() > 0.5
-          ? game.homeTeam.displayName
-          : game.awayTeam.displayName,
-      target: `${Math.random() > 0.5 ? game.homeTeam.displayName : game.awayTeam.displayName} ${Math.random() > 0.5 ? '-' : '+'}${(Math.random() * 6 + 1).toFixed(1)}`,
-      reasoning: `${strategy.name} selection based on ${varietyFactors.focusArea} analysis`,
-      confidence: strategy.confidenceRange[0],
-      odds: '-110',
-    },
-    {
-      id: `alt-${legIndex + 1}`,
-      betType: 'total' as const,
-      selection: Math.random() > 0.5 ? 'Over' : 'Under',
-      target: `${Math.random() > 0.5 ? 'Over' : 'Under'} ${(Math.random() * 10 + 42).toFixed(1)} Total Points`,
-      reasoning: `${varietyFactors.gameScript} game script supports this total`,
-      confidence: strategy.confidenceRange[1],
-      odds: '-105',
-    },
-    {
-      id: `alt-${legIndex + 1}`,
-      betType: 'moneyline' as const,
-      selection:
-        Math.random() > 0.6
-          ? game.homeTeam.displayName
-          : game.awayTeam.displayName,
-      target: `${Math.random() > 0.6 ? game.homeTeam.displayName : game.awayTeam.displayName} Moneyline`,
-      reasoning: `${strategy.name} value play based on situational factors`,
-      confidence: Math.floor(
-        (strategy.confidenceRange[0] + strategy.confidenceRange[1]) / 2
-      ),
-      odds: Math.random() > 0.5 ? '+110' : '-120',
-    },
-  ]
-
-  return alternatives[legIndex % alternatives.length]
-}
-
-/**
- * Create fallback parlay when AI generation fails
- */
-export const createFallbackParlay = (
-  game: NFLGame,
-  varietyFactors?: VarietyFactors
-): GeneratedParlay => {
-  const strategy = varietyFactors
-    ? PARLAY_STRATEGIES[varietyFactors.strategy]
-    : PARLAY_STRATEGIES.conservative
-  const isHomeFavorite = Math.random() > 0.4
-  const spread = (Math.random() * 6 + 1).toFixed(1)
-  const total = (Math.random() * 10 + 42).toFixed(1)
-
-  return {
-    id: `fallback-${Date.now()}`,
-    legs: [
-      {
-        id: 'fallback-1',
-        betType: 'spread',
-        selection: isHomeFavorite
-          ? game.homeTeam.displayName
-          : game.awayTeam.displayName,
-        target: `${isHomeFavorite ? game.homeTeam.displayName : game.awayTeam.displayName} ${isHomeFavorite ? '-' : '+'}${spread}`,
-        reasoning: `${strategy.name} approach: ${isHomeFavorite ? 'Home field advantage' : 'Road team value'} analysis.`,
-        confidence: strategy.confidenceRange[0],
-        odds: '-110',
-      },
-      {
-        id: 'fallback-2',
-        betType: 'total',
-        selection: Math.random() > 0.5 ? 'Over' : 'Under',
-        target: `${Math.random() > 0.5 ? 'Over' : 'Under'} ${total} Total Points`,
-        reasoning: `${strategy.name} total based on expected game flow and pace factors.`,
-        confidence: strategy.confidenceRange[1],
-        odds: '-105',
-      },
-      {
-        id: 'fallback-3',
-        betType: 'player_prop',
-        selection: 'Starting QB',
-        target: 'Starting QB Over 250.5 Passing Yards',
-        reasoning: `${strategy.name} quarterback prop based on matchup analysis.`,
-        confidence: Math.floor(
-          (strategy.confidenceRange[0] + strategy.confidenceRange[1]) / 2
-        ),
-        odds: '-115',
-      },
-    ],
-    gameContext: `${game.awayTeam.displayName} @ ${game.homeTeam.displayName} - ${strategy.name}`,
-    aiReasoning: `${strategy.name} fallback parlay: ${strategy.description}`,
-    overallConfidence: Math.floor(
-      (strategy.confidenceRange[0] + strategy.confidenceRange[1]) / 2
-    ),
-    estimatedOdds: '+525',
-    createdAt: new Date().toISOString(),
-  }
 }
 
 /**
@@ -197,31 +108,18 @@ export const parseAIResponse = (
       throw new Error('Invalid parlay structure from AI')
     }
 
-    // Validate and process legs
-    const validatedLegs = parsed.legs
-      .filter((leg: unknown) =>
-        validatePlayerProp(
-          leg as Record<string, unknown>,
-          homeRoster,
-          awayRoster
-        )
-      )
-      .slice(0, 3)
+    // Validate legs - if any fail validation, throw error
+    const validatedLegs = parsed.legs.filter((leg: unknown) =>
+      validatePlayerProp(leg as Record<string, unknown>, homeRoster, awayRoster)
+    )
 
-    // Fill missing legs with alternatives
-    while (validatedLegs.length < 3) {
-      validatedLegs.push(
-        createStrategyAlternative(
-          validatedLegs.length,
-          game,
-          strategy,
-          varietyFactors
-        )
-      )
+    if (validatedLegs.length < 3) {
+      throw new Error(`Only ${validatedLegs.length} valid legs found, need 3`)
     }
 
-    const finalLegs: ParlayLeg[] = validatedLegs.map(
-      (leg: any, index: number) => ({
+    const finalLegs: ParlayLeg[] = validatedLegs
+      .slice(0, 3)
+      .map((leg: any, index: number) => ({
         id: leg.id || `leg-${index + 1}`,
         betType: leg.betType || 'spread',
         selection: leg.selection || '',
@@ -229,13 +127,53 @@ export const parseAIResponse = (
         reasoning: leg.reasoning || 'Strategic selection based on analysis',
         confidence: Math.min(Math.max(leg.confidence || 5, 1), 10),
         odds: leg.odds || '-110',
-      })
-    )
+      }))
+
+    const gameSummary: GameSummary | undefined = parsed.gameSummary
+      ? {
+          matchupAnalysis:
+            typeof parsed.gameSummary.matchupAnalysis === 'string'
+              ? parsed.gameSummary.matchupAnalysis
+              : typeof parsed.gameSummary.matchupAnalysis === 'object'
+                ? Object.values(parsed.gameSummary.matchupAnalysis || {}).join(
+                    ' '
+                  ) ||
+                  `${game.awayTeam.displayName} vs ${game.homeTeam.displayName} matchup analysis.`
+                : `${game.awayTeam.displayName} vs ${game.homeTeam.displayName} matchup analysis.`,
+          gameFlow: [
+            'high_scoring_shootout',
+            'defensive_grind',
+            'balanced_tempo',
+            'potential_blowout',
+          ].includes(parsed.gameSummary.gameFlow)
+            ? parsed.gameSummary.gameFlow
+            : 'balanced_tempo',
+          keyFactors: Array.isArray(parsed.gameSummary.keyFactors)
+            ? parsed.gameSummary.keyFactors.map((f: string) => f).slice(0, 5)
+            : typeof parsed.gameSummary.keyFactors === 'object'
+              ? Object.values(parsed.gameSummary.keyFactors || {})
+                  .map(f => String(f))
+                  .slice(0, 5)
+              : ['Team matchups', 'Key player availability', 'Game conditions'],
+          prediction:
+            typeof parsed.gameSummary.prediction === 'string'
+              ? parsed.gameSummary.prediction
+              : typeof parsed.gameSummary.prediction === 'object'
+                ? Object.values(parsed.gameSummary.prediction || {}).join(
+                    ' '
+                  ) || 'Competitive game expected between these two teams.'
+                : 'Competitive game expected between these two teams.',
+          confidence: Math.min(
+            Math.max(Number(parsed.gameSummary.confidence) || 6, 1),
+            10
+          ),
+        }
+      : undefined
 
     return {
       id: `parlay-${Date.now()}`,
       legs: finalLegs as [ParlayLeg, ParlayLeg, ParlayLeg],
-      gameContext: `${game.awayTeam.displayName} @ ${game.homeTeam.displayName} - ${strategy.name}`,
+      gameContext: `${game.awayTeam.displayName} @ ${game.homeTeam.displayName} - Week ${game.week}`,
       aiReasoning:
         parsed.aiReasoning ||
         `${strategy.name} approach: ${strategy.description}`,
@@ -245,10 +183,14 @@ export const parseAIResponse = (
       ),
       estimatedOdds: calculateParlayOdds(finalLegs.map(leg => leg.odds)),
       createdAt: new Date().toISOString(),
+      gameSummary,
     }
   } catch (error) {
     console.error('Error parsing AI response:', error)
-    return createFallbackParlay(game, varietyFactors)
+    // Re-throw error instead of creating fallback
+    throw new Error(
+      `Failed to parse AI response: ${error instanceof Error ? error.message : 'Unknown error'}`
+    )
   }
 }
 

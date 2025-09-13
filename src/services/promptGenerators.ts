@@ -6,7 +6,7 @@ import {
 } from './parlayStrategies'
 
 export const createSystemPrompt = (strategy: StrategyConfig): string => {
-  return `You are an expert NFL betting analyst. Create a 3-leg parlay with clear football reasoning.
+  return `You are an expert NFL betting analyst. Create a 3-leg parlay with clear football reasoning AND a comprehensive game summary.
 
 STRATEGY: ${strategy.name} (${strategy.description})
 CONFIDENCE RANGE: ${strategy.confidenceRange[0]}-${strategy.confidenceRange[1]}/10
@@ -17,6 +17,7 @@ RULES:
 3. NEVER use strategy names in reasoning - users want football analysis
 4. Return valid JSON only
 5. Generate exactly 3 different bet types
+6. 🆕 INCLUDE comprehensive game summary analyzing team matchups and expected game flow
 
 BET PREFERENCES:
 ${Object.entries(strategy.betTypeWeights)
@@ -68,6 +69,13 @@ ${game.awayTeam.displayName}: ${[
     .slice(0, 8)
     .join(', ')}
 
+🆕 ANALYZE the matchups and provide insights on:
+- How ${game.awayTeam.displayName} offense matches up against ${game.homeTeam.displayName} defense
+- How ${game.homeTeam.displayName} offense matches up against ${game.awayTeam.displayName} defense  
+- Expected game flow (high-scoring, defensive battle, balanced, potential blowout)
+- Key factors that will shape the game outcome
+- Overall game prediction with confidence level
+
 Return this exact JSON format:
 
 {
@@ -103,6 +111,17 @@ Return this exact JSON format:
   "gameContext": "Week ${game.week} Analysis",
   "aiReasoning": "Brief overall approach",
   "overallConfidence": ${Math.floor((strategy.confidenceRange[0] + strategy.confidenceRange[1]) / 2)},
-  "estimatedOdds": "+550"
+  "estimatedOdds": "+550",
+  "gameSummary": {
+    "matchupAnalysis": "Detailed analysis of how team offenses match against opposing defenses. Include specific strengths vs weaknesses.",
+    "gameFlow": "high_scoring_shootout",
+    "keyFactors": [
+      "Factor 1 affecting game outcome",
+      "Factor 2 affecting game outcome", 
+      "Factor 3 affecting game outcome"
+    ],
+    "prediction": "2-3 sentence prediction of how you expect the game to unfold and why.",
+    "confidence": ${Math.floor((strategy.confidenceRange[0] + strategy.confidenceRange[1]) / 2)}
+  }
 }`
 }
