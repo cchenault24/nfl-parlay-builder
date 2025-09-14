@@ -19,7 +19,9 @@ const corsHandler = cors({
   origin: [
     'http://localhost:3000',
     'http://localhost:3001',
-    'http://localhost:5173', // Vite dev server
+    'http://localhost:5173',
+    'nfl-parlay-builder.web.app',
+    'nfl-parlay-builder.firebaseapp.com',
   ],
   credentials: true,
   methods: ['POST', 'OPTIONS'],

@@ -18,6 +18,7 @@ export const ENV = {
   FIREBASE_MESSAGING_SENDER_ID: getEnvVar('VITE_FIREBASE_MESSAGING_SENDER_ID'),
   FIREBASE_APP_ID: getEnvVar('VITE_FIREBASE_APP_ID'),
   NODE_ENV: getEnvVar('NODE_ENV') || 'development',
+  CLOUD_FUNCTION_URL: getEnvVar('VITE_CLOUD_FUNCTION_URL'),
 } as const
 
 /**
