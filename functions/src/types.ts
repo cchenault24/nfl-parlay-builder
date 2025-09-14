@@ -95,6 +95,7 @@ export interface GameRosters {
 // === Cloud Function Request/Response Types ===
 export interface GenerateParlayRequest {
   game: NFLGame
+  rosters: GameRosters
   options?: {
     temperature?: number
     strategy?: string
@@ -113,6 +114,7 @@ export interface GenerateParlayResponse {
     remaining: number
     resetTime: string
     currentCount: number
+    total: number
   }
 }
 

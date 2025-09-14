@@ -1,6 +1,6 @@
 import { INFLClient } from '../api'
 import { auth } from '../config/firebase'
-import { GameRosters, GeneratedParlay, NFLGame } from '../types'
+import { GameRosters, NFLGame, ParlayGenerationResult } from '../types'
 import { RateLimitError } from '../types/errors'
 import { NFLDataService } from './NFLDataService'
 
@@ -30,9 +30,8 @@ export class ParlayService {
 
   /**
    * Generate a parlay for a specific game
-   * Now calls Cloud Function instead of OpenAI directly
    */
-  async generateParlay(game: NFLGame): Promise<GeneratedParlay> {
+  async generateParlay(game: NFLGame): Promise<ParlayGenerationResult> {
     try {
       // Step 1: Get team rosters for accurate player props
       const rosters = await this.getGameRosters(game)
@@ -51,14 +50,25 @@ export class ParlayService {
         throw new Error(response.error?.message || 'Failed to generate parlay')
       }
 
-      console.log('✅ Parlay generated successfully via Cloud Function')
-      return response.data
+      console.log('✅ Parlay generated via Cloud Function:', response.data.id)
+
+      // Log rate limit info if present
+      if (response.rateLimitInfo) {
+        console.log(
+          `📊 Rate limit from response: ${response.rateLimitInfo.remaining}/${response.rateLimitInfo.total} remaining`
+        )
+      }
+
+      // Return both parlay and rate limit info
+      return {
+        parlay: response.data,
+        rateLimitInfo: response.rateLimitInfo,
+      }
     } catch (error) {
       console.error('❌ Error generating parlay:', error)
       throw error
     }
   }
-
   /**
    * Get rosters for both teams in a game
    * Business logic method that combines multiple NFL API calls
@@ -85,51 +95,6 @@ export class ParlayService {
   }
 
   /**
-   * Generate multiple parlays for variety
-   * Enhanced with better strategy diversity
-   */
-  async generateMultipleParlays(
-    game: NFLGame,
-    count: number = 3
-  ): Promise<GeneratedParlay[]> {
-    const parlays: GeneratedParlay[] = []
-    const usedStrategies = new Set<string>()
-
-    for (let i = 0; i < count; i++) {
-      try {
-        let attempts = 0
-        let parlay: GeneratedParlay
-
-        // Try to get different strategies for variety
-        do {
-          parlay = await this.generateParlay(game)
-          attempts++
-        } while (
-          usedStrategies.has(this.getStrategyFromParlay(parlay)) &&
-          attempts < 5
-        )
-
-        const strategy = this.getStrategyFromParlay(parlay)
-        usedStrategies.add(strategy)
-        parlays.push(parlay)
-
-        // Add small delay to avoid potential rate limiting
-        if (i < count - 1) {
-          await this.delay(100)
-        }
-      } catch (error) {
-        console.error(`❌ Error generating parlay ${i + 1}:`, error)
-        // Skip this parlay instead of using fallback
-        continue
-      }
-    }
-
-    return parlays
-  }
-
-  // Private helper methods
-
-  /**
    * Call Firebase Cloud Function for parlay generation
    */
   private async callCloudFunction(
@@ -138,7 +103,6 @@ export class ParlayService {
     options: { temperature?: number; strategy?: string } = {}
   ): Promise<any> {
     try {
-      // Fix: Add await here
       const authToken = await this.getAuthToken()
 
       const requestBody = {
@@ -152,7 +116,6 @@ export class ParlayService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          // Fix: Now properly check if authToken exists
           ...(authToken
             ? {
                 Authorization: `Bearer ${authToken}`,
@@ -189,6 +152,13 @@ export class ParlayService {
         )
       }
 
+      // Log rate limit info if present
+      if (responseData.rateLimitInfo) {
+        console.log(
+          `📊 Rate limit: ${responseData.rateLimitInfo.remaining}/${responseData.rateLimitInfo.total} remaining`
+        )
+      }
+
       return responseData
     } catch (error) {
       console.error('❌ Cloud Function call failed:', error)
@@ -217,31 +187,6 @@ export class ParlayService {
         throw new Error(`Unexpected error: ${String(error)}`)
       }
     }
-  }
-
-  private getStrategyFromParlay(parlay: GeneratedParlay): string {
-    const contextMatch = parlay.gameContext.match(/ - (.+)$/)
-    if (contextMatch) {
-      return contextMatch[1]
-    }
-
-    // Try to extract strategy from AI reasoning
-    const strategies = [
-      'Conservative',
-      'Balanced',
-      'Aggressive',
-      'Contrarian',
-      'Value',
-    ]
-    const foundStrategy = strategies.find(name =>
-      parlay.aiReasoning.toLowerCase().includes(name.toLowerCase())
-    )
-
-    return foundStrategy || 'Unknown Strategy'
-  }
-
-  private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms))
   }
 
   /**

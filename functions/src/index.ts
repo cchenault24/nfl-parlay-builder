@@ -5,10 +5,8 @@ import { RateLimiter, getClientIpAddress } from './middleware/rateLimiter'
 import { OpenAIService } from './service/openaiService'
 import {
   CloudFunctionError,
-  GameRosters,
   GenerateParlayRequest,
   GenerateParlayResponse,
-  NFLGame,
   ValidationResult,
 } from './types'
 
@@ -91,7 +89,7 @@ export const generateParlay = functions
         ipAddress = getClientIpAddress(request)
         console.log(`🌐 Client IP: ${ipAddress}`)
 
-        // Check rate limit
+        // Check rate limit BEFORE processing request
         const rateLimitResult = await rateLimiter.checkRateLimit(
           userId,
           ipAddress
@@ -117,11 +115,12 @@ export const generateParlay = functions
             success: false,
             error: {
               code: 'RATE_LIMIT_EXCEEDED',
-              message: `Rate limit exceeded. You can make ${rateLimitResult.currentCount - rateLimitResult.remaining} more requests per hour. Limit resets at ${rateLimitResult.resetTime.toISOString()}.`,
+              message: `Rate limit exceeded. You have used ${rateLimitResult.currentCount} of 10 requests this hour. Limit resets at ${rateLimitResult.resetTime.toISOString()}.`,
               details: {
                 remaining: rateLimitResult.remaining,
                 resetTime: rateLimitResult.resetTime.toISOString(),
                 currentCount: rateLimitResult.currentCount,
+                total: 10,
               },
             },
           })
@@ -144,6 +143,31 @@ export const generateParlay = functions
 
         const requestData: GenerateParlayRequest = request.body
 
+        // Use rosters from client request (Option 2)
+        const rosters = requestData.rosters
+
+        // Validate rosters
+        if (!rosters || !rosters.homeRoster || !rosters.awayRoster) {
+          throw new CloudFunctionError(
+            'MISSING_ROSTERS',
+            'Roster data is required but not provided'
+          )
+        }
+
+        if (
+          rosters.homeRoster.length === 0 ||
+          rosters.awayRoster.length === 0
+        ) {
+          throw new CloudFunctionError(
+            'INSUFFICIENT_ROSTERS',
+            'Insufficient roster data to generate parlay'
+          )
+        }
+
+        console.log(
+          `📊 Received rosters: Home=${rosters.homeRoster.length}, Away=${rosters.awayRoster.length}`
+        )
+
         // Get OpenAI API key from Firebase config
         const openaiApiKey = process.env.OPENAI_API_KEY
         if (!openaiApiKey) {
@@ -156,10 +180,10 @@ export const generateParlay = functions
         // Initialize OpenAI service
         const openaiService = new OpenAIService(openaiApiKey)
 
-        // Fetch team rosters (you'll need to implement this or pass from client)
-        const rosters = await fetchGameRosters(requestData.game)
-
         // Generate parlay
+        console.log(
+          `🤖 Generating parlay for ${requestData.game.awayTeam.displayName} @ ${requestData.game.homeTeam.displayName}`
+        )
         const parlay = await openaiService.generateParlay(
           requestData.game,
           rosters,
@@ -172,6 +196,7 @@ export const generateParlay = functions
           `📊 Rate limit status: ${rateLimitResult.remaining} requests remaining`
         )
 
+        // Return success response with rate limit info
         const successResponse: GenerateParlayResponse = {
           success: true,
           data: parlay,
@@ -179,6 +204,7 @@ export const generateParlay = functions
             remaining: rateLimitResult.remaining,
             resetTime: rateLimitResult.resetTime.toISOString(),
             currentCount: rateLimitResult.currentCount,
+            total: 10,
           },
         }
 
@@ -198,6 +224,7 @@ export const generateParlay = functions
             },
           }
         } else {
+          // Don't expose internal errors to client
           errorResponse = {
             success: false,
             error: {
@@ -207,6 +234,7 @@ export const generateParlay = functions
           }
         }
 
+        // Determine appropriate HTTP status code
         const statusCode = getStatusCodeFromError(error)
         response.status(statusCode).json(errorResponse)
       }
@@ -276,18 +304,19 @@ export const getRateLimitStatus = functions
     })
   })
 
-// Import cleanup functions
-export { cleanupRateLimits, manualCleanupRateLimits } from './utils/cleanup'
-
-// Rest of your existing functions...
+/**
+ * Health check endpoint for monitoring
+ */
 export const healthCheck = functions
   .region('us-central1')
   .https.onRequest(async (request, response) => {
     corsHandler(request, response, async () => {
       try {
+        // Basic health check
         const timestamp = new Date().toISOString()
-        let openaiStatus = 'unknown'
 
+        // Optional: Test OpenAI connection
+        let openaiStatus = 'unknown'
         try {
           const openaiApiKey = process.env.OPENAI_API_KEY
           if (openaiApiKey) {
@@ -305,7 +334,9 @@ export const healthCheck = functions
           services: {
             openai: openaiStatus,
             firebase: 'connected',
+            rateLimiting: 'active',
           },
+          version: '1.0.0',
         })
       } catch (error) {
         response.status(503).json({
@@ -317,15 +348,34 @@ export const healthCheck = functions
     })
   })
 
-// Helper functions (add these if not already present)
-function validateGenerateParlayRequest(body: any): ValidationResult {
-  // Add your existing validation logic here
-  return { isValid: true, errors: [] }
-}
+// Import cleanup functions from utils
+export { cleanupRateLimits, manualCleanupRateLimits } from './utils/cleanup'
 
-async function fetchGameRosters(game: NFLGame): Promise<GameRosters> {
-  // Add your existing roster fetching logic here
-  return { homeRoster: [], awayRoster: [] }
+// Helper functions
+function validateGenerateParlayRequest(body: any): ValidationResult {
+  const errors: string[] = []
+
+  if (!body) {
+    errors.push('Request body is required')
+    return { isValid: false, errors }
+  }
+
+  if (!body.game) {
+    errors.push('Game data is required')
+  }
+
+  if (!body.rosters) {
+    errors.push('Roster data is required')
+  }
+
+  if (body.rosters && (!body.rosters.homeRoster || !body.rosters.awayRoster)) {
+    errors.push('Both home and away roster data is required')
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+  }
 }
 
 function getStatusCodeFromError(error: any): number {
@@ -334,6 +384,8 @@ function getStatusCodeFromError(error: any): number {
       case 'RATE_LIMIT_EXCEEDED':
         return 429
       case 'INVALID_REQUEST':
+      case 'MISSING_ROSTERS':
+      case 'INSUFFICIENT_ROSTERS':
         return 400
       case 'MISSING_CONFIG':
         return 500

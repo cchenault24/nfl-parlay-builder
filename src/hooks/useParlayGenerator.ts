@@ -1,16 +1,18 @@
 import { useMutation } from '@tanstack/react-query'
 import { getParlayService } from '../services/container'
 import useParlayStore from '../store/parlayStore'
-import { GeneratedParlay, NFLGame } from '../types'
+import { NFLGame } from '../types'
 import { RateLimitError } from '../types/errors'
 import { useRateLimit } from './useRateLimit'
 
 export const useParlayGenerator = () => {
   const setParlay = useParlayStore(state => state.setParlay)
   const parlayService = getParlayService()
+  const { updateFromResponse } = useRateLimit()
 
   const mutation = useMutation({
-    mutationFn: async (game: NFLGame): Promise<GeneratedParlay> => {
+    mutationFn: async (game: NFLGame) => {
+      // Return the full result so we can access it in onSuccess
       return await parlayService.generateParlay(game)
     },
     onError: error => {
@@ -19,24 +21,29 @@ export const useParlayGenerator = () => {
       // Handle rate limit errors specifically
       if (error instanceof RateLimitError) {
         console.warn('Rate limit exceeded:', error.rateLimitInfo)
+        // Update rate limit info from error
+        updateFromResponse({ rateLimitInfo: error.rateLimitInfo })
       }
 
       // Clear parlay on error
       setParlay(null)
     },
-    onSuccess: (data: GeneratedParlay) => {
-      console.log('✅ Parlay generated successfully:', data.id)
+    onSuccess: result => {
+      console.log('✅ Parlay generated successfully:', result.parlay.id)
+
+      // Update rate limit info from response
+      if (result.rateLimitInfo) {
+        console.log(
+          '📊 Updating rate limit from success:',
+          result.rateLimitInfo
+        )
+        updateFromResponse({ rateLimitInfo: result.rateLimitInfo })
+      }
 
       // Save parlay to store on success
-      setParlay(data)
+      setParlay(result.parlay)
     },
   })
-
-  // Check if user can generate more parlays
-  const canGenerate = () => {
-    const rateLimitInfo = useRateLimit().rateLimitInfo
-    return !rateLimitInfo || rateLimitInfo.remaining > 0
-  }
 
   // Custom reset that also clears store
   const resetWithStore = () => {
@@ -46,12 +53,11 @@ export const useParlayGenerator = () => {
 
   return {
     mutate: mutation.mutate,
-    data: mutation.data,
+    data: mutation.data?.parlay, // Return just the parlay data
     isPending: mutation.isPending,
     isError: mutation.isError,
     error: mutation.error,
     reset: resetWithStore,
     isSuccess: mutation.isSuccess,
-    canGenerate: canGenerate(),
   }
 }
