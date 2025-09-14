@@ -178,9 +178,9 @@ const GameSummaryView: React.FC<GameSummaryViewProps> = ({
 
   // Get confidence color
   const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 8) return 'success'
-    if (confidence >= 6) return 'info'
-    if (confidence >= 4) return 'warning'
+    if (confidence >= 8) {return 'success'}
+    if (confidence >= 6) {return 'info'}
+    if (confidence >= 4) {return 'warning'}
     return 'error'
   }
 

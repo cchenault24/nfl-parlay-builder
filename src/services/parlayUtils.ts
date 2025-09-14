@@ -29,9 +29,9 @@ const americanToDecimal = (americanOdds: string): number => {
   const odds = parseInt(americanOdds.replace(/[+-]/, ''))
   if (americanOdds.startsWith('-')) {
     return 1 + 100 / odds
-  } else {
+  } 
     return 1 + odds / 100
-  }
+  
 }
 
 /**
@@ -40,9 +40,9 @@ const americanToDecimal = (americanOdds: string): number => {
 const decimalToAmerican = (decimalOdds: number): string => {
   if (decimalOdds >= 2) {
     return `+${Math.round((decimalOdds - 1) * 100)}`
-  } else {
+  } 
     return `-${Math.round(100 / (decimalOdds - 1))}`
-  }
+  
 }
 
 /**
@@ -53,7 +53,7 @@ export const validatePlayerProp = (
   homeRoster: NFLPlayer[],
   awayRoster: NFLPlayer[]
 ): boolean => {
-  if (leg.betType !== 'player_prop') return true
+  if (leg.betType !== 'player_prop') {return true}
 
   const allPlayers = [...homeRoster, ...awayRoster]
   const playerName = leg.selection as string

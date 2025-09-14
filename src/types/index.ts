@@ -79,6 +79,16 @@ export interface ParlayLeg {
   odds: string
 }
 
+export interface ParlayGenerationResult {
+  parlay: GeneratedParlay
+  rateLimitInfo?: {
+    remaining: number
+    total: number
+    resetTime: string
+    currentCount: number
+  }
+}
+
 export interface GameSummary {
   matchupAnalysis: string // Offensive vs defensive matchups (e.g., "Chiefs explosive offense vs Bills top-ranked pass defense")
   gameFlow:
