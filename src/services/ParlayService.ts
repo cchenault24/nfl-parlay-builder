@@ -1,37 +1,27 @@
-import { INFLClient, IOpenAIClient } from '../api'
-import { API_CONFIG } from '../config/api'
-import {
-  GameRosters,
-  GameSummary,
-  GeneratedParlay,
-  NFLGame,
-  ParlayLeg,
-} from '../types'
+import { INFLClient } from '../api'
+import { GameRosters, GeneratedParlay, NFLGame } from '../types'
 import { NFLDataService } from './NFLDataService'
-import {
-  generateVarietyFactors,
-  PARLAY_STRATEGIES,
-  StrategyConfig,
-  VarietyFactors,
-} from './parlayStrategies'
-import { calculateParlayOdds } from './parlayUtils'
-import { createParlayPrompt, createSystemPrompt } from './promptGenerators'
 
 /**
- * Parlay Service
- * Handles business logic for parlay generation with chain-of-thought reasoning
- * Coordinates between NFL data and OpenAI clients
+ * Updated Parlay Service
+ * Now calls Firebase Cloud Function instead of OpenAI directly
  */
 export class ParlayService {
+  private readonly cloudFunctionUrl: string
+
   constructor(
     private nflClient: INFLClient,
-    private openaiClient: IOpenAIClient,
     private nflDataService: NFLDataService
-  ) {}
+  ) {
+    // Set your Firebase Cloud Function URL
+    // Replace with your actual function URL after deployment
+    const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID
+    this.cloudFunctionUrl = `https://us-central1-${projectId}.cloudfunctions.net/generateParlay`
+  }
 
   /**
    * Generate a parlay for a specific game
-   * Enhanced with chain-of-thought reasoning and AI game summary
+   * Now calls Cloud Function instead of OpenAI directly
    */
   async generateParlay(game: NFLGame): Promise<GeneratedParlay> {
     try {
@@ -44,33 +34,17 @@ export class ParlayService {
         throw new Error('Insufficient roster data to generate parlay')
       }
 
-      // Step 3: Generate variety factors for this parlay
-      const varietyFactors: VarietyFactors = generateVarietyFactors()
-      const strategy = PARLAY_STRATEGIES[varietyFactors.strategy]
+      // Step 3: Call Firebase Cloud Function
+      const response = await this.callCloudFunction(game, rosters)
 
-      // Step 4: Create enhanced AI prompts with chain-of-thought instructions and game summary
-      const systemPrompt = createSystemPrompt(strategy)
-      const userPrompt = createParlayPrompt(
-        game,
-        rosters.homeRoster,
-        rosters.awayRoster,
-        varietyFactors
-      )
+      if (!response.success || !response.data) {
+        throw new Error(response.error?.message || 'Failed to generate parlay')
+      }
 
-      // Step 5: Generate parlay using OpenAI with enhanced parameters
-      const aiResponse = await this.callOpenAI(
-        systemPrompt,
-        userPrompt,
-        strategy
-      )
-
-      // Step 6: Parse and validate enhanced AI response (now includes game summary)
-      const parlay = this.parseAIResponse(aiResponse, game, varietyFactors)
-
-      return parlay
+      return response.data
     } catch (error) {
       console.error('❌ Error generating parlay:', error)
-      throw error // Re-throw the error instead of creating fallback
+      throw error
     }
   }
 
@@ -144,130 +118,50 @@ export class ParlayService {
 
   // Private helper methods
 
-  private async callOpenAI(
-    systemPrompt: string,
-    userPrompt: string,
-    strategy: StrategyConfig
-  ): Promise<string> {
-    const response = await this.openaiClient.createChatCompletion({
-      model: API_CONFIG.OPENAI.models.default,
-      messages: [
-        {
-          role: 'system',
-          content: systemPrompt,
-        },
-        {
-          role: 'user',
-          content: userPrompt,
-        },
-      ],
-      response_format: { type: 'json_object' },
-      temperature: strategy.temperature * 0.8, // Slightly lower for better consistency
-      max_tokens: 4000, // 🆕 INCREASED for game summary content
-      top_p: 0.9,
-      frequency_penalty: 0.3,
-      presence_penalty: 0.4,
-      seed: Math.floor(Math.random() * 1000000),
-    })
-
-    const content = response.data.choices[0]?.message?.content
-    if (!content) {
-      throw new Error('No response from OpenAI')
-    }
-
-    return content
-  }
-
-  private parseAIResponse(
-    response: string,
+  /**
+   * Call Firebase Cloud Function for parlay generation
+   */
+  private async callCloudFunction(
     game: NFLGame,
-    varietyFactors: VarietyFactors
-  ): GeneratedParlay {
+    rosters: GameRosters,
+    options: { temperature?: number; strategy?: string } = {}
+  ): Promise<any> {
     try {
-      const parsed = JSON.parse(response)
-      const strategy = PARLAY_STRATEGIES[varietyFactors.strategy]
-
-      // Validate basic structure
-      if (
-        !parsed.legs ||
-        !Array.isArray(parsed.legs) ||
-        parsed.legs.length !== 3
-      ) {
-        console.error('Invalid parlay structure:', parsed)
-        throw new Error('Invalid parlay structure from AI')
+      const requestBody = {
+        game,
+        rosters, // Include rosters in request for now
+        options,
       }
 
-      // Process and validate each leg with enhanced reasoning
-      const validatedLegs = this.processLegsWithEnhancedReasoning(parsed.legs)
+      const response = await fetch(this.cloudFunctionUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      })
 
-      // Calculate parlay odds
-      const individualOdds = validatedLegs.map(leg => leg.odds)
-      const calculatedOdds = calculateParlayOdds(individualOdds)
-
-      const gameSummary = this.processGameSummary(parsed.gameSummary, game)
-
-      const parlay: GeneratedParlay = {
-        id: `parlay-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        legs: validatedLegs as [ParlayLeg, ParlayLeg, ParlayLeg],
-        gameContext: `${game.awayTeam.displayName} @ ${game.homeTeam.displayName} - Week ${game.week}`,
-        aiReasoning:
-          parsed.aiReasoning || `Generated using ${strategy.name} approach`,
-        overallConfidence: Math.min(
-          Math.max(parsed.overallConfidence || 6, 1),
-          10
-        ),
-        estimatedOdds: parsed.estimatedOdds || calculatedOdds,
-        createdAt: new Date().toISOString(),
-        gameSummary,
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(
+          errorData.error?.message ||
+            `HTTP ${response.status}: ${response.statusText}`
+        )
       }
 
-      return parlay
+      return await response.json()
     } catch (error) {
-      console.error('❌ Error parsing AI response:', error)
-      throw new Error('Failed to parse AI response for parlay generation')
+      console.error('❌ Cloud Function call failed:', error)
+
+      // Provide user-friendly error messages
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new Error(
+          'Unable to connect to parlay generation service. Please check your internet connection.'
+        )
+      }
+
+      throw error
     }
-  }
-
-  private processGameSummary(rawSummary: any, game: NFLGame): GameSummary {
-    // Validate game flow enum
-    const validGameFlows: GameSummary['gameFlow'][] = [
-      'high_scoring_shootout',
-      'defensive_grind',
-      'balanced_tempo',
-      'potential_blowout',
-    ]
-
-    const gameFlow = validGameFlows.includes(rawSummary.gameFlow)
-      ? rawSummary.gameFlow
-      : 'balanced_tempo'
-
-    return {
-      matchupAnalysis:
-        rawSummary.matchupAnalysis ||
-        `${game.awayTeam.displayName} vs ${game.homeTeam.displayName} matchup analysis pending.`,
-      gameFlow,
-      keyFactors: Array.isArray(rawSummary.keyFactors)
-        ? rawSummary.keyFactors.slice(0, 5) // Limit to 5 factors
-        : ['Home field advantage', 'Weather conditions', 'Team motivation'],
-      prediction:
-        rawSummary.prediction ||
-        `Competitive matchup expected between ${game.awayTeam.displayName} and ${game.homeTeam.displayName}.`,
-      confidence: Math.min(Math.max(rawSummary.confidence || 6, 1), 10),
-    }
-  }
-
-  private processLegsWithEnhancedReasoning(legs: any[]): ParlayLeg[] {
-    // Implementation from existing code
-    // This method should remain the same as your current implementation
-    return legs.map((leg: any, index: number) => ({
-      id: leg.id || `leg-${index + 1}`,
-      betType: leg.betType || 'spread',
-      selection: leg.selection || '',
-      target: leg.target || '',
-      reasoning: leg.reasoning || 'Strategic selection based on analysis',
-      confidence: Math.min(Math.max(leg.confidence || 5, 1), 10),
-      odds: leg.odds || '-110',
-    }))
   }
 
   private getStrategyFromParlay(parlay: GeneratedParlay): string {
@@ -276,7 +170,14 @@ export class ParlayService {
       return contextMatch[1]
     }
 
-    const strategies = Object.values(PARLAY_STRATEGIES).map(s => s.name)
+    // Try to extract strategy from AI reasoning
+    const strategies = [
+      'Conservative',
+      'Balanced',
+      'Aggressive',
+      'Contrarian',
+      'Value',
+    ]
     const foundStrategy = strategies.find(name =>
       parlay.aiReasoning.toLowerCase().includes(name.toLowerCase())
     )
