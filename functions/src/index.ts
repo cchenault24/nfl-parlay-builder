@@ -1,32 +1,380 @@
+import * as cors from 'cors'
+import * as admin from 'firebase-admin'
+import * as functions from 'firebase-functions'
+import * as helmet from 'helmet'
+import { OpenAIService } from './services/openaiService'
+import {
+  CloudFunctionError,
+  GameRosters,
+  GenerateParlayRequest,
+  GenerateParlayResponse,
+  NFLGame,
+  ValidationResult,
+} from './types'
+
+// Initialize Firebase Admin
+admin.initializeApp()
+
+// Configure CORS for your frontend domain
+const corsHandler = cors({
+  origin: [
+    'http://localhost:3000',
+    'http://localhost:5173', // Vite dev server
+    'https://your-app-domain.vercel.app', // Replace with your actual domain
+    /^https:\/\/.*\.vercel\.app$/, // Allow all Vercel preview deployments
+  ],
+  credentials: true,
+  methods: ['POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+})
+
 /**
- * Import function triggers from their respective submodules:
- *
- * import {onCall} from "firebase-functions/v2/https";
- * import {onDocumentWritten} from "firebase-functions/v2/firestore";
- *
- * See a full list of supported triggers at https://firebase.google.com/docs/functions
+ * Generate Parlay Cloud Function
+ * Securely handles OpenAI API calls on the server side
  */
+export const generateParlay = functions
+  .region('us-central1') // Choose region closest to your users
+  .runWith({
+    timeoutSeconds: 60, // Allow up to 60 seconds for AI generation
+    memory: '512MB', // Sufficient memory for OpenAI operations
+    secrets: ['OPENAI_API_KEY'], // Secure access to API key
+  })
+  .https.onRequest(async (request, response) => {
+    // Security headers
+    helmet()(request, response, () => {})
 
-import {setGlobalOptions} from "firebase-functions";
-import {onRequest} from "firebase-functions/https";
-import * as logger from "firebase-functions/logger";
+    // Handle CORS
+    corsHandler(request, response, async () => {
+      try {
+        // Only allow POST requests
+        if (request.method !== 'POST') {
+          response.status(405).json({
+            success: false,
+            error: {
+              code: 'METHOD_NOT_ALLOWED',
+              message: 'Only POST requests are allowed',
+            },
+          })
+          return
+        }
 
-// Start writing functions
-// https://firebase.google.com/docs/functions/typescript
+        // Validate request body
+        const validation = validateGenerateParlayRequest(request.body)
+        if (!validation.isValid) {
+          response.status(400).json({
+            success: false,
+            error: {
+              code: 'INVALID_REQUEST',
+              message: 'Invalid request data',
+              details: validation.errors,
+            },
+          })
+          return
+        }
 
-// For cost control, you can set the maximum number of containers that can be
-// running at the same time. This helps mitigate the impact of unexpected
-// traffic spikes by instead downgrading performance. This limit is a
-// per-function limit. You can override the limit for each function using the
-// `maxInstances` option in the function's options, e.g.
-// `onRequest({ maxInstances: 5 }, (req, res) => { ... })`.
-// NOTE: setGlobalOptions does not apply to functions using the v1 API. V1
-// functions should each use functions.runWith({ maxInstances: 10 }) instead.
-// In the v1 API, each function can only serve one request per container, so
-// this will be the maximum concurrent request count.
-setGlobalOptions({ maxInstances: 10 });
+        const requestData: GenerateParlayRequest = request.body
 
-// export const helloWorld = onRequest((request, response) => {
-//   logger.info("Hello logs!", {structuredData: true});
-//   response.send("Hello from Firebase!");
-// });
+        // Get OpenAI API key from Firebase config
+        const openaiApiKey = process.env.OPENAI_API_KEY
+        if (!openaiApiKey) {
+          throw new CloudFunctionError(
+            'MISSING_CONFIG',
+            'OpenAI API key not configured'
+          )
+        }
+
+        // Initialize OpenAI service
+        const openaiService = new OpenAIService(openaiApiKey)
+
+        // Fetch team rosters (you'll need to implement this or pass from client)
+        const rosters = await fetchGameRosters(requestData.game)
+
+        // Generate parlay
+        const parlay = await openaiService.generateParlay(
+          requestData.game,
+          rosters,
+          requestData.options
+        )
+
+        // Log successful generation (be careful not to log sensitive data)
+        console.log(`✅ Parlay generated successfully: ${parlay.id}`)
+
+        const successResponse: GenerateParlayResponse = {
+          success: true,
+          data: parlay,
+        }
+
+        response.status(200).json(successResponse)
+      } catch (error) {
+        console.error('❌ Error in generateParlay function:', error)
+
+        let errorResponse: GenerateParlayResponse
+
+        if (error instanceof CloudFunctionError) {
+          errorResponse = {
+            success: false,
+            error: {
+              code: error.code,
+              message: error.message,
+              details: error.details,
+            },
+          }
+        } else {
+          // Don't expose internal errors to client
+          errorResponse = {
+            success: false,
+            error: {
+              code: 'INTERNAL_ERROR',
+              message: 'An unexpected error occurred',
+            },
+          }
+        }
+
+        // Determine appropriate HTTP status code
+        const statusCode = getStatusCodeFromError(error)
+        response.status(statusCode).json(errorResponse)
+      }
+    })
+  })
+
+/**
+ * Health check endpoint for monitoring
+ */
+export const healthCheck = functions
+  .region('us-central1')
+  .https.onRequest(async (request, response) => {
+    corsHandler(request, response, async () => {
+      try {
+        // Basic health check
+        const timestamp = new Date().toISOString()
+
+        // Optional: Test OpenAI connection
+        let openaiStatus = 'unknown'
+        try {
+          const openaiApiKey = process.env.OPENAI_API_KEY
+          if (openaiApiKey) {
+            const openaiService = new OpenAIService(openaiApiKey)
+            const isConnected = await openaiService.validateConnection()
+            openaiStatus = isConnected ? 'connected' : 'failed'
+          } else {
+            openaiStatus = 'no_api_key'
+          }
+        } catch {
+          openaiStatus = 'error'
+        }
+
+        response.status(200).json({
+          status: 'healthy',
+          timestamp,
+          openaiStatus,
+          version: '1.0.0',
+        })
+      } catch (error) {
+        console.error('Health check failed:', error)
+        response.status(503).json({
+          status: 'unhealthy',
+          timestamp: new Date().toISOString(),
+          error: 'Health check failed',
+        })
+      }
+    })
+  })
+
+// === Helper Functions ===
+
+/**
+ * Validate generate parlay request data
+ */
+function validateGenerateParlayRequest(body: any): ValidationResult {
+  const errors: string[] = []
+
+  if (!body) {
+    errors.push('Request body is required')
+    return { isValid: false, errors }
+  }
+
+  if (!body.game) {
+    errors.push('Game data is required')
+  } else {
+    // Validate game object
+    if (!body.game.id) errors.push('Game ID is required')
+    if (!body.game.homeTeam || !body.game.homeTeam.id) {
+      errors.push('Valid home team data is required')
+    }
+    if (!body.game.awayTeam || !body.game.awayTeam.id) {
+      errors.push('Valid away team data is required')
+    }
+    if (!body.game.week || typeof body.game.week !== 'number') {
+      errors.push('Valid week number is required')
+    }
+  }
+
+  // Validate options if provided
+  if (body.options) {
+    if (
+      body.options.temperature &&
+      (typeof body.options.temperature !== 'number' ||
+        body.options.temperature < 0 ||
+        body.options.temperature > 1)
+    ) {
+      errors.push('Temperature must be a number between 0 and 1')
+    }
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+  }
+}
+
+/**
+ * Fetch game rosters - This is a simplified version
+ * In production, you'd want to cache this data or fetch from your own API
+ */
+async function fetchGameRosters(game: NFLGame): Promise<GameRosters> {
+  try {
+    // For now, return mock rosters since we're moving from client to server
+    // You'll need to implement actual ESPN API calls here or pass rosters from client
+
+    // Option 1: Fetch from ESPN API (requires implementing HTTP client)
+    // Option 2: Accept rosters in the request payload
+    // Option 3: Use a roster service/cache
+
+    console.log(
+      `📋 Fetching rosters for ${game.awayTeam.displayName} @ ${game.homeTeam.displayName}`
+    )
+
+    // Mock implementation - replace with actual roster fetching
+    const mockRoster = [
+      {
+        id: 'mock-qb-1',
+        fullName: 'Mock Quarterback',
+        displayName: 'M. Quarterback',
+        shortName: 'M. QB',
+        position: {
+          abbreviation: 'QB',
+          displayName: 'Quarterback',
+        },
+        jersey: '1',
+        experience: { years: 5 },
+        age: 28,
+        status: { type: 'active' },
+      },
+      {
+        id: 'mock-rb-1',
+        fullName: 'Mock Running Back',
+        displayName: 'M. Running Back',
+        shortName: 'M. RB',
+        position: {
+          abbreviation: 'RB',
+          displayName: 'Running Back',
+        },
+        jersey: '21',
+        experience: { years: 3 },
+        age: 25,
+        status: { type: 'active' },
+      },
+      {
+        id: 'mock-wr-1',
+        fullName: 'Mock Wide Receiver',
+        displayName: 'M. Wide Receiver',
+        shortName: 'M. WR',
+        position: {
+          abbreviation: 'WR',
+          displayName: 'Wide Receiver',
+        },
+        jersey: '11',
+        experience: { years: 4 },
+        age: 26,
+        status: { type: 'active' },
+      },
+    ]
+
+    return {
+      homeRoster: mockRoster,
+      awayRoster: mockRoster,
+    }
+
+    // TODO: Implement actual roster fetching
+    // Example ESPN API call:
+    /*
+    const homeRosterResponse = await fetch(
+      `https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${game.homeTeam.id}/roster`
+    )
+    const awayRosterResponse = await fetch(
+      `https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${game.awayTeam.id}/roster`
+    )
+    
+    const homeRosterData = await homeRosterResponse.json()
+    const awayRosterData = await awayRosterResponse.json()
+    
+    return {
+      homeRoster: transformESPNRoster(homeRosterData),
+      awayRoster: transformESPNRoster(awayRosterData)
+    }
+    */
+  } catch (error) {
+    console.error('Error fetching game rosters:', error)
+    throw new CloudFunctionError(
+      'ROSTER_FETCH_FAILED',
+      'Failed to fetch team rosters',
+      error
+    )
+  }
+}
+
+/**
+ * Transform ESPN roster response to our format
+ * You can copy this from your existing NFLDataService
+ */
+function transformESPNRoster(espnData: any): any[] {
+  // TODO: Implement roster transformation
+  // This should match your existing transformRosterResponse method
+  return []
+}
+
+/**
+ * Get appropriate HTTP status code from error
+ */
+function getStatusCodeFromError(error: any): number {
+  if (error instanceof CloudFunctionError) {
+    switch (error.code) {
+      case 'INVALID_REQUEST':
+      case 'INVALID_GAME':
+      case 'INVALID_ROSTERS':
+        return 400
+      case 'MISSING_API_KEY':
+      case 'MISSING_CONFIG':
+        return 500
+      case 'INSUFFICIENT_ROSTER_DATA':
+        return 422
+      case 'OPENAI_ERROR':
+        return 502
+      case 'GENERATION_FAILED':
+      case 'PARSE_ERROR':
+        return 500
+      default:
+        return 500
+    }
+  }
+
+  return 500
+}
+
+/**
+ * Log function for structured logging
+ */
+function logEvent(
+  level: 'info' | 'warn' | 'error',
+  message: string,
+  data?: any
+) {
+  const logData = {
+    timestamp: new Date().toISOString(),
+    level,
+    message,
+    data,
+  }
+
+  console.log(JSON.stringify(logData))
+}
