@@ -11,7 +11,6 @@ const getEnvVar = (name: string): string => {
  * Environment variables with validation
  */
 export const ENV = {
-  OPENAI_API_KEY: getEnvVar('VITE_OPENAI_API_KEY'),
   FIREBASE_API_KEY: getEnvVar('VITE_FIREBASE_API_KEY'),
   NODE_ENV: getEnvVar('NODE_ENV') || 'development',
 } as const
@@ -20,9 +19,7 @@ export const ENV = {
  * Validate required environment variables
  */
 export const validateEnvironment = (): void => {
-  const requiredVars = {
-    OPENAI_API_KEY: ENV.OPENAI_API_KEY,
-  }
+  const requiredVars = {}
 
   const missing = Object.entries(requiredVars)
     .filter(([_, value]) => !value)

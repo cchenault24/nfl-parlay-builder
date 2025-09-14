@@ -48,7 +48,7 @@ export class ServiceContainer {
     if (!this.services.has(key)) {
       const nflClient = this.getESPNClient()
       const nflDataService = this.getNFLDataService()
-      const service = new ParlayService(nflClient, nflDataService)
+      const service = new ParlayService(nflClient, nflDataService) // Only 2 parameters now
       this.services.set(key, service)
     }
 
@@ -93,3 +93,4 @@ export const getESPNClient = () => getContainer().getESPNClient()
 export const getParlayService = () => getContainer().getParlayService()
 
 // Note: Removed getOpenAIClient since it's no longer needed
+// If any other parts of your code import getOpenAIClient, you'll need to update them

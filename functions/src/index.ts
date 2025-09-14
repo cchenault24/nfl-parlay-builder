@@ -1,8 +1,7 @@
-import * as cors from 'cors'
+import cors from 'cors'
 import * as admin from 'firebase-admin'
 import * as functions from 'firebase-functions'
-import * as helmet from 'helmet'
-import { OpenAIService } from './services/openaiService'
+import { OpenAIService } from './service/openaiService'
 import {
   CloudFunctionError,
   GameRosters,
@@ -40,11 +39,13 @@ export const generateParlay = functions
     secrets: ['OPENAI_API_KEY'], // Secure access to API key
   })
   .https.onRequest(async (request, response) => {
-    // Security headers
-    helmet()(request, response, () => {})
-
-    // Handle CORS
+    // Handle CORS first
     corsHandler(request, response, async () => {
+      // Security headers
+      response.setHeader('X-Content-Type-Options', 'nosniff')
+      response.setHeader('X-Frame-Options', 'DENY')
+      response.setHeader('X-XSS-Protection', '1; mode=block')
+
       try {
         // Only allow POST requests
         if (request.method !== 'POST') {
@@ -233,13 +234,6 @@ function validateGenerateParlayRequest(body: any): ValidationResult {
  */
 async function fetchGameRosters(game: NFLGame): Promise<GameRosters> {
   try {
-    // For now, return mock rosters since we're moving from client to server
-    // You'll need to implement actual ESPN API calls here or pass rosters from client
-
-    // Option 1: Fetch from ESPN API (requires implementing HTTP client)
-    // Option 2: Accept rosters in the request payload
-    // Option 3: Use a roster service/cache
-
     console.log(
       `📋 Fetching rosters for ${game.awayTeam.displayName} @ ${game.homeTeam.displayName}`
     )
@@ -294,25 +288,6 @@ async function fetchGameRosters(game: NFLGame): Promise<GameRosters> {
       homeRoster: mockRoster,
       awayRoster: mockRoster,
     }
-
-    // TODO: Implement actual roster fetching
-    // Example ESPN API call:
-    /*
-    const homeRosterResponse = await fetch(
-      `https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${game.homeTeam.id}/roster`
-    )
-    const awayRosterResponse = await fetch(
-      `https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${game.awayTeam.id}/roster`
-    )
-    
-    const homeRosterData = await homeRosterResponse.json()
-    const awayRosterData = await awayRosterResponse.json()
-    
-    return {
-      homeRoster: transformESPNRoster(homeRosterData),
-      awayRoster: transformESPNRoster(awayRosterData)
-    }
-    */
   } catch (error) {
     console.error('Error fetching game rosters:', error)
     throw new CloudFunctionError(
@@ -321,16 +296,6 @@ async function fetchGameRosters(game: NFLGame): Promise<GameRosters> {
       error
     )
   }
-}
-
-/**
- * Transform ESPN roster response to our format
- * You can copy this from your existing NFLDataService
- */
-function transformESPNRoster(espnData: any): any[] {
-  // TODO: Implement roster transformation
-  // This should match your existing transformRosterResponse method
-  return []
 }
 
 /**
@@ -359,22 +324,4 @@ function getStatusCodeFromError(error: any): number {
   }
 
   return 500
-}
-
-/**
- * Log function for structured logging
- */
-function logEvent(
-  level: 'info' | 'warn' | 'error',
-  message: string,
-  data?: any
-) {
-  const logData = {
-    timestamp: new Date().toISOString(),
-    level,
-    message,
-    data,
-  }
-
-  console.log(JSON.stringify(logData))
 }

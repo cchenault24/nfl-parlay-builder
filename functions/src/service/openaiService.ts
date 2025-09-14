@@ -6,7 +6,6 @@ import {
   GeneratedParlay,
   NFLGame,
   NFLPlayer,
-  OpenAIRequest,
   ParlayLeg,
   StrategyConfig,
   VarietyFactors,
@@ -130,7 +129,7 @@ export class OpenAIService {
 
   // === Private Methods ===
 
-  private async callOpenAIWithRetry(request: OpenAIRequest): Promise<any> {
+  private async callOpenAIWithRetry(request: any): Promise<any> {
     let lastError: any
 
     for (let attempt = 1; attempt <= this.maxRetries; attempt++) {

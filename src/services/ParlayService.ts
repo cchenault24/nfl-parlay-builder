@@ -5,6 +5,7 @@ import { NFLDataService } from './NFLDataService'
 /**
  * Updated Parlay Service
  * Now calls Firebase Cloud Function instead of OpenAI directly
+ * This removes the security vulnerability of exposing API keys client-side
  */
 export class ParlayService {
   private readonly cloudFunctionUrl: string
@@ -16,7 +17,13 @@ export class ParlayService {
     // Set your Firebase Cloud Function URL
     // Replace with your actual function URL after deployment
     const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID
-    this.cloudFunctionUrl = `https://us-central1-${projectId}.cloudfunctions.net/generateParlay`
+
+    // Use emulator in development, production URL in production
+    this.cloudFunctionUrl = import.meta.env.DEV
+      ? `http://localhost:5001/${projectId}/us-central1/generateParlay`
+      : `https://us-central1-${projectId}.cloudfunctions.net/generateParlay`
+
+    console.log(`🔗 Using Cloud Function URL: ${this.cloudFunctionUrl}`)
   }
 
   /**
@@ -35,12 +42,14 @@ export class ParlayService {
       }
 
       // Step 3: Call Firebase Cloud Function
+      console.log('🔥 Calling Firebase Cloud Function for parlay generation...')
       const response = await this.callCloudFunction(game, rosters)
 
       if (!response.success || !response.data) {
         throw new Error(response.error?.message || 'Failed to generate parlay')
       }
 
+      console.log('✅ Parlay generated successfully via Cloud Function')
       return response.data
     } catch (error) {
       console.error('❌ Error generating parlay:', error)
@@ -133,6 +142,7 @@ export class ParlayService {
         options,
       }
 
+      console.log('📤 Sending request to Cloud Function...')
       const response = await fetch(this.cloudFunctionUrl, {
         method: 'POST',
         headers: {
@@ -141,8 +151,11 @@ export class ParlayService {
         body: JSON.stringify(requestBody),
       })
 
+      console.log(`📥 Cloud Function responded with status: ${response.status}`)
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
+        console.error('❌ Cloud Function error:', errorData)
         throw new Error(
           errorData.error?.message ||
             `HTTP ${response.status}: ${response.statusText}`
@@ -160,7 +173,19 @@ export class ParlayService {
         )
       }
 
-      throw error
+      // Handle specific error cases
+      if (error instanceof Error && error.message.includes('Failed to fetch')) {
+        throw new Error(
+          'Network error: Unable to reach parlay generation service. Please try again.'
+        )
+      }
+
+      // If it's already an Error, re-throw it; otherwise create a new Error
+      if (error instanceof Error) {
+        throw error
+      } else {
+        throw new Error(`Unexpected error: ${String(error)}`)
+      }
     }
   }
 
