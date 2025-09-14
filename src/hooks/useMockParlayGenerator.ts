@@ -1,7 +1,6 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { mockOpenAIService } from '../services/mockOpenaiService'
+import { useMutation } from '@tanstack/react-query'
 import useParlayStore from '../store/parlayStore'
-import { GeneratedParlay, NFLGame, NFLPlayer } from '../types'
+import { GeneratedParlay, NFLGame } from '../types'
 
 interface UseMockParlayGeneratorReturn {
   mutate: (game: NFLGame) => void
@@ -14,150 +13,108 @@ interface UseMockParlayGeneratorReturn {
 }
 
 export const useMockParlayGenerator = (): UseMockParlayGeneratorReturn => {
-  const queryClient = useQueryClient()
   const setParlay = useParlayStore(state => state.setParlay)
 
-  // Generate mock rosters for testing
-  const generateMockRosters = (
+  // Generate mock parlay data directly (no OpenAI service needed)
+  const generateMockParlay = async (
     game: NFLGame
-  ): { homeRoster: NFLPlayer[]; awayRoster: NFLPlayer[] } => {
-    const createMockPlayer = (
-      name: string,
-      position: string,
-      teamId: string
-    ): NFLPlayer => ({
-      id: `${teamId}-${name.replace(/\s+/g, '-').toLowerCase()}`,
-      name,
-      displayName: name,
-      position,
-      jerseyNumber: Math.floor(Math.random() * 99 + 1).toString(),
-      experience: Math.floor(Math.random() * 10 + 1),
-    })
+  ): Promise<GeneratedParlay> => {
+    // Simulate API delay
+    await new Promise(resolve =>
+      setTimeout(resolve, 1500 + Math.random() * 1000)
+    )
 
-    const homeRoster: NFLPlayer[] = [
-      createMockPlayer(
-        `${game.homeTeam.displayName} QB`,
-        'QB',
-        game.homeTeam.id
-      ),
-      createMockPlayer(
-        `${game.homeTeam.displayName} RB1`,
-        'RB',
-        game.homeTeam.id
-      ),
-      createMockPlayer(
-        `${game.homeTeam.displayName} RB2`,
-        'RB',
-        game.homeTeam.id
-      ),
-      createMockPlayer(
-        `${game.homeTeam.displayName} WR1`,
-        'WR',
-        game.homeTeam.id
-      ),
-      createMockPlayer(
-        `${game.homeTeam.displayName} WR2`,
-        'WR',
-        game.homeTeam.id
-      ),
-      createMockPlayer(
-        `${game.homeTeam.displayName} WR3`,
-        'WR',
-        game.homeTeam.id
-      ),
-      createMockPlayer(
-        `${game.homeTeam.displayName} TE`,
-        'TE',
-        game.homeTeam.id
-      ),
-    ]
+    // Random chance of error for testing
+    if (Math.random() < 0.05) {
+      throw new Error('🎭 MOCK ERROR: Simulated API error for testing!')
+    }
 
-    const awayRoster: NFLPlayer[] = [
-      createMockPlayer(
-        `${game.awayTeam.displayName} QB`,
-        'QB',
-        game.awayTeam.id
-      ),
-      createMockPlayer(
-        `${game.awayTeam.displayName} RB1`,
-        'RB',
-        game.awayTeam.id
-      ),
-      createMockPlayer(
-        `${game.awayTeam.displayName} RB2`,
-        'RB',
-        game.awayTeam.id
-      ),
-      createMockPlayer(
-        `${game.awayTeam.displayName} WR1`,
-        'WR',
-        game.awayTeam.id
-      ),
-      createMockPlayer(
-        `${game.awayTeam.displayName} WR2`,
-        'WR',
-        game.awayTeam.id
-      ),
-      createMockPlayer(
-        `${game.awayTeam.displayName} WR3`,
-        'WR',
-        game.awayTeam.id
-      ),
-      createMockPlayer(
-        `${game.awayTeam.displayName} TE`,
-        'TE',
-        game.awayTeam.id
-      ),
-    ]
+    const mockParlay: GeneratedParlay = {
+      id: `mock-parlay-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      legs: [
+        {
+          id: 'mock-leg-1',
+          betType: 'spread',
+          selection: `${game.homeTeam.displayName} -3.5`,
+          target: '-3.5',
+          reasoning:
+            '🎭 MOCK: Home team has strong recent form and home field advantage.',
+          confidence: Math.floor(Math.random() * 3) + 7, // 7-9
+          odds: '-110',
+        },
+        {
+          id: 'mock-leg-2',
+          betType: 'total',
+          selection: 'Over 47.5',
+          target: '47.5',
+          reasoning:
+            '🎭 MOCK: Both teams have high-powered offenses and weak defenses.',
+          confidence: Math.floor(Math.random() * 3) + 6, // 6-8
+          odds: '-105',
+        },
+        {
+          id: 'mock-leg-3',
+          betType: 'player_prop',
+          selection: `${game.homeTeam.displayName} QB Over 250.5 passing yards`,
+          target: '250.5',
+          reasoning:
+            '🎭 MOCK: QB has been throwing for 300+ yards consistently.',
+          confidence: Math.floor(Math.random() * 3) + 8, // 8-10
+          odds: '+120',
+        },
+      ],
+      gameContext: `${game.awayTeam.displayName} @ ${game.homeTeam.displayName} - Week ${game.week}`,
+      aiReasoning:
+        '🎭 MOCK PARLAY: This is simulated data for development purposes. Strategic combination focusing on home team advantage and offensive firepower.',
+      overallConfidence: Math.floor(Math.random() * 3) + 7, // 7-9
+      estimatedOdds: '+280',
+      createdAt: new Date().toISOString(),
+      gameSummary: {
+        matchupAnalysis: `🎭 MOCK: ${game.awayTeam.displayName} vs ${game.homeTeam.displayName} - Both teams coming off strong performances.`,
+        gameFlow: 'high_scoring_shootout',
+        keyFactors: [
+          '🎭 Home field advantage',
+          '🎭 Weather conditions favorable',
+          '🎭 Key player matchups',
+          '🎭 Recent team form',
+          '🎭 Historical head-to-head',
+        ],
+        prediction: `🎭 MOCK: Expecting a competitive high-scoring game with ${game.homeTeam.displayName} slight edge.`,
+        confidence: Math.floor(Math.random() * 3) + 7,
+      },
+    }
 
-    return { homeRoster, awayRoster }
+    return mockParlay
   }
 
   const mutation = useMutation({
     mutationFn: async (game: NFLGame): Promise<GeneratedParlay> => {
-      console.log('🎭 Using Mock Parlay Generator')
       console.log(
-        '🎯 Generating parlay for:',
+        '🎭 Generating mock parlay for:',
         game.awayTeam.displayName,
         '@',
         game.homeTeam.displayName
       )
-
-      const { homeRoster, awayRoster } = generateMockRosters(game)
-
-      console.log('📋 Generated mock rosters:', {
-        home: homeRoster.length,
-        away: awayRoster.length,
-        homeTeam: game.homeTeam.displayName,
-        awayTeam: game.awayTeam.displayName,
-      })
-
-      return await mockOpenAIService.generateParlay(game)
+      return await generateMockParlay(game)
     },
-    onError: (error: Error) => {
-      console.error('💥 Mock parlay generation failed:', error)
+    onError: error => {
+      console.error('🎭 Mock parlay generation error:', error)
       setParlay(null)
     },
     onSuccess: (data: GeneratedParlay) => {
-      console.log('✅ Mock parlay generated successfully:', data.id)
+      console.log('🎭 Mock parlay generated successfully:', data.id)
       setParlay(data)
-
-      // Cache the result
-      const gameKey = `mock-parlay-${data.gameContext}-${data.createdAt}`
-      queryClient.setQueryData(['parlay', gameKey], data)
     },
   })
 
-  // Custom reset that also clears store
   const resetWithStore = () => {
     mutation.reset()
     setParlay(null)
-    console.log('🔄 Mock parlay generator reset')
   }
 
   return {
     mutate: mutation.mutate,
-    data: mutation.data || null,
+    data: mutation.data || null, // ✅ Fix: Convert undefined to null
     isPending: mutation.isPending,
     isError: mutation.isError,
     error: mutation.error,

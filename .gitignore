@@ -27,7 +27,8 @@ lerna-debug.log*
 
 # Firebase
 .firebase/
-.firebaserc
+functions/lib/
+functions/node_modules/
 
 # Coverage
 coverage/

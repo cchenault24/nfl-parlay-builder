@@ -1,8 +1,3 @@
-import {
-  ResponseFormatJSONObject,
-  ResponseFormatJSONSchema,
-  ResponseFormatText,
-} from 'openai/resources.mjs'
 import { APIResponse } from './types'
 
 /**
@@ -33,35 +28,4 @@ export interface INFLClient {
    * Get available weeks for current season
    */
   getAvailableWeeks(): Promise<APIResponse<number[]>>
-}
-
-/**
- * OpenAI-specific client interface
- */
-export interface IOpenAIClient {
-  /**
-   * Create a chat completion
-   */
-  createChatCompletion(params: {
-    model: string
-    messages: Array<{
-      role: 'system' | 'user' | 'assistant'
-      content: string
-    }>
-    temperature?: number
-    max_tokens?: number
-    top_p?: number
-    frequency_penalty?: number
-    presence_penalty?: number
-    seed?: number
-    response_format?:
-      | ResponseFormatText
-      | ResponseFormatJSONSchema
-      | ResponseFormatJSONObject
-  }): Promise<APIResponse<any>>
-
-  /**
-   * Validate API key and connection
-   */
-  validateConnection(): Promise<boolean>
 }

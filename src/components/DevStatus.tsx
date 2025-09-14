@@ -24,6 +24,7 @@ import useGeneralStore from '../store/generalStore'
  * Development Status Component with Mock/Real API Toggle
  * Shows current service configuration and allows switching in development mode
  * Only visible in development environment
+ * Default: Uses mock data unless explicitly disabled
  */
 
 interface DevStatusProps {
@@ -47,21 +48,15 @@ export const DevStatus: React.FC<DevStatusProps> = ({ className }) => {
     if (devMockOverride !== null) {
       return {
         usingMock: devMockOverride,
-        hasApiKey: !!import.meta.env.VITE_OPENAI_API_KEY,
         environment: import.meta.env.MODE || 'development',
         isOverridden: true,
       }
     }
 
-    // Otherwise use default logic
-    const shouldUseMock =
-      import.meta.env.MODE === 'development' ||
-      import.meta.env.VITE_USE_MOCK_OPENAI === 'true' ||
-      !import.meta.env.VITE_OPENAI_API_KEY
+    const shouldUseMock = import.meta.env.VITE_USE_MOCK_OPENAI !== 'false' // Default to true unless explicitly set to 'false'
 
     return {
       usingMock: shouldUseMock,
-      hasApiKey: !!import.meta.env.VITE_OPENAI_API_KEY,
       environment: import.meta.env.MODE || 'development',
       isOverridden: false,
     }
@@ -77,7 +72,7 @@ export const DevStatus: React.FC<DevStatusProps> = ({ className }) => {
 
     // Show a message that the change will take effect on next action
     console.log(
-      `🔄 Service switched to ${newValue ? 'Mock' : 'Real'} API. Generate a new parlay to see the change.`
+      `🔄 Service switched to ${newValue ? 'Mock' : 'Cloud Functions'} API. Generate a new parlay to see the change.`
     )
   }
 
@@ -105,7 +100,7 @@ export const DevStatus: React.FC<DevStatusProps> = ({ className }) => {
 
           <Chip
             icon={status.usingMock ? <MockIcon /> : <ApiIcon />}
-            label={status.usingMock ? 'Mock API' : 'Real API'}
+            label={status.usingMock ? 'Mock API' : 'Cloud Functions'}
             color={status.usingMock ? 'success' : 'warning'}
             size="small"
             variant="outlined"
@@ -170,7 +165,7 @@ export const DevStatus: React.FC<DevStatusProps> = ({ className }) => {
                           status.usingMock ? 'success.main' : 'warning.main'
                         }
                       >
-                        {status.usingMock ? 'Mock' : 'Real'}
+                        {status.usingMock ? 'Mock' : 'Cloud Functions'}
                       </Typography>
                     }
                     sx={{ m: 0 }}

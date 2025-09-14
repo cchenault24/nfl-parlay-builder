@@ -1,8 +1,8 @@
 /**
- * Service Container for Dependency Injection
- * Creates and manages service instances with their dependencies
+ * Updated Service Container for Dependency Injection
+ * OpenAI functionality moved to secure Firebase Cloud Functions
  */
-import { ESPNClient, OpenAIClient } from '../api'
+import { ESPNClient } from '../api'
 import { NFLDataService } from './NFLDataService'
 import { ParlayService } from './ParlayService'
 
@@ -39,16 +39,16 @@ export class ServiceContainer {
   }
 
   /**
-   * Get or create Parlay Service with NFL and OpenAI Client dependencies
+   * Get or create Parlay Service with NFL Client and NFL Data Service dependencies
+   * Now uses Firebase Cloud Functions for OpenAI calls instead of direct client
    */
   getParlayService(): ParlayService {
     const key = 'ParlayService'
 
     if (!this.services.has(key)) {
       const nflClient = this.getESPNClient()
-      const openaiClient = this.getOpenAIClient()
-      const nflDataService = this.getNFLDataService() // Add this line
-      const service = new ParlayService(nflClient, openaiClient, nflDataService) // Add third parameter
+      const nflDataService = this.getNFLDataService()
+      const service = new ParlayService(nflClient, nflDataService)
       this.services.set(key, service)
     }
 
@@ -63,20 +63,6 @@ export class ServiceContainer {
 
     if (!this.services.has(key)) {
       const client = new ESPNClient()
-      this.services.set(key, client)
-    }
-
-    return this.services.get(key)
-  }
-
-  /**
-   * Get or create OpenAI Client
-   */
-  getOpenAIClient(): OpenAIClient {
-    const key = 'OpenAIClient'
-
-    if (!this.services.has(key)) {
-      const client = new OpenAIClient()
       this.services.set(key, client)
     }
 
@@ -104,5 +90,4 @@ export const getContainer = () => ServiceContainer.getInstance()
 // Convenience functions for getting specific services
 export const getNFLDataService = () => getContainer().getNFLDataService()
 export const getESPNClient = () => getContainer().getESPNClient()
-export const getOpenAIClient = () => getContainer().getOpenAIClient()
 export const getParlayService = () => getContainer().getParlayService()

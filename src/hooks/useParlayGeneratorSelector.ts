@@ -4,7 +4,8 @@ import { useParlayGenerator } from './useParlayGenerator'
 
 /**
  * Hook that automatically selects between real and mock parlay generators
- * based on environment configuration and dev overrides from Zustand store
+ * Updated: Now uses Cloud Functions instead of direct OpenAI API calls
+ * Default: Uses mock data unless explicitly disabled
  */
 export const useParlayGeneratorSelector = () => {
   const devMockOverride = useGeneralStore(state => state.devMockOverride)
@@ -15,35 +16,34 @@ export const useParlayGeneratorSelector = () => {
     // Use the dev override if it exists
     shouldUseMock = devMockOverride
   } else {
-    // Use default logic
-    shouldUseMock =
-      import.meta.env.MODE === 'development' ||
-      import.meta.env.VITE_USE_MOCK_OPENAI === 'true' ||
-      !import.meta.env.VITE_OPENAI_API_KEY
+    // Updated logic: Default to mock unless explicitly disabled
+    shouldUseMock = import.meta.env.VITE_USE_MOCK_OPENAI !== 'false'
   }
 
   const realHook = useParlayGenerator()
   const mockHook = useMockParlayGenerator()
 
   if (shouldUseMock) {
-    console.log('🎭 Using Mock Parlay Generator')
+    console.log('🎭 Using Mock Parlay Generator (Default)')
     return {
       ...mockHook,
       serviceStatus: {
         usingMock: true,
-        hasApiKey: !!import.meta.env.VITE_OPENAI_API_KEY,
+        usingCloudFunction: false,
         environment: import.meta.env.MODE || 'development',
+        ready: true,
       },
     }
   }
 
-  console.log('🤖 Using Real Parlay Generator')
+  console.log('🔥 Using Real Parlay Generator (Cloud Functions)')
   return {
     ...realHook,
     serviceStatus: {
       usingMock: false,
-      hasApiKey: !!import.meta.env.VITE_OPENAI_API_KEY,
+      usingCloudFunction: true,
       environment: import.meta.env.MODE || 'production',
+      ready: true,
     },
   }
 }
