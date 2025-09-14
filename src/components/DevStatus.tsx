@@ -1,15 +1,13 @@
 import {
-  Api as ApiIcon,
   BugReport as BugIcon,
-  ExpandLess as CollapseIcon,
-  ExpandMore as ExpandIcon,
-  SmartToy as MockIcon,
-  Settings as SettingsIcon,
+  ExpandMore as ExpandMoreIcon,
+  ToggleOn as ToggleIcon,
 } from '@mui/icons-material'
 import {
   Box,
   Chip,
   Collapse,
+  Divider,
   FormControlLabel,
   IconButton,
   Paper,
@@ -18,164 +16,187 @@ import {
   Typography,
 } from '@mui/material'
 import React from 'react'
+import { useParlayGeneratorSelector } from '../hooks/useParlayGeneratorSelector'
+import { useRateLimit } from '../hooks/useRateLimit'
 import useGeneralStore from '../store/generalStore'
+import RateLimitIndicator from './RateLimitIndicator'
 
 /**
- * Development Status Component with Mock/Real API Toggle
- * Shows current service configuration and allows switching in development mode
- * Only visible in development environment
- * Default: Uses mock data unless explicitly disabled
+ * Development Status Component
+ * Shows service status, environment info, rate limiting, and mock toggle in development
  */
-
-interface DevStatusProps {
-  className?: string
-}
-
-export const DevStatus: React.FC<DevStatusProps> = ({ className }) => {
+const DevStatus: React.FC = () => {
   const [expanded, setExpanded] = React.useState(false)
+  const { serviceStatus } = useParlayGeneratorSelector()
+  const {
+    rateLimitInfo,
+    isLoading: rateLimitLoading,
+    error: rateLimitError,
+  } = useRateLimit()
 
+  // Mock toggle state from store
   const devMockOverride = useGeneralStore(state => state.devMockOverride)
   const setDevMockOverride = useGeneralStore(state => state.setDevMockOverride)
 
   // Only show in development
-  if (import.meta.env.MODE !== 'development') {
+  if (import.meta.env.MODE === 'production') {
     return null
   }
 
-  // Determine service status with override
-  const getServiceStatus = () => {
-    // If there's an override, use it
+  const handleExpandClick = () => {
+    setExpanded(!expanded)
+  }
+
+  const handleToggleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setDevMockOverride(event.target.checked)
+  }
+
+  // Determine current mode for display
+  const getCurrentMode = () => {
     if (devMockOverride !== null) {
-      return {
-        usingMock: devMockOverride,
-        environment: import.meta.env.MODE || 'development',
-        isOverridden: true,
-      }
+      return devMockOverride ? 'MOCK (Override)' : 'REAL (Override)'
     }
-
-    const shouldUseMock = import.meta.env.VITE_USE_MOCK_OPENAI !== 'false' // Default to true unless explicitly set to 'false'
-
-    return {
-      usingMock: shouldUseMock,
-      environment: import.meta.env.MODE || 'development',
-      isOverridden: false,
-    }
+    return serviceStatus?.usingMock ? 'MOCK (Default)' : 'REAL (Default)'
   }
 
-  const status = getServiceStatus()
-
-  const toggleExpanded = () => setExpanded(!expanded)
-
-  const handleToggleService = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = event.target.checked
-    setDevMockOverride(newValue)
-
-    // Show a message that the change will take effect on next action
-    console.log(
-      `🔄 Service switched to ${newValue ? 'Mock' : 'Cloud Functions'} API. Generate a new parlay to see the change.`
-    )
-  }
+  const isCurrentlyMock =
+    devMockOverride !== null ? devMockOverride : serviceStatus?.usingMock
 
   return (
     <Paper
-      className={className}
       elevation={1}
       sx={{
         position: 'fixed',
         bottom: 16,
-        left: 16,
-        zIndex: 1000,
-        backgroundColor: 'rgba(0, 0, 0, 0.9)',
-        backdropFilter: 'blur(8px)',
-        border: '1px solid rgba(255, 255, 255, 0.1)',
-        maxWidth: 380,
+        right: 16,
+        width: expanded ? 420 : 'auto',
+        zIndex: 1300,
+        transition: 'width 0.3s ease-in-out',
       }}
     >
-      <Box sx={{ p: 2 }}>
-        <Stack direction="row" alignItems="center" spacing={1}>
-          <BugIcon sx={{ color: '#ff9800', fontSize: 20 }} />
-          <Typography variant="caption" sx={{ color: '#fff', fontWeight: 500 }}>
-            Dev Mode
+      {/* Header */}
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          p: 1,
+          cursor: 'pointer',
+        }}
+        onClick={handleExpandClick}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <BugIcon fontSize="small" color="primary" />
+          <Typography variant="body2" fontWeight="medium">
+            Dev Status
           </Typography>
-
-          <Chip
-            icon={status.usingMock ? <MockIcon /> : <ApiIcon />}
-            label={status.usingMock ? 'Mock API' : 'Cloud Functions'}
-            color={status.usingMock ? 'success' : 'warning'}
-            size="small"
-            variant="outlined"
-          />
-
-          {status.isOverridden && (
+          {!expanded && (
             <Chip
-              label="Override"
-              color="info"
+              label={isCurrentlyMock ? 'MOCK DATA' : 'REAL DATA'}
               size="small"
-              variant="filled"
-              sx={{ fontSize: '0.6rem' }}
+              color={isCurrentlyMock ? 'warning' : 'success'}
+              variant="outlined"
             />
           )}
-
-          <IconButton
-            onClick={toggleExpanded}
-            size="small"
-            sx={{ color: '#fff' }}
-          >
-            {expanded ? <CollapseIcon /> : <ExpandIcon />}
-          </IconButton>
-        </Stack>
-
-        <Collapse in={expanded}>
-          <Box
-            sx={{
-              mt: 2,
-              pt: 2,
-              borderTop: '1px solid rgba(255, 255, 255, 0.1)',
-            }}
-          >
-            <Stack spacing={2}>
-              {/* Service Toggle */}
-              <Box>
-                <Stack
-                  direction="row"
-                  alignItems="center"
-                  justifyContent="space-between"
-                >
-                  <Stack direction="row" alignItems="center" spacing={1}>
-                    <SettingsIcon
-                      sx={{ color: 'text.secondary', fontSize: 16 }}
-                    />
-                    <Typography variant="caption" color="text.secondary">
-                      API Service:
-                    </Typography>
-                  </Stack>
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={status.usingMock}
-                        onChange={handleToggleService}
-                        size="small"
-                        color="success"
-                      />
-                    }
-                    label={
-                      <Typography
-                        variant="caption"
-                        color={
-                          status.usingMock ? 'success.main' : 'warning.main'
-                        }
-                      >
-                        {status.usingMock ? 'Mock' : 'Cloud Functions'}
-                      </Typography>
-                    }
-                    sx={{ m: 0 }}
-                  />
-                </Stack>
-              </Box>
-            </Stack>
-          </Box>
-        </Collapse>
+        </Box>
+        <IconButton
+          size="small"
+          sx={{
+            transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
+            transition: 'transform 0.3s',
+          }}
+        >
+          <ExpandMoreIcon fontSize="small" />
+        </IconButton>
       </Box>
+
+      {/* Expanded Content */}
+      <Collapse in={expanded}>
+        <Box sx={{ p: 2, pt: 0 }}>
+          <Stack spacing={2}>
+            {/* Mock/Real Toggle */}
+            <Box>
+              <Typography variant="subtitle2" gutterBottom>
+                <ToggleIcon
+                  fontSize="small"
+                  sx={{ mr: 1, verticalAlign: 'middle' }}
+                />
+                Service Mode
+              </Typography>
+              <Stack spacing={1}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={
+                        devMockOverride !== null
+                          ? devMockOverride
+                          : serviceStatus?.usingMock || false
+                      }
+                      onChange={handleToggleChange}
+                      color="warning"
+                    />
+                  }
+                  label={<Typography variant="body2">Use Mock Data</Typography>}
+                />
+                <Stack direction="row" spacing={1} flexWrap="wrap">
+                  <Chip
+                    label={getCurrentMode()}
+                    size="small"
+                    color={isCurrentlyMock ? 'warning' : 'success'}
+                  />
+                  <Chip
+                    label={serviceStatus?.environment || 'Unknown'}
+                    size="small"
+                    variant="outlined"
+                  />
+                  {serviceStatus?.usingCloudFunction && !isCurrentlyMock && (
+                    <Chip
+                      label="Cloud Functions"
+                      size="small"
+                      color="info"
+                      variant="outlined"
+                    />
+                  )}
+                </Stack>
+                {devMockOverride !== null && (
+                  <Typography variant="caption" color="text.secondary">
+                    Override active -{' '}
+                    {devMockOverride ? 'forcing mock mode' : 'forcing real API'}
+                  </Typography>
+                )}
+              </Stack>
+            </Box>
+
+            <Divider />
+
+            {/* Rate Limiting Status - Only show for real API */}
+            {!isCurrentlyMock && (
+              <Box>
+                <Typography variant="subtitle2" gutterBottom>
+                  Rate Limiting
+                </Typography>
+                <RateLimitIndicator
+                  rateLimitInfo={rateLimitInfo}
+                  isLoading={rateLimitLoading}
+                  error={rateLimitError}
+                />
+              </Box>
+            )}
+
+            {/* Mock Mode Notice */}
+            {isCurrentlyMock && (
+              <Box>
+                <Typography variant="subtitle2" gutterBottom>
+                  Mock Mode
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Using mock data - no rate limiting or API costs
+                </Typography>
+              </Box>
+            )}
+          </Stack>
+        </Box>
+      </Collapse>
     </Paper>
   )
 }

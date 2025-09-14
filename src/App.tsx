@@ -20,9 +20,7 @@ import DevStatus from './components/DevStatus' // Add this import
 import { LoadingScreen } from './components/LoadingScreen'
 import ParlAIdLogo from './components/ParlAIdLogo'
 import { ParlayHistory } from './components/ParlayHistory'
-import RateLimitIndicator from './components/RateLimitIndicator' // ADD THIS
 import { AuthProvider, useAuth } from './contexts/AuthContext'
-import { useRateLimit } from './hooks/useRateLimit' // ADD THIS
 
 import { useParlayGeneratorSelector } from './hooks/useParlayGeneratorSelector'
 import useParlayStore from './store/parlayStore'
@@ -43,12 +41,6 @@ function AppContent() {
 
   const { user, loading } = useAuth()
   const [historyOpen, setHistoryOpen] = useState(false)
-
-  const {
-    rateLimitInfo,
-    isLoading: rateLimitLoading,
-    error: rateLimitError,
-  } = useRateLimit()
 
   // Get current week from API
   const { currentWeek, isLoading: weekLoading } = useCurrentWeek()
@@ -115,11 +107,7 @@ function AppContent() {
         <Typography variant="h4" component="h1" gutterBottom align="center">
           NFL Parlay Builder
         </Typography>
-        <RateLimitIndicator
-          rateLimitInfo={rateLimitInfo}
-          isLoading={rateLimitLoading}
-          error={rateLimitError}
-        />
+
         <GameSelector
           games={games || []}
           loading={gamesLoading || weekLoading}
