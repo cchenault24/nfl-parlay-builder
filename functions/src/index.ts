@@ -18,9 +18,8 @@ admin.initializeApp()
 const corsHandler = cors({
   origin: [
     'http://localhost:3000',
+    'http://localhost:3001',
     'http://localhost:5173', // Vite dev server
-    'https://your-app-domain.vercel.app', // Replace with your actual domain
-    /^https:\/\/.*\.vercel\.app$/, // Allow all Vercel preview deployments
   ],
   credentials: true,
   methods: ['POST', 'OPTIONS'],

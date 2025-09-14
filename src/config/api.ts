@@ -12,6 +12,11 @@ const getEnvVar = (name: string): string => {
  */
 export const ENV = {
   FIREBASE_API_KEY: getEnvVar('VITE_FIREBASE_API_KEY'),
+  FIREBASE_AUTH_DOMAIN: getEnvVar('VITE_FIREBASE_AUTH_DOMAIN'),
+  FIREBASE_PROJECT_ID: getEnvVar('VITE_FIREBASE_PROJECT_ID'),
+  FIREBASE_STORAGE_BUCKET: getEnvVar('VITE_FIREBASE_STORAGE_BUCKET'),
+  FIREBASE_MESSAGING_SENDER_ID: getEnvVar('VITE_FIREBASE_MESSAGING_SENDER_ID'),
+  FIREBASE_APP_ID: getEnvVar('VITE_FIREBASE_APP_ID'),
   NODE_ENV: getEnvVar('NODE_ENV') || 'development',
 } as const
 
@@ -19,7 +24,9 @@ export const ENV = {
  * Validate required environment variables
  */
 export const validateEnvironment = (): void => {
-  const requiredVars = {}
+  const requiredVars = {
+    FIREBASE_PROJECT_ID: ENV.FIREBASE_PROJECT_ID,
+  }
 
   const missing = Object.entries(requiredVars)
     .filter(([_, value]) => !value)
@@ -47,17 +54,18 @@ export const API_CONFIG = {
       roster: '/teams/{teamId}/roster',
     },
   },
-  OPENAI: {
-    baseURL: 'https://api.openai.com/v1',
-    timeout: ENV.NODE_ENV === 'development' ? 45000 : 30000,
+  CLOUD_FUNCTIONS: {
+    baseURL:
+      ENV.CLOUD_FUNCTION_URL ||
+      (ENV.NODE_ENV === 'development'
+        ? `http://localhost:5001/${ENV.FIREBASE_PROJECT_ID}/us-central1`
+        : `https://us-central1-${ENV.FIREBASE_PROJECT_ID}.cloudfunctions.net`),
+    timeout: ENV.NODE_ENV === 'development' ? 60000 : 45000,
     retryAttempts: 2,
     retryDelay: 2000,
-    models: {
-      default: 'gpt-4o-mini',
-      fallback: 'gpt-3.5-turbo',
-    },
     endpoints: {
-      chat: '/chat/completions',
+      generateParlay: '/generateParlay',
+      healthCheck: '/healthCheck',
     },
   },
 } as const
@@ -73,13 +81,14 @@ export const FEATURES = {
   API_LOGGING: ENV.NODE_ENV === 'development',
 
   // Mock APIs for testing (could be controlled by env var)
-  MOCK_APIS: false,
+  MOCK_APIS: getEnvVar('VITE_USE_MOCK_OPENAI') === 'true',
 
   // Rate limiting settings
   RATE_LIMITING: {
     enabled: ENV.NODE_ENV === 'production',
     requestsPerMinute: 60,
   },
+  USE_CLOUD_FUNCTIONS: true,
 } as const
 
 /**

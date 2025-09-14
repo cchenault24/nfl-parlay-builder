@@ -1,6 +1,6 @@
 /**
  * Updated Service Container for Dependency Injection
- * Removes OpenAI client dependency since we now use Cloud Functions
+ * OpenAI functionality moved to secure Firebase Cloud Functions
  */
 import { ESPNClient } from '../api'
 import { NFLDataService } from './NFLDataService'
@@ -39,8 +39,8 @@ export class ServiceContainer {
   }
 
   /**
-   * Get or create Parlay Service with NFL Client dependency
-   * Note: No longer requires OpenAI client since we use Cloud Functions
+   * Get or create Parlay Service with NFL Client and NFL Data Service dependencies
+   * Now uses Firebase Cloud Functions for OpenAI calls instead of direct client
    */
   getParlayService(): ParlayService {
     const key = 'ParlayService'
@@ -48,7 +48,7 @@ export class ServiceContainer {
     if (!this.services.has(key)) {
       const nflClient = this.getESPNClient()
       const nflDataService = this.getNFLDataService()
-      const service = new ParlayService(nflClient, nflDataService) // Only 2 parameters now
+      const service = new ParlayService(nflClient, nflDataService)
       this.services.set(key, service)
     }
 
@@ -91,6 +91,3 @@ export const getContainer = () => ServiceContainer.getInstance()
 export const getNFLDataService = () => getContainer().getNFLDataService()
 export const getESPNClient = () => getContainer().getESPNClient()
 export const getParlayService = () => getContainer().getParlayService()
-
-// Note: Removed getOpenAIClient since it's no longer needed
-// If any other parts of your code import getOpenAIClient, you'll need to update them
