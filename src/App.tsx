@@ -1,24 +1,28 @@
-import { ThemeProvider } from '@mui/material/styles'
-import CssBaseline from '@mui/material/CssBaseline'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import Container from '@mui/material/Container'
-import Typography from '@mui/material/Typography'
+// src/App.tsx
 import Box from '@mui/material/Box'
-import { theme } from './theme'
-import GameSelector from './components/GameSelector'
+import Container from '@mui/material/Container'
+import CssBaseline from '@mui/material/CssBaseline'
+import { ThemeProvider } from '@mui/material/styles'
+import Typography from '@mui/material/Typography'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { useEffect, useState } from 'react'
 import ParlayDisplay from './components/display/ParlayDisplay'
-import { useState, useEffect } from 'react'
+import GameSelector from './components/GameSelector'
 import { useAvailableWeeks } from './hooks/useAvailableWeek'
 import { useCurrentWeek } from './hooks/useCurrentWeek'
 import { useNFLGames } from './hooks/useNFLGames'
-import { useParlayGenerator } from './hooks/useParlayGenerator'
-import ParlAIdLogo from './components/ParlAIdLogo'
+import { theme } from './theme'
+// Replace this import with the selector
 import { AppBar, Toolbar } from '@mui/material'
-import { UserMenu } from './components/auth/UserMenu'
 import { AuthGate } from './components/auth/AuthGate'
+import { UserMenu } from './components/auth/UserMenu'
+import DevStatus from './components/DevStatus' // Add this import
 import { LoadingScreen } from './components/LoadingScreen'
-import { AuthProvider, useAuth } from './contexts/AuthContext'
+import ParlAIdLogo from './components/ParlAIdLogo'
 import { ParlayHistory } from './components/ParlayHistory'
+import { AuthProvider, useAuth } from './contexts/AuthContext'
+
+import { useParlayGeneratorSelector } from './hooks/useParlayGeneratorSelector'
 import useParlayStore from './store/parlayStore'
 
 const queryClient = new QueryClient({
@@ -37,6 +41,7 @@ function AppContent() {
 
   const { user, loading } = useAuth()
   const [historyOpen, setHistoryOpen] = useState(false)
+
   // Get current week from API
   const { currentWeek, isLoading: weekLoading } = useCurrentWeek()
   const { availableWeeks } = useAvailableWeeks()
@@ -55,11 +60,14 @@ function AppContent() {
   const weekToFetch = selectedWeek
   const { data: games, isLoading: gamesLoading } = useNFLGames(weekToFetch)
 
+  // Only this line changes! Everything else stays the same
   const {
     mutate: generateParlay,
     isPending: parlayLoading,
+    error: parlayError,
     reset: resetParlay,
-  } = useParlayGenerator()
+    serviceStatus,
+  } = useParlayGeneratorSelector()
 
   const handleWeekChange = (week: number) => {
     setSelectedWeek(week)
@@ -69,6 +77,7 @@ function AppContent() {
 
   const handleGenerateParlay = () => {
     if (selectedGame) {
+      console.log('🔧 Service Status:', serviceStatus)
       generateParlay(selectedGame)
     }
   }
@@ -110,7 +119,14 @@ function AppContent() {
           weekLoading={weekLoading}
         />
 
-        {/* ParlayDisplay now gets parlay from store automatically */}
+        {/* Show any parlay errors */}
+        {parlayError && (
+          <Box sx={{ mb: 2 }}>
+            <Typography color="error">Error: {parlayError.message}</Typography>
+          </Box>
+        )}
+
+        {/* ParlayDisplay gets parlay from store */}
         <ParlayDisplay parlay={parlay || undefined} loading={parlayLoading} />
 
         <ParlayHistory
@@ -118,6 +134,9 @@ function AppContent() {
           onClose={() => setHistoryOpen(false)}
         />
       </Container>
+
+      {/* Add the dev status component */}
+      <DevStatus />
     </>
   )
 }
