@@ -20,8 +20,9 @@ const corsHandler = cors({
     'http://localhost:3000',
     'http://localhost:3001',
     'http://localhost:5173',
-    'nfl-parlay-builder.web.app',
-    'nfl-parlay-builder.firebaseapp.com',
+    'https://nfl-parlay-builder.web.app', // Main production domain
+    'https://nfl-parlay-builder.firebaseapp.com', // Alternative domain
+    /^https:\/\/nfl-parlay-builder--.*\.web\.app$/, // Preview deployments
   ],
   credentials: true,
   methods: ['POST', 'OPTIONS'],
