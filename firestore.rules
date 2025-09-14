@@ -1,0 +1,65 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Rate limit documents - CRITICAL: Only server-side access
+    match /rateLimits/{document} {
+      // Completely block client access to rate limit data
+      // Only Cloud Functions with Admin SDK can read/write
+      allow read, write: if false;
+    }
+    
+    // User profiles - users can read/write their own profile
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      // Allow users to read basic info of other users (for social features if needed)
+      allow read: if request.auth != null 
+        && resource.data.keys().hasAll(['displayName', 'photoURL'])
+        && resource.data.keys().hasOnly(['displayName', 'photoURL', 'createdAt']);
+    }
+    
+    // Parlay history (if you plan to store user's generated parlays)
+    match /parlays/{parlayId} {
+      allow read, write: if request.auth != null 
+        && resource.data.userId == request.auth.uid;
+      
+      allow create: if request.auth != null 
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.keys().hasAll(['userId', 'gameId', 'legs', 'createdAt'])
+        && request.resource.data.createdAt == request.time;
+    }
+    
+    // User settings/preferences
+    match /userSettings/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Analytics or usage tracking (optional)
+    match /analytics/{document} {
+      // Only allow server-side writes for analytics
+      allow read: if false;
+      allow write: if false;
+    }
+    
+    // System configuration (read-only for authenticated users)
+    match /config/{document} {
+      allow read: if request.auth != null;
+      allow write: if false; // Only admin/server can write
+    }
+    
+    // Feedback/support tickets
+    match /feedback/{feedbackId} {
+      allow create: if request.auth != null 
+        && request.resource.data.userId == request.auth.uid;
+      allow read: if request.auth != null 
+        && resource.data.userId == request.auth.uid;
+      allow update: if false; // Prevent updates after submission
+    }
+    
+    // Default deny rule - IMPORTANT for security
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

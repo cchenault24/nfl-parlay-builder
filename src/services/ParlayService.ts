@@ -1,5 +1,7 @@
 import { INFLClient } from '../api'
+import { auth } from '../config/firebase'
 import { GameRosters, GeneratedParlay, NFLGame } from '../types'
+import { RateLimitError } from '../types/errors'
 import { NFLDataService } from './NFLDataService'
 
 /**
@@ -136,9 +138,12 @@ export class ParlayService {
     options: { temperature?: number; strategy?: string } = {}
   ): Promise<any> {
     try {
+      // Fix: Add await here
+      const authToken = await this.getAuthToken()
+
       const requestBody = {
         game,
-        rosters, // Include rosters in request for now
+        rosters,
         options,
       }
 
@@ -147,40 +152,65 @@ export class ParlayService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          // Fix: Now properly check if authToken exists
+          ...(authToken
+            ? {
+                Authorization: `Bearer ${authToken}`,
+              }
+            : {}),
         },
         body: JSON.stringify(requestBody),
       })
 
       console.log(`📥 Cloud Function responded with status: ${response.status}`)
 
+      const responseData = await response.json()
+
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        console.error('❌ Cloud Function error:', errorData)
+        // Handle rate limit error specifically
+        if (response.status === 429) {
+          const resetTime = responseData.error?.details?.resetTime
+          const remaining = responseData.error?.details?.remaining || 0
+
+          throw new RateLimitError(
+            responseData.error?.message || 'Rate limit exceeded',
+            {
+              remaining,
+              resetTime: resetTime ? new Date(resetTime) : new Date(),
+              currentCount: responseData.error?.details?.currentCount || 0,
+            }
+          )
+        }
+
+        console.error('❌ Cloud Function error:', responseData)
         throw new Error(
-          errorData.error?.message ||
+          responseData.error?.message ||
             `HTTP ${response.status}: ${response.statusText}`
         )
       }
 
-      return await response.json()
+      return responseData
     } catch (error) {
       console.error('❌ Cloud Function call failed:', error)
 
-      // Provide user-friendly error messages
+      // Re-throw rate limit errors as-is
+      if (error instanceof RateLimitError) {
+        throw error
+      }
+
+      // Handle other error cases
       if (error instanceof TypeError && error.message.includes('fetch')) {
         throw new Error(
           'Unable to connect to parlay generation service. Please check your internet connection.'
         )
       }
 
-      // Handle specific error cases
       if (error instanceof Error && error.message.includes('Failed to fetch')) {
         throw new Error(
           'Network error: Unable to reach parlay generation service. Please try again.'
         )
       }
 
-      // If it's already an Error, re-throw it; otherwise create a new Error
       if (error instanceof Error) {
         throw error
       } else {
@@ -212,5 +242,21 @@ export class ParlayService {
 
   private delay(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms))
+  }
+
+  /**
+   * Get auth token from Firebase Auth
+   */
+  private async getAuthToken(): Promise<string | null> {
+    try {
+      const currentUser = auth.currentUser
+      if (currentUser) {
+        return await currentUser.getIdToken()
+      }
+      return null
+    } catch (error) {
+      console.warn('Failed to get auth token:', error)
+      return null
+    }
   }
 }

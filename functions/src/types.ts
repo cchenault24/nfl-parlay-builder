@@ -109,6 +109,11 @@ export interface GenerateParlayResponse {
     message: string
     details?: any
   }
+  rateLimitInfo?: {
+    remaining: number
+    resetTime: string
+    currentCount: number
+  }
 }
 
 // === OpenAI Types ===
