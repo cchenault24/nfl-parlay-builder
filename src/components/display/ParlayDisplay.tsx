@@ -13,6 +13,7 @@ import useModalStore from '../../store/modalStore'
 import useParlayStore from '../../store/parlayStore'
 import type { GeneratedParlay } from '../../types'
 import { AuthModal } from '../auth/AuthModal'
+import { LegalDisclaimer } from '../LegalDisclaimer' // Add this import
 import GameSummaryView from './GameSummaryView'
 import ParlayDisplayFooter from './ParlayDisplayFooter'
 import ParlayLanding from './ParlayLanding'
@@ -72,6 +73,16 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({ parlay, loading }) => {
               <ParlayLegView key={leg.id} leg={leg} index={index} />
             ))}
           </Grid>
+
+          <Divider sx={{ my: 2 }} />
+
+          {/* Add inline legal disclaimer to parlay results */}
+          <Box sx={{ mb: 2 }}>
+            <LegalDisclaimer
+              variant="inline"
+              showResponsibleGamblingLink={true}
+            />
+          </Box>
 
           <Divider sx={{ my: 2 }} />
 
