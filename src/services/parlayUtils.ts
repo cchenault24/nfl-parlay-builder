@@ -119,7 +119,7 @@ export const parseAIResponse = (
 
     const finalLegs: ParlayLeg[] = validatedLegs
       .slice(0, 3)
-      .map((leg: any, index: number) => ({
+      .map((leg: ParlayLeg, index: number) => ({
         id: leg.id || `leg-${index + 1}`,
         betType: leg.betType || 'spread',
         selection: leg.selection || '',

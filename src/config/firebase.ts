@@ -22,6 +22,7 @@ import {
   Timestamp,
   where,
 } from 'firebase/firestore'
+import { GeneratedParlay } from '../types'
 
 export interface UserProfile {
   displayName: string
@@ -34,22 +35,6 @@ export interface UserProfile {
 
 interface AdditionalUserData {
   [key: string]: unknown
-}
-
-interface SaveParlayData {
-  gameContext?: string
-  legs?: Array<{
-    target: string
-    odds: string
-    betType: string
-    confidence: number
-    reasoning: string
-  }>
-  estimatedOdds?: string
-  aiReasoning?: string
-  overallConfidence?: number
-  createdAt: string
-  savedAt: Timestamp
 }
 
 const firebaseConfig = {
@@ -142,7 +127,7 @@ export const getUserProfile = async (
 // Parlay storage functions
 export const saveParlayToUser = async (
   userId: string,
-  parlayData: SaveParlayData
+  parlayData: GeneratedParlay
 ) => {
   try {
     const parlayRef = await addDoc(collection(db, 'parlays'), {
@@ -165,7 +150,7 @@ export const saveParlayToUser = async (
  */
 export const getUserParlays = (
   userId: string,
-  callback: (parlays: any[]) => void
+  callback: (parlays: GeneratedParlay[]) => void
 ) => {
   const parlaysQuery = query(
     collection(db, 'parlays'),
@@ -181,7 +166,7 @@ export const getUserParlays = (
       const parlays = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
-      }))
+      })) as GeneratedParlay[]
       callback(parlays)
     },
     error => {

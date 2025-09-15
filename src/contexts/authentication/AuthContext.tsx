@@ -1,34 +1,12 @@
-import { User } from 'firebase/auth'
-import React, { createContext, useContext, useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useAuthState } from 'react-firebase-hooks/auth'
 import {
   auth,
   createUserProfile,
   getUserProfile,
   UserProfile,
-} from '../config/firebase'
-
-interface AuthContextType {
-  user: User | null | undefined
-  userProfile: UserProfile | null
-  loading: boolean
-  error: Error | undefined
-}
-
-const AuthContext = createContext<AuthContextType>({
-  user: undefined,
-  userProfile: null,
-  loading: true,
-  error: undefined,
-})
-
-export const useAuth = () => {
-  const context = useContext(AuthContext)
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider')
-  }
-  return context
-}
+} from '../../config/firebase'
+import { AuthContext } from './auth'
 
 const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
@@ -42,12 +20,9 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       if (user) {
         setProfileLoading(true)
         try {
-          // Create profile if it doesn't exist
           await createUserProfile(user)
-
-          // Fetch the user profile - no casting needed now!
           const profile = await getUserProfile(user.uid)
-          setUserProfile(profile) // profile is already UserProfile | null
+          setUserProfile(profile)
         } catch (error) {
           console.error('Error setting up user profile:', error)
         } finally {
@@ -71,4 +46,4 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
-export { AuthProvider } // Export at bottom instead of inline
+export default AuthProvider

@@ -1,26 +1,26 @@
-import React, { useState } from 'react'
+import {
+  Casino as CasinoIcon,
+  History as HistoryIcon,
+  Login as LoginIcon,
+  Psychology as PsychologyIcon,
+  Security as SecurityIcon,
+  Sports as SportsIcon,
+  TrendingUp as TrendingUpIcon,
+} from '@mui/icons-material'
 import {
   Box,
-  Container,
-  Typography,
   Button,
   Card,
   CardContent,
+  Container,
   Grid,
   Paper,
   Stack,
+  Typography,
 } from '@mui/material'
-import {
-  TrendingUp as TrendingUpIcon,
-  Casino as CasinoIcon,
-  Sports as SportsIcon,
-  Psychology as PsychologyIcon,
-  History as HistoryIcon,
-  Security as SecurityIcon,
-  Login as LoginIcon,
-} from '@mui/icons-material'
-import { AuthModal } from './AuthModal'
+import React, { useState } from 'react'
 import ParlAIdLogo from '../ParlAIdLogo'
+import { AuthModal } from './AuthModal'
 
 export const AuthGate: React.FC = () => {
   const [authModalOpen, setAuthModalOpen] = useState(false)
@@ -233,8 +233,8 @@ export const AuthGate: React.FC = () => {
 
         {/* Features Section */}
         <Grid container spacing={4} sx={{ mb: 8 }}>
-          {features.map((feature, index) => (
-            <Grid item xs={12} sm={6} md={3} key={index}>
+          {features.map(feature => (
+            <Grid item xs={12} sm={6} md={3} key={`feature-${feature.title}`}>
               <Card
                 sx={{
                   height: '100%',

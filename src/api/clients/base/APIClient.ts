@@ -17,7 +17,9 @@ export default class APIClient implements IAPIClient {
   private readonly retryDelayMs: number
 
   constructor(config: APIConfig) {
-    if (!config.baseURL) throw new Error('APIClient requires baseURL')
+    if (!config.baseURL) {
+      throw new Error('APIClient requires baseURL')
+    }
     this.baseURL = stripTrailingSlash(config.baseURL)
     this.defaultHeaders = {
       Accept: 'application/json',
@@ -134,16 +136,22 @@ export default class APIClient implements IAPIClient {
           return res
         }
       } catch (err) {
-        if (isAbortError(err)) throw err
+        if (isAbortError(err)) {
+          throw err
+        }
         lastError = err
       }
       attempt += 1
-      if (attempt > this.retries) break
+      if (attempt > this.retries) {
+        break
+      }
       const delay = backoffWithJitter(this.retryDelayMs, attempt)
       await sleep(delay)
     }
 
-    if (lastError instanceof Error) throw lastError
+    if (lastError instanceof Error) {
+      throw lastError
+    }
     throw new Error('Request failed after retries')
   }
 
@@ -151,10 +159,14 @@ export default class APIClient implements IAPIClient {
     const clean = endpoint.startsWith('http')
       ? endpoint
       : `${this.baseURL}/${ltrim(endpoint, '/')}`
-    if (!params || Object.keys(params).length === 0) return clean
+    if (!params || Object.keys(params).length === 0) {
+      return clean
+    }
     const url = new URL(clean)
     for (const [k, v] of Object.entries(params)) {
-      if (v == null) continue
+      if (v == null) {
+        continue
+      }
       url.searchParams.set(k, String(v))
     }
     return url.toString()
@@ -167,7 +179,9 @@ function stripTrailingSlash(s: string): string {
 }
 function ltrim(s: string, ch: string): string {
   let i = 0
-  while (i < s.length && s[i] === ch) i++
+  while (i < s.length && s[i] === ch) {
+    i++
+  }
   return s.slice(i)
 }
 function clamp(n: number, min: number, max: number): number {
@@ -185,7 +199,9 @@ function serializeBody(
   data: APIRequestData,
   headers: Record<string, string>
 ): { body: BodyInit | null | undefined; headers: Record<string, string> } {
-  if (data == null) return { body: undefined, headers: {} }
+  if (data == null) {
+    return { body: undefined, headers: {} }
+  }
   if (typeof FormData !== 'undefined' && data instanceof FormData) {
     const { ['Content-Type']: _1, ['content-type']: _2, ...rest } = headers
     return { body: data, headers: rest }
@@ -206,7 +222,9 @@ function serializeBody(
 
 async function safeJson(res: Response): Promise<unknown> {
   const text = await res.text()
-  if (!text) return undefined
+  if (!text) {
+    return undefined
+  }
   try {
     return JSON.parse(text)
   } catch {
@@ -249,14 +267,22 @@ function mergeAbortSignals(
   primary: AbortSignal,
   extra?: AbortSignal
 ): AbortSignal | undefined {
-  if (!extra) return primary
-  if (extra.aborted) return extra
+  if (!extra) {
+    return primary
+  }
+  if (extra.aborted) {
+    return extra
+  }
   const controller = new AbortController()
   const onAbortPrimary = () => controller.abort(primary.reason)
   const onAbortExtra = () => controller.abort(extra.reason)
   primary.addEventListener('abort', onAbortPrimary, { once: true })
   extra.addEventListener('abort', onAbortExtra, { once: true })
-  if (primary.aborted) controller.abort(primary.reason)
-  if (extra.aborted) controller.abort(extra.reason)
+  if (primary.aborted) {
+    controller.abort(primary.reason)
+  }
+  if (extra.aborted) {
+    controller.abort(extra.reason)
+  }
   return controller.signal
 }

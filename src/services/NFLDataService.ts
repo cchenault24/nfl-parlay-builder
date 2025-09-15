@@ -72,6 +72,16 @@ interface ESPNRosterResponse {
   }>
 }
 
+interface TeamInfo {
+  id: string
+  name?: string
+  displayName?: string
+  abbreviation?: string
+  logo?: string
+  color?: string
+  alternateColor?: string
+}
+
 /**
  * NFL Data Service
  * Handles business logic for NFL data operations
@@ -168,7 +178,7 @@ export class NFLDataService {
    */
   async getTeamWithRoster(
     teamId: string
-  ): Promise<{ team: any; roster: NFLPlayer[] }> {
+  ): Promise<{ team: TeamInfo; roster: NFLPlayer[] }> {
     // In a real implementation, you might get team details from another endpoint
     // For now, we'll just get the roster
     const roster = await this.getTeamRoster(teamId)

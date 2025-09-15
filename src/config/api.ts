@@ -1,15 +1,4 @@
-/**
- * API Configuration and Environment Variable Management
- */
-
-interface ImportMeta {
-  env: Record<string, string>
-}
-
-// Type-safe environment variable getter
-const getEnvVar = (name: string): string => {
-  return (import.meta as ImportMeta).env[name] || ''
-}
+import { getEnvVar } from '../utils'
 
 /**
  * Environment variables with validation

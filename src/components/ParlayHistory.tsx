@@ -1,27 +1,28 @@
-import React, { useEffect, useState } from 'react'
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
+  Casino as CasinoIcon,
+  Close as CloseIcon,
+  TrendingUp as TrendingUpIcon,
+} from '@mui/icons-material'
+import {
+  Alert,
+  Box,
   Button,
   Card,
   CardContent,
-  Typography,
-  Box,
   Chip,
-  IconButton,
   CircularProgress,
-  Alert,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Grid,
+  IconButton,
+  Typography,
 } from '@mui/material'
-import {
-  Close as CloseIcon,
-  Casino as CasinoIcon,
-  TrendingUp as TrendingUpIcon,
-} from '@mui/icons-material'
-import { useAuth } from '../contexts/AuthContext'
+import { Timestamp } from 'firebase/firestore'
+import React, { useEffect, useState } from 'react'
 import { getUserParlays } from '../config/firebase'
+import { useAuth } from '../hooks/useAuth'
 import { GeneratedParlay } from '../types'
 
 interface ParlayHistoryProps {
@@ -67,13 +68,12 @@ export const ParlayHistory: React.FC<ParlayHistoryProps> = ({
     }
   }, [open])
 
-  const formatDate = (timestamp: any) => {
+  const formatDate = (timestamp: Timestamp | undefined): string => {
     if (!timestamp) {
       return 'Unknown date'
     }
 
-    // Handle Firestore Timestamp
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp)
+    const date = timestamp.toDate()
     return date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
@@ -147,8 +147,8 @@ export const ParlayHistory: React.FC<ParlayHistoryProps> = ({
           </Box>
         ) : (
           <Box sx={{ maxHeight: '60vh', overflowY: 'auto' }}>
-            {parlays.map(parlay => (
-              <Card key={parlay.id || Math.random()} sx={{ mb: 2 }}>
+            {parlays.map((parlay, index) => (
+              <Card key={parlay.id || `parlay-${index}`} sx={{ mb: 2 }}>
                 <CardContent>
                   <Box
                     sx={{
@@ -178,8 +178,8 @@ export const ParlayHistory: React.FC<ParlayHistoryProps> = ({
                   </Typography>
 
                   <Grid container spacing={2}>
-                    {parlay.legs?.map((leg, index) => (
-                      <Grid item xs={12} key={index}>
+                    {parlay.legs?.map(leg => (
+                      <Grid item xs={12} key={`${parlay.id}-leg-${leg.id}`}>
                         <Box
                           sx={{
                             p: 2,
@@ -206,7 +206,7 @@ export const ParlayHistory: React.FC<ParlayHistoryProps> = ({
                             >
                               <Chip
                                 label={leg.betType.replace('_', ' ')}
-                                color={getBetTypeColor(leg.betType) as any}
+                                color={getBetTypeColor(leg.betType)}
                                 size="small"
                                 variant="outlined"
                               />
@@ -219,7 +219,7 @@ export const ParlayHistory: React.FC<ParlayHistoryProps> = ({
                             </Box>
                             <Chip
                               label={`${leg.confidence}/10`}
-                              color={getConfidenceColor(leg.confidence) as any}
+                              color={getConfidenceColor(leg.confidence)}
                               size="small"
                             />
                           </Box>

@@ -148,9 +148,9 @@ export const AgeVerificationModal: React.FC<AgeVerificationModalProps> = ({
               'Entertainment purposes only',
               'No actual betting occurs',
               'Content for adults only',
-            ].map((requirement, index) => (
+            ].map(requirement => (
               <Box
-                key={index}
+                key={`legal-requirement-${requirement}`}
                 sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
               >
                 <Box

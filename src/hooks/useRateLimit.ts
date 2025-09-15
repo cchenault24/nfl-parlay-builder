@@ -20,7 +20,7 @@ interface RateLimitResponse {
 interface ParlayGenerationResponse {
   rateLimitInfo?: {
     remaining: number
-    resetTime: string
+    resetTime: Date
     currentCount: number
   }
   [key: string]: unknown
@@ -92,7 +92,10 @@ export const useRateLimit = () => {
       setRateLimitInfo({
         remaining: responseData.rateLimitInfo.remaining,
         total: rateLimitInfo?.total || 10,
-        resetTime: new Date(responseData.rateLimitInfo.resetTime),
+        resetTime:
+          responseData.rateLimitInfo.resetTime instanceof Date
+            ? responseData.rateLimitInfo.resetTime
+            : new Date(responseData.rateLimitInfo.resetTime),
         currentCount: responseData.rateLimitInfo.currentCount,
       })
     }

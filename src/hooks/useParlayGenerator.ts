@@ -31,7 +31,12 @@ export const useParlayGenerator = () => {
     onSuccess: result => {
       // Update rate limit info from response
       if (result.rateLimitInfo) {
-        updateFromResponse({ rateLimitInfo: result.rateLimitInfo })
+        updateFromResponse({
+          rateLimitInfo: {
+            ...result.rateLimitInfo,
+            resetTime: new Date(result.rateLimitInfo.resetTime),
+          },
+        })
       }
 
       // Save parlay to store on success

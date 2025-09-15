@@ -21,6 +21,15 @@ import {
 import React from 'react'
 import type { GameSummary } from '../../types'
 
+type MatchupAnalysisData = string | Record<string, unknown> | null | undefined
+type PredictionData = string | Record<string, unknown> | null | undefined
+type KeyFactorsData =
+  | string[]
+  | string
+  | Record<string, unknown>
+  | null
+  | undefined
+
 interface GameSummaryViewProps {
   gameSummary: GameSummary
   gameContext: string // e.g., "Chiefs @ Bills - Week 14"
@@ -35,7 +44,7 @@ const GameSummaryView: React.FC<GameSummaryViewProps> = ({
   const isSmall = useMediaQuery(theme.breakpoints.down('sm'))
 
   // Helper function to safely render matchup analysis
-  const renderMatchupAnalysis = (analysis: string | any): string => {
+  const renderMatchupAnalysis = (analysis: MatchupAnalysisData): string => {
     if (typeof analysis === 'string') {
       return analysis
     }
@@ -67,7 +76,7 @@ const GameSummaryView: React.FC<GameSummaryViewProps> = ({
   }
 
   // Helper function to safely render prediction
-  const renderPrediction = (prediction: string | any): string => {
+  const renderPrediction = (prediction: PredictionData): string => {
     if (typeof prediction === 'string') {
       return prediction
     }
@@ -83,7 +92,7 @@ const GameSummaryView: React.FC<GameSummaryViewProps> = ({
   }
 
   // Helper function to safely render key factors
-  const renderKeyFactors = (factors: string[] | any): string[] => {
+  const renderKeyFactors = (factors: KeyFactorsData): string[] => {
     const cleanFactor = (factor: string): string => {
       let cleaned = String(factor).trim()
 
@@ -321,8 +330,8 @@ const GameSummaryView: React.FC<GameSummaryViewProps> = ({
             Key Factors
           </Typography>
           <List dense sx={{ pt: 0 }}>
-            {keyFactorsList.map((factor, index) => (
-              <ListItem key={index} sx={{ py: 0.5, px: 0 }}>
+            {keyFactorsList.map(factor => (
+              <ListItem key={`keyFactor-${factor}`} sx={{ py: 0.5, px: 0 }}>
                 <ListItemIcon sx={{ minWidth: 32 }}>
                   <CheckCircleIcon
                     fontSize="small"

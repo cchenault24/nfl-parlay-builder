@@ -1,3 +1,5 @@
+import { Timestamp } from 'firebase/firestore'
+
 // ===== BET TYPES =====
 export type BetType = 'spread' | 'total' | 'moneyline' | 'player_prop'
 
@@ -109,7 +111,7 @@ export interface GeneratedParlay {
   overallConfidence: number
   estimatedOdds: string
   createdAt: string
-  savedAt?: any // Firestore Timestamp when saved to user's history
+  savedAt?: Timestamp
   gameSummary?: GameSummary
 }
 
@@ -124,11 +126,11 @@ export interface UserProfile {
   displayName: string
   email: string
   photoURL?: string
-  createdAt: any // Firestore Timestamp
+  createdAt: Timestamp
   savedParlays?: string[] // Array of parlay IDs
 }
 
 export interface SavedParlay extends GeneratedParlay {
   userId: string
-  savedAt: any // Firestore Timestamp
+  savedAt: Timestamp
 }

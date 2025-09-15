@@ -14,10 +14,10 @@ type PartialConfig = Partial<APIConfig>
 function resolveConfig(input?: PartialConfig): APIConfig {
   const baseURL =
     input?.baseURL ??
-    (import.meta as any)?.env?.VITE_ESPN_BASE_URL ??
+    import.meta?.env?.VITE_ESPN_BASE_URL ??
     DEFAULT_ESPN_BASE_URL
 
-  if (!input?.baseURL && !(import.meta as any)?.env?.VITE_ESPN_BASE_URL) {
+  if (!input?.baseURL && !import.meta?.env?.VITE_ESPN_BASE_URL) {
     console.warn(
       'ESPNClient: using default ESPN base URL. Set VITE_ESPN_BASE_URL or pass a config to override.'
     )
