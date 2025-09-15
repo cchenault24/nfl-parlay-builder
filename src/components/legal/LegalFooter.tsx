@@ -37,7 +37,7 @@ export const LegalFooter: React.FC<LegalFooterProps> = ({
           <Grid
             container
             spacing={3}
-            alignItems="center"
+            alignItems="flex-end"
             justifyContent="center"
           >
             {/* Entertainment Notice */}
@@ -176,7 +176,7 @@ export const LegalFooter: React.FC<LegalFooterProps> = ({
                   </Link>
                 </Box>
                 <Typography variant="caption" color="text.secondary">
-                  © {currentYear} ParlAId. For entertainment only.
+                  © {currentYear} ParlAId.
                 </Typography>
               </Box>
             </Grid>
