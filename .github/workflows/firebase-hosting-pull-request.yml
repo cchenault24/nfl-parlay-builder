@@ -37,5 +37,5 @@ jobs:
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseService Account: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_NFL_PARLAY_BUILDER }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_NFL_PARLAY_BUILDER }}
           projectId: nfl-parlay-builder
