@@ -8,6 +8,7 @@ import {
   AntiTemplateHints,
   GameContext,
   ParlayGenerationContext,
+  PlayerInjury,
 } from './BaseParlayProvider'
 
 /**
@@ -16,14 +17,13 @@ import {
  */
 export class ContextBuilder {
   /**
-   * Build comprehensive context for AI parlay generation
+   * Build the full parlay generation context
    */
-  static buildGenerationContext(
+  static buildContext(
     game: NFLGame,
     rosters: GameRosters,
     strategy: StrategyConfig,
-    varietyFactors: VarietyFactors,
-    options: { temperature?: number; maxRetries?: number } = {}
+    varietyFactors: VarietyFactors
   ): ParlayGenerationContext {
     const gameContext = this.analyzeGameContext(game, rosters)
     const antiTemplateHints = this.generateAntiTemplateHints(
@@ -36,9 +36,7 @@ export class ContextBuilder {
       strategy,
       varietyFactors,
       gameContext,
-      antiTemplateHints: antiTemplateHints.emphasizeGameSpecifics,
-      temperature: options.temperature,
-      maxRetries: options.maxRetries || 3,
+      antiTemplateHints,
     }
   }
 
@@ -53,11 +51,14 @@ export class ContextBuilder {
       weather: this.inferWeatherConditions(game),
       injuries: this.analyzeInjuries(rosters),
       restDays: this.calculateRestDays(game),
-      rivalry: this.detectRivalry(game),
-      playoffs: this.isPlayoffGame(game),
-      primeTime: this.isPrimeTimeGame(game),
-      homeFieldAdvantage: this.calculateHomeFieldAdvantage(game),
-      publicBettingTrend: this.inferPublicTrend(game),
+      isRivalry: this.detectRivalry(game),
+      isPlayoffs: this.isPlayoffGame(game),
+      isPrimeTime: this.isPrimeTimeGame(game),
+      venue: {
+        type: this.inferVenueType(game),
+        surface: this.inferSurface(game),
+        homeFieldAdvantage: this.calculateHomeFieldAdvantage(game),
+      },
     }
   }
 
@@ -76,16 +77,16 @@ export class ContextBuilder {
     )
 
     return {
-      recentBetTypePatterns: [], // Will be populated by tracking service later
-      avoidGenericPhrases: [
+      recentBetTypes: [], // to be populated by tracking service later
+      avoidPatterns: [
         'home team advantage',
         'recent form suggests',
         'both teams have',
         'expect a competitive game',
         'value in this bet',
       ],
-      emphasizeGameSpecifics: gameSpecifics,
-      requiredContextFactors: this.getRequiredContextFactors(gameContext),
+      emphasizeUnique: gameSpecifics,
+      contextualFactors: this.getRequiredContextFactors(gameContext),
     }
   }
 
@@ -99,216 +100,170 @@ export class ContextBuilder {
   ): string[] {
     const factors: string[] = []
 
-    // Weather-specific factors
+    // Weather signal if relevant
     if (
       gameContext.weather?.condition !== 'indoor' &&
       gameContext.weather?.condition !== 'clear'
     ) {
       factors.push(
-        `Weather impact: ${gameContext.weather.condition} conditions expected`
+        `Weather impact: ${gameContext.weather?.condition} conditions expected`
       )
     }
 
     // Rest advantage/disadvantage
-    if (gameContext.restDays < 6) {
+    const minRest = Math.min(
+      gameContext.restDays.home,
+      gameContext.restDays.away
+    )
+    const maxRest = Math.max(
+      gameContext.restDays.home,
+      gameContext.restDays.away
+    )
+    if (minRest < 6) {
       factors.push(
-        `Short rest situation: ${gameContext.restDays} days between games`
+        `Short rest situation: home ${gameContext.restDays.home}d, away ${gameContext.restDays.away}d`
       )
-    } else if (gameContext.restDays > 10) {
+    } else if (maxRest > 10) {
       factors.push(
-        `Extended rest: ${gameContext.restDays} days since last game`
+        `Extended rest: home ${gameContext.restDays.home}d, away ${gameContext.restDays.away}d`
       )
     }
 
     // Division/rivalry context
-    if (gameContext.rivalry) {
+    if (gameContext.isRivalry) {
       factors.push('Divisional rivalry game with historical significance')
     }
 
     // Prime time spotlight
-    if (gameContext.primeTime) {
+    if (gameContext.isPrimeTime) {
       factors.push('Prime time game with national audience')
     }
 
     // Playoff implications
-    if (gameContext.playoffs) {
+    if (gameContext.isPlayoffs) {
       factors.push('Playoff implications affecting team motivation')
     }
 
-    // Key player analysis
-    const keyPlayerFactors = this.analyzeKeyPlayerSituations(rosters)
-    factors.push(...keyPlayerFactors)
-
-    // Matchup-specific factors
-    const matchupFactors = this.analyzeMatchupSpecifics(game, rosters)
-    factors.push(...matchupFactors)
-
-    return factors
-  }
-
-  /**
-   * Analyze key player situations that should influence bet selection
-   */
-  private static analyzeKeyPlayerSituations(rosters: GameRosters): string[] {
-    const factors: string[] = []
-
-    // Analyze QB situations
-    const homeQBs = rosters.homeRoster.filter(
-      p => p.position.abbreviation === 'QB'
-    )
-    const awayQBs = rosters.awayRoster.filter(
-      p => p.position.abbreviation === 'QB'
-    )
-
-    // Check for backup QBs or QB controversies
-    if (homeQBs.length > 1) {
-      factors.push(`QB situation for home team: multiple QBs available`)
-    }
-    if (awayQBs.length > 1) {
-      factors.push(`QB situation for away team: multiple QBs available`)
-    }
-
-    // Analyze skill position depth
-    const homeRBs = rosters.homeRoster.filter(
-      p => p.position.abbreviation === 'RB'
-    )
-    const awayRBs = rosters.awayRoster.filter(
-      p => p.position.abbreviation === 'RB'
-    )
-
-    if (homeRBs.length < 2) {
-      factors.push('Home team has limited RB depth')
-    }
-    if (awayRBs.length < 2) {
-      factors.push('Away team has limited RB depth')
+    // Slight home-field skew
+    const hfa =
+      gameContext.venue?.homeFieldAdvantage ??
+      this.calculateHomeFieldAdvantage(game)
+    if (hfa >= 7) {
+      factors.push('Strong home-field advantage environment')
     }
 
     return factors
   }
 
   /**
-   * Analyze matchup-specific factors
-   */
-  private static analyzeMatchupSpecifics(
-    game: NFLGame,
-    rosters: GameRosters
-  ): string[] {
-    const factors: string[] = []
-
-    // Week-specific context
-    if (game.week <= 4) {
-      factors.push('Early season game with teams still establishing identity')
-    } else if (game.week >= 15) {
-      factors.push('Late season game with playoff implications')
-    }
-
-    // Conference matchup
-    // Note: We'd need more team data to determine conferences
-    // For now, we'll use team names as hints
-    factors.push(
-      `Matchup: ${game.awayTeam.displayName} @ ${game.homeTeam.displayName}`
-    )
-
-    return factors
-  }
-
-  /**
-   * Get required context factors that AI must address
+   * Contextual factors that the AI should always address if present
    */
   private static getRequiredContextFactors(gameContext: GameContext): string[] {
     const required: string[] = []
 
     if (
-      gameContext.weather?.condition !== 'indoor' &&
-      gameContext.weather?.condition !== 'clear'
+      gameContext.weather?.condition &&
+      gameContext.weather.condition !== 'indoor' &&
+      gameContext.weather.condition !== 'clear'
     ) {
       required.push('weather_impact_on_game_plan')
     }
 
-    if (gameContext.rivalry) {
+    if (gameContext.isRivalry) {
       required.push('divisional_rivalry_dynamics')
     }
 
-    if (gameContext.restDays < 6 || gameContext.restDays > 10) {
+    const minRest = Math.min(
+      gameContext.restDays.home,
+      gameContext.restDays.away
+    )
+    const maxRest = Math.max(
+      gameContext.restDays.home,
+      gameContext.restDays.away
+    )
+    if (minRest < 6 || maxRest > 10) {
       required.push('rest_advantage_analysis')
     }
 
-    if (gameContext.primeTime) {
+    if (gameContext.isPrimeTime) {
       required.push('prime_time_performance_factors')
+    }
+
+    if (gameContext.isPlayoffs) {
+      required.push('playoff_pressure_and_rotations')
     }
 
     return required
   }
 
-  // === Private Helper Methods ===
-
-  private static inferWeatherConditions(game: NFLGame): GameContext['weather'] {
-    // In a real implementation, this would call a weather API
-    // For now, we'll use some basic inference
-    return {
-      condition: 'clear', // Default assumption
-      temperature: 65,
-      windSpeed: 5,
-    }
-  }
-
-  private static analyzeInjuries(
-    rosters: GameRosters
-  ): GameContext['injuries'] {
-    // In a real implementation, this would analyze injury reports
-    // For now, return empty array
+  /**
+   * Placeholder injuries analyzer
+   */
+  private static analyzeInjuries(_rosters: GameRosters): PlayerInjury[] {
+    // In your real code, collect questionable/doubtful/out designations
     return []
   }
 
-  private static calculateRestDays(game: NFLGame): number {
-    // Calculate based on game week and typical NFL scheduling
-    // Most teams have 7 days rest, but TNF/MNF can create short rest
-    return 7 // Default assumption
+  /**
+   * Placeholder weather inference
+   */
+  private static inferWeatherConditions(_game: NFLGame):
+    | {
+        condition: 'clear' | 'rain' | 'snow' | 'wind' | 'indoor'
+        tempF?: number
+      }
+    | undefined {
+    // If you have a weather service, look it up here
+    return { condition: 'clear' }
   }
 
-  private static detectRivalry(game: NFLGame): boolean {
-    // This would use division/rivalry data
-    // For now, use simple heuristic
-    const homeTeam = game.homeTeam.displayName.toLowerCase()
-    const awayTeam = game.awayTeam.displayName.toLowerCase()
-
-    // Some basic rivalry detection
-    const rivalries = [
-      ['patriots', 'jets'],
-      ['cowboys', 'eagles'],
-      ['packers', 'bears'],
-      ['steelers', 'ravens'],
-    ]
-
-    return rivalries.some(
-      ([team1, team2]) =>
-        (homeTeam.includes(team1) && awayTeam.includes(team2)) ||
-        (homeTeam.includes(team2) && awayTeam.includes(team1))
-    )
+  /**
+   * Infer venue type from game metadata if available, else default.
+   */
+  private static inferVenueType(game: NFLGame): 'dome' | 'outdoor' {
+    const name = (game as any)?.venue?.toString().toLowerCase?.() || ''
+    if (name.includes('dome')) return 'dome'
+    if ((game as any)?.isDome === true) return 'dome'
+    return 'outdoor'
   }
 
-  private static isPlayoffGame(game: NFLGame): boolean {
-    // Playoff games are typically weeks 18+
-    return game.week >= 18
+  /**
+   * Infer playing surface from game metadata if available, else default.
+   */
+  private static inferSurface(game: NFLGame): 'grass' | 'turf' {
+    const surface = (game as any)?.surface?.toString().toLowerCase?.() || ''
+    if (surface.includes('grass')) return 'grass'
+    if (surface.includes('turf')) return 'turf'
+    return 'turf'
   }
 
-  private static isPrimeTimeGame(game: NFLGame): boolean {
-    // In real implementation, would check game time
-    // For now, use week as proxy (some weeks have more prime time games)
-    return game.week % 3 === 0 // Rough approximation
+  /**
+   * Calculate rest days for home/away as a pair
+   */
+  private static calculateRestDays(_game: NFLGame): {
+    home: number
+    away: number
+  } {
+    // Implement from schedule if available; default to symmetrical 7/7
+    return { home: 7, away: 7 }
   }
 
-  private static calculateHomeFieldAdvantage(game: NFLGame): number {
-    // This would use historical data and stadium factors
-    // For now, return moderate advantage
-    return 6 // 0-10 scale, 6 is moderate home field advantage
+  private static detectRivalry(_game: NFLGame): boolean {
+    return false
   }
 
-  private static inferPublicTrend(
-    game: NFLGame
-  ): GameContext['publicBettingTrend'] {
-    // This would use betting market data
-    // For now, return neutral
-    return 'neutral'
+  private static isPlayoffGame(_game: NFLGame): boolean {
+    return false
+  }
+
+  private static isPrimeTimeGame(_game: NFLGame): boolean {
+    return false
+  }
+
+  private static calculateHomeFieldAdvantage(_game: NFLGame): number {
+    // 0..10; tune if you have stadium/altitude data
+    return 6
   }
 }
+
+export default ContextBuilder

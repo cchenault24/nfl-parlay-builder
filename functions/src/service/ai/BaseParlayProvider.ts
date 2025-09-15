@@ -37,6 +37,7 @@ export interface GameContext {
   venue: {
     type: 'dome' | 'outdoor'
     surface: 'grass' | 'turf'
+    homeFieldAdvantage: number
   }
   publicBetting?: {
     spreadConsensus: number // % on favorite
