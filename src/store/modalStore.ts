@@ -1,19 +1,31 @@
 import { create } from 'zustand'
 
-interface ModalStore {
-  // State
+interface ModalState {
   authModalOpen: boolean
-
-  // Actions
   setAuthModalOpen: (open: boolean) => void
+
+  termsModalOpen: boolean
+  setTermsModalOpen: (open: boolean) => void
+
+  privacyModalOpen: boolean
+  setPrivacyModalOpen: (open: boolean) => void
+
+  legalDisclaimerModalOpen: boolean
+  setLegalDisclaimerModalOpen: (open: boolean) => void
 }
 
-const useModalStore = create<ModalStore>(set => ({
-  // Initial state
+const useModalStore = create<ModalState>(set => ({
   authModalOpen: false,
-
-  // Action implementations
   setAuthModalOpen: open => set({ authModalOpen: open }),
+
+  termsModalOpen: false,
+  setTermsModalOpen: open => set({ termsModalOpen: open }),
+
+  privacyModalOpen: false,
+  setPrivacyModalOpen: open => set({ privacyModalOpen: open }),
+
+  legalDisclaimerModalOpen: false,
+  setLegalDisclaimerModalOpen: open => set({ legalDisclaimerModalOpen: open }),
 }))
 
 export default useModalStore

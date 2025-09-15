@@ -13,7 +13,7 @@ import useModalStore from '../../store/modalStore'
 import useParlayStore from '../../store/parlayStore'
 import type { GeneratedParlay } from '../../types'
 import { AuthModal } from '../auth/AuthModal'
-import { LegalDisclaimer } from '../LegalDisclaimer' // Add this import
+import { LegalDisclaimer } from '../legal/LegalDisclaimer' // Add this import
 import GameSummaryView from './GameSummaryView'
 import ParlayDisplayFooter from './ParlayDisplayFooter'
 import ParlayLanding from './ParlayLanding'

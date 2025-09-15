@@ -114,12 +114,12 @@ export const ResponsibleGambling: React.FC<ResponsibleGamblingProps> = ({
         sx={{ mb: 4, fontSize: '1.1rem' }}
       >
         <Typography variant="h6" gutterBottom>
-          If you're having thoughts of suicide or self-harm, please get help
-          immediately:
+          {`If you're having thoughts of suicide or self-harm, please get help
+          immediately:`}
         </Typography>
         <Typography variant="body1" sx={{ fontWeight: 600 }}>
-          Call 988 (Suicide & Crisis Lifeline) or text HOME to 741741 (Crisis
-          Text Line)
+          {`Call 988 (Suicide & Crisis Lifeline) or text HOME to 741741 (Crisis
+          Text Line)`}
         </Typography>
       </Alert>
 
