@@ -30,6 +30,10 @@ jobs:
           VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
           VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+          VITE_MINIMUM_AGE: ${{ secrets.VITE_MINIMUM_AGE }}
+          VITE_LEGAL_COMPANY_NAME: ${{ secrets.VITE_LEGAL_COMPANY_NAME }}
+          VITE_LEGAL_CONTACT_EMAIL: ${{ secrets.VITE_LEGAL_CONTACT_EMAIL }}
+          VITE_RESPONSIBLE_GAMBLING_HELPLINE: ${{ secrets.VITE_RESPONSIBLE_GAMBLING_HELPLINE }}
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}

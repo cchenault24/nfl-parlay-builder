@@ -10,8 +10,6 @@ export const cleanupRateLimits = functions
   .pubsub.schedule('every 6 hours')
   .timeZone('America/New_York') // Adjust to your timezone
   .onRun(async context => {
-    console.log('🧹 Starting rate limit cleanup...')
-
     try {
       // Initialize rate limiter with same config as main function
       const rateLimiter = new RateLimiter({
@@ -21,10 +19,6 @@ export const cleanupRateLimits = functions
       })
 
       const result = await rateLimiter.cleanupExpiredEntries()
-
-      console.log(
-        `✅ Rate limit cleanup completed. Deleted ${result.deletedCount} entries`
-      )
 
       return {
         success: true,

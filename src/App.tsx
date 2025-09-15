@@ -1,4 +1,4 @@
-// src/App.tsx
+import { AppBar, Toolbar } from '@mui/material'
 import Box from '@mui/material/Box'
 import Container from '@mui/material/Container'
 import CssBaseline from '@mui/material/CssBaseline'
@@ -6,24 +6,25 @@ import { ThemeProvider } from '@mui/material/styles'
 import Typography from '@mui/material/Typography'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
-import ParlayDisplay from './components/display/ParlayDisplay'
-import GameSelector from './components/GameSelector'
-import { useAvailableWeeks } from './hooks/useAvailableWeek'
-import { useCurrentWeek } from './hooks/useCurrentWeek'
-import { useNFLGames } from './hooks/useNFLGames'
-import { theme } from './theme'
-// Replace this import with the selector
-import { AppBar, Toolbar } from '@mui/material'
 import { AuthGate } from './components/auth/AuthGate'
 import { UserMenu } from './components/auth/UserMenu'
-import DevStatus from './components/DevStatus' // Add this import
+import DevStatus from './components/DevStatus'
+import ParlayDisplay from './components/display/ParlayDisplay'
+import GameSelector from './components/GameSelector'
+import { AgeVerificationModal } from './components/legal/AgeVerificationModal'
+import { LegalFooter } from './components/legal/LegalFooter'
+import { ResponsibleGambling } from './components/legal/ResponsibleGambling'
 import { LoadingScreen } from './components/LoadingScreen'
 import ParlAIdLogo from './components/ParlAIdLogo'
 import { ParlayHistory } from './components/ParlayHistory'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
-
+import { useAgeVerification } from './hooks/useAgeVerification'
+import { useAvailableWeeks } from './hooks/useAvailableWeek'
+import { useCurrentWeek } from './hooks/useCurrentWeek'
+import { useNFLGames } from './hooks/useNFLGames'
 import { useParlayGeneratorSelector } from './hooks/useParlayGeneratorSelector'
 import useParlayStore from './store/parlayStore'
+import { theme } from './theme'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -41,6 +42,15 @@ function AppContent() {
 
   const { user, loading } = useAuth()
   const [historyOpen, setHistoryOpen] = useState(false)
+
+  // Legal compliance state
+  const {
+    isVerified,
+    isLoading: ageLoading,
+    setVerified,
+  } = useAgeVerification()
+  const [showResponsibleGambling, setShowResponsibleGambling] = useState(false)
+  const [ageVerificationOpen, setAgeVerificationOpen] = useState(false)
 
   // Get current week from API
   const { currentWeek, isLoading: weekLoading } = useCurrentWeek()
@@ -60,14 +70,19 @@ function AppContent() {
   const weekToFetch = selectedWeek
   const { data: games, isLoading: gamesLoading } = useNFLGames(weekToFetch)
 
-  // Only this line changes! Everything else stays the same
   const {
     mutate: generateParlay,
     isPending: parlayLoading,
     error: parlayError,
     reset: resetParlay,
-    serviceStatus,
   } = useParlayGeneratorSelector()
+
+  // Check age verification status
+  useEffect(() => {
+    if (!ageLoading && !isVerified) {
+      setAgeVerificationOpen(true)
+    }
+  }, [ageLoading, isVerified])
 
   const handleWeekChange = (week: number) => {
     setSelectedWeek(week)
@@ -77,67 +92,133 @@ function AppContent() {
 
   const handleGenerateParlay = () => {
     if (selectedGame) {
-      console.log('🔧 Service Status:', serviceStatus)
       generateParlay(selectedGame)
     }
   }
 
-  // Show loading screen while checking authentication
-  if (loading) {
+  const handleAgeVerified = () => {
+    setVerified()
+    setAgeVerificationOpen(false)
+  }
+
+  const handleAgeDeclined = () => {
+    alert(
+      'You must be 18 or older to use this service. You will be redirected away from this site.'
+    )
+    window.location.href = 'https://www.google.com'
+  }
+
+  const handleResponsibleGamblingClick = () => {
+    setShowResponsibleGambling(true)
+  }
+
+  const handleBackFromResponsibleGambling = () => {
+    setShowResponsibleGambling(false)
+  }
+
+  // Show loading screen while checking authentication or age verification
+  if (loading || ageLoading) {
     return <LoadingScreen />
+  }
+
+  // Show age verification modal if not verified (this blocks everything else)
+  if (!isVerified) {
+    return (
+      <AgeVerificationModal
+        open={ageVerificationOpen}
+        onVerified={handleAgeVerified}
+        onDeclined={handleAgeDeclined}
+      />
+    )
+  }
+
+  // Show responsible gambling page
+  if (showResponsibleGambling) {
+    return <ResponsibleGambling onBack={handleBackFromResponsibleGambling} />
   }
 
   // Show authentication gate if not authenticated
   if (!user) {
-    return <AuthGate />
+    return (
+      <Box
+        sx={{
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
+        <Box sx={{ flex: 1 }}>
+          <AuthGate />
+        </Box>
+        <LegalFooter
+          onResponsibleGamblingClick={handleResponsibleGamblingClick}
+        />
+      </Box>
+    )
   }
 
   return (
-    <>
-      <AppBar position="static" sx={{ mb: 4 }}>
-        <Toolbar>
-          <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1 }}>
-            <ParlAIdLogo variant="h6" showIcon={true} size="small" />
-          </Box>
-          <UserMenu onViewHistory={() => setHistoryOpen(true)} />
-        </Toolbar>
-      </AppBar>
+    <Box
+      sx={{
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      {/* Main Content Area */}
+      <Box sx={{ flex: 1 }}>
+        <AppBar position="static" sx={{ mb: 4 }}>
+          <Toolbar>
+            <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1 }}>
+              <ParlAIdLogo variant="h6" showIcon={true} size="small" />
+            </Box>
+            <UserMenu onViewHistory={() => setHistoryOpen(true)} />
+          </Toolbar>
+        </AppBar>
 
-      <Container maxWidth="lg" sx={{ py: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom align="center">
-          NFL Parlay Builder
-        </Typography>
+        <Container maxWidth="lg" sx={{ py: 4 }}>
+          <Typography variant="h4" component="h1" gutterBottom align="center">
+            NFL Parlay Builder
+          </Typography>
 
-        <GameSelector
-          games={games || []}
-          loading={gamesLoading || weekLoading}
-          onGenerateParlay={handleGenerateParlay}
-          canGenerate={!!selectedGame && !parlayLoading}
-          currentWeek={selectedWeek}
-          onWeekChange={handleWeekChange}
-          availableWeeks={availableWeeks}
-          weekLoading={weekLoading}
-        />
+          <GameSelector
+            games={games || []}
+            loading={gamesLoading || weekLoading}
+            onGenerateParlay={handleGenerateParlay}
+            canGenerate={!!selectedGame && !parlayLoading}
+            currentWeek={selectedWeek}
+            onWeekChange={handleWeekChange}
+            availableWeeks={availableWeeks}
+            weekLoading={weekLoading}
+          />
 
-        {/* Show any parlay errors */}
-        {parlayError && (
-          <Box sx={{ mb: 2 }}>
-            <Typography color="error">Error: {parlayError.message}</Typography>
-          </Box>
-        )}
+          {/* Show any parlay errors */}
+          {parlayError && (
+            <Box sx={{ mb: 2 }}>
+              <Typography color="error">
+                Error: {parlayError.message}
+              </Typography>
+            </Box>
+          )}
 
-        {/* ParlayDisplay gets parlay from store */}
-        <ParlayDisplay parlay={parlay || undefined} loading={parlayLoading} />
+          {/* ParlayDisplay gets parlay from store */}
+          <ParlayDisplay parlay={parlay || undefined} loading={parlayLoading} />
 
-        <ParlayHistory
-          open={historyOpen}
-          onClose={() => setHistoryOpen(false)}
-        />
-      </Container>
+          <ParlayHistory
+            open={historyOpen}
+            onClose={() => setHistoryOpen(false)}
+          />
+        </Container>
 
-      {/* Add the dev status component */}
-      <DevStatus />
-    </>
+        {/* Add the dev status component */}
+        <DevStatus />
+      </Box>
+
+      {/* Footer - Fixed to bottom of content, not overlapping */}
+      <LegalFooter
+        onResponsibleGamblingClick={handleResponsibleGamblingClick}
+      />
+    </Box>
   )
 }
 

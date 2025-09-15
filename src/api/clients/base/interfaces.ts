@@ -1,3 +1,4 @@
+import { ESPNRosterResponse, ESPNScoreboardResponse } from '../../../types/espn'
 import { APIResponse } from './types'
 
 /**
@@ -7,22 +8,22 @@ export interface INFLClient {
   /**
    * Get current NFL week games
    */
-  getCurrentWeekGames(): Promise<APIResponse<any>>
+  getCurrentWeekGames(): Promise<APIResponse<ESPNScoreboardResponse>>
 
   /**
    * Get games for a specific week
    */
-  getGamesByWeek(week: number): Promise<APIResponse<any>>
+  getGamesByWeek(week: number): Promise<APIResponse<ESPNScoreboardResponse>>
 
   /**
    * Get team roster
    */
-  getTeamRoster(teamId: string): Promise<APIResponse<any>>
+  getTeamRoster(teamId: string): Promise<APIResponse<ESPNRosterResponse>>
 
   /**
    * Get current NFL week number
    */
-  getCurrentWeek(): Promise<APIResponse<any>>
+  getCurrentWeek(): Promise<APIResponse<ESPNScoreboardResponse>>
 
   /**
    * Get available weeks for current season

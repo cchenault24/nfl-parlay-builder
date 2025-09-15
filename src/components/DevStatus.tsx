@@ -160,7 +160,7 @@ const DevStatus: React.FC = () => {
                 </Stack>
                 {devMockOverride !== null && (
                   <Typography variant="caption" color="text.secondary">
-                    Override active -{' '}
+                    Override active -
                     {devMockOverride ? 'forcing mock mode' : 'forcing real API'}
                   </Typography>
                 )}

@@ -29,14 +29,8 @@ export const useParlayGenerator = () => {
       setParlay(null)
     },
     onSuccess: result => {
-      console.log('✅ Parlay generated successfully:', result.parlay.id)
-
       // Update rate limit info from response
       if (result.rateLimitInfo) {
-        console.log(
-          '📊 Updating rate limit from success:',
-          result.rateLimitInfo
-        )
         updateFromResponse({ rateLimitInfo: result.rateLimitInfo })
       }
 

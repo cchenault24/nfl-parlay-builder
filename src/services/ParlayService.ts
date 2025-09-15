@@ -24,8 +24,6 @@ export class ParlayService {
     this.cloudFunctionUrl = import.meta.env.DEV
       ? `http://localhost:5001/${projectId}/us-central1/generateParlay`
       : `https://us-central1-${projectId}.cloudfunctions.net/generateParlay`
-
-    console.log(`🔗 Using Cloud Function URL: ${this.cloudFunctionUrl}`)
   }
 
   /**
@@ -43,20 +41,10 @@ export class ParlayService {
       }
 
       // Step 3: Call Firebase Cloud Function
-      console.log('🔥 Calling Firebase Cloud Function for parlay generation...')
       const response = await this.callCloudFunction(game, rosters)
 
       if (!response.success || !response.data) {
         throw new Error(response.error?.message || 'Failed to generate parlay')
-      }
-
-      console.log('✅ Parlay generated via Cloud Function:', response.data.id)
-
-      // Log rate limit info if present
-      if (response.rateLimitInfo) {
-        console.log(
-          `📊 Rate limit from response: ${response.rateLimitInfo.remaining}/${response.rateLimitInfo.total} remaining`
-        )
       }
 
       // Return both parlay and rate limit info
@@ -111,7 +99,6 @@ export class ParlayService {
         options,
       }
 
-      console.log('📤 Sending request to Cloud Function...')
       const response = await fetch(this.cloudFunctionUrl, {
         method: 'POST',
         headers: {
@@ -124,8 +111,6 @@ export class ParlayService {
         },
         body: JSON.stringify(requestBody),
       })
-
-      console.log(`📥 Cloud Function responded with status: ${response.status}`)
 
       const responseData = await response.json()
 
@@ -149,13 +134,6 @@ export class ParlayService {
         throw new Error(
           responseData.error?.message ||
             `HTTP ${response.status}: ${response.statusText}`
-        )
-      }
-
-      // Log rate limit info if present
-      if (responseData.rateLimitInfo) {
-        console.log(
-          `📊 Rate limit: ${responseData.rateLimitInfo.remaining}/${responseData.rateLimitInfo.total} remaining`
         )
       }
 

@@ -91,10 +91,10 @@ const GameSummaryView: React.FC<GameSummaryViewProps> = ({
       cleaned = cleaned.replace(/^["']|["']$/g, '')
 
       // Remove common symbols from the start
-      cleaned = cleaned.replace(/^[-•*+►▶️✓✅→➤◦‣⁃]\s*/, '')
+      cleaned = cleaned.replace(/^(-|•|\*|\+|►|▶️|✓|✅|→|➤|◦|‣|⁃)\s*/, '')
 
       // Remove numbered list prefixes (1., 2), etc.)
-      cleaned = cleaned.replace(/^\d+[.)]\s*/, '')
+      cleaned = cleaned.replace(/^\d+[.)\]]\s*/, '')
 
       // Remove bullet point symbols
       cleaned = cleaned.replace(/^[■□▪▫●○◆◇]\s*/, '')
@@ -178,9 +178,15 @@ const GameSummaryView: React.FC<GameSummaryViewProps> = ({
 
   // Get confidence color
   const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 8) {return 'success'}
-    if (confidence >= 6) {return 'info'}
-    if (confidence >= 4) {return 'warning'}
+    if (confidence >= 8) {
+      return 'success'
+    }
+    if (confidence >= 6) {
+      return 'info'
+    }
+    if (confidence >= 4) {
+      return 'warning'
+    }
     return 'error'
   }
 
