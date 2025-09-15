@@ -2,7 +2,8 @@ import { Login as LoginIcon, Save as SaveIcon } from '@mui/icons-material'
 import { Alert, Box, Button, Typography } from '@mui/material'
 import React, { useState } from 'react'
 import { saveParlayToUser } from '../../config/firebase'
-import { useAuth } from '../../contexts/AuthContext'
+
+import { useAuth } from '../../hooks/useAuth'
 import useModalStore from '../../store/modalStore'
 import useParlayStore from '../../store/parlayStore'
 

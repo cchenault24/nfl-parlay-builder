@@ -1,11 +1,4 @@
-/**
- * API Configuration and Environment Variable Management
- */
-
-// Workaround for TypeScript env issue (keeping your existing pattern)
-const getEnvVar = (name: string): string => {
-  return (import.meta as any).env[name] || ''
-}
+import { getEnvVar } from '../utils'
 
 /**
  * Environment variables with validation

@@ -18,6 +18,11 @@ import {
 import React, { useState } from 'react'
 import { signInWithEmail, signUpWithEmail } from '../../config/firebase'
 
+interface FirebaseAuthError {
+  code?: string
+  message?: string
+}
+
 interface AuthModalProps {
   open: boolean
   onClose: () => void
@@ -50,9 +55,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ open, onClose }) => {
       }
       onClose()
       resetForm()
-    } catch (error: any) {
+    } catch (error) {
+      const authError = error as FirebaseAuthError
       const errorMessage =
-        error.code?.replace('auth/', '').replace(/-/g, ' ') ||
+        authError.code?.replace('auth/', '').replace(/-/g, ' ') ||
+        authError.message ||
         'Authentication failed'
       setError(errorMessage)
     } finally {

@@ -17,6 +17,15 @@ interface RateLimitResponse {
   error?: string
 }
 
+interface ParlayGenerationResponse {
+  rateLimitInfo?: {
+    remaining: number
+    resetTime: Date
+    currentCount: number
+  }
+  [key: string]: unknown
+}
+
 /**
  * Hook to manage rate limit information
  * Integrates with existing Firebase Authentication
@@ -78,12 +87,15 @@ export const useRateLimit = () => {
   }, [data])
 
   // Update rate limit info from parlay generation response
-  const updateFromResponse = (responseData: any) => {
+  const updateFromResponse = (responseData: ParlayGenerationResponse) => {
     if (responseData.rateLimitInfo) {
       setRateLimitInfo({
         remaining: responseData.rateLimitInfo.remaining,
         total: rateLimitInfo?.total || 10,
-        resetTime: new Date(responseData.rateLimitInfo.resetTime),
+        resetTime:
+          responseData.rateLimitInfo.resetTime instanceof Date
+            ? responseData.rateLimitInfo.resetTime
+            : new Date(responseData.rateLimitInfo.resetTime),
         currentCount: responseData.rateLimitInfo.currentCount,
       })
     }

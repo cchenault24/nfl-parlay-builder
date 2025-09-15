@@ -1,14 +1,14 @@
-import React from 'react'
+import { Person as PersonIcon, Sports as SportsIcon } from '@mui/icons-material'
 import {
+  Box,
   Card,
   CardContent,
-  Typography,
-  Box,
   Chip,
   Grid,
   LinearProgress,
+  Typography,
 } from '@mui/material'
-import { Sports as SportsIcon, Person as PersonIcon } from '@mui/icons-material'
+import React from 'react'
 import type { BetType, ParlayLeg } from '../../types'
 
 interface ParlayLegViewProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -99,7 +99,7 @@ const ParlayLegView: React.FC<ParlayLegViewProps> = ({ leg, index }) => {
             </Typography>
             <Chip
               label={leg.betType.replace('_', ' ').toUpperCase()}
-              color={getBetTypeColor(leg.betType) as any}
+              color={getBetTypeColor(leg.betType)}
               size="small"
               sx={{ mr: 1 }}
             />
@@ -120,7 +120,7 @@ const ParlayLegView: React.FC<ParlayLegViewProps> = ({ leg, index }) => {
             <LinearProgress
               variant="determinate"
               value={leg.confidence * 10}
-              color={getConfidenceColor(leg.confidence) as any}
+              color={getConfidenceColor(leg.confidence)}
               sx={{ flex: 1, mr: 1 }}
             />
             <Typography variant="caption" fontWeight="bold">

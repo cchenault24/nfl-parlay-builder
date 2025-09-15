@@ -16,7 +16,7 @@ import {
 } from '@mui/material'
 import React, { useState } from 'react'
 import { logOut } from '../../config/firebase'
-import { useAuth } from '../../contexts/AuthContext'
+import { useAuth } from '../../hooks/useAuth'
 import { AuthModal } from './AuthModal'
 
 interface UserMenuProps {

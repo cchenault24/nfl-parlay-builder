@@ -143,7 +143,7 @@ export const ResponsibleGambling: React.FC<ResponsibleGamblingProps> = ({
               </Typography>
 
               {helplines.map((helpline, index) => (
-                <Box key={index} sx={{ mb: 3 }}>
+                <Box key={`helpline-${helpline}`} sx={{ mb: 3 }}>
                   <Typography variant="h6" gutterBottom>
                     {helpline.name}
                   </Typography>
@@ -210,8 +210,8 @@ export const ResponsibleGambling: React.FC<ResponsibleGamblingProps> = ({
               </Typography>
 
               <List dense>
-                {warningSignsData.map((sign, index) => (
-                  <ListItem key={index} sx={{ px: 0 }}>
+                {warningSignsData.map(sign => (
+                  <ListItem key={`warning-signs-${sign}`} sx={{ px: 0 }}>
                     <ListItemIcon sx={{ minWidth: 32 }}>
                       <WarningIcon fontSize="small" color="warning" />
                     </ListItemIcon>
@@ -244,8 +244,13 @@ export const ResponsibleGambling: React.FC<ResponsibleGamblingProps> = ({
               </Typography>
 
               <Grid container spacing={2}>
-                {responsiblePractices.map((practice, index) => (
-                  <Grid item xs={12} sm={6} key={index}>
+                {responsiblePractices.map(practice => (
+                  <Grid
+                    item
+                    xs={12}
+                    sm={6}
+                    key={`responsible-practices-${practice}`}
+                  >
                     <Box
                       sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}
                     >

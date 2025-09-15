@@ -161,9 +161,9 @@ export const BaseLegalDialog: React.FC<BaseLegalDialogProps> = ({
               >
                 {headerNotice.title}
               </Typography>
-              {headerNotice.chips?.map((chip, index) => (
+              {headerNotice.chips?.map(chip => (
                 <Chip
-                  key={index}
+                  key={`header-chip-${chip.label}`}
                   label={chip.label}
                   size="small"
                   color={chip.color || 'primary'}
@@ -181,7 +181,7 @@ export const BaseLegalDialog: React.FC<BaseLegalDialogProps> = ({
         {/* Main Content Sections - IMPROVED ALIGNMENT */}
         <List disablePadding>
           {sections.map((section, index) => (
-            <React.Fragment key={index}>
+            <React.Fragment key={`section-${title}-${section.title}`}>
               <ListItem
                 sx={{
                   px: 0,

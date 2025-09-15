@@ -1,8 +1,33 @@
-import { INFLClient } from '../api'
+import { INFLClient } from '../api/clients/base/interfaces'
 import { auth } from '../config/firebase'
-import { GameRosters, NFLGame, ParlayGenerationResult } from '../types'
+import {
+  GameRosters,
+  GeneratedParlay,
+  NFLGame,
+  ParlayGenerationResult,
+} from '../types'
 import { RateLimitError } from '../types/errors'
 import { NFLDataService } from './NFLDataService'
+
+interface CloudFunctionResponse {
+  success: boolean
+  data?: GeneratedParlay
+  error?: {
+    code?: string
+    message?: string
+    details?: {
+      remaining?: number
+      resetTime?: string
+      currentCount?: number
+    }
+  }
+  rateLimitInfo?: {
+    remaining: number
+    resetTime: string
+    currentCount: number
+    total: number
+  }
+}
 
 /**
  * Updated Parlay Service
@@ -89,7 +114,7 @@ export class ParlayService {
     game: NFLGame,
     rosters: GameRosters,
     options: { temperature?: number; strategy?: string } = {}
-  ): Promise<any> {
+  ): Promise<CloudFunctionResponse> {
     try {
       const authToken = await this.getAuthToken()
 

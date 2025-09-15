@@ -8,7 +8,7 @@ import { BetType, ParlayLeg } from '../types'
  * @returns Value or empty string if not found
  */
 export const getEnvVar = (name: string): string => {
-  return (import.meta as any).env[name] || ''
+  return import.meta.env[name] || ''
 }
 
 /**

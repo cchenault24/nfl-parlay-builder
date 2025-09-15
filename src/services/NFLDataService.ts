@@ -1,4 +1,4 @@
-import { INFLClient } from '../api'
+import { INFLClient } from '../api/clients/base/interfaces'
 import { GameRosters, NFLGame, NFLPlayer } from '../types'
 
 // ESPN API response types (based on your existing code)
@@ -70,6 +70,16 @@ interface ESPNRosterResponse {
     position?: string
     items: ESPNAthlete[]
   }>
+}
+
+interface TeamInfo {
+  id: string
+  name?: string
+  displayName?: string
+  abbreviation?: string
+  logo?: string
+  color?: string
+  alternateColor?: string
 }
 
 /**
@@ -168,7 +178,7 @@ export class NFLDataService {
    */
   async getTeamWithRoster(
     teamId: string
-  ): Promise<{ team: any; roster: NFLPlayer[] }> {
+  ): Promise<{ team: TeamInfo; roster: NFLPlayer[] }> {
     // In a real implementation, you might get team details from another endpoint
     // For now, we'll just get the roster
     const roster = await this.getTeamRoster(teamId)

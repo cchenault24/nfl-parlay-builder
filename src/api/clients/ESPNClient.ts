@@ -1,139 +1,54 @@
-import axios, { AxiosError, AxiosInstance } from 'axios'
-import { API_CONFIG } from '../../config/api'
-import {
-  ESPNErrorResponse,
+import type {
   ESPNRosterResponse,
   ESPNScoreboardResponse,
 } from '../../types/espn'
-import { ESPNError, ESPNGamesError, ESPNRosterError } from '../errors'
-import {
-  APIRequestConfig,
-  APIResponse,
-  BaseAPIClient,
-  INFLClient,
-} from './base'
+import APIClient from './base/APIClient'
+import type { INFLClient } from './base/interfaces'
+import type { APIConfig, APIResponse } from './base/types'
 
-// Request data type for POST/PUT methods
-type RequestData = Record<string, unknown> | FormData | string | null
+const DEFAULT_ESPN_BASE_URL =
+  'https://site.api.espn.com/apis/site/v2/sports/football/nfl'
 
-/**
- * ESPN API Client for NFL data
- * Implements the INFLClient interface
- */
-export class ESPNClient extends BaseAPIClient implements INFLClient {
-  private axiosInstance: AxiosInstance
+type PartialConfig = Partial<APIConfig>
 
-  constructor() {
-    super(API_CONFIG.ESPN)
+function resolveConfig(input?: PartialConfig): APIConfig {
+  const baseURL =
+    input?.baseURL ??
+    import.meta?.env?.VITE_ESPN_BASE_URL ??
+    DEFAULT_ESPN_BASE_URL
 
-    this.axiosInstance = axios.create({
-      baseURL: this.config.baseURL,
-      timeout: this.config.timeout,
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-      },
-    })
+  if (!input?.baseURL && !import.meta?.env?.VITE_ESPN_BASE_URL) {
+    console.warn(
+      'ESPNClient: using default ESPN base URL. Set VITE_ESPN_BASE_URL or pass a config to override.'
+    )
   }
 
-  async get<T>(
-    endpoint: string,
-    config?: APIRequestConfig
-  ): Promise<APIResponse<T>> {
-    return this.withRetry(async () => {
-      try {
-        const response = await this.axiosInstance.get(endpoint, {
-          params: config?.params,
-          headers: config?.headers,
-          timeout: config?.timeout,
-        })
+  return {
+    baseURL,
+    headers: {
+      Accept: 'application/json',
+      'User-Agent': 'nfl-parlay-builder',
+      ...(input?.headers ?? {}),
+    },
+    timeoutMs: input?.timeoutMs ?? 15000,
+    retries: input?.retries ?? 1,
+    retryDelayMs: input?.retryDelayMs ?? 300,
+  }
+}
 
-        return {
-          data: response.data,
-          status: response.status,
-          headers: response.headers as Record<string, string>,
-        }
-      } catch (error) {
-        this.handleESPNError(error as Error, endpoint)
-      }
-    })
+export class ESPNClient extends APIClient implements INFLClient {
+  constructor(config?: PartialConfig) {
+    super(resolveConfig(config))
   }
 
-  async post<T>(
-    endpoint: string,
-    data?: RequestData,
-    config?: APIRequestConfig
-  ): Promise<APIResponse<T>> {
-    return this.withRetry(async () => {
-      try {
-        const response = await this.axiosInstance.post(endpoint, data, {
-          headers: config?.headers,
-          timeout: config?.timeout,
-        })
-
-        return {
-          data: response.data,
-          status: response.status,
-          headers: response.headers as Record<string, string>,
-        }
-      } catch (error) {
-        this.handleESPNError(error as Error, endpoint)
-      }
-    })
-  }
-
-  async put<T>(
-    endpoint: string,
-    data?: RequestData,
-    config?: APIRequestConfig
-  ): Promise<APIResponse<T>> {
-    return this.withRetry(async () => {
-      try {
-        const response = await this.axiosInstance.put(endpoint, data, {
-          headers: config?.headers,
-          timeout: config?.timeout,
-        })
-
-        return {
-          data: response.data,
-          status: response.status,
-          headers: response.headers as Record<string, string>,
-        }
-      } catch (error) {
-        this.handleESPNError(error as Error, endpoint)
-      }
-    })
-  }
-
-  async delete<T>(
-    endpoint: string,
-    config?: APIRequestConfig
-  ): Promise<APIResponse<T>> {
-    return this.withRetry(async () => {
-      try {
-        const response = await this.axiosInstance.delete(endpoint, {
-          headers: config?.headers,
-          timeout: config?.timeout,
-        })
-
-        return {
-          data: response.data,
-          status: response.status,
-          headers: response.headers as Record<string, string>,
-        }
-      } catch (error) {
-        this.handleESPNError(error as Error, endpoint)
-      }
-    })
-  }
-
-  // NFL-specific methods implementing INFLClient interface
+  // Implement INFLClient interface methods
 
   async getCurrentWeekGames(): Promise<APIResponse<ESPNScoreboardResponse>> {
     try {
       return await this.get<ESPNScoreboardResponse>('/scoreboard')
     } catch (error) {
-      throw new ESPNGamesError(undefined, error as Error)
+      console.error('Error fetching current week games:', error)
+      throw new Error('Failed to fetch current week games')
     }
   }
 
@@ -150,7 +65,8 @@ export class ESPNClient extends BaseAPIClient implements INFLClient {
         },
       })
     } catch (error) {
-      throw new ESPNGamesError(week, error as Error)
+      console.error(`Error fetching games for week ${week}:`, error)
+      throw new Error(`Failed to fetch games for week ${week}`)
     }
   }
 
@@ -161,7 +77,8 @@ export class ESPNClient extends BaseAPIClient implements INFLClient {
       const endpoint = `/teams/${teamId}/roster`
       return await this.get<ESPNRosterResponse>(endpoint)
     } catch (error) {
-      throw new ESPNRosterError(teamId, error as Error)
+      console.error(`Error fetching roster for team ${teamId}:`, error)
+      throw new Error(`Failed to fetch roster for team ${teamId}`)
     }
   }
 
@@ -169,7 +86,8 @@ export class ESPNClient extends BaseAPIClient implements INFLClient {
     try {
       return await this.get<ESPNScoreboardResponse>('/scoreboard')
     } catch (error) {
-      throw new ESPNGamesError(undefined, error as Error)
+      console.error('Error fetching current week:', error)
+      throw new Error('Failed to fetch current week')
     }
   }
 
@@ -181,45 +99,9 @@ export class ESPNClient extends BaseAPIClient implements INFLClient {
     return {
       data: weeks,
       status: 200,
+      headers: {},
     }
-  }
-
-  // ==============================================================================
-  // ERROR HANDLING
-  // ==============================================================================
-
-  /**
-   * ESPN-specific error handling
-   * Accepts unknown and handles type checking internally
-   */
-  private handleESPNError(error: unknown, endpoint: string): never {
-    if (axios.isAxiosError(error)) {
-      const axiosError = error as AxiosError<ESPNErrorResponse>
-
-      if (axiosError.response) {
-        // Server responded with error status
-        const status = axiosError.response.status
-        const responseData = axiosError.response.data
-        const message = responseData?.message || axiosError.message
-
-        throw new ESPNError(message, status, endpoint, axiosError)
-      } else if (axiosError.request) {
-        // Network error - no response received
-        throw new ESPNError(
-          'Network error: Unable to reach ESPN API',
-          undefined,
-          endpoint,
-          axiosError
-        )
-      }
-    }
-
-    // Handle any other error types
-    const errorMessage =
-      error instanceof Error ? error.message : 'Unknown ESPN API error'
-
-    const errorObj = error instanceof Error ? error : new Error(String(error))
-
-    throw new ESPNError(errorMessage, undefined, endpoint, errorObj)
   }
 }
+
+export default ESPNClient
