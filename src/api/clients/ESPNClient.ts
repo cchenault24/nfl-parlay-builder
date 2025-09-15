@@ -1,5 +1,10 @@
 import axios, { AxiosError, AxiosInstance } from 'axios'
 import { API_CONFIG } from '../../config/api'
+import {
+  ESPNErrorResponse,
+  ESPNRosterResponse,
+  ESPNScoreboardResponse,
+} from '../../types/espn'
 import { ESPNError, ESPNGamesError, ESPNRosterError } from '../errors'
 import {
   APIRequestConfig,
@@ -7,6 +12,9 @@ import {
   BaseAPIClient,
   INFLClient,
 } from './base'
+
+// Request data type for POST/PUT methods
+type RequestData = Record<string, unknown> | FormData | string | null
 
 /**
  * ESPN API Client for NFL data
@@ -46,14 +54,14 @@ export class ESPNClient extends BaseAPIClient implements INFLClient {
           headers: response.headers as Record<string, string>,
         }
       } catch (error) {
-        this.handleESPNError(error, endpoint)
+        this.handleESPNError(error as Error, endpoint)
       }
     })
   }
 
   async post<T>(
     endpoint: string,
-    data?: any,
+    data?: RequestData,
     config?: APIRequestConfig
   ): Promise<APIResponse<T>> {
     return this.withRetry(async () => {
@@ -69,14 +77,14 @@ export class ESPNClient extends BaseAPIClient implements INFLClient {
           headers: response.headers as Record<string, string>,
         }
       } catch (error) {
-        this.handleESPNError(error, endpoint)
+        this.handleESPNError(error as Error, endpoint)
       }
     })
   }
 
   async put<T>(
     endpoint: string,
-    data?: any,
+    data?: RequestData,
     config?: APIRequestConfig
   ): Promise<APIResponse<T>> {
     return this.withRetry(async () => {
@@ -92,7 +100,7 @@ export class ESPNClient extends BaseAPIClient implements INFLClient {
           headers: response.headers as Record<string, string>,
         }
       } catch (error) {
-        this.handleESPNError(error, endpoint)
+        this.handleESPNError(error as Error, endpoint)
       }
     })
   }
@@ -114,25 +122,27 @@ export class ESPNClient extends BaseAPIClient implements INFLClient {
           headers: response.headers as Record<string, string>,
         }
       } catch (error) {
-        this.handleESPNError(error, endpoint)
+        this.handleESPNError(error as Error, endpoint)
       }
     })
   }
 
   // NFL-specific methods implementing INFLClient interface
 
-  async getCurrentWeekGames(): Promise<APIResponse<any>> {
+  async getCurrentWeekGames(): Promise<APIResponse<ESPNScoreboardResponse>> {
     try {
-      return await this.get('/scoreboard')
+      return await this.get<ESPNScoreboardResponse>('/scoreboard')
     } catch (error) {
       throw new ESPNGamesError(undefined, error as Error)
     }
   }
 
-  async getGamesByWeek(week: number): Promise<APIResponse<any>> {
+  async getGamesByWeek(
+    week: number
+  ): Promise<APIResponse<ESPNScoreboardResponse>> {
     try {
       const currentYear = new Date().getFullYear()
-      return await this.get('/scoreboard', {
+      return await this.get<ESPNScoreboardResponse>('/scoreboard', {
         params: {
           seasontype: 2, // Regular season
           week,
@@ -144,18 +154,20 @@ export class ESPNClient extends BaseAPIClient implements INFLClient {
     }
   }
 
-  async getTeamRoster(teamId: string): Promise<APIResponse<any>> {
+  async getTeamRoster(
+    teamId: string
+  ): Promise<APIResponse<ESPNRosterResponse>> {
     try {
       const endpoint = `/teams/${teamId}/roster`
-      return await this.get(endpoint)
+      return await this.get<ESPNRosterResponse>(endpoint)
     } catch (error) {
       throw new ESPNRosterError(teamId, error as Error)
     }
   }
 
-  async getCurrentWeek(): Promise<APIResponse<any>> {
+  async getCurrentWeek(): Promise<APIResponse<ESPNScoreboardResponse>> {
     try {
-      return await this.get('/scoreboard')
+      return await this.get<ESPNScoreboardResponse>('/scoreboard')
     } catch (error) {
       throw new ESPNGamesError(undefined, error as Error)
     }
@@ -172,40 +184,42 @@ export class ESPNClient extends BaseAPIClient implements INFLClient {
     }
   }
 
+  // ==============================================================================
+  // ERROR HANDLING
+  // ==============================================================================
+
   /**
    * ESPN-specific error handling
-   * Overrides the base class handleError method
+   * Accepts unknown and handles type checking internally
    */
-  private handleESPNError(error: any, endpoint: string): never {
+  private handleESPNError(error: unknown, endpoint: string): never {
     if (axios.isAxiosError(error)) {
-      const axiosError = error as AxiosError
+      const axiosError = error as AxiosError<ESPNErrorResponse>
 
       if (axiosError.response) {
         // Server responded with error status
         const status = axiosError.response.status
-        const responseData = axiosError.response.data as
-          | { message?: string }
-          | undefined
+        const responseData = axiosError.response.data
         const message = responseData?.message || axiosError.message
 
-        throw new ESPNError(message, status, endpoint, error)
+        throw new ESPNError(message, status, endpoint, axiosError)
       } else if (axiosError.request) {
         // Network error - no response received
         throw new ESPNError(
           'Network error: Unable to reach ESPN API',
           undefined,
           endpoint,
-          error
+          axiosError
         )
       }
     }
 
-    // Other types of errors
-    throw new ESPNError(
-      error.message || 'Unknown ESPN API error',
-      undefined,
-      endpoint,
-      error
-    )
+    // Handle any other error types
+    const errorMessage =
+      error instanceof Error ? error.message : 'Unknown ESPN API error'
+
+    const errorObj = error instanceof Error ? error : new Error(String(error))
+
+    throw new ESPNError(errorMessage, undefined, endpoint, errorObj)
   }
 }
