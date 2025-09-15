@@ -75,7 +75,6 @@ function AppContent() {
     isPending: parlayLoading,
     error: parlayError,
     reset: resetParlay,
-    serviceStatus,
   } = useParlayGeneratorSelector()
 
   // Check age verification status
@@ -93,7 +92,6 @@ function AppContent() {
 
   const handleGenerateParlay = () => {
     if (selectedGame) {
-      console.log('🔧 Service Status:', serviceStatus)
       generateParlay(selectedGame)
     }
   }

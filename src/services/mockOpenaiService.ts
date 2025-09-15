@@ -46,7 +46,7 @@ const MOCK_PARLAY_TEMPLATES: MockParlayData[] = [
         target: '-3.5 points',
         odds: '-110',
         reasoning:
-          '🎭 MOCK DATA: Home team has strong rushing attack vs weak run defense. This is fake analysis for development!',
+          'MOCK DATA: Home team has strong rushing attack vs weak run defense. This is fake analysis for development!',
         confidence: 7,
         prediction: 'cover',
       },
@@ -56,7 +56,7 @@ const MOCK_PARLAY_TEMPLATES: MockParlayData[] = [
         target: 'Over 47.5 points',
         odds: '-105',
         reasoning:
-          '🎭 MOCK DATA: Both teams rank in top 10 for offensive yards per game. This is simulated analysis!',
+          'MOCK DATA: Both teams rank in top 10 for offensive yards per game. This is simulated analysis!',
         confidence: 6,
         prediction: 'over',
       },
@@ -66,7 +66,7 @@ const MOCK_PARLAY_TEMPLATES: MockParlayData[] = [
         target: 'Over 250.5 passing yards',
         odds: '-120',
         reasoning:
-          '🎭 MOCK DATA: QB has averaged 275 yards vs similar defenses. This is fake player analysis!',
+          'MOCK DATA: QB has averaged 275 yards vs similar defenses. This is fake player analysis!',
         confidence: 8,
         playerName: 'PLAYER_QB',
         team: 'TEAM_HOME',
@@ -76,21 +76,21 @@ const MOCK_PARLAY_TEMPLATES: MockParlayData[] = [
       },
     ],
     aiReasoning:
-      '🎭 MOCK AI REASONING: Conservative approach focusing on statistical trends and matchup advantages. THIS IS FAKE ANALYSIS FOR DEVELOPMENT PURPOSES!',
+      'MOCK AI REASONING: Conservative approach focusing on statistical trends and matchup advantages. THIS IS FAKE ANALYSIS FOR DEVELOPMENT PURPOSES!',
     overallConfidence: 7,
     gameSummary: {
       matchupAnalysis:
-        '🎭 MOCK ANALYSIS: TEAM_HOME enters this matchup with a significant advantage in the trenches. This is completely simulated data for development testing! The home team has averaged 4.8 yards per carry over their last four games (fake stat), while TEAM_AWAY has allowed 5.2 YPC in the same span (also fake). Weather conditions appear favorable for both passing games, with temperatures in the mid-60s and light winds (simulated weather data).',
+        'MOCK ANALYSIS: TEAM_HOME enters this matchup with a significant advantage in the trenches. This is completely simulated data for development testing! The home team has averaged 4.8 yards per carry over their last four games (fake stat), while TEAM_AWAY has allowed 5.2 YPC in the same span (also fake). Weather conditions appear favorable for both passing games, with temperatures in the mid-60s and light winds (simulated weather data).',
       gameFlow: 'balanced_tempo',
       keyFactors: [
-        '🎭 MOCK: TEAM_HOME rushing attack vs TEAM_AWAY run defense mismatch',
-        '🎭 MOCK: Weather conditions favoring aerial attacks (fake weather)',
-        '🎭 MOCK: TEAM_AWAY secondary vulnerable to deep passes (simulated)',
-        '🎭 MOCK: Home field advantage in primetime game (fake scenario)',
-        '🎭 MOCK: Both teams coming off bye weeks (simulated schedule)',
+        'MOCK: TEAM_HOME rushing attack vs TEAM_AWAY run defense mismatch',
+        'MOCK: Weather conditions favoring aerial attacks (fake weather)',
+        'MOCK: TEAM_AWAY secondary vulnerable to deep passes (simulated)',
+        'MOCK: Home field advantage in primetime game (fake scenario)',
+        'MOCK: Both teams coming off bye weeks (simulated schedule)',
       ],
       prediction:
-        '🎭 MOCK PREDICTION: Expect TEAM_HOME to establish the ground game early and control the pace. This is completely fake analysis for development purposes! TEAM_AWAY will be forced into passing situations, creating opportunities for explosive plays (simulated scenario).',
+        'MOCK PREDICTION: Expect TEAM_HOME to establish the ground game early and control the pace. This is completely fake analysis for development purposes! TEAM_AWAY will be forced into passing situations, creating opportunities for explosive plays (simulated scenario).',
       confidence: 7,
     },
   },
@@ -102,7 +102,7 @@ const MOCK_PARLAY_TEMPLATES: MockParlayData[] = [
         target: 'TEAM_AWAY ML',
         odds: '+165',
         reasoning:
-          '🎭 MOCK DATA: Away team has better record in divisional games. This is fake divisional analysis!',
+          'MOCK DATA: Away team has better record in divisional games. This is fake divisional analysis!',
         confidence: 6,
         prediction: 'win',
       },
@@ -112,7 +112,7 @@ const MOCK_PARLAY_TEMPLATES: MockParlayData[] = [
         target: 'Over 75.5 rushing yards',
         odds: '-115',
         reasoning:
-          '🎭 MOCK DATA: RB has exceeded 75 yards in 6 of last 8 games (fake stats). Opposing defense allows 4.2 YPC (simulated).',
+          'MOCK DATA: RB has exceeded 75 yards in 6 of last 8 games (fake stats). Opposing defense allows 4.2 YPC (simulated).',
         confidence: 7,
         playerName: 'PLAYER_RB',
         team: 'TEAM_AWAY',
@@ -126,7 +126,7 @@ const MOCK_PARLAY_TEMPLATES: MockParlayData[] = [
         target: 'Over 6.5 receptions',
         odds: '+105',
         reasoning:
-          '🎭 MOCK DATA: WR is primary target in red zone (fake analysis). Expect high target share in potential shootout!',
+          'MOCK DATA: WR is primary target in red zone (fake analysis). Expect high target share in potential shootout!',
         confidence: 6,
         playerName: 'PLAYER_WR',
         team: 'TEAM_HOME',
@@ -136,21 +136,21 @@ const MOCK_PARLAY_TEMPLATES: MockParlayData[] = [
       },
     ],
     aiReasoning:
-      '🎭 MOCK AI REASONING: Value-focused approach targeting undervalued away team and prop correlations. THIS IS SIMULATED ANALYSIS FOR TESTING!',
+      'MOCK AI REASONING: Value-focused approach targeting undervalued away team and prop correlations. THIS IS SIMULATED ANALYSIS FOR TESTING!',
     overallConfidence: 6,
     gameSummary: {
       matchupAnalysis:
-        '🎭 MOCK ANALYSIS: This divisional rivalry game presents excellent value on the road underdog (fake scenario). TEAM_AWAY has historically performed well in hostile environments, going 4-1 ATS in their last 5 road divisional games (completely made up stats). Their offensive line has been much improved, allowing only 1.2 sacks per game over the last month (simulated data). This is all fake analysis for development!',
+        'MOCK ANALYSIS: This divisional rivalry game presents excellent value on the road underdog (fake scenario). TEAM_AWAY has historically performed well in hostile environments, going 4-1 ATS in their last 5 road divisional games (completely made up stats). Their offensive line has been much improved, allowing only 1.2 sacks per game over the last month (simulated data). This is all fake analysis for development!',
       gameFlow: 'high_scoring_shootout',
       keyFactors: [
-        '🎭 MOCK: TEAM_AWAY strong road performance in division (fake)',
-        '🎭 MOCK: Improved offensive line protection (simulated stat)',
-        '🎭 MOCK: TEAM_HOME defense struggles vs mobile QBs (fake analysis)',
-        '🎭 MOCK: Weather may neutralize advantages (simulated weather)',
-        '🎭 MOCK: High stakes divisional game (fake scenario)',
+        'MOCK: TEAM_AWAY strong road performance in division (fake)',
+        'MOCK: Improved offensive line protection (simulated stat)',
+        'MOCK: TEAM_HOME defense struggles vs mobile QBs (fake analysis)',
+        'MOCK: Weather may neutralize advantages (simulated weather)',
+        'MOCK: High stakes divisional game (fake scenario)',
       ],
       prediction:
-        "🎭 MOCK PREDICTION: This has all the makings of a classic divisional shootout (completely simulated scenario). TEAM_AWAY's improved offensive line and TEAM_HOME's defensive vulnerabilities create an opportunity for the road team to steal a victory. This is fake AI prediction for development testing!",
+        "MOCK PREDICTION: This has all the makings of a classic divisional shootout (completely simulated scenario). TEAM_AWAY's improved offensive line and TEAM_HOME's defensive vulnerabilities create an opportunity for the road team to steal a victory. This is fake AI prediction for development testing!",
       confidence: 6,
     },
   },
@@ -162,7 +162,7 @@ const MOCK_PARLAY_TEMPLATES: MockParlayData[] = [
         target: 'Under 44.5 points',
         odds: '-110',
         reasoning:
-          '🎭 MOCK DATA: Both defenses rank top 12 in points allowed (fake ranking). Rain expected to limit aerial attacks (simulated weather)!',
+          'MOCK DATA: Both defenses rank top 12 in points allowed (fake ranking). Rain expected to limit aerial attacks (simulated weather)!',
         confidence: 7,
         prediction: 'under',
       },
@@ -172,7 +172,7 @@ const MOCK_PARLAY_TEMPLATES: MockParlayData[] = [
         target: '+7.5 points',
         odds: '-105',
         reasoning:
-          '🎭 MOCK DATA: Large spread for divisional matchup (fake scenario). Away team covers 70% as road underdog (made up stat)!',
+          'MOCK DATA: Large spread for divisional matchup (fake scenario). Away team covers 70% as road underdog (made up stat)!',
         confidence: 8,
         prediction: 'cover',
       },
@@ -182,7 +182,7 @@ const MOCK_PARLAY_TEMPLATES: MockParlayData[] = [
         target: 'Under 1.5 passing TDs',
         odds: '+130',
         reasoning:
-          '🎭 MOCK DATA: Red zone struggles continue vs strong goal line defense (fake analysis). Weather may force ground game!',
+          'MOCK DATA: Red zone struggles continue vs strong goal line defense (fake analysis). Weather may force ground game!',
         confidence: 5,
         playerName: 'PLAYER_QB',
         team: 'TEAM_AWAY',
@@ -192,21 +192,21 @@ const MOCK_PARLAY_TEMPLATES: MockParlayData[] = [
       },
     ],
     aiReasoning:
-      '🎭 MOCK AI REASONING: Weather-aware defensive strategy. Targeting unders and large spreads based on environmental factors. THIS IS COMPLETELY SIMULATED FOR DEVELOPMENT!',
+      'MOCK AI REASONING: Weather-aware defensive strategy. Targeting unders and large spreads based on environmental factors. THIS IS COMPLETELY SIMULATED FOR DEVELOPMENT!',
     overallConfidence: 6,
     gameSummary: {
       matchupAnalysis:
-        "🎭 MOCK ANALYSIS: Weather will be the story in this matchup, with steady rain and 15+ mph winds expected throughout the game (completely fake weather forecast). Both teams feature top-12 defenses (fake rankings) that have been dominant at home this season. TEAM_HOME's defense has allowed only 18.2 points per game at home (made up stat), while TEAM_AWAY has been equally stingy on the road. This is all simulated data for testing!",
+        "MOCK ANALYSIS: Weather will be the story in this matchup, with steady rain and 15+ mph winds expected throughout the game (completely fake weather forecast). Both teams feature top-12 defenses (fake rankings) that have been dominant at home this season. TEAM_HOME's defense has allowed only 18.2 points per game at home (made up stat), while TEAM_AWAY has been equally stingy on the road. This is all simulated data for testing!",
       gameFlow: 'defensive_grind',
       keyFactors: [
-        '🎭 MOCK: Steady rain and strong winds forecasted (fake weather)',
-        '🎭 MOCK: Both teams feature top-12 defenses (fake rankings)',
-        '🎭 MOCK: Emphasis on ground game due to weather (simulated)',
-        '🎭 MOCK: QBs have struggled in adverse conditions (fake stat)',
-        '🎭 MOCK: Historical low-scoring games between teams (made up)',
+        'MOCK: Steady rain and strong winds forecasted (fake weather)',
+        'MOCK: Both teams feature top-12 defenses (fake rankings)',
+        'MOCK: Emphasis on ground game due to weather (simulated)',
+        'MOCK: QBs have struggled in adverse conditions (fake stat)',
+        'MOCK: Historical low-scoring games between teams (made up)',
       ],
       prediction:
-        '🎭 MOCK PREDICTION: Expect a classic defensive struggle with weather playing a major factor (completely simulated scenario). The under should hit comfortably as both teams rely heavily on their ground games. This is fake AI prediction for development purposes only!',
+        'MOCK PREDICTION: Expect a classic defensive struggle with weather playing a major factor (completely simulated scenario). The under should hit comfortably as both teams rely heavily on their ground games. This is fake AI prediction for development purposes only!',
       confidence: 7,
     },
   },
@@ -367,7 +367,7 @@ export class MockOpenAIService {
     if (Math.random() < 0.05) {
       // 5% chance
       throw new Error(
-        '🎭 MOCK API ERROR: This is a simulated error for testing purposes!'
+        'MOCK API ERROR: This is a simulated error for testing purposes!'
       )
     }
 
@@ -411,7 +411,7 @@ export class MockOpenAIService {
     const parlay: GeneratedParlay = {
       id: `🎭-MOCK-PARLAY-${Date.now()}`, // Obviously mock ID
       legs: typedLegs,
-      gameContext: `${game.awayTeam.displayName} @ ${game.homeTeam.displayName} - Week ${game.week} (🎭 MOCK DATA)`,
+      gameContext: `${game.awayTeam.displayName} @ ${game.homeTeam.displayName} - Week ${game.week} (MOCK DATA)`,
       aiReasoning: substituted.aiReasoning,
       overallConfidence: substituted.overallConfidence,
       estimatedOdds,
@@ -419,13 +419,6 @@ export class MockOpenAIService {
       gameSummary,
     }
 
-    console.log(
-      '🎭 Generated OBVIOUSLY MOCK parlay with fake AI analysis:',
-      parlay
-    )
-    console.log(
-      '🎭 MOCK SERVICE ACTIVE: All data is simulated for development!'
-    )
     return parlay
   }
 

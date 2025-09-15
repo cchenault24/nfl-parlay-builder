@@ -26,7 +26,7 @@ export const useMockParlayGenerator = (): UseMockParlayGeneratorReturn => {
 
     // Random chance of error for testing
     if (Math.random() < 0.05) {
-      throw new Error('🎭 MOCK ERROR: Simulated API error for testing!')
+      throw new Error('MOCK ERROR: Simulated API error for testing!')
     }
 
     const mockParlay: GeneratedParlay = {
@@ -38,7 +38,7 @@ export const useMockParlayGenerator = (): UseMockParlayGeneratorReturn => {
           selection: `${game.homeTeam.displayName} -3.5`,
           target: '-3.5',
           reasoning:
-            '🎭 MOCK: Home team has strong recent form and home field advantage.',
+            'MOCK: Home team has strong recent form and home field advantage.',
           confidence: Math.floor(Math.random() * 3) + 7, // 7-9
           odds: '-110',
         },
@@ -48,7 +48,7 @@ export const useMockParlayGenerator = (): UseMockParlayGeneratorReturn => {
           selection: 'Over 47.5',
           target: '47.5',
           reasoning:
-            '🎭 MOCK: Both teams have high-powered offenses and weak defenses.',
+            'MOCK: Both teams have high-powered offenses and weak defenses.',
           confidence: Math.floor(Math.random() * 3) + 6, // 6-8
           odds: '-105',
         },
@@ -57,29 +57,28 @@ export const useMockParlayGenerator = (): UseMockParlayGeneratorReturn => {
           betType: 'player_prop',
           selection: `${game.homeTeam.displayName} QB Over 250.5 passing yards`,
           target: '250.5',
-          reasoning:
-            '🎭 MOCK: QB has been throwing for 300+ yards consistently.',
+          reasoning: 'MOCK: QB has been throwing for 300+ yards consistently.',
           confidence: Math.floor(Math.random() * 3) + 8, // 8-10
           odds: '+120',
         },
       ],
       gameContext: `${game.awayTeam.displayName} @ ${game.homeTeam.displayName} - Week ${game.week}`,
       aiReasoning:
-        '🎭 MOCK PARLAY: This is simulated data for development purposes. Strategic combination focusing on home team advantage and offensive firepower.',
+        'MOCK PARLAY: This is simulated data for development purposes. Strategic combination focusing on home team advantage and offensive firepower.',
       overallConfidence: Math.floor(Math.random() * 3) + 7, // 7-9
       estimatedOdds: '+280',
       createdAt: new Date().toISOString(),
       gameSummary: {
-        matchupAnalysis: `🎭 MOCK: ${game.awayTeam.displayName} vs ${game.homeTeam.displayName} - Both teams coming off strong performances.`,
+        matchupAnalysis: `MOCK: ${game.awayTeam.displayName} vs ${game.homeTeam.displayName} - Both teams coming off strong performances.`,
         gameFlow: 'high_scoring_shootout',
         keyFactors: [
-          '🎭 Home field advantage',
-          '🎭 Weather conditions favorable',
-          '🎭 Key player matchups',
-          '🎭 Recent team form',
-          '🎭 Historical head-to-head',
+          'Home field advantage',
+          'Weather conditions favorable',
+          'Key player matchups',
+          'Recent team form',
+          'Historical head-to-head',
         ],
-        prediction: `🎭 MOCK: Expecting a competitive high-scoring game with ${game.homeTeam.displayName} slight edge.`,
+        prediction: `MOCK: Expecting a competitive high-scoring game with ${game.homeTeam.displayName} slight edge.`,
         confidence: Math.floor(Math.random() * 3) + 7,
       },
     }
@@ -89,20 +88,13 @@ export const useMockParlayGenerator = (): UseMockParlayGeneratorReturn => {
 
   const mutation = useMutation({
     mutationFn: async (game: NFLGame): Promise<GeneratedParlay> => {
-      console.log(
-        '🎭 Generating mock parlay for:',
-        game.awayTeam.displayName,
-        '@',
-        game.homeTeam.displayName
-      )
       return await generateMockParlay(game)
     },
     onError: error => {
-      console.error('🎭 Mock parlay generation error:', error)
+      console.error('Mock parlay generation error:', error)
       setParlay(null)
     },
     onSuccess: (data: GeneratedParlay) => {
-      console.log('🎭 Mock parlay generated successfully:', data.id)
       setParlay(data)
     },
   })

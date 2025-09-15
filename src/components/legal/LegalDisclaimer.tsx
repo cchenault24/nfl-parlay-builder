@@ -25,7 +25,6 @@ export const LegalDisclaimer: React.FC<LegalDisclaimerProps> = ({
             onClick={e => {
               e.preventDefault()
               // This will be handled by the parent component
-              console.log('Navigate to responsible gambling page')
             }}
             sx={{ color: '#ff9800' }}
           >
@@ -109,7 +108,6 @@ export const LegalDisclaimer: React.FC<LegalDisclaimerProps> = ({
               href="#responsible-gambling"
               onClick={e => {
                 e.preventDefault()
-                console.log('Navigate to responsible gambling page')
               }}
               sx={{ color: '#2e7d32', fontWeight: 600 }}
             >

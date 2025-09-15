@@ -252,7 +252,6 @@ export class RateLimiter {
 
       await batch.commit()
 
-      console.log(`🧹 Cleaned up ${snapshot.size} expired rate limit entries`)
       return { deletedCount: snapshot.size }
     } catch (error) {
       console.error('❌ Failed to cleanup expired entries:', error)

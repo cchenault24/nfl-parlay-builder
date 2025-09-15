@@ -183,8 +183,9 @@ export const RateLimitIndicator: React.FC<RateLimitIndicatorProps> = ({
         {isAtLimit && (
           <Alert severity="error" sx={{ mt: 1 }}>
             <Typography variant="body2">
-              You've reached your hourly limit of {total} parlay generations.
-              Please wait {timeUntilReset} before generating more parlays.
+              You&apos;ve reached your hourly limit of {total} parlay
+              generations. Please wait {timeUntilReset} before generating more
+              parlays.
             </Typography>
           </Alert>
         )}

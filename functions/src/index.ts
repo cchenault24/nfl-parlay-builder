@@ -77,7 +77,6 @@ export const generateParlay = functions
             const token = authHeader.substring(7)
             const decodedToken = await admin.auth().verifyIdToken(token)
             userId = decodedToken.uid
-            console.log(`🔐 Authenticated user: ${userId}`)
           } catch (authError) {
             console.warn(
               '⚠️ Invalid auth token, falling back to IP-based limiting'
@@ -87,7 +86,6 @@ export const generateParlay = functions
 
         // Get IP address for rate limiting
         ipAddress = getClientIpAddress(request)
-        console.log(`🌐 Client IP: ${ipAddress}`)
 
         // Check rate limit BEFORE processing request
         const rateLimitResult = await rateLimiter.checkRateLimit(
@@ -164,10 +162,6 @@ export const generateParlay = functions
           )
         }
 
-        console.log(
-          `📊 Received rosters: Home=${rosters.homeRoster.length}, Away=${rosters.awayRoster.length}`
-        )
-
         // Get OpenAI API key from Firebase config
         const openaiApiKey = process.env.OPENAI_API_KEY
         if (!openaiApiKey) {
@@ -181,19 +175,10 @@ export const generateParlay = functions
         const openaiService = new OpenAIService(openaiApiKey)
 
         // Generate parlay
-        console.log(
-          `🤖 Generating parlay for ${requestData.game.awayTeam.displayName} @ ${requestData.game.homeTeam.displayName}`
-        )
         const parlay = await openaiService.generateParlay(
           requestData.game,
           rosters,
           requestData.options
-        )
-
-        // Log successful generation
-        console.log(`✅ Parlay generated successfully: ${parlay.id}`)
-        console.log(
-          `📊 Rate limit status: ${rateLimitResult.remaining} requests remaining`
         )
 
         // Return success response with rate limit info
