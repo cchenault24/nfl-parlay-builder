@@ -40,7 +40,9 @@ export const RateLimitIndicator: React.FC<RateLimitIndicatorProps> = ({
 
   // Update countdown timer
   useEffect(() => {
-    if (!rateLimitInfo?.resetTime) return
+    if (!rateLimitInfo?.resetTime) {
+      return
+    }
 
     const updateTimer = () => {
       const now = new Date()
@@ -99,14 +101,22 @@ export const RateLimitIndicator: React.FC<RateLimitIndicatorProps> = ({
   const isAtLimit = remaining === 0
 
   const getStatusColor = () => {
-    if (isAtLimit) return 'error'
-    if (isNearLimit) return 'warning'
+    if (isAtLimit) {
+      return 'error'
+    }
+    if (isNearLimit) {
+      return 'warning'
+    }
     return 'success'
   }
 
   const getStatusIcon = () => {
-    if (isAtLimit) return <WarningIcon fontSize="small" />
-    if (isNearLimit) return <WarningIcon fontSize="small" />
+    if (isAtLimit) {
+      return <WarningIcon fontSize="small" />
+    }
+    if (isNearLimit) {
+      return <WarningIcon fontSize="small" />
+    }
     return <CheckIcon fontSize="small" />
   }
 
