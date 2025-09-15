@@ -1,4 +1,4 @@
-import { INFLClient } from '../api'
+import { INFLClient } from '../api/clients/base/interfaces'
 import { GameRosters, NFLGame, NFLPlayer } from '../types'
 
 // ESPN API response types (based on your existing code)

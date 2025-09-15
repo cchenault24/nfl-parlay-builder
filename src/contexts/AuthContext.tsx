@@ -1,14 +1,12 @@
 import { User } from 'firebase/auth'
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { useAuthState } from 'react-firebase-hooks/auth'
-import { auth, createUserProfile, getUserProfile } from '../config/firebase'
-
-interface UserProfile {
-  displayName: string
-  email: string
-  photoURL?: string
-  createdAt: any
-}
+import {
+  auth,
+  createUserProfile,
+  getUserProfile,
+  UserProfile,
+} from '../config/firebase'
 
 interface AuthContextType {
   user: User | null | undefined
@@ -32,7 +30,7 @@ export const useAuth = () => {
   return context
 }
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
+const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [user, loading, error] = useAuthState(auth)
@@ -47,9 +45,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           // Create profile if it doesn't exist
           await createUserProfile(user)
 
-          // Fetch the user profile
+          // Fetch the user profile - no casting needed now!
           const profile = await getUserProfile(user.uid)
-          setUserProfile(profile as UserProfile)
+          setUserProfile(profile) // profile is already UserProfile | null
         } catch (error) {
           console.error('Error setting up user profile:', error)
         } finally {
@@ -72,3 +70,5 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
+
+export { AuthProvider } // Export at bottom instead of inline

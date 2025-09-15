@@ -1,31 +1,56 @@
 import { initializeApp } from 'firebase/app'
 import {
+  createUserWithEmailAndPassword,
   getAuth,
   GoogleAuthProvider,
-  signInWithPopup,
+  onAuthStateChanged,
   signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
+  signInWithPopup,
   signOut,
   User,
-  onAuthStateChanged, // Import onAuthStateChanged
 } from 'firebase/auth'
 import {
-  getFirestore,
-  doc,
-  setDoc,
-  getDoc,
-  collection,
   addDoc,
-  query,
-  where,
-  orderBy,
+  collection,
+  doc,
+  getDoc,
+  getFirestore,
   onSnapshot,
+  orderBy,
+  query,
+  setDoc,
   Timestamp,
+  where,
 } from 'firebase/firestore'
 
-// Your Vite environment variables are already typed.
-// You can ensure this by creating a `vite-env.d.ts` file in your `src` directory with:
-// /// <reference types="vite/client" />
+export interface UserProfile {
+  displayName: string
+  email: string
+  photoURL?: string
+  createdAt: Timestamp
+  uid?: string
+  savedParlays?: string[]
+}
+
+interface AdditionalUserData {
+  [key: string]: unknown
+}
+
+interface SaveParlayData {
+  gameContext?: string
+  legs?: Array<{
+    target: string
+    odds: string
+    betType: string
+    confidence: number
+    reasoning: string
+  }>
+  estimatedOdds?: string
+  aiReasoning?: string
+  overallConfidence?: number
+  createdAt: string
+  savedAt: Timestamp
+}
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -58,7 +83,10 @@ export const onAuthUserChanged = (callback: (user: User | null) => void) =>
   onAuthStateChanged(auth, callback)
 
 // User profile functions
-export const createUserProfile = async (user: User, additionalData?: any) => {
+export const createUserProfile = async (
+  user: User,
+  additionalData?: AdditionalUserData
+) => {
   const userRef = doc(db, 'users', user.uid)
   const userSnap = await getDoc(userRef)
 
@@ -84,14 +112,38 @@ export const createUserProfile = async (user: User, additionalData?: any) => {
   return userRef
 }
 
-export const getUserProfile = async (userId: string) => {
+export const getUserProfile = async (
+  userId: string
+): Promise<UserProfile | null> => {
   const userRef = doc(db, 'users', userId)
   const userSnap = await getDoc(userRef)
-  return userSnap.exists() ? userSnap.data() : null
+
+  if (!userSnap.exists()) {
+    return null
+  }
+
+  const data = userSnap.data()
+
+  if (!data.displayName || !data.email || !data.createdAt) {
+    console.warn('User profile missing required fields:', data)
+    return null
+  }
+
+  return {
+    displayName: data.displayName,
+    email: data.email,
+    photoURL: data.photoURL || undefined,
+    createdAt: data.createdAt,
+    uid: userId,
+    savedParlays: data.savedParlays || [],
+  } as UserProfile
 }
 
 // Parlay storage functions
-export const saveParlayToUser = async (userId: string, parlayData: any) => {
+export const saveParlayToUser = async (
+  userId: string,
+  parlayData: SaveParlayData
+) => {
   try {
     const parlayRef = await addDoc(collection(db, 'parlays'), {
       userId,

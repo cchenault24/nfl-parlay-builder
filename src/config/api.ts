@@ -2,9 +2,13 @@
  * API Configuration and Environment Variable Management
  */
 
-// Workaround for TypeScript env issue (keeping your existing pattern)
+interface ImportMeta {
+  env: Record<string, string>
+}
+
+// Type-safe environment variable getter
 const getEnvVar = (name: string): string => {
-  return (import.meta as any).env[name] || ''
+  return (import.meta as ImportMeta).env[name] || ''
 }
 
 /**
