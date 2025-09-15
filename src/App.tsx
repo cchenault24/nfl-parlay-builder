@@ -12,7 +12,6 @@ import { UserMenu } from './components/auth/UserMenu'
 import DevStatus from './components/DevStatus'
 import ParlayDisplay from './components/display/ParlayDisplay'
 import GameSelector from './components/GameSelector'
-import { LegalDisclaimer } from './components/LegalDisclaimer'
 import { LegalFooter } from './components/LegalFooter'
 import { LoadingScreen } from './components/LoadingScreen'
 import ParlAIdLogo from './components/ParlAIdLogo'
@@ -105,7 +104,6 @@ function AppContent() {
   }
 
   const handleAgeDeclined = () => {
-    // Redirect away from the site or show a message
     alert(
       'You must be 18 or older to use this service. You will be redirected away from this site.'
     )
@@ -144,72 +142,85 @@ function AppContent() {
   // Show authentication gate if not authenticated
   if (!user) {
     return (
-      <>
-        <AuthGate />
+      <Box
+        sx={{
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
+        <Box sx={{ flex: 1 }}>
+          <AuthGate />
+        </Box>
         <LegalFooter
           onResponsibleGamblingClick={handleResponsibleGamblingClick}
         />
-      </>
+      </Box>
     )
   }
 
   return (
-    <>
-      <AppBar position="static" sx={{ mb: 4 }}>
-        <Toolbar>
-          <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1 }}>
-            <ParlAIdLogo variant="h6" showIcon={true} size="small" />
-          </Box>
-          <UserMenu onViewHistory={() => setHistoryOpen(true)} />
-        </Toolbar>
-      </AppBar>
+    <Box
+      sx={{
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      {/* Main Content Area */}
+      <Box sx={{ flex: 1 }}>
+        <AppBar position="static" sx={{ mb: 4 }}>
+          <Toolbar>
+            <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1 }}>
+              <ParlAIdLogo variant="h6" showIcon={true} size="small" />
+            </Box>
+            <UserMenu onViewHistory={() => setHistoryOpen(true)} />
+          </Toolbar>
+        </AppBar>
 
-      <Container maxWidth="lg" sx={{ py: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom align="center">
-          NFL Parlay Builder
-        </Typography>
+        <Container maxWidth="lg" sx={{ py: 4 }}>
+          <Typography variant="h4" component="h1" gutterBottom align="center">
+            NFL Parlay Builder
+          </Typography>
 
-        {/* Legal Disclaimer - Compact version for main app */}
-        <LegalDisclaimer
-          variant="compact"
-          showResponsibleGamblingLink={false}
-        />
+          <GameSelector
+            games={games || []}
+            loading={gamesLoading || weekLoading}
+            onGenerateParlay={handleGenerateParlay}
+            canGenerate={!!selectedGame && !parlayLoading}
+            currentWeek={selectedWeek}
+            onWeekChange={handleWeekChange}
+            availableWeeks={availableWeeks}
+            weekLoading={weekLoading}
+          />
 
-        <GameSelector
-          games={games || []}
-          loading={gamesLoading || weekLoading}
-          onGenerateParlay={handleGenerateParlay}
-          canGenerate={!!selectedGame && !parlayLoading}
-          currentWeek={selectedWeek}
-          onWeekChange={handleWeekChange}
-          availableWeeks={availableWeeks}
-          weekLoading={weekLoading}
-        />
+          {/* Show any parlay errors */}
+          {parlayError && (
+            <Box sx={{ mb: 2 }}>
+              <Typography color="error">
+                Error: {parlayError.message}
+              </Typography>
+            </Box>
+          )}
 
-        {/* Show any parlay errors */}
-        {parlayError && (
-          <Box sx={{ mb: 2 }}>
-            <Typography color="error">Error: {parlayError.message}</Typography>
-          </Box>
-        )}
+          {/* ParlayDisplay gets parlay from store */}
+          <ParlayDisplay parlay={parlay || undefined} loading={parlayLoading} />
 
-        {/* ParlayDisplay gets parlay from store */}
-        <ParlayDisplay parlay={parlay || undefined} loading={parlayLoading} />
+          <ParlayHistory
+            open={historyOpen}
+            onClose={() => setHistoryOpen(false)}
+          />
+        </Container>
 
-        <ParlayHistory
-          open={historyOpen}
-          onClose={() => setHistoryOpen(false)}
-        />
-      </Container>
+        {/* Add the dev status component */}
+        <DevStatus />
+      </Box>
 
-      {/* Add the dev status component */}
-      <DevStatus />
-
-      {/* Legal Footer */}
+      {/* Footer - Fixed to bottom of content, not overlapping */}
       <LegalFooter
         onResponsibleGamblingClick={handleResponsibleGamblingClick}
       />
-    </>
+    </Box>
   )
 }
 

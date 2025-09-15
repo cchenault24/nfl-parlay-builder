@@ -18,7 +18,7 @@ export const LegalDisclaimer: React.FC<LegalDisclaimerProps> = ({
         color="text.secondary"
         sx={{ fontStyle: 'italic' }}
       >
-        For entertainment purposes only. 18+ only.{' '}
+        For entertainment purposes only. 18+ only.
         {showResponsibleGamblingLink && (
           <Link
             href="#responsible-gambling"
@@ -53,8 +53,8 @@ export const LegalDisclaimer: React.FC<LegalDisclaimerProps> = ({
           Entertainment Only - 18+ Required
         </Typography>
         <Typography variant="caption" color="text.secondary">
-          AI-generated parlays for entertainment purposes. No real betting
-          occurs on this platform.
+          AI-generated analysis and parlays for entertainment purposes. No real
+          betting occurs on this platform.
         </Typography>
       </Alert>
     )
@@ -76,7 +76,7 @@ export const LegalDisclaimer: React.FC<LegalDisclaimerProps> = ({
           Important Legal Notice
         </Typography>
         <Typography variant="body2" paragraph>
-          <strong>This application is for entertainment purposes only.</strong>{' '}
+          <strong>This application is for entertainment purposes only.</strong>
           All parlay suggestions are AI-generated and intended for informational
           and entertainment use. No actual betting, wagering, or gambling takes
           place on this platform.
@@ -104,7 +104,7 @@ export const LegalDisclaimer: React.FC<LegalDisclaimerProps> = ({
         >
           <Typography variant="body2">
             <strong>Need Help?</strong> If you or someone you know has a
-            gambling problem, resources are available.{' '}
+            gambling problem, resources are available.
             <Link
               href="#responsible-gambling"
               onClick={e => {

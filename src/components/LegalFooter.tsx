@@ -2,16 +2,17 @@ import {
   Close as CloseIcon,
   Gavel as GavelIcon,
   Info as InfoIcon,
+  Phone as PhoneIcon,
 } from '@mui/icons-material'
 import {
   Box,
   Button,
+  Chip,
   Container,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
-  Divider,
   Grid,
   IconButton,
   Link,
@@ -37,156 +38,165 @@ export const LegalFooter: React.FC<LegalFooterProps> = ({
       <Box
         component="footer"
         sx={{
-          py: 4,
-          mt: 6,
+          py: 3,
           borderTop: '1px solid rgba(255, 255, 255, 0.1)',
           bgcolor: 'rgba(0, 0, 0, 0.2)',
+          mt: 'auto',
         }}
       >
         <Container maxWidth="lg">
-          {/* Entertainment Notice */}
-          <Box sx={{ textAlign: 'center', mb: 3 }}>
-            <Typography
-              variant="h6"
-              sx={{
-                fontWeight: 600,
-                color: '#ff9800',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 1,
-                mb: 1,
-              }}
-            >
-              <InfoIcon />
-              FOR ENTERTAINMENT PURPOSES ONLY
-            </Typography>
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{ maxWidth: 600, mx: 'auto' }}
-            >
-              This platform provides AI-generated parlay suggestions for
-              entertainment only. No actual betting occurs here. Must be 18+ to
-              use. Please gamble responsibly.
-            </Typography>
-          </Box>
-
-          <Divider sx={{ my: 3 }} />
-
-          {/* Footer Links */}
-          <Grid container spacing={4} sx={{ mb: 3 }}>
-            <Grid item xs={12} sm={6} md={3}>
-              <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
-                Legal
-              </Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <Link
-                  component="button"
-                  variant="body2"
-                  onClick={() => setTermsOpen(true)}
-                  sx={{ textAlign: 'left', color: 'text.secondary' }}
-                >
-                  Terms of Service
-                </Link>
-                <Link
-                  component="button"
-                  variant="body2"
-                  onClick={() => setPrivacyOpen(true)}
-                  sx={{ textAlign: 'left', color: 'text.secondary' }}
-                >
-                  Privacy Policy
-                </Link>
-                <Link
-                  component="button"
-                  variant="body2"
-                  onClick={() => setLegalOpen(true)}
-                  sx={{ textAlign: 'left', color: 'text.secondary' }}
-                >
-                  Legal Disclaimer
-                </Link>
-              </Box>
-            </Grid>
-
-            <Grid item xs={12} sm={6} md={3}>
-              <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
-                Support
-              </Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <Link
-                  component="button"
-                  variant="body2"
-                  onClick={onResponsibleGamblingClick}
-                  sx={{ textAlign: 'left', color: '#2e7d32', fontWeight: 600 }}
-                >
-                  Responsible Gambling
-                </Link>
-                <Link
-                  href="tel:1-800-522-4700"
-                  variant="body2"
-                  sx={{ textAlign: 'left', color: 'text.secondary' }}
-                >
-                  Problem Gambling: 1-800-522-4700
-                </Link>
-                <Link
-                  href="tel:988"
-                  variant="body2"
-                  sx={{ textAlign: 'left', color: 'text.secondary' }}
-                >
-                  Crisis Support: 988
-                </Link>
-              </Box>
-            </Grid>
-
-            <Grid item xs={12} sm={6} md={3}>
-              <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
-                Age Restriction
-              </Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <Typography variant="body2" color="text.secondary">
-                  You must be 18 years or older to use this service.
-                </Typography>
-                <Typography
-                  variant="body2"
-                  color="#ff9800"
+          {/* Main Footer Content */}
+          <Grid
+            container
+            spacing={3}
+            alignItems="center"
+            justifyContent="center"
+          >
+            {/* Entertainment Notice - Made wider */}
+            <Grid item xs={12} md={5}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                  mb: 1,
+                  justifyContent: { xs: 'center', md: 'flex-start' },
+                }}
+              >
+                <Chip
+                  icon={<InfoIcon />}
+                  label="ENTERTAINMENT ONLY"
+                  color="warning"
+                  variant="outlined"
+                  size="small"
                   sx={{ fontWeight: 600 }}
+                />
+                <Chip
+                  label="18+"
+                  color="error"
+                  variant="outlined"
+                  size="small"
+                  sx={{ fontWeight: 600 }}
+                />
+              </Box>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ textAlign: { xs: 'center', md: 'left' } }}
+              >
+                AI-generated analysis and parlays for entertainment.
+              </Typography>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ textAlign: { xs: 'center', md: 'left' } }}
+              >
+                No actual betting occurs.
+              </Typography>
+            </Grid>
+
+            {/* Quick Links - Made slightly narrower */}
+            <Grid item xs={12} md={4}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: 1.5,
+                  justifyContent: 'center', // Always center the links
+                }}
+              >
+                <Link
+                  component="button"
+                  variant="caption"
+                  onClick={() => setTermsOpen(true)}
+                  sx={{
+                    color: 'text.secondary',
+                    '&:hover': { color: '#2e7d32' },
+                  }}
                 >
-                  18+ ONLY
+                  Terms
+                </Link>
+                <Typography variant="caption" color="text.secondary">
+                  •
                 </Typography>
+                <Link
+                  component="button"
+                  variant="caption"
+                  onClick={() => setPrivacyOpen(true)}
+                  sx={{
+                    color: 'text.secondary',
+                    '&:hover': { color: '#2e7d32' },
+                  }}
+                >
+                  Privacy
+                </Link>
+                <Typography variant="caption" color="text.secondary">
+                  •
+                </Typography>
+                <Link
+                  component="button"
+                  variant="caption"
+                  onClick={() => setLegalOpen(true)}
+                  sx={{
+                    color: 'text.secondary',
+                    '&:hover': { color: '#2e7d32' },
+                  }}
+                >
+                  Legal
+                </Link>
+                <Typography variant="caption" color="text.secondary">
+                  •
+                </Typography>
+                <Link
+                  component="button"
+                  variant="caption"
+                  onClick={onResponsibleGamblingClick}
+                  sx={{
+                    color: '#2e7d32',
+                    fontWeight: 600,
+                    '&:hover': { color: '#4caf50' },
+                  }}
+                >
+                  Get Help
+                </Link>
               </Box>
             </Grid>
 
-            <Grid item xs={12} sm={6} md={3}>
-              <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
-                Disclaimer
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                AI suggestions are for entertainment only and do not guarantee
-                outcomes. No actual betting occurs on this platform.
-              </Typography>
+            {/* Help & Copyright - Made narrower */}
+            <Grid item xs={12} md={3}>
+              <Box sx={{ textAlign: { xs: 'center', md: 'right' } }}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    justifyContent: { xs: 'center', md: 'flex-end' },
+                    mb: 0.5,
+                  }}
+                >
+                  <PhoneIcon sx={{ fontSize: 14, color: '#2e7d32' }} />
+                  <Link
+                    href="tel:1-800-522-4700"
+                    variant="caption"
+                    sx={{
+                      color: '#2e7d32',
+                      fontWeight: 600,
+                      textDecoration: 'none',
+                    }}
+                  >
+                    1-800-522-4700
+                  </Link>
+                </Box>
+                <Typography variant="caption" color="text.secondary">
+                  © {currentYear} ParlAId. For entertainment only.
+                </Typography>
+              </Box>
             </Grid>
           </Grid>
-
-          <Divider sx={{ my: 3 }} />
-
-          {/* Copyright */}
-          <Box sx={{ textAlign: 'center' }}>
-            <Typography variant="body2" color="text.secondary">
-              © {currentYear} ParlAId. All rights reserved. For entertainment
-              purposes only.
-            </Typography>
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ mt: 1, display: 'block' }}
-            >
-              Not affiliated with the NFL. Team names and logos are trademarks
-              of their respective owners.
-            </Typography>
-          </Box>
         </Container>
       </Box>
 
+      {/* Keep all the modal dialogs the same... */}
       {/* Terms Modal */}
       <Dialog
         open={termsOpen}
