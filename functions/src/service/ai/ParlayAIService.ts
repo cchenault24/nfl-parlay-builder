@@ -1,375 +1,401 @@
 import {
-  CloudFunctionError,
   GameRosters,
   GeneratedParlay,
   NFLGame,
   StrategyConfig,
   VarietyFactors,
 } from '../../types'
-import { BaseParlayProvider, ProviderConfig } from './BaseParlayProvider'
+import { BaseParlayProvider, GenerationOptions } from './BaseParlayProvider'
 import { ContextBuilder } from './ContextBuilder'
-import { OpenAIProvider } from './OpenAIProvider'
 
 /**
- * Supported AI providers
+ * Supported AI providers for parlay generation
  */
-export type AIProviderType = 'openai' | 'anthropic' | 'google' | 'local'
+export type AIProvider = 'openai' | 'anthropic' | 'google' | 'auto'
 
 /**
- * Provider-specific configurations
+ * Provider health status for monitoring
  */
-export interface AIProviderConfigs {
-  openai?: ProviderConfig & {
-    model?: 'gpt-3.5-turbo' | 'gpt-4' | 'gpt-4-turbo'
-    maxTokens?: number
-  }
-  anthropic?: ProviderConfig & {
-    model?: 'claude-3-sonnet' | 'claude-3-opus'
-    maxTokens?: number
-  }
-  google?: ProviderConfig & {
-    model?: 'gemini-pro' | 'gemini-ultra'
-    maxTokens?: number
-  }
-  local?: ProviderConfig & {
-    endpoint?: string
-    model?: string
+export interface ProviderHealth {
+  name: string
+  healthy: boolean
+  latency?: number
+  lastError?: string
+  lastChecked: Date
+}
+
+/**
+ * Service configuration
+ */
+export interface ParlayAIServiceConfig {
+  primaryProvider: AIProvider
+  fallbackProviders: AIProvider[]
+  maxRetries: number
+  healthCheckInterval: number
+  enableFallback: boolean
+  debugMode: boolean
+}
+
+/**
+ * Generation result with provider metadata
+ */
+export interface ParlayGenerationResult {
+  parlay: GeneratedParlay
+  metadata: {
+    provider: string
+    model: string
+    tokens?: number
+    latency: number
+    confidence: number
+    fallbackUsed: boolean
+    attemptCount: number
   }
 }
 
 /**
- * Generation options for parlay creation
- */
-export interface GenerationOptions {
-  temperature?: number
-  maxRetries?: number
-  strategy?: string
-  varietyFactors?: Partial<VarietyFactors>
-}
-
-/**
- * Generic AI service for parlay generation
- * Supports multiple AI providers with consistent interface
+ * Service for orchestrating AI-powered parlay generation across multiple providers
+ * Handles provider selection, fallback logic, health monitoring, and context building
  */
 export class ParlayAIService {
-  private providers: Map<AIProviderType, BaseParlayProvider> = new Map()
-  private defaultProvider: AIProviderType = 'openai'
+  private providers: Map<string, BaseParlayProvider>
+  private providerHealth: Map<string, ProviderHealth>
+  private config: ParlayAIServiceConfig
+  private healthCheckTimer?: NodeJS.Timeout
 
-  constructor(configs: AIProviderConfigs) {
-    this.initializeProviders(configs)
+  constructor(config: Partial<ParlayAIServiceConfig> = {}) {
+    this.providers = new Map()
+    this.providerHealth = new Map()
+    this.config = {
+      primaryProvider: 'openai',
+      fallbackProviders: ['anthropic', 'google'],
+      maxRetries: 3,
+      healthCheckInterval: 5 * 60 * 1000, // 5 minutes
+      enableFallback: true,
+      debugMode: false,
+      ...config,
+    }
+
+    this.startHealthMonitoring()
   }
 
   /**
-   * Generate parlay using specified or default provider
+   * Register an AI provider
+   */
+  registerProvider(name: string, provider: BaseParlayProvider): void {
+    this.providers.set(name, provider)
+    this.providerHealth.set(name, {
+      name,
+      healthy: false,
+      lastChecked: new Date(),
+    })
+
+    if (this.config.debugMode) {
+      console.log(`Registered AI provider: ${name}`)
+    }
+  }
+
+  /**
+   * Unregister an AI provider
+   */
+  unregisterProvider(name: string): void {
+    this.providers.delete(name)
+    this.providerHealth.delete(name)
+
+    if (this.config.debugMode) {
+      console.log(`Unregistered AI provider: ${name}`)
+    }
+  }
+
+  /**
+   * Main method to generate a parlay using the best available provider
    */
   async generateParlay(
     game: NFLGame,
     rosters: GameRosters,
-    options: GenerationOptions & { provider?: AIProviderType } = {}
-  ): Promise<GeneratedParlay> {
-    const providerType = options.provider || this.defaultProvider
-    const provider = this.providers.get(providerType)
+    strategy: StrategyConfig,
+    varietyFactors: VarietyFactors,
+    options: GenerationOptions = {}
+  ): Promise<ParlayGenerationResult> {
+    const startTime = Date.now()
+    let lastError: any
+    let attemptCount = 0
+    let fallbackUsed = false
 
-    if (!provider) {
-      throw new CloudFunctionError(
-        'PROVIDER_NOT_AVAILABLE',
-        `AI provider '${providerType}' is not configured or available`
-      )
-    }
-
-    try {
-      // Build comprehensive generation context
-      const context = this.buildGenerationContext(game, rosters, options)
-
-      // Generate parlay using the specified provider
-      const parlay = await provider.generateParlay(game, rosters, context)
-
-      // Add provider metadata
-      const modelInfo = provider.getModelInfo()
-      return {
-        ...parlay,
-        metadata: {
-          provider: modelInfo.provider,
-          model: modelInfo.model,
-          generatedAt: new Date().toISOString(),
-        },
-      }
-    } catch (error) {
-      console.error(`Error generating parlay with ${providerType}:`, error)
-
-      // If the error is retryable and we have fallback providers, try them
-      if (this.shouldTryFallback(error, options)) {
-        return this.tryFallbackProviders(game, rosters, options, [providerType])
-      }
-
-      throw error
-    }
-  }
-
-  /**
-   * Validate all configured providers
-   */
-  async validateProviders(): Promise<Record<AIProviderType, boolean>> {
-    const results: Record<string, boolean> = {}
-
-    for (const [type, provider] of this.providers) {
-      try {
-        results[type] = await provider.validateConnection()
-      } catch (error) {
-        console.error(`Provider ${type} validation failed:`, error)
-        results[type] = false
-      }
-    }
-
-    return results as Record<AIProviderType, boolean>
-  }
-
-  /**
-   * Get information about all configured providers
-   */
-  getProviderInfo(): Record<AIProviderType, any> {
-    const info: Record<string, any> = {}
-
-    for (const [type, provider] of this.providers) {
-      info[type] = provider.getModelInfo()
-    }
-
-    return info as Record<AIProviderType, any>
-  }
-
-  /**
-   * Set the default provider
-   */
-  setDefaultProvider(provider: AIProviderType): void {
-    if (!this.providers.has(provider)) {
-      throw new CloudFunctionError(
-        'INVALID_PROVIDER',
-        `Provider '${provider}' is not configured`
-      )
-    }
-    this.defaultProvider = provider
-  }
-
-  /**
-   * Check if a specific provider is available
-   */
-  isProviderAvailable(provider: AIProviderType): boolean {
-    return this.providers.has(provider)
-  }
-
-  // === Private Methods ===
-
-  /**
-   * Initialize AI providers based on configurations
-   */
-  private initializeProviders(configs: AIProviderConfigs): void {
-    // Initialize OpenAI provider
-    if (configs.openai?.apiKey) {
-      try {
-        this.providers.set('openai', new OpenAIProvider(configs.openai))
-      } catch (error) {
-        console.error('Failed to initialize OpenAI provider:', error)
-      }
-    }
-
-    // Initialize Anthropic provider (placeholder for future implementation)
-    if (configs.anthropic?.apiKey) {
-      console.log(
-        'Anthropic provider configuration found but not yet implemented'
-      )
-      // TODO: Implement AnthropicProvider
-    }
-
-    // Initialize Google provider (placeholder for future implementation)
-    if (configs.google?.apiKey) {
-      console.log('Google provider configuration found but not yet implemented')
-      // TODO: Implement GoogleProvider
-    }
-
-    // Initialize local provider (placeholder for future implementation)
-    if (configs.local?.endpoint) {
-      console.log('Local provider configuration found but not yet implemented')
-      // TODO: Implement LocalProvider
-    }
-
-    if (this.providers.size === 0) {
-      throw new CloudFunctionError(
-        'NO_PROVIDERS_CONFIGURED',
-        'No AI providers were successfully configured'
-      )
-    }
-
-    // Set default provider to the first available one
-    this.defaultProvider = Array.from(this.providers.keys())[0]
-  }
-
-  /**
-   * Build comprehensive generation context
-   */
-  private buildGenerationContext(
-    game: NFLGame,
-    rosters: GameRosters,
-    options: GenerationOptions
-  ) {
-    // Get or generate strategy
-    const strategy = this.getStrategy(options.strategy)
-
-    // Generate or merge variety factors
-    const varietyFactors = this.generateVarietyFactors(
-      rosters,
-      options.varietyFactors
-    )
-
-    // Build context using ContextBuilder
-    return ContextBuilder.buildGenerationContext(
+    // Build rich context for AI generation
+    const context = ContextBuilder.buildContext(
       game,
       rosters,
       strategy,
-      varietyFactors,
-      {
-        temperature: options.temperature,
-        maxRetries: options.maxRetries,
+      varietyFactors
+    )
+
+    // Apply generation options
+    if (options.temperature !== undefined) {
+      context.temperature = options.temperature
+    }
+
+    // Determine provider order
+    const providerOrder = this.getProviderOrder(options.provider)
+
+    if (this.config.debugMode) {
+      console.log('Provider order for generation:', providerOrder)
+      console.log('Generation context:', context)
+    }
+
+    // Try each provider in order
+    for (const providerName of providerOrder) {
+      const provider = this.providers.get(providerName)
+
+      if (!provider) {
+        if (this.config.debugMode) {
+          console.warn(`Provider ${providerName} not registered, skipping`)
+        }
+        continue
+      }
+
+      // Check provider health
+      const health = this.providerHealth.get(providerName)
+      if (health && !health.healthy) {
+        if (this.config.debugMode) {
+          console.warn(`Provider ${providerName} unhealthy, skipping`)
+        }
+        continue
+      }
+
+      attemptCount++
+      if (attemptCount > 1) {
+        fallbackUsed = true
+      }
+
+      try {
+        if (this.config.debugMode) {
+          console.log(`Attempting generation with provider: ${providerName}`)
+        }
+
+        const response = await provider.generateParlay(game, rosters, context)
+        const totalLatency = Date.now() - startTime
+
+        // Update provider health
+        this.updateProviderHealth(providerName, true, response.metadata.latency)
+
+        if (this.config.debugMode) {
+          console.log(`Generation successful with ${providerName}:`, {
+            latency: totalLatency,
+            confidence: response.metadata.confidence,
+            attempts: attemptCount,
+          })
+        }
+
+        return {
+          parlay: response.parlay,
+          metadata: {
+            ...response.metadata,
+            fallbackUsed,
+            attemptCount,
+          },
+        }
+      } catch (error) {
+        lastError = error
+        const errorMessage =
+          error instanceof Error ? error.message : 'Unknown error'
+
+        // Update provider health
+        this.updateProviderHealth(providerName, false, undefined, errorMessage)
+
+        if (this.config.debugMode) {
+          console.warn(`Provider ${providerName} failed:`, errorMessage)
+        }
+
+        // If this was the primary provider and fallback is disabled, throw immediately
+        if (
+          !this.config.enableFallback &&
+          providerName === this.config.primaryProvider
+        ) {
+          throw error
+        }
+
+        // Continue to next provider
+        continue
+      }
+    }
+
+    // All providers failed
+    const totalLatency = Date.now() - startTime
+
+    if (this.config.debugMode) {
+      console.error('All providers failed:', {
+        attemptCount,
+        totalLatency,
+        lastError: lastError?.message,
+      })
+    }
+
+    throw new Error(
+      `All AI providers failed after ${attemptCount} attempts. Last error: ${
+        lastError?.message || 'Unknown error'
+      }`
+    )
+  }
+
+  /**
+   * Get current health status of all providers
+   */
+  getProviderHealth(): ProviderHealth[] {
+    return Array.from(this.providerHealth.values())
+  }
+
+  /**
+   * Get detailed service status
+   */
+  getServiceStatus(): {
+    healthy: boolean
+    totalProviders: number
+    healthyProviders: number
+    primaryProviderHealthy: boolean
+    config: ParlayAIServiceConfig
+  } {
+    const allHealth = this.getProviderHealth()
+    const healthyProviders = allHealth.filter(h => h.healthy)
+    const primaryHealth = this.providerHealth.get(this.config.primaryProvider)
+
+    return {
+      healthy: healthyProviders.length > 0,
+      totalProviders: allHealth.length,
+      healthyProviders: healthyProviders.length,
+      primaryProviderHealthy: primaryHealth?.healthy ?? false,
+      config: this.config,
+    }
+  }
+
+  /**
+   * Manually trigger health checks for all providers
+   */
+  async checkAllProviderHealth(): Promise<void> {
+    const healthPromises = Array.from(this.providers.entries()).map(
+      async ([name, provider]) => {
+        try {
+          const startTime = Date.now()
+          const isHealthy = await provider.validateConnection()
+          const latency = Date.now() - startTime
+
+          this.updateProviderHealth(name, isHealthy, latency)
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : 'Health check failed'
+          this.updateProviderHealth(name, false, undefined, errorMessage)
+        }
       }
     )
+
+    await Promise.allSettled(healthPromises)
   }
 
   /**
-   * Get strategy configuration
+   * Update configuration
    */
-  private getStrategy(strategyName?: string): StrategyConfig {
-    const strategies: Record<string, StrategyConfig> = {
-      conservative: {
-        name: 'Conservative Value',
-        description: 'Focus on safer bets with higher probability',
-        temperature: 0.3,
-        focusAreas: ['proven_trends', 'historical_data', 'safe_props'],
-        riskLevel: 'conservative',
-      },
-      balanced: {
-        name: 'Balanced Approach',
-        description: 'Mix of safe and value bets with moderate risk',
-        temperature: 0.5,
-        focusAreas: ['recent_form', 'matchup_analysis', 'value_props'],
-        riskLevel: 'moderate',
-      },
-      aggressive: {
-        name: 'High Upside',
-        description: 'Higher risk selections targeting maximum payout',
-        temperature: 0.7,
-        focusAreas: ['breakout_potential', 'contrarian_plays', 'high_odds'],
-        riskLevel: 'aggressive',
-      },
-      contrarian: {
-        name: 'Contrarian Play',
-        description: 'Go against public consensus and popular picks',
-        temperature: 0.6,
-        focusAreas: ['public_fade', 'contrarian_logic', 'value_spots'],
-        riskLevel: 'moderate',
-      },
-      value_hunting: {
-        name: 'Value Hunter',
-        description: 'Find the best odds and expected value opportunities',
-        temperature: 0.4,
-        focusAreas: ['line_shopping', 'value_identification', 'expected_value'],
-        riskLevel: 'moderate',
-      },
+  updateConfig(newConfig: Partial<ParlayAIServiceConfig>): void {
+    this.config = { ...this.config, ...newConfig }
+
+    if (this.config.debugMode) {
+      console.log('Updated ParlayAIService config:', this.config)
     }
 
-    return strategies[strategyName || 'balanced'] || strategies.balanced
+    // Restart health monitoring if interval changed
+    if (newConfig.healthCheckInterval !== undefined) {
+      this.stopHealthMonitoring()
+      this.startHealthMonitoring()
+    }
   }
 
   /**
-   * Generate variety factors for parlay generation
+   * Cleanup resources
    */
-  private generateVarietyFactors(
-    rosters: GameRosters,
-    overrides?: Partial<VarietyFactors>
-  ): VarietyFactors {
-    const strategies = [
-      'conservative',
-      'balanced',
-      'aggressive',
-      'contrarian',
-      'value_hunting',
-    ]
-    const gameScripts = ['high_scoring', 'defensive', 'blowout', 'close_game']
-    const focusAreas = ['offense', 'defense', 'special_teams', 'balanced']
+  destroy(): void {
+    this.stopHealthMonitoring()
+    this.providers.clear()
+    this.providerHealth.clear()
 
-    // Get eligible players for focus
-    const allPlayers = [...rosters.homeRoster, ...rosters.awayRoster]
-    const eligiblePlayers = allPlayers.filter(p =>
-      ['QB', 'RB', 'WR', 'TE'].includes(p.position.abbreviation)
-    )
-
-    const baseFactors = {
-      strategy: strategies[Math.floor(Math.random() * strategies.length)],
-      focusArea: focusAreas[Math.floor(Math.random() * focusAreas.length)],
-      gameScript: gameScripts[Math.floor(Math.random() * gameScripts.length)],
-      focusPlayer:
-        eligiblePlayers.length > 0
-          ? eligiblePlayers[Math.floor(Math.random() * eligiblePlayers.length)]
-          : null,
-      riskTolerance: Math.random() * 0.6 + 0.4, // 0.4 to 1.0
+    if (this.config.debugMode) {
+      console.log('ParlayAIService destroyed')
     }
-
-    // Apply overrides
-    return { ...baseFactors, ...overrides } as VarietyFactors
   }
 
   /**
-   * Determine if we should try fallback providers
+   * Determine the order of providers to try
    */
-  private shouldTryFallback(error: any, options: GenerationOptions): boolean {
-    // Don't try fallback for configuration errors or non-retryable errors
-    if (error instanceof CloudFunctionError) {
-      const nonRetryableCodes = [
-        'INVALID_INPUT',
-        'MISSING_API_KEY',
-        'INVALID_REQUEST',
-      ]
-      return !nonRetryableCodes.includes(error.code)
+  private getProviderOrder(requestedProvider?: string): string[] {
+    if (requestedProvider && requestedProvider !== 'auto') {
+      return [requestedProvider]
     }
 
-    // Try fallback for network errors, rate limits, etc.
-    return options.maxRetries !== 0 // Allow opting out of fallbacks
-  }
+    // Start with primary, then fallbacks
+    const order = [this.config.primaryProvider]
 
-  /**
-   * Try fallback providers when primary fails
-   */
-  private async tryFallbackProviders(
-    game: NFLGame,
-    rosters: GameRosters,
-    options: GenerationOptions,
-    excludeProviders: AIProviderType[]
-  ): Promise<GeneratedParlay> {
-    const availableProviders = Array.from(this.providers.keys()).filter(
-      provider => !excludeProviders.includes(provider)
-    )
-
-    if (availableProviders.length === 0) {
-      throw new CloudFunctionError(
-        'ALL_PROVIDERS_FAILED',
-        'All configured AI providers failed to generate parlay'
-      )
-    }
-
-    // Try the next available provider
-    const fallbackProvider = availableProviders[0]
-    console.log(`Trying fallback provider: ${fallbackProvider}`)
-
-    try {
-      return await this.generateParlay(game, rosters, {
-        ...options,
-        provider: fallbackProvider,
-        maxRetries: 1, // Reduce retries for fallback
+    // Add fallbacks if enabled
+    if (this.config.enableFallback) {
+      this.config.fallbackProviders.forEach(provider => {
+        if (!order.includes(provider)) {
+          order.push(provider)
+        }
       })
-    } catch (error) {
-      // If fallback also fails, try the next one
-      return this.tryFallbackProviders(game, rosters, options, [
-        ...excludeProviders,
-        fallbackProvider,
-      ])
+    }
+
+    // Filter to only registered providers
+    return order.filter(name => this.providers.has(name))
+  }
+
+  /**
+   * Update provider health status
+   */
+  private updateProviderHealth(
+    name: string,
+    healthy: boolean,
+    latency?: number,
+    error?: string
+  ): void {
+    const current = this.providerHealth.get(name)
+    if (!current) return
+
+    this.providerHealth.set(name, {
+      ...current,
+      healthy,
+      latency,
+      lastError: error,
+      lastChecked: new Date(),
+    })
+  }
+
+  /**
+   * Start periodic health monitoring
+   */
+  private startHealthMonitoring(): void {
+    if (this.healthCheckTimer) {
+      clearInterval(this.healthCheckTimer)
+    }
+
+    this.healthCheckTimer = setInterval(() => {
+      this.checkAllProviderHealth().catch(error => {
+        if (this.config.debugMode) {
+          console.error('Health monitoring error:', error)
+        }
+      })
+    }, this.config.healthCheckInterval)
+
+    // Run initial health check
+    setTimeout(() => {
+      this.checkAllProviderHealth()
+    }, 1000)
+  }
+
+  /**
+   * Stop health monitoring
+   */
+  private stopHealthMonitoring(): void {
+    if (this.healthCheckTimer) {
+      clearInterval(this.healthCheckTimer)
+      this.healthCheckTimer = undefined
     }
   }
 }
+
+export default ParlayAIService
