@@ -79,18 +79,27 @@ export class ParlayAIService {
   }
 
   /**
-   * Register an AI provider
+   * MISSING METHOD: Get registered providers map
+   */
+  getRegisteredProviders(): Map<string, BaseParlayProvider> {
+    return this.providers
+  }
+
+  /**
+   * FIXED: Register an AI provider with proper health initialization
    */
   registerProvider(name: string, provider: BaseParlayProvider): void {
     this.providers.set(name, provider)
+
+    // CRITICAL FIX: Set initial health to true instead of false
     this.providerHealth.set(name, {
       name,
-      healthy: false,
+      healthy: true, // Changed from false to true
       lastChecked: new Date(),
     })
 
     if (this.config.debugMode) {
-      console.log(`Registered AI provider: ${name}`)
+      console.log(`Registered AI provider: ${name} (healthy: true)`)
     }
   }
 
@@ -107,7 +116,7 @@ export class ParlayAIService {
   }
 
   /**
-   * Main method to generate a parlay using the best available provider
+   * UPDATED: Enhanced generateParlay with better error handling and debugging
    */
   async generateParlay(
     game: NFLGame,
@@ -120,6 +129,9 @@ export class ParlayAIService {
     let lastError: any
     let attemptCount = 0
     let fallbackUsed = false
+
+    console.log('DEBUG: ParlayAIService.generateParlay started')
+    console.log('DEBUG: Options:', JSON.stringify(options, null, 2))
 
     // Build rich context for AI generation
     const context = ContextBuilder.buildContext(
@@ -136,10 +148,18 @@ export class ParlayAIService {
 
     // Determine provider order
     const providerOrder = this.getProviderOrder(options.provider)
+    console.log('DEBUG: Final provider order for generation:', providerOrder)
+
+    if (providerOrder.length === 0) {
+      const registeredProviders = Array.from(this.providers.keys())
+      throw new Error(
+        `No suitable providers available. Requested: ${options.provider}, Registered: [${registeredProviders.join(', ')}]`
+      )
+    }
 
     if (this.config.debugMode) {
       console.log('Provider order for generation:', providerOrder)
-      console.log('Generation context:', context)
+      console.log('Generation context temperature:', context.temperature)
     }
 
     // Try each provider in order
@@ -147,19 +167,16 @@ export class ParlayAIService {
       const provider = this.providers.get(providerName)
 
       if (!provider) {
-        if (this.config.debugMode) {
-          console.warn(`Provider ${providerName} not registered, skipping`)
-        }
+        console.warn(`Provider ${providerName} not registered, skipping`)
         continue
       }
 
-      // Check provider health
+      // Check provider health but continue anyway for debugging
       const health = this.providerHealth.get(providerName)
       if (health && !health.healthy) {
-        if (this.config.debugMode) {
-          console.warn(`Provider ${providerName} unhealthy, skipping`)
-        }
-        continue
+        console.warn(
+          `Provider ${providerName} marked unhealthy (${health.lastError}), but attempting anyway for debugging`
+        )
       }
 
       attemptCount++
@@ -168,23 +185,22 @@ export class ParlayAIService {
       }
 
       try {
-        if (this.config.debugMode) {
-          console.log(`Attempting generation with provider: ${providerName}`)
-        }
+        console.log(
+          `DEBUG: Attempting generation with provider: ${providerName}`
+        )
+        console.log(`DEBUG: Provider instance:`, provider.constructor.name)
 
         const response = await provider.generateParlay(game, rosters, context)
         const totalLatency = Date.now() - startTime
 
-        // Update provider health
+        // Update provider health on success
         this.updateProviderHealth(providerName, true, response.metadata.latency)
 
-        if (this.config.debugMode) {
-          console.log(`Generation successful with ${providerName}:`, {
-            latency: totalLatency,
-            confidence: response.metadata.confidence,
-            attempts: attemptCount,
-          })
-        }
+        console.log(`DEBUG: Generation successful with ${providerName}:`, {
+          latency: totalLatency,
+          confidence: response.metadata.confidence,
+          attempts: attemptCount,
+        })
 
         return {
           parlay: response.parlay,
@@ -199,18 +215,25 @@ export class ParlayAIService {
         const errorMessage =
           error instanceof Error ? error.message : 'Unknown error'
 
-        // Update provider health
+        console.error(`ERROR: Provider ${providerName} failed:`, {
+          error: errorMessage,
+          stack: error instanceof Error ? error.stack : undefined,
+          attempt: attemptCount,
+        })
+
+        // Update provider health on failure
         this.updateProviderHealth(providerName, false, undefined, errorMessage)
 
-        if (this.config.debugMode) {
-          console.warn(`Provider ${providerName} failed:`, errorMessage)
-        }
-
-        // If this was the primary provider and fallback is disabled, throw immediately
+        // If this was the only requested provider and fallback is disabled, throw immediately
         if (
           !this.config.enableFallback &&
-          providerName === this.config.primaryProvider
+          options.provider &&
+          options.provider !== 'auto' &&
+          providerName === options.provider
         ) {
+          console.error(
+            'Requested provider failed and fallback disabled, throwing error'
+          )
           throw error
         }
 
@@ -221,17 +244,19 @@ export class ParlayAIService {
 
     // All providers failed
     const totalLatency = Date.now() - startTime
+    const registeredProviders = Array.from(this.providers.keys())
 
-    if (this.config.debugMode) {
-      console.error('All providers failed:', {
-        attemptCount,
-        totalLatency,
-        lastError: lastError?.message,
-      })
-    }
+    console.error('ERROR: All providers failed:', {
+      attemptCount,
+      totalLatency,
+      lastError: lastError?.message,
+      providerOrder,
+      registeredProviders,
+      requestedProvider: options.provider,
+    })
 
     throw new Error(
-      `All AI providers failed after ${attemptCount} attempts. Last error: ${
+      `All AI providers failed after ${attemptCount} attempts. Provider order: [${providerOrder.join(', ')}]. Last error: ${
         lastError?.message || 'Unknown error'
       }`
     )
@@ -321,40 +346,61 @@ export class ParlayAIService {
   }
 
   /**
-   * Determine the order of providers to try
+   * UPDATED: Determine the order of providers to try with better debugging
    */
   private getProviderOrder(requestedProvider?: string): string[] {
+    console.log('DEBUG: getProviderOrder called with:', requestedProvider)
+
     if (requestedProvider && requestedProvider !== 'auto') {
-      return [requestedProvider]
+      // Use only the requested provider
+      const providerOrder = [requestedProvider]
+      console.log('DEBUG: Using requested provider only:', providerOrder)
+
+      const filteredOrder = providerOrder.filter(name => {
+        const hasProvider = this.providers.has(name)
+        console.log(`DEBUG: Provider ${name} registered: ${hasProvider}`)
+        return hasProvider
+      })
+
+      console.log('DEBUG: Filtered requested provider order:', filteredOrder)
+      return filteredOrder
     }
 
     // Start with primary, then fallbacks
-    const order = [this.config.primaryProvider]
+    const order = [
+      this.config.primaryProvider,
+      ...this.config.fallbackProviders,
+    ]
+    console.log('DEBUG: Default provider order:', order)
 
-    // Add fallbacks if enabled
-    if (this.config.enableFallback) {
-      this.config.fallbackProviders.forEach(provider => {
-        if (!order.includes(provider)) {
-          order.push(provider)
-        }
-      })
-    }
+    // Remove duplicates and filter to only registered providers
+    const uniqueOrder = Array.from(new Set(order))
+    const filteredOrder = uniqueOrder.filter(name => {
+      const hasProvider = this.providers.has(name)
+      console.log(`DEBUG: Provider ${name} registered: ${hasProvider}`)
+      return hasProvider
+    })
 
-    // Filter to only registered providers
-    return order.filter(name => this.providers.has(name))
+    console.log('DEBUG: Final filtered provider order:', filteredOrder)
+    return filteredOrder
   }
 
   /**
-   * Update provider health status
+   * UPDATED: Make updateProviderHealth public (was private)
    */
-  private updateProviderHealth(
+  updateProviderHealth(
     name: string,
     healthy: boolean,
     latency?: number,
     error?: string
   ): void {
     const current = this.providerHealth.get(name)
-    if (!current) return
+    if (!current) {
+      console.warn(
+        `Attempted to update health for unregistered provider: ${name}`
+      )
+      return
+    }
 
     this.providerHealth.set(name, {
       ...current,
@@ -363,6 +409,15 @@ export class ParlayAIService {
       lastError: error,
       lastChecked: new Date(),
     })
+
+    if (this.config.debugMode) {
+      console.log(`Provider ${name} health updated:`, {
+        healthy,
+        latency,
+        error,
+        wasHealthy: current.healthy,
+      })
+    }
   }
 
   /**

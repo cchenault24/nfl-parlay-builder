@@ -52,7 +52,7 @@ interface CloudFunctionResponse {
     confidence: number
     fallbackUsed: boolean
     attemptCount: number
-    serviceMode?: 'mock' | 'real'
+    serviceMode?: 'mock' | 'openai'
     environment?: string
   }
 }
@@ -61,7 +61,7 @@ export interface ParlayGenerationOptions {
   temperature?: number
   strategy?: StrategyConfig
   varietyFactors?: VarietyFactors
-  provider?: 'mock' | 'real' | 'openai' // Updated to include mock/real
+  provider?: 'mock' | 'openai' | 'openai' // Updated to include mock/real
   debugMode?: boolean
 }
 
@@ -74,7 +74,7 @@ export interface EnhancedParlayGenerationResult extends ParlayGenerationResult {
     confidence: number
     fallbackUsed: boolean
     attemptCount: number
-    serviceMode?: 'mock' | 'real'
+    serviceMode?: 'mock' | 'openai'
     environment?: string
   }
 }
@@ -126,7 +126,7 @@ export class ParlayService {
    */
   async generateParlay(
     game: NFLGame,
-    options: { provider?: 'mock' | 'real' } = {}
+    options: { provider?: 'mock' | 'openai' } = {}
   ): Promise<EnhancedParlayGenerationResult> {
     try {
       return await this.generateCloudParlay(game, options)
@@ -141,7 +141,7 @@ export class ParlayService {
    */
   private async generateCloudParlay(
     game: NFLGame,
-    options: { provider?: 'mock' | 'real' }
+    options: { provider?: 'mock' | 'openai' }
   ): Promise<EnhancedParlayGenerationResult> {
     // Step 1: Get team rosters
     const rosters = await this.getGameRosters(game)
@@ -167,10 +167,10 @@ export class ParlayService {
    * Check service health (updated to work with cloud functions)
    */
   async checkServiceHealth(
-    options: { provider?: 'mock' | 'real' } = {}
+    options: { provider?: 'mock' | 'openai' } = {}
   ): Promise<{
     healthy: boolean
-    mode: 'mock' | 'real'
+    mode: 'mock' | 'openai'
     providers?: Array<{
       name: string
       healthy: boolean
@@ -198,7 +198,7 @@ export class ParlayService {
 
       return {
         healthy: data.success,
-        mode: options.provider || 'real',
+        mode: options.provider || 'openai',
         providers: data.data?.service?.providers || [],
         timestamp: new Date().toISOString(),
       }
@@ -206,7 +206,7 @@ export class ParlayService {
       console.error('Health check failed:', error)
       return {
         healthy: false,
-        mode: options.provider || 'real',
+        mode: options.provider || 'openai',
         providers: [],
         timestamp: new Date().toISOString(),
       }
@@ -260,7 +260,7 @@ export class ParlayService {
   private async callCloudFunction(
     game: NFLGame,
     rosters: GameRosters,
-    options: { provider?: 'mock' | 'real' }
+    options: { provider?: 'mock' | 'openai' }
   ): Promise<CloudFunctionResponse> {
     try {
       const authToken = await this.getAuthToken()
@@ -269,7 +269,7 @@ export class ParlayService {
         game,
         rosters,
         options: {
-          provider: options.provider || 'real', // Default to real if not specified
+          provider: options.provider || 'openai', // Default to real if not specified
         },
       }
 
@@ -417,8 +417,8 @@ export class ParlayService {
   /**
    * Get service mode for debugging (now takes provider parameter)
    */
-  getServiceMode(provider?: 'mock' | 'real'): 'mock' | 'real' {
-    return provider || 'real'
+  getServiceMode(provider?: 'mock' | 'openai'): 'mock' | 'openai' {
+    return provider || 'openai'
   }
 
   /**

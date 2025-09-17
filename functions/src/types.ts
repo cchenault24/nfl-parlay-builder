@@ -3,6 +3,8 @@
  * These mirror the types from your client-side application
  */
 
+import { AIProvider } from './service/ai/ParlayAIService'
+
 // === NFL Game Types ===
 export interface NFLTeam {
   id: string
@@ -181,7 +183,7 @@ export interface GenerateParlayResponse {
     confidence?: number
     fallbackUsed?: boolean
     attemptCount?: number
-    serviceMode?: 'mock' | 'real'
+    serviceMode?: AIProvider
     environment?: string
   }
 }
