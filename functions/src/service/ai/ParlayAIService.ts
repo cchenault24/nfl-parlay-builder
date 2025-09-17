@@ -11,7 +11,7 @@ import { ContextBuilder } from './ContextBuilder'
 /**
  * Supported AI providers for parlay generation
  */
-export type AIProvider = 'openai' | 'anthropic' | 'google' | 'auto'
+export type AIProvider = 'openai' | 'anthropic' | 'google' | 'mock' | 'auto'
 
 /**
  * Provider health status for monitoring

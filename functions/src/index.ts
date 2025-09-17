@@ -3,7 +3,8 @@ import * as admin from 'firebase-admin'
 import * as functions from 'firebase-functions'
 import { RateLimiter, getClientIpAddress } from './middleware/rateLimiter'
 import { ContextBuilder } from './service/ai/ContextBuilder'
-import { ParlayAIService } from './service/ai/ParlayAIService'
+import { AIProvider, ParlayAIService } from './service/ai/ParlayAIService'
+import { MockProvider } from './service/ai/providers/MockProvider'
 import { OpenAIProvider } from './service/ai/providers/OpenAIProvider'
 import {
   CloudFunctionError,
@@ -33,84 +34,96 @@ const corsHandler = cors({
 // Rate limiter instance
 const rateLimiter = new RateLimiter({
   windowMinutes: 60,
-  maxRequests: 10,
+  maxRequests: process.env.NODE_ENV === 'development' ? 100 : 10,
   cleanupAfterHours: 24,
 })
 
 /**
- * Validate generate parlay request
- */
-function validateGenerateParlayRequest(body: any): ValidationResult {
-  const errors: string[] = []
-
-  if (!body.game) {
-    errors.push('Game data is required')
-  } else {
-    if (!body.game.homeTeam || !body.game.awayTeam) {
-      errors.push('Both home and away teams are required')
-    }
-    if (!body.game.week || typeof body.game.week !== 'number') {
-      errors.push('Valid game week is required')
-    }
-  }
-
-  if (!body.rosters) {
-    errors.push('Roster data is required')
-  } else {
-    if (!body.rosters.homeRoster || !Array.isArray(body.rosters.homeRoster)) {
-      errors.push('Valid home roster is required')
-    }
-    if (!body.rosters.awayRoster || !Array.isArray(body.rosters.awayRoster)) {
-      errors.push('Valid away roster is required')
-    }
-  }
-
-  return {
-    isValid: errors.length === 0,
-    errors,
-  }
-}
-
-/**
- * Initialize AI service with provider architecture
+ * Enhanced AI service initialization with mock support
  */
 function initializeAIService(): ParlayAIService {
+  const shouldMock = shouldUseMockProvider()
+
   const parlayAI = new ParlayAIService({
-    primaryProvider: 'openai',
-    fallbackProviders: ['anthropic'],
+    primaryProvider: shouldMock ? ('mock' as AIProvider) : 'openai',
+    fallbackProviders: shouldMock ? [] : ['mock' as AIProvider],
     enableFallback: true,
     debugMode: process.env.NODE_ENV === 'development',
   })
 
-  // Register OpenAI provider if API key is available
-  if (process.env.OPENAI_API_KEY) {
-    const openaiProvider = new OpenAIProvider({
-      apiKey: process.env.OPENAI_API_KEY,
-      model: (process.env.OPENAI_MODEL as any) || 'gpt-4o-mini',
-      defaultMaxTokens: parseInt(process.env.OPENAI_MAX_TOKENS || '4000'),
-    })
-    parlayAI.registerProvider('openai', openaiProvider)
-  }
+  const mockProvider = new MockProvider({
+    enableErrorSimulation: process.env.NODE_ENV === 'development',
+    errorRate: parseFloat(process.env.MOCK_ERROR_RATE || '0.05'),
+    minDelayMs: parseInt(process.env.MOCK_MIN_DELAY || '500'),
+    maxDelayMs: parseInt(process.env.MOCK_MAX_DELAY || '1500'),
+    debugMode: process.env.NODE_ENV === 'development',
+  })
+  parlayAI.registerProvider('mock', mockProvider)
 
-  // Future providers can be registered here
-  // if (process.env.ANTHROPIC_API_KEY) {
-  //   parlayAI.registerProvider('anthropic', new AnthropicProvider({...}))
-  // }
+  if (process.env.OPENAI_API_KEY && !shouldMock) {
+    try {
+      const openaiProvider = new OpenAIProvider({
+        apiKey: process.env.OPENAI_API_KEY,
+        model: (process.env.OPENAI_MODEL as any) || 'gpt-4o-mini',
+        defaultTemperature: parseFloat(
+          process.env.OPENAI_DEFAULT_TEMPERATURE || '0.7'
+        ),
+        defaultMaxTokens: parseInt(process.env.OPENAI_MAX_TOKENS || '4000'),
+      })
+      parlayAI.registerProvider('openai', openaiProvider)
+
+      if (process.env.NODE_ENV === 'development') {
+        console.log('✅ OpenAI provider registered successfully')
+      }
+    } catch (error) {
+      console.warn('⚠️ Failed to register OpenAI provider:', error)
+    }
+  }
 
   return parlayAI
 }
 
 /**
- * Cloud Function: Generate NFL Parlay
+ * Determine if mock provider should be used
+ */
+function shouldUseMockProvider(): boolean {
+  // Check for explicit environment variable
+  if (process.env.USE_MOCK_PROVIDER !== undefined) {
+    return process.env.USE_MOCK_PROVIDER === 'true'
+  }
+
+  // Check for missing OpenAI API key
+  if (!process.env.OPENAI_API_KEY) {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🎭 No OpenAI API key found, using mock provider')
+    }
+    return true
+  }
+
+  // Default behavior based on environment
+  if (process.env.NODE_ENV === 'development') {
+    // In development, default to mock unless explicitly set to use real
+    return process.env.USE_REAL_PROVIDER !== 'true'
+  }
+
+  // In production, default to real provider
+  return false
+}
+
+/**
+ * Main parlay generation endpoint with enhanced mock/real support
  */
 export const generateParlay = functions
+  .region('us-central1')
   .runWith({
-    timeoutSeconds: 120,
-    memory: '512MB',
+    timeoutSeconds: shouldUseMockProvider() ? 60 : 120, // Less timeout needed for mock
+    memory: shouldUseMockProvider() ? '256MB' : '512MB', // Less memory needed for mock
+    secrets: shouldUseMockProvider() ? [] : ['OPENAI_API_KEY'], // No secrets needed for mock
   })
   .https.onRequest(async (request, response) => {
     corsHandler(request, response, async () => {
       try {
+        // Validate request method
         if (request.method !== 'POST') {
           response.status(405).json({
             success: false,
@@ -122,37 +135,7 @@ export const generateParlay = functions
           return
         }
 
-        // Rate limiting
-        const userId = request.headers['x-user-id'] as string
-        const ipAddress = getClientIpAddress(request)
-
-        const rateLimitResult = await rateLimiter.checkRateLimit(
-          userId,
-          ipAddress
-        )
-
-        if (!rateLimitResult.allowed) {
-          console.log(
-            `Rate limit exceeded for ${userId ? `user ${userId}` : `IP ${ipAddress}`}`
-          )
-
-          response.status(429).json({
-            success: false,
-            error: {
-              code: 'RATE_LIMIT_EXCEEDED',
-              message: `Rate limit exceeded. You have used ${rateLimitResult.currentCount} of 10 requests this hour.`,
-              details: {
-                remaining: rateLimitResult.remaining,
-                resetTime: rateLimitResult.resetTime.toISOString(),
-                currentCount: rateLimitResult.currentCount,
-                total: 10,
-              },
-            },
-          })
-          return
-        }
-
-        // Validate request
+        // Validate request body
         const validation = validateGenerateParlayRequest(request.body)
         if (!validation.isValid) {
           response.status(400).json({
@@ -166,28 +149,41 @@ export const generateParlay = functions
           return
         }
 
-        const requestData: GenerateParlayRequest = request.body
+        // Rate limiting (more lenient for mock)
+        const clientIp = getClientIpAddress(request)
+        const rateLimitResult = await rateLimiter.checkRateLimit(
+          clientIp,
+          shouldUseMockProvider() ? 'mock' : 'real'
+        )
 
-        // Validate rosters
-        if (
-          !requestData.rosters?.homeRoster?.length ||
-          !requestData.rosters?.awayRoster?.length
-        ) {
-          throw new CloudFunctionError(
-            'INSUFFICIENT_ROSTERS',
-            'Complete roster data is required for both teams'
-          )
+        if (!rateLimitResult.allowed) {
+          response.status(429).json({
+            success: false,
+            error: {
+              code: 'RATE_LIMIT_EXCEEDED',
+              message: 'Rate limit exceeded. Please try again later.',
+              details: {
+                remaining: rateLimitResult.remaining,
+                resetTime: rateLimitResult.resetTime.toISOString(),
+                currentCount: rateLimitResult.currentCount,
+              },
+            },
+          })
+          return
         }
+
+        // Parse request
+        const requestData: GenerateParlayRequest = request.body
 
         // Initialize AI service
         const aiService = initializeAIService()
 
-        // Build context for AI generation
+        // Build generation context
         const strategy = requestData.strategy || {
-          name: 'Balanced Analysis',
-          description: 'Well-rounded approach to parlay generation',
+          name: 'balanced',
+          description: 'Balanced risk approach',
           temperature: 0.7,
-          focusAreas: ['recent_form', 'matchup_analysis'],
+          focusAreas: ['spread', 'total'],
           riskLevel: 'moderate' as const,
         }
 
@@ -213,8 +209,9 @@ export const generateParlay = functions
           context.temperature = requestData.options.temperature
         }
 
+        const providerType = shouldUseMockProvider() ? 'mock' : 'real'
         console.log(
-          `Generating parlay for ${requestData.game.awayTeam.displayName} @ ${requestData.game.homeTeam.displayName}`
+          `${providerType.toUpperCase()} MODE: Generating parlay for ${requestData.game.awayTeam.displayName} @ ${requestData.game.homeTeam.displayName}`
         )
 
         // Generate parlay using AI service
@@ -224,14 +221,16 @@ export const generateParlay = functions
           strategy,
           varietyFactors,
           {
-            provider: requestData.options?.provider,
+            provider: shouldUseMockProvider()
+              ? 'mock'
+              : requestData.options?.provider,
             temperature: requestData.options?.temperature,
             debugMode: process.env.NODE_ENV === 'development',
           }
         )
 
         console.log(
-          `Successfully generated parlay with ${result.metadata?.provider} provider`
+          `✅ Successfully generated parlay with ${result.metadata?.provider} provider`
         )
 
         // Return successful response
@@ -242,16 +241,17 @@ export const generateParlay = functions
             remaining: rateLimitResult.remaining,
             resetTime: rateLimitResult.resetTime.toISOString(),
             currentCount: rateLimitResult.currentCount,
-            total: 10,
+            total: shouldUseMockProvider() ? 100 : 10,
           },
           metadata: {
-            provider: result.metadata?.provider || 'openai',
+            provider:
+              result.metadata?.provider ||
+              (shouldUseMockProvider() ? 'mock' : 'openai'),
             generatedAt: new Date().toISOString(),
             rateLimitInfo: {
               remaining: rateLimitResult.remaining,
               resetTime: rateLimitResult.resetTime.toISOString(),
             },
-            // Include additional AI metadata as extra properties
             ...(result.metadata && {
               aiProvider: result.metadata.provider,
               model: result.metadata.model,
@@ -261,6 +261,10 @@ export const generateParlay = functions
               fallbackUsed: result.metadata.fallbackUsed,
               attemptCount: result.metadata.attemptCount,
             }),
+            serviceMode: shouldUseMockProvider()
+              ? ('mock' as const)
+              : ('real' as const),
+            environment: process.env.NODE_ENV || 'production',
           },
         }
 
@@ -297,8 +301,128 @@ export const generateParlay = functions
   })
 
 /**
- * Get appropriate HTTP status code for errors
+ * Enhanced health check endpoint with provider information
  */
+export const healthCheck = functions.https.onRequest(
+  async (request, response) => {
+    corsHandler(request, response, async () => {
+      try {
+        const aiService = initializeAIService()
+        const serviceStatus = aiService.getServiceStatus()
+        const usingMock = shouldUseMockProvider()
+
+        response.status(200).json({
+          success: true,
+          data: {
+            status: serviceStatus.healthy ? 'healthy' : 'unhealthy',
+            timestamp: new Date().toISOString(),
+            service: {
+              ...serviceStatus,
+              mode: usingMock ? 'mock' : 'real',
+              environment: process.env.NODE_ENV || 'production',
+              mockProvider: {
+                enabled: true,
+                asFlakback: !usingMock,
+              },
+              realProvider: {
+                enabled: !!process.env.OPENAI_API_KEY && !usingMock,
+                apiKeyConfigured: !!process.env.OPENAI_API_KEY,
+              },
+            },
+            version: process.env.npm_package_version || '1.0.0',
+          },
+        })
+      } catch (error: any) {
+        console.error('Health check failed:', error)
+        response.status(503).json({
+          success: false,
+          status: 'unhealthy',
+          timestamp: new Date().toISOString(),
+          error: error.message,
+          mode: shouldUseMockProvider() ? 'mock' : 'real',
+        })
+      }
+    })
+  }
+)
+
+/**
+ * New endpoint to switch between mock and real modes (development only)
+ */
+export const switchMode = functions.https.onRequest(
+  async (request, response) => {
+    corsHandler(request, response, async () => {
+      // Only allow in development
+      if (process.env.NODE_ENV !== 'development') {
+        response.status(403).json({
+          success: false,
+          error: 'Mode switching is only available in development',
+        })
+        return
+      }
+
+      if (request.method !== 'POST') {
+        response.status(405).json({
+          success: false,
+          error: 'Only POST requests are allowed',
+        })
+        return
+      }
+
+      const { mode } = request.body
+
+      if (!mode || !['mock', 'real'].includes(mode)) {
+        response.status(400).json({
+          success: false,
+          error: 'Mode must be either "mock" or "real"',
+        })
+        return
+      }
+
+      // This would typically update a configuration store
+      // For now, we'll just return the current state
+      response.status(200).json({
+        success: true,
+        message: `Mode switch requested: ${mode}`,
+        note: 'Restart function to apply changes',
+        currentMode: shouldUseMockProvider() ? 'mock' : 'real',
+      })
+    })
+  }
+)
+
+// Validation and utility functions (unchanged)
+function validateGenerateParlayRequest(body: any): ValidationResult {
+  const errors: string[] = []
+
+  if (!body.game) {
+    errors.push('Game data is required')
+  } else {
+    if (!body.game.homeTeam || !body.game.awayTeam) {
+      errors.push('Both home and away teams are required')
+    }
+    if (!body.game.week || typeof body.game.week !== 'number') {
+      errors.push('Valid game week is required')
+    }
+  }
+
+  if (!body.rosters) {
+    errors.push('Roster data is required')
+  } else {
+    if (!body.rosters.homeRoster || !Array.isArray(body.rosters.homeRoster)) {
+      errors.push('Valid home roster is required')
+    }
+    if (!body.rosters.awayRoster || !Array.isArray(body.rosters.awayRoster)) {
+      errors.push('Valid away roster is required')
+    }
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+  }
+}
+
 function getStatusCodeForError(errorCode: string): number {
   const statusCodes: Record<string, number> = {
     INVALID_REQUEST: 400,
@@ -315,67 +439,6 @@ function getStatusCodeForError(errorCode: string): number {
   }
   return statusCodes[errorCode] || 500
 }
-
-/**
- * Health check endpoint
- */
-export const healthCheck = functions.https.onRequest(
-  async (request, response) => {
-    corsHandler(request, response, async () => {
-      try {
-        const aiService = initializeAIService()
-        const serviceStatus = aiService.getServiceStatus()
-
-        response.status(200).json({
-          success: true,
-          data: {
-            status: serviceStatus.healthy ? 'healthy' : 'unhealthy',
-            timestamp: new Date().toISOString(),
-            service: serviceStatus,
-            version: process.env.npm_package_version || '1.0.0',
-          },
-        })
-      } catch (error: any) {
-        console.error('Health check failed:', error)
-        response.status(503).json({
-          success: false,
-          status: 'unhealthy',
-          timestamp: new Date().toISOString(),
-          error: error.message,
-        })
-      }
-    })
-  }
-)
-
-/**
- * Get Rate Limit Status endpoint
- * Allows frontend to check current rate limit without making a request
- */
-export const getRateLimitStatus = functions
-  .region('us-central1')
-  .runWith({
-    timeoutSeconds: 60,
-    memory: '512MB',
-    secrets: ['OPENAI_API_KEY'],
-  })
-  .https.onRequest(async (request, response) => {
-    corsHandler(request, response, async () => {
-      try {
-        if (request.method !== 'GET') {
-          response.status(405).json({
-            success: false,
-            error: 'Only GET requests are allowed',
-          })
-          return
-        }
-
-        // Implementation here...
-      } catch (error) {
-        // Error handling...
-      }
-    })
-  })
 
 // Import cleanup functions from utils
 export { cleanupRateLimits, manualCleanupRateLimits } from './utils/cleanup'

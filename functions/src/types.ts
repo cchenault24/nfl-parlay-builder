@@ -88,7 +88,7 @@ export interface GameSummary {
 
 export interface GeneratedParlay {
   id: string
-  legs: [ParlayLeg, ParlayLeg, ParlayLeg]
+  legs: ParlayLeg[]
   gameContext: string
   aiReasoning: string
   overallConfidence: number
@@ -181,6 +181,8 @@ export interface GenerateParlayResponse {
     confidence?: number
     fallbackUsed?: boolean
     attemptCount?: number
+    serviceMode?: 'mock' | 'real'
+    environment?: string
   }
 }
 
