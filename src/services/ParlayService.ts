@@ -1,3 +1,4 @@
+// src/services/ParlayService.ts - Complete fix for UI provider selection
 import { INFLClient } from '../api/clients/base/interfaces'
 import { auth } from '../config/firebase'
 import {
@@ -8,6 +9,22 @@ import {
 } from '../types'
 import { RateLimitError } from '../types/errors'
 import { NFLDataService } from './NFLDataService'
+
+export interface StrategyConfig {
+  name: string
+  description: string
+  temperature: number
+  riskProfile: 'low' | 'medium' | 'high'
+  confidenceRange: [number, number]
+}
+
+export interface VarietyFactors {
+  strategy: string
+  focusArea: string
+  playerTier: string
+  gameScript: string
+  marketBias: string
+}
 
 interface CloudFunctionResponse {
   success: boolean
@@ -27,15 +44,59 @@ interface CloudFunctionResponse {
     currentCount: number
     total: number
   }
+  metadata?: {
+    provider: string
+    model: string
+    tokens?: number
+    latency: number
+    confidence: number
+    fallbackUsed: boolean
+    attemptCount: number
+    serviceMode?: 'mock' | 'openai'
+    environment?: string
+  }
 }
 
-/**
- * Updated Parlay Service
- * Now calls Firebase Cloud Function instead of OpenAI directly
- * This removes the security vulnerability of exposing API keys client-side
- */
+export interface ParlayGenerationOptions {
+  temperature?: number
+  strategy?: StrategyConfig
+  varietyFactors?: VarietyFactors
+  provider?: 'mock' | 'openai' | 'openai' // Updated to include mock/real
+  debugMode?: boolean
+}
+
+export interface EnhancedParlayGenerationResult extends ParlayGenerationResult {
+  metadata?: {
+    provider: string
+    model: string
+    tokens?: number
+    latency: number
+    confidence: number
+    fallbackUsed: boolean
+    attemptCount: number
+    serviceMode?: 'mock' | 'openai'
+    environment?: string
+  }
+}
+
+interface CloudFunctionErrorResponse {
+  success: false
+  error: {
+    code: string
+    message: string
+    details?: {
+      remaining?: number
+      resetTime?: string
+      currentCount?: number
+      [key: string]: unknown // Allow for additional error details
+    }
+  }
+  [key: string]: unknown // Allow for additional properties
+}
+
 export class ParlayService {
   private readonly cloudFunctionUrl: string
+  private readonly healthCheckUrl: string
 
   constructor(
     private nflClient: INFLClient,
@@ -43,45 +104,117 @@ export class ParlayService {
   ) {
     const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID
 
-    this.cloudFunctionUrl = import.meta.env.DEV
-      ? `http://localhost:5001/${projectId}/us-central1/generateParlay`
-      : `https://us-central1-${projectId}.cloudfunctions.net/generateParlay`
+    if (!projectId) {
+      throw new Error(
+        'VITE_FIREBASE_PROJECT_ID environment variable is required'
+      )
+    }
+
+    // Cloud function URLs
+    const baseUrl =
+      import.meta.env.VITE_CLOUD_FUNCTION_URL ||
+      (import.meta.env.DEV
+        ? `http://localhost:5001/${projectId}/us-central1`
+        : `https://us-central1-${projectId}.cloudfunctions.net`)
+
+    this.cloudFunctionUrl = `${baseUrl}/generateParlay`
+    this.healthCheckUrl = `${baseUrl}/healthCheck`
   }
 
   /**
-   * Generate a parlay for a specific game
+   * Generate a parlay with provider options
    */
-  async generateParlay(game: NFLGame): Promise<ParlayGenerationResult> {
+  async generateParlay(
+    game: NFLGame,
+    options: { provider?: 'mock' | 'openai' } = {}
+  ): Promise<EnhancedParlayGenerationResult> {
     try {
-      // Step 1: Get team rosters for accurate player props
-      const rosters = await this.getGameRosters(game)
-
-      // Step 2: Validate rosters - throw error if insufficient data
-      if (rosters.homeRoster.length === 0 || rosters.awayRoster.length === 0) {
-        console.warn('⚠️ No roster data available')
-        throw new Error('Insufficient roster data to generate parlay')
-      }
-
-      // Step 3: Call Firebase Cloud Function
-      const response = await this.callCloudFunction(game, rosters)
-
-      if (!response.success || !response.data) {
-        throw new Error(response.error?.message || 'Failed to generate parlay')
-      }
-
-      // Return both parlay and rate limit info
-      return {
-        parlay: response.data,
-        rateLimitInfo: response.rateLimitInfo,
-      }
+      return await this.generateCloudParlay(game, options)
     } catch (error) {
       console.error('❌ Error generating parlay:', error)
-      throw error
+      throw this.enhanceError(error)
     }
   }
+
   /**
-   * Get rosters for both teams in a game
-   * Business logic method that combines multiple NFL API calls
+   * Generate parlay using cloud functions
+   */
+  private async generateCloudParlay(
+    game: NFLGame,
+    options: { provider?: 'mock' | 'openai' }
+  ): Promise<EnhancedParlayGenerationResult> {
+    // Step 1: Get team rosters
+    const rosters = await this.getGameRosters(game)
+
+    // Step 2: Validate rosters
+    this.validateRosters(rosters)
+
+    // Step 3: Call cloud function with provider option
+    const response = await this.callCloudFunction(game, rosters, options)
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error?.message || 'Failed to generate parlay')
+    }
+
+    return {
+      parlay: response.data,
+      rateLimitInfo: response.rateLimitInfo,
+      metadata: response.metadata,
+    }
+  }
+
+  /**
+   * Check service health (updated to work with cloud functions)
+   */
+  async checkServiceHealth(
+    options: { provider?: 'mock' | 'openai' } = {}
+  ): Promise<{
+    healthy: boolean
+    mode: 'mock' | 'openai'
+    providers?: Array<{
+      name: string
+      healthy: boolean
+      latency?: number
+      lastError?: string
+    }>
+    timestamp: string
+  }> {
+    try {
+      const authToken = await this.getAuthToken()
+
+      const response = await fetch(this.healthCheckUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        },
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(`Health check failed: ${response.status}`)
+      }
+
+      return {
+        healthy: data.success,
+        mode: options.provider || 'openai',
+        providers: data.data?.service?.providers || [],
+        timestamp: new Date().toISOString(),
+      }
+    } catch (error) {
+      console.error('Health check failed:', error)
+      return {
+        healthy: false,
+        mode: options.provider || 'openai',
+        providers: [],
+        timestamp: new Date().toISOString(),
+      }
+    }
+  }
+
+  /**
+   * Get rosters for both teams
    */
   async getGameRosters(game: NFLGame): Promise<GameRosters> {
     try {
@@ -100,17 +233,34 @@ export class ParlayService {
       }
     } catch (error) {
       console.error('Error fetching game rosters:', error)
-      return { homeRoster: [], awayRoster: [] }
+      throw new Error('Failed to fetch team rosters. Please try again.')
     }
   }
 
   /**
-   * Call Firebase Cloud Function for parlay generation
+   * Validate that rosters have sufficient data
+   */
+  private validateRosters(rosters: GameRosters): void {
+    if (!rosters.homeRoster || rosters.homeRoster.length < 10) {
+      throw new Error(
+        'Insufficient home team roster data. Please try again later.'
+      )
+    }
+
+    if (!rosters.awayRoster || rosters.awayRoster.length < 10) {
+      throw new Error(
+        'Insufficient away team roster data. Please try again later.'
+      )
+    }
+  }
+
+  /**
+   * Call cloud function with provider selection
    */
   private async callCloudFunction(
     game: NFLGame,
     rosters: GameRosters,
-    options: { temperature?: number; strategy?: string } = {}
+    options: { provider?: 'mock' | 'openai' }
   ): Promise<CloudFunctionResponse> {
     try {
       const authToken = await this.getAuthToken()
@@ -118,79 +268,138 @@ export class ParlayService {
       const requestBody = {
         game,
         rosters,
-        options,
+        options: {
+          provider: options.provider || 'openai', // Default to real if not specified
+        },
       }
 
       const response = await fetch(this.cloudFunctionUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(authToken
-            ? {
-                Authorization: `Bearer ${authToken}`,
-              }
-            : {}),
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
         },
         body: JSON.stringify(requestBody),
       })
 
       const responseData = await response.json()
-
       if (!response.ok) {
-        // Handle rate limit error specifically
-        if (response.status === 429) {
-          const resetTime = responseData.error?.details?.resetTime
-          const remaining = responseData.error?.details?.remaining || 0
+        console.error('[CF FAIL]', {
+          status: response.status,
+          statusText: response.statusText,
+          trace: null,
+          execId: null,
+          body: responseData,
+        })
 
-          throw new RateLimitError(
-            responseData.error?.message || 'Rate limit exceeded',
-            {
-              remaining,
-              resetTime: resetTime ? new Date(resetTime) : new Date(),
-              currentCount: responseData.error?.details?.currentCount || 0,
-            }
-          )
+        // Type assertion to ensure we have the right error structure
+        const errorResponse: CloudFunctionErrorResponse = {
+          success: false,
+          error: {
+            code: responseData.error?.code || 'UNKNOWN_ERROR',
+            message:
+              responseData.error?.message ||
+              `HTTP ${response.status}: ${response.statusText}`,
+            details: responseData.error?.details,
+          },
+          ...responseData, // Spread any additional properties
         }
 
-        console.error('❌ Cloud Function error:', responseData)
-        throw new Error(
-          responseData.error?.message ||
-            `HTTP ${response.status}: ${response.statusText}`
-        )
+        return this.handleErrorResponse(response, errorResponse)
       }
 
       return responseData
     } catch (error) {
       console.error('❌ Cloud Function call failed:', error)
+      throw this.enhanceNetworkError(error)
+    }
+  }
 
-      // Re-throw rate limit errors as-is
-      if (error instanceof RateLimitError) {
-        throw error
-      }
+  private handleErrorResponse(
+    response: Response,
+    responseData: CloudFunctionErrorResponse
+  ): never {
+    if (response.status === 429) {
+      const resetTime = responseData.error?.details?.resetTime
+      const remaining = responseData.error?.details?.remaining || 0
 
-      // Handle other error cases
-      if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new RateLimitError(
+        responseData.error?.message || 'Rate limit exceeded',
+        {
+          remaining,
+          resetTime: resetTime ? new Date(resetTime) : new Date(),
+          currentCount: responseData.error?.details?.currentCount || 0,
+        }
+      )
+    }
+
+    const errorMessage =
+      responseData.error?.message ||
+      `HTTP ${response.status}: ${response.statusText}`
+
+    switch (response.status) {
+      case 400:
+        throw new Error(`Invalid request: ${errorMessage}`)
+      case 401:
         throw new Error(
-          'Unable to connect to parlay generation service. Please check your internet connection.'
+          'Authentication required. Please sign in and try again.'
         )
-      }
-
-      if (error instanceof Error && error.message.includes('Failed to fetch')) {
+      case 403:
         throw new Error(
-          'Network error: Unable to reach parlay generation service. Please try again.'
+          'Access denied. You may not have permission to use this service.'
         )
-      }
-
-      if (error instanceof Error) {
-        throw error
-      } else {
-        throw new Error(`Unexpected error: ${String(error)}`)
-      }
+      case 500:
+        throw new Error(
+          'Service temporarily unavailable. Please try again in a moment.'
+        )
+      case 503:
+        throw new Error(
+          'AI service is currently unavailable. Please try again later.'
+        )
+      default:
+        throw new Error(errorMessage)
     }
   }
 
   /**
-   * Get auth token from Firebase Auth
+   * Enhance network errors
+   */
+  private enhanceNetworkError(error: unknown): Error {
+    if (error instanceof RateLimitError) {
+      return error
+    }
+
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      return new Error(
+        'Unable to connect to the parlay generation service. Please check your internet connection.'
+      )
+    }
+
+    if (error instanceof Error && error.message.includes('Failed to fetch')) {
+      return new Error(
+        'Network error: Unable to reach the parlay generation service. Please try again.'
+      )
+    }
+
+    if (error instanceof Error) {
+      return error
+    }
+
+    return new Error(`Unexpected error: ${String(error)}`)
+  }
+  /**
+   * Enhance any error with context
+   */
+  private enhanceError(error: unknown): Error {
+    if (error instanceof RateLimitError || error instanceof Error) {
+      return error
+    }
+
+    return new Error(`Parlay generation failed: ${String(error)}`)
+  }
+
+  /**
+   * Get Firebase auth token
    */
   private async getAuthToken(): Promise<string | null> {
     try {
@@ -203,5 +412,26 @@ export class ParlayService {
       console.warn('Failed to get auth token:', error)
       return null
     }
+  }
+
+  /**
+   * Get service mode for debugging (now takes provider parameter)
+   */
+  getServiceMode(provider?: 'mock' | 'openai'): 'mock' | 'openai' {
+    return provider || 'openai'
+  }
+
+  /**
+   * Get cloud function URL for debugging
+   */
+  getCloudFunctionUrl(): string {
+    return this.cloudFunctionUrl
+  }
+
+  /**
+   * Check if service is properly configured
+   */
+  isConfigured(): boolean {
+    return !!import.meta.env.VITE_FIREBASE_PROJECT_ID
   }
 }
