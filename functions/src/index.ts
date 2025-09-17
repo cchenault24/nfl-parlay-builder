@@ -355,8 +355,9 @@ export const healthCheck = functions.https.onRequest(
 export const getRateLimitStatus = functions
   .region('us-central1')
   .runWith({
-    timeoutSeconds: 10,
-    memory: '256MB',
+    timeoutSeconds: 60,
+    memory: '512MB',
+    secrets: ['OPENAI_API_KEY'],
   })
   .https.onRequest(async (request, response) => {
     corsHandler(request, response, async () => {
