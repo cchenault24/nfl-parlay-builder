@@ -104,9 +104,7 @@ export class ParlayService {
     }
 
     // Auto-detect mock mode
-    this.shouldUseMock =
-      import.meta.env.MODE === 'development' &&
-      import.meta.env.VITE_USE_MOCK_OPENAI === 'true'
+    this.shouldUseMock = import.meta.env.MODE === 'development'
 
     // Cloud function URLs
     const baseUrl =

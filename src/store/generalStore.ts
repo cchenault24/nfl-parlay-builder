@@ -3,10 +3,10 @@ import { persist } from 'zustand/middleware'
 
 interface GeneralStore {
   // Development settings
-  devMockOverride: boolean | null
+  devMockOverride: boolean
 
   // Actions
-  setDevMockOverride: (useMock: boolean | null) => void
+  setDevMockOverride: (useMock: boolean) => void
   clearDevMockOverride: () => void
 }
 
@@ -14,11 +14,11 @@ const useGeneralStore = create<GeneralStore>()(
   persist(
     set => ({
       // Initial state
-      devMockOverride: null,
+      devMockOverride: import.meta.env.MODE === 'development',
 
       // Actions
       setDevMockOverride: useMock => set({ devMockOverride: useMock }),
-      clearDevMockOverride: () => set({ devMockOverride: null }),
+      clearDevMockOverride: () => set({ devMockOverride: false }),
     }),
     {
       name: 'nfl-parlay-general-store', // localStorage key

@@ -9,20 +9,10 @@ import { useParlayGenerator } from './useParlayGenerator'
 export const useParlayGeneratorSelector = () => {
   const devMockOverride = useGeneralStore(state => state.devMockOverride)
 
-  let shouldUseMock: boolean
-
-  if (devMockOverride !== null) {
-    // Use the dev override if it exists
-    shouldUseMock = devMockOverride
-  } else {
-    // Updated logic: Default to mock unless explicitly disabled
-    shouldUseMock = import.meta.env.VITE_USE_MOCK_OPENAI !== 'false'
-  }
-
   const realHook = useParlayGenerator()
   const mockHook = useMockParlayGenerator()
 
-  if (shouldUseMock) {
+  if (devMockOverride) {
     return {
       ...mockHook,
       serviceStatus: {

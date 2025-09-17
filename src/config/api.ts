@@ -74,9 +74,6 @@ export const FEATURES = {
   // Enable request/response logging
   API_LOGGING: ENV.NODE_ENV === 'development',
 
-  // Mock APIs for testing (could be controlled by env var)
-  MOCK_APIS: getEnvVar('VITE_USE_MOCK_OPENAI') === 'true',
-
   // Rate limiting settings
   RATE_LIMITING: {
     enabled: ENV.NODE_ENV === 'production',

@@ -100,10 +100,7 @@ export class MockOpenAIService {
    * Check if mock service should be used
    */
   private isEnabled(): boolean {
-    return (
-      import.meta.env.MODE === 'development' ||
-      import.meta.env.VITE_USE_MOCK_OPENAI === 'true'
-    )
+    return import.meta.env.MODE === 'development'
   }
 
   /**
