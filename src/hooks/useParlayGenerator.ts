@@ -7,12 +7,12 @@ import { useRateLimit } from './useRateLimit'
 
 export const useParlayGenerator = () => {
   const setParlay = useParlayStore(state => state.setParlay)
+
   const parlayService = getParlayService()
   const { updateFromResponse } = useRateLimit()
 
   const mutation = useMutation({
     mutationFn: async (game: NFLGame) => {
-      // Return the full result so we can access it in onSuccess
       return await parlayService.generateParlay(game)
     },
     onError: error => {

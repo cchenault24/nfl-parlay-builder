@@ -56,17 +56,6 @@ interface CloudFunctionResponse {
 }
 
 /**
- * Generation options for parlay creation
- */
-export interface ParlayGenerationOptions {
-  temperature?: number
-  strategy?: StrategyConfig
-  varietyFactors?: VarietyFactors
-  provider?: 'openai' | 'anthropic' | 'google' | 'auto'
-  debugMode?: boolean
-}
-
-/**
  * Enhanced ParlayGenerationResult with metadata support
  */
 export interface EnhancedParlayGenerationResult extends ParlayGenerationResult {
@@ -124,17 +113,9 @@ export class ParlayService {
   /**
    * Generate a parlay - routes to mock or cloud function based on environment
    */
-  async generateParlay(
-    game: NFLGame,
-    options: ParlayGenerationOptions = {}
-  ): Promise<EnhancedParlayGenerationResult> {
+  async generateParlay(game: NFLGame): Promise<EnhancedParlayGenerationResult> {
     try {
-      // Route to appropriate service
-      if (this.shouldUseMock) {
-        return await this.generateMockParlay(game, options)
-      } else {
-        return await this.generateCloudParlay(game, options)
-      }
+      return await this.generateCloudParlay(game)
     } catch (error) {
       console.error('❌ Error generating parlay:', error)
       throw this.enhanceError(error)
@@ -142,58 +123,10 @@ export class ParlayService {
   }
 
   /**
-   * Generate parlay using local mock service
-   */
-  private async generateMockParlay(
-    game: NFLGame,
-    options: ParlayGenerationOptions
-  ): Promise<EnhancedParlayGenerationResult> {
-    try {
-      if (options.debugMode) {
-        console.log(
-          '🎭 Using mock service for:',
-          game.awayTeam.displayName,
-          '@',
-          game.homeTeam.displayName
-        )
-      }
-
-      // Dynamic import to ensure mock code is tree-shaken in production
-      const { mockOpenAIService } = await import('./mockOpenaiService')
-
-      const startTime = Date.now()
-      const parlay = await mockOpenAIService.generateParlay(game)
-      const latency = Date.now() - startTime
-
-      return {
-        parlay,
-        rateLimitInfo: {
-          remaining: 999,
-          total: 1000,
-          resetTime: new Date(Date.now() + 3600000).toISOString(),
-          currentCount: 1,
-        },
-        metadata: {
-          provider: 'mock',
-          model: 'mock-gpt-4o-mini',
-          latency,
-          confidence: parlay.overallConfidence,
-          fallbackUsed: false,
-          attemptCount: 1,
-        },
-      }
-    } catch (error) {
-      console.error('❌ Mock service error:', error)
-      throw error
-    }
-  }
-
-  /**
    * Generate parlay using cloud functions
    */
   private async generateCloudParlay(
-    game: NFLGame,
-    options: ParlayGenerationOptions
+    game: NFLGame
   ): Promise<EnhancedParlayGenerationResult> {
     // Step 1: Get team rosters
     const rosters = await this.getGameRosters(game)
@@ -202,7 +135,7 @@ export class ParlayService {
     this.validateRosters(rosters)
 
     // Step 3: Call cloud function
-    const response = await this.callCloudFunction(game, rosters, options)
+    const response = await this.callCloudFunction(game, rosters)
 
     if (!response.success || !response.data) {
       throw new Error(response.error?.message || 'Failed to generate parlay')
@@ -322,8 +255,12 @@ export class ParlayService {
     const getPositionString = (
       position: string | { abbreviation?: string } | undefined
     ): string | undefined => {
-      if (!position) return undefined
-      if (typeof position === 'string') return position
+      if (!position) {
+        return undefined
+      }
+      if (typeof position === 'string') {
+        return position
+      }
       return position.abbreviation
     }
 
@@ -350,8 +287,7 @@ export class ParlayService {
    */
   private async callCloudFunction(
     game: NFLGame,
-    rosters: GameRosters,
-    options: ParlayGenerationOptions = {}
+    rosters: GameRosters
   ): Promise<CloudFunctionResponse> {
     try {
       const authToken = await this.getAuthToken()
@@ -359,25 +295,8 @@ export class ParlayService {
       const requestBody = {
         game,
         rosters,
-        strategy: options.strategy,
-        varietyFactors: options.varietyFactors,
-        options: {
-          temperature: options.temperature,
-          provider: options.provider,
-          debugMode: options.debugMode,
-        },
+        options: {},
       }
-
-      if (options.debugMode) {
-        console.log('🔍 Cloud Function Request:', {
-          game: game.id,
-          homeTeam: game.homeTeam.displayName,
-          awayTeam: game.awayTeam.displayName,
-          options: requestBody.options,
-        })
-      }
-
-      const startTime = Date.now()
       const response = await fetch(this.cloudFunctionUrl, {
         method: 'POST',
         headers: {
@@ -388,16 +307,6 @@ export class ParlayService {
       })
 
       const responseData = await response.json()
-      const latency = Date.now() - startTime
-
-      if (options.debugMode) {
-        console.log('📡 Cloud Function Response:', {
-          status: response.status,
-          latency: `${latency}ms`,
-          success: responseData.success,
-          provider: responseData.metadata?.provider,
-        })
-      }
 
       if (!response.ok) {
         return this.handleErrorResponse(response, responseData)
