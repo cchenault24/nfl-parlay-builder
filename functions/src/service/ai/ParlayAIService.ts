@@ -130,9 +130,6 @@ export class ParlayAIService {
     let attemptCount = 0
     let fallbackUsed = false
 
-    console.log('DEBUG: ParlayAIService.generateParlay started')
-    console.log('DEBUG: Options:', JSON.stringify(options, null, 2))
-
     // Build rich context for AI generation
     const context = ContextBuilder.buildContext(
       game,
@@ -148,7 +145,6 @@ export class ParlayAIService {
 
     // Determine provider order
     const providerOrder = this.getProviderOrder(options.provider)
-    console.log('DEBUG: Final provider order for generation:', providerOrder)
 
     if (providerOrder.length === 0) {
       const registeredProviders = Array.from(this.providers.keys())
@@ -185,22 +181,9 @@ export class ParlayAIService {
       }
 
       try {
-        console.log(
-          `DEBUG: Attempting generation with provider: ${providerName}`
-        )
-        console.log(`DEBUG: Provider instance:`, provider.constructor.name)
-
         const response = await provider.generateParlay(game, rosters, context)
-        const totalLatency = Date.now() - startTime
-
         // Update provider health on success
         this.updateProviderHealth(providerName, true, response.metadata.latency)
-
-        console.log(`DEBUG: Generation successful with ${providerName}:`, {
-          latency: totalLatency,
-          confidence: response.metadata.confidence,
-          attempts: attemptCount,
-        })
 
         return {
           parlay: response.parlay,
@@ -349,20 +332,14 @@ export class ParlayAIService {
    * UPDATED: Determine the order of providers to try with better debugging
    */
   private getProviderOrder(requestedProvider?: string): string[] {
-    console.log('DEBUG: getProviderOrder called with:', requestedProvider)
-
     if (requestedProvider && requestedProvider !== 'auto') {
       // Use only the requested provider
       const providerOrder = [requestedProvider]
-      console.log('DEBUG: Using requested provider only:', providerOrder)
 
       const filteredOrder = providerOrder.filter(name => {
-        const hasProvider = this.providers.has(name)
-        console.log(`DEBUG: Provider ${name} registered: ${hasProvider}`)
-        return hasProvider
+        return this.providers.has(name)
       })
 
-      console.log('DEBUG: Filtered requested provider order:', filteredOrder)
       return filteredOrder
     }
 
@@ -371,17 +348,13 @@ export class ParlayAIService {
       this.config.primaryProvider,
       ...this.config.fallbackProviders,
     ]
-    console.log('DEBUG: Default provider order:', order)
 
     // Remove duplicates and filter to only registered providers
     const uniqueOrder = Array.from(new Set(order))
     const filteredOrder = uniqueOrder.filter(name => {
-      const hasProvider = this.providers.has(name)
-      console.log(`DEBUG: Provider ${name} registered: ${hasProvider}`)
-      return hasProvider
+      return this.providers.has(name)
     })
 
-    console.log('DEBUG: Final filtered provider order:', filteredOrder)
     return filteredOrder
   }
 

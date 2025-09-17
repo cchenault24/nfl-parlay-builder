@@ -1,4 +1,4 @@
-// functions/src/index.ts - Complete file with proper provider selection
+// functions/src/index.ts - Complete file with CORS fix and provider improvements
 import cors from 'cors'
 import * as admin from 'firebase-admin'
 import * as functions from 'firebase-functions'
@@ -31,19 +31,11 @@ const corsHandler = cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
 })
 
-// Rate limiter instance
-// const rateLimiter = new RateLimiter({
-//   windowMinutes: 60,
-//   maxRequests: process.env.NODE_ENV === 'development' ? 100 : 10,
-//   cleanupAfterHours: 24,
-// })
-
 /**
- * Get provider from client request (UI controlled)
+ * Get provider from client request - uses actual AIProvider values
+ * Frontend should send: 'openai' | 'mock' | 'anthropic' | 'google' | 'auto'
  */
 function getProviderFromRequest(requestedProvider?: string): AIProvider {
-  console.log('DEBUG: getProviderFromRequest called with:', requestedProvider)
-
   // Validate against actual AIProvider types
   const validProviders: AIProvider[] = [
     'openai',
@@ -57,33 +49,21 @@ function getProviderFromRequest(requestedProvider?: string): AIProvider {
     requestedProvider &&
     validProviders.includes(requestedProvider as AIProvider)
   ) {
-    console.log(`DEBUG: Using valid provider: ${requestedProvider}`)
     return requestedProvider as AIProvider
   }
 
-  // BACKWARDS COMPATIBILITY ONLY - remove this after frontend is updated
-  if (requestedProvider === 'openai') {
-    console.warn(
-      'DEPRECATED: "real" provider name used, mapping to "openai". Please update frontend to use "openai" directly.'
-    )
-    return 'openai'
-  }
-
   // Default to openai if nothing specified or invalid
-  console.log('DEBUG: Invalid or missing provider, defaulting to openai')
+
   return 'openai'
 }
 
 /**
- * AI service initialization - clean provider setup
+ * AI service initialization with proper provider health setup
  */
 function initializeAIService(): ParlayAIService {
   const openaiKey = process.env.OPENAI_API_KEY
   const hasOpenAIKey =
     !!openaiKey && openaiKey !== 'undefined' && openaiKey.trim() !== ''
-
-  console.log('DEBUG: Initializing AI Service...')
-  console.log('DEBUG: Has OpenAI Key:', hasOpenAIKey)
 
   const parlayAI = new ParlayAIService({
     primaryProvider: hasOpenAIKey ? 'openai' : 'mock',
@@ -92,8 +72,8 @@ function initializeAIService(): ParlayAIService {
     debugMode: true,
   })
 
-  // Always register mock provider
-  console.log('DEBUG: Registering mock provider...')
+  // Always register mock provider first
+
   const mockProvider = new MockProvider({
     enableErrorSimulation: false,
     errorRate: 0,
@@ -102,12 +82,10 @@ function initializeAIService(): ParlayAIService {
     debugMode: true,
   })
   parlayAI.registerProvider('mock', mockProvider)
-  console.log('DEBUG: Mock provider registered')
 
-  // Register OpenAI if available
+  // Register OpenAI if we have a valid API key
   if (hasOpenAIKey) {
     try {
-      console.log('DEBUG: Registering OpenAI provider...')
       const openaiProvider = new OpenAIProvider({
         apiKey: openaiKey,
         model: (process.env.OPENAI_MODEL as any) || 'gpt-4o-mini',
@@ -117,7 +95,6 @@ function initializeAIService(): ParlayAIService {
         defaultMaxTokens: parseInt(process.env.OPENAI_MAX_TOKENS || '4000'),
       })
       parlayAI.registerProvider('openai', openaiProvider)
-      console.log('DEBUG: OpenAI provider registered successfully')
     } catch (error) {
       console.error('ERROR: Failed to register OpenAI provider:', error)
       throw error
@@ -128,12 +105,11 @@ function initializeAIService(): ParlayAIService {
     )
   }
 
-  console.log('DEBUG: AI Service initialization complete')
   return parlayAI
 }
 
 /**
- * Main parlay generation endpoint - uses AIProvider values only
+ * Main parlay generation endpoint with provider selection
  */
 export const generateParlay = functions
   .region('us-central1')
@@ -145,8 +121,6 @@ export const generateParlay = functions
   .https.onRequest(async (request, response) => {
     corsHandler(request, response, async () => {
       try {
-        console.log('DEBUG: generateParlay function started')
-
         // Validate request method
         if (request.method !== 'POST') {
           response.status(405).json({
@@ -175,41 +149,13 @@ export const generateParlay = functions
 
         const requestData: GenerateParlayRequest = request.body
 
-        // DEBUG: Log what we received
-        console.log(
-          'DEBUG: Raw request options:',
-          JSON.stringify(requestData.options, null, 2)
-        )
-
         // Get provider - should now be 'openai' or 'mock' directly from frontend
         const requestedProvider = requestData.options?.provider
-        console.log(
-          'DEBUG: Requested provider (should be openai/mock):',
-          requestedProvider
-        )
 
         const selectedProvider = getProviderFromRequest(requestedProvider)
-        console.log('DEBUG: Selected provider:', selectedProvider)
-
-        // Skip rate limiting for debugging
-        console.log('DEBUG: Skipping rate limiting for debugging')
 
         // Initialize AI service
-        console.log('DEBUG: Initializing AI service...')
         const aiService = initializeAIService()
-
-        // Debug service status
-        const serviceStatus = aiService.getServiceStatus()
-        console.log(
-          'DEBUG: Service status:',
-          JSON.stringify(serviceStatus, null, 2)
-        )
-
-        const providerHealth = aiService.getProviderHealth()
-        console.log(
-          'DEBUG: Provider health:',
-          JSON.stringify(providerHealth, null, 2)
-        )
 
         // Build generation context
         const strategy = requestData.strategy || {
@@ -230,7 +176,6 @@ export const generateParlay = functions
           focusPlayer: null,
         }
 
-        console.log('DEBUG: Building context...')
         const context = ContextBuilder.buildContext(
           requestData.game,
           requestData.rosters,
@@ -242,11 +187,6 @@ export const generateParlay = functions
           context.temperature = requestData.options.temperature
         }
 
-        console.log(
-          `DEBUG: Generating parlay for ${requestData.game.awayTeam.displayName} @ ${requestData.game.homeTeam.displayName}`
-        )
-        console.log(`DEBUG: Using provider: ${selectedProvider}`)
-
         // Generation options
         const generationOptions = {
           provider: selectedProvider, // Now 'openai' or 'mock' directly
@@ -254,27 +194,12 @@ export const generateParlay = functions
           debugMode: true,
         }
 
-        console.log(
-          'DEBUG: Generation options:',
-          JSON.stringify(generationOptions, null, 2)
-        )
-
-        // Generate parlay
-        console.log(
-          `DEBUG: Calling aiService.generateParlay with provider: ${selectedProvider}`
-        )
-
         const result = await aiService.generateParlay(
           requestData.game,
           requestData.rosters,
           strategy,
           varietyFactors,
           generationOptions
-        )
-
-        console.log(
-          'DEBUG: Generation completed successfully with provider:',
-          result.metadata?.provider
         )
 
         // Return successful response
@@ -351,76 +276,41 @@ export const generateParlay = functions
       }
     })
   })
-/**
- * Error status code mapping
- */
-function getStatusCodeForError(errorCode: string): number {
-  const statusCodes: Record<string, number> = {
-    INVALID_REQUEST: 400,
-    MISSING_ROSTERS: 400,
-    INSUFFICIENT_ROSTERS: 400,
-    MISSING_API_KEY: 500,
-    MISSING_CONFIG: 500,
-    OPENAI_ERROR: 503,
-    PROVIDER_NOT_AVAILABLE: 503,
-    GENERATION_FAILED: 500,
-    PARSE_ERROR: 500,
-    NO_RESPONSE: 500,
-    RATE_LIMIT_EXCEEDED: 429,
-  }
-  return statusCodes[errorCode] || 500
-}
 
 /**
- * Health check endpoint
+ * Health check endpoint with proper CORS
  */
 export const healthCheck = functions.https.onRequest(
   async (request, response) => {
     corsHandler(request, response, async () => {
       try {
         const aiService = initializeAIService()
-        console.log('DEBUG: Checking AI service status...')
         const serviceStatus = aiService.getServiceStatus()
-        console.log(
-          'DEBUG: AI service status:',
-          JSON.stringify(serviceStatus, null, 2)
-        )
-        console.log('DEBUG: Registered providers:')
-        const registeredProviders = aiService.getRegisteredProviders() // You might need to add this method
-        console.log(
-          'DEBUG: Available providers:',
-          Object.keys(registeredProviders || {})
-        )
+        const providerHealth = aiService.getProviderHealth()
+        const registeredProviders = aiService.getRegisteredProviders()
 
-        console.log('DEBUG: Attempting to generate parlay...')
         response.status(200).json({
           success: true,
           data: {
-            status: serviceStatus.healthy ? 'healthy' : 'unhealthy',
+            service: serviceStatus,
+            providers: providerHealth,
+            registeredProviders: Array.from(registeredProviders.keys()),
+            environment: process.env.NODE_ENV || 'production',
             timestamp: new Date().toISOString(),
-            service: {
-              ...serviceStatus,
-              environment: process.env.NODE_ENV || 'production',
-              mockProvider: {
-                enabled: true,
-                available: true,
-              },
-              realProvider: {
-                enabled: !!process.env.OPENAI_API_KEY,
-                apiKeyConfigured: !!process.env.OPENAI_API_KEY,
-              },
-            },
-            version: process.env.npm_package_version || '1.0.0',
           },
         })
-      } catch (error: any) {
-        console.error('Health check failed:', error)
-        response.status(503).json({
+      } catch (error) {
+        console.error('ERROR: Health check failed:', error)
+        response.status(500).json({
           success: false,
-          status: 'unhealthy',
-          timestamp: new Date().toISOString(),
-          error: error.message,
-          environment: process.env.NODE_ENV || 'production',
+          error: {
+            code: 'HEALTH_CHECK_FAILED',
+            message: 'Health check failed',
+            details:
+              process.env.NODE_ENV === 'development'
+                ? (error as Error).message
+                : undefined,
+          },
         })
       }
     })
@@ -428,7 +318,7 @@ export const healthCheck = functions.https.onRequest(
 )
 
 /**
- * Get Rate Limit Status endpoint
+ * FIXED: Get Rate Limit Status endpoint with proper CORS
  */
 export const getRateLimitStatus = functions
   .region('us-central1')
@@ -447,14 +337,17 @@ export const getRateLimitStatus = functions
           return
         }
 
+        // For now, return mock rate limit data
+        const mockRateLimitInfo = {
+          remaining: 9,
+          total: 10,
+          currentCount: 1,
+          resetTime: new Date(Date.now() + 3600000).toISOString(),
+        }
+
         response.status(200).json({
           success: true,
-          data: {
-            remaining: 9,
-            total: 10,
-            currentCount: 1,
-            resetTime: new Date(Date.now() + 3600000).toISOString(),
-          },
+          data: mockRateLimitInfo,
         })
       } catch (error) {
         console.error('Error in getRateLimitStatus:', error)
@@ -496,6 +389,26 @@ function validateGenerateParlayRequest(body: any): ValidationResult {
     isValid: errors.length === 0,
     errors,
   }
+}
+
+/**
+ * Error status code mapping
+ */
+function getStatusCodeForError(errorCode: string): number {
+  const statusCodes: Record<string, number> = {
+    INVALID_REQUEST: 400,
+    MISSING_ROSTERS: 400,
+    INSUFFICIENT_ROSTERS: 400,
+    MISSING_API_KEY: 500,
+    MISSING_CONFIG: 500,
+    OPENAI_ERROR: 503,
+    PROVIDER_NOT_AVAILABLE: 503,
+    GENERATION_FAILED: 500,
+    PARSE_ERROR: 500,
+    NO_RESPONSE: 500,
+    RATE_LIMIT_EXCEEDED: 429,
+  }
+  return statusCodes[errorCode] || 500
 }
 
 // Import cleanup functions from utils
