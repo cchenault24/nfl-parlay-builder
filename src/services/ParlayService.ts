@@ -41,11 +41,8 @@ export class ParlayService {
     private nflClient: INFLClient,
     private nflDataService: NFLDataService
   ) {
-    // Set your Firebase Cloud Function URL
-    // Replace with your actual function URL after deployment
     const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID
 
-    // Use emulator in development, production URL in production
     this.cloudFunctionUrl = import.meta.env.DEV
       ? `http://localhost:5001/${projectId}/us-central1/generateParlay`
       : `https://us-central1-${projectId}.cloudfunctions.net/generateParlay`

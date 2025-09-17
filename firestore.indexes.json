@@ -1,16 +1,6 @@
 {
   "indexes": [
     {
-      "collectionGroup": "rateLimits",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "lastRequest",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
       "collectionGroup": "parlays",
       "queryScope": "COLLECTION",
       "fields": [

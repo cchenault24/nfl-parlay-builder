@@ -309,27 +309,6 @@ IMPORTANT: Only use players from the provided rosters. Generate realistic, strat
     rosters: GameRosters,
     varietyFactors: VarietyFactors
   ): string {
-    const formatRoster = (players: NFLPlayer[], teamName: string) => {
-      const positions = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF']
-
-      return positions
-        .map(pos => {
-          const positionPlayers = players
-            .filter(p => p.position.abbreviation === pos)
-            .slice(0, pos === 'WR' ? 6 : pos === 'RB' ? 3 : 2)
-
-          if (positionPlayers.length === 0) return ''
-
-          const playerList = positionPlayers
-            .map(p => `${p.fullName} (#${p.jersey})`)
-            .join(', ')
-
-          return `${pos}: ${playerList}`
-        })
-        .filter(Boolean)
-        .join('\n')
-    }
-
     return `GAME: ${game.awayTeam.displayName} @ ${game.homeTeam.displayName}
 Week ${game.week} | Date: ${game.date}
 
@@ -337,13 +316,17 @@ VARIETY FACTORS:
 - Strategy: ${varietyFactors.strategy}
 - Game Script: ${varietyFactors.gameScript}
 - Risk Tolerance: ${(varietyFactors.riskTolerance * 100).toFixed(0)}%
-${varietyFactors.focusPlayer ? `- Focus Player: ${varietyFactors.focusPlayer.fullName} (${varietyFactors.focusPlayer.position.abbreviation})` : ''}
+${
+  varietyFactors.focusPlayer
+    ? `- Focus Player: ${varietyFactors.focusPlayer.fullName} (${varietyFactors.focusPlayer.position.abbreviation})`
+    : ''
+}
 
 ${game.homeTeam.displayName.toUpperCase()} ROSTER:
-${formatRoster(rosters.homeRoster, game.homeTeam.displayName)}
+${this.formatRoster(rosters.homeRoster, game.homeTeam.displayName)}
 
 ${game.awayTeam.displayName.toUpperCase()} ROSTER:
-${formatRoster(rosters.awayRoster, game.awayTeam.displayName)}
+${this.formatRoster(rosters.awayRoster, game.awayTeam.displayName)}
 
 Generate a strategic 3-leg parlay using the ${varietyFactors.strategy} approach with ${varietyFactors.gameScript} game script in mind.`
   }
@@ -411,62 +394,25 @@ Generate a strategic 3-leg parlay using the ${varietyFactors.strategy} approach 
       const validBetTypes = ['spread', 'total', 'moneyline', 'player_prop']
       const betType = validBetTypes.includes(leg.betType)
         ? leg.betType
-        : 'spread'
+        : 'player_prop' // default fallback
 
       return {
         id: leg.id || `leg-${index + 1}`,
         betType,
-        selection: leg.selection || 'Unknown selection',
-        target: leg.target || 'Unknown target',
+        selection: leg.selection || 'Unknown Selection',
+        target: leg.target || 'Unknown Target',
         reasoning: leg.reasoning || 'Strategic selection based on analysis',
         confidence: Math.min(Math.max(leg.confidence || 5, 1), 10),
-        odds: this.validateOdds(leg.odds) || '-110',
+        odds: leg.odds || '-110',
       }
     })
-  }
-
-  private processGameSummary(rawSummary: any, game: NFLGame): GameSummary {
-    const validGameFlows: GameSummary['gameFlow'][] = [
-      'high_scoring_shootout',
-      'defensive_grind',
-      'balanced_tempo',
-      'potential_blowout',
-    ]
-
-    const gameFlow = validGameFlows.includes(rawSummary?.gameFlow)
-      ? rawSummary.gameFlow
-      : 'balanced_tempo'
-
-    return {
-      matchupAnalysis:
-        rawSummary?.matchupAnalysis ||
-        `${game.awayTeam.displayName} vs ${game.homeTeam.displayName} matchup analysis pending.`,
-      gameFlow,
-      keyFactors: Array.isArray(rawSummary?.keyFactors)
-        ? rawSummary.keyFactors.slice(0, 5)
-        : ['Home field advantage', 'Weather conditions', 'Team motivation'],
-      prediction:
-        rawSummary?.prediction ||
-        `Competitive matchup expected between ${game.awayTeam.displayName} and ${game.homeTeam.displayName}.`,
-      confidence: Math.min(Math.max(rawSummary?.confidence || 6, 1), 10),
-    }
-  }
-
-  private validateOdds(odds: any): string | null {
-    if (typeof odds === 'string' && /^[+-]\d+$/.test(odds)) {
-      return odds
-    }
-    if (typeof odds === 'number') {
-      return odds > 0 ? `+${odds}` : `${odds}`
-    }
-    return null
   }
 
   private calculateParlayOdds(individualOdds: string[]): string {
     let combinedDecimal = 1
 
-    individualOdds.forEach(odds => {
-      const num = parseInt(odds.replace('+', ''))
+    individualOdds.forEach(oddsStr => {
+      const num = parseInt(oddsStr.replace(/[^-\d]/g, ''))
       const decimal = num > 0 ? num / 100 + 1 : 100 / Math.abs(num) + 1
       combinedDecimal *= decimal
     })
@@ -477,6 +423,43 @@ Generate a strategic 3-leg parlay using the ${varietyFactors.strategy} approach 
         : Math.round(-100 / (combinedDecimal - 1))
 
     return americanOdds > 0 ? `+${americanOdds}` : `${americanOdds}`
+  }
+
+  private processGameSummary(gameSummary: any, game: NFLGame): GameSummary {
+    return {
+      matchupAnalysis:
+        gameSummary?.matchupAnalysis ||
+        `${game.awayTeam.displayName} vs ${game.homeTeam.displayName} matchup analysis.`,
+      gameFlow: [
+        'high_scoring_shootout',
+        'defensive_grind',
+        'balanced_tempo',
+        'potential_blowout',
+      ].includes(gameSummary?.gameFlow)
+        ? gameSummary.gameFlow
+        : 'balanced_tempo',
+      keyFactors: Array.isArray(gameSummary?.keyFactors)
+        ? gameSummary.keyFactors.slice(0, 5)
+        : ['Team matchups', 'Key player availability', 'Game conditions'],
+      prediction:
+        gameSummary?.prediction ||
+        'Competitive game expected between these two teams.',
+      confidence: Math.min(
+        Math.max(Number(gameSummary?.confidence) || 6, 1),
+        10
+      ),
+    }
+  }
+
+  private formatRoster(roster: NFLPlayer[], teamName: string): string {
+    const keyPositions = ['QB', 'RB', 'WR', 'TE']
+    const keyPlayers = roster
+      .filter(p => keyPositions.includes(p.position.abbreviation))
+      .slice(0, 8)
+
+    return keyPlayers
+      .map(p => `${p.fullName} (${p.position.abbreviation})`)
+      .join(', ')
   }
 
   private delay(ms: number): Promise<void> {
