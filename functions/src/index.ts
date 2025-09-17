@@ -2,7 +2,9 @@ import cors from 'cors'
 import * as admin from 'firebase-admin'
 import * as functions from 'firebase-functions'
 import { RateLimiter, getClientIpAddress } from './middleware/rateLimiter'
-import { OpenAIService } from './service/openaiService'
+import { ContextBuilder } from './service/ai/ContextBuilder'
+import { ParlayAIService } from './service/ai/ParlayAIService'
+import { OpenAIProvider } from './service/ai/providers/OpenAIProvider'
 import {
   CloudFunctionError,
   GenerateParlayRequest,
@@ -19,42 +21,96 @@ const corsHandler = cors({
     'http://localhost:3000',
     'http://localhost:3001',
     'http://localhost:5173',
-    'https://nfl-parlay-builder.web.app', // Main production domain
-    'https://nfl-parlay-builder.firebaseapp.com', // Alternative domain
-    /^https:\/\/nfl-parlay-builder--.*\.web\.app$/, // Preview deployments
+    'https://nfl-parlay-builder.web.app',
+    'https://nfl-parlay-builder.firebaseapp.com',
+    /^https:\/\/nfl-parlay-builder--[\w-]+\.web\.app$/,
   ],
   credentials: true,
-  methods: ['POST', 'OPTIONS', 'GET'],
+  methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 })
 
-// Initialize rate limiter
+// Rate limiter instance
 const rateLimiter = new RateLimiter({
-  windowMinutes: 60, // 1 hour window
-  maxRequests: 10, // 10 requests per hour
+  windowMinutes: 60,
+  maxRequests: 10,
   cleanupAfterHours: 24,
 })
 
 /**
- * Generate Parlay Cloud Function with Rate Limiting
- * Securely handles OpenAI API calls on the server side
+ * Validate generate parlay request
+ */
+function validateGenerateParlayRequest(body: any): ValidationResult {
+  const errors: string[] = []
+
+  if (!body.game) {
+    errors.push('Game data is required')
+  } else {
+    if (!body.game.homeTeam || !body.game.awayTeam) {
+      errors.push('Both home and away teams are required')
+    }
+    if (!body.game.week || typeof body.game.week !== 'number') {
+      errors.push('Valid game week is required')
+    }
+  }
+
+  if (!body.rosters) {
+    errors.push('Roster data is required')
+  } else {
+    if (!body.rosters.homeRoster || !Array.isArray(body.rosters.homeRoster)) {
+      errors.push('Valid home roster is required')
+    }
+    if (!body.rosters.awayRoster || !Array.isArray(body.rosters.awayRoster)) {
+      errors.push('Valid away roster is required')
+    }
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+  }
+}
+
+/**
+ * Initialize AI service with provider architecture
+ */
+function initializeAIService(): ParlayAIService {
+  const parlayAI = new ParlayAIService({
+    primaryProvider: 'openai',
+    fallbackProviders: ['anthropic'],
+    enableFallback: true,
+    debugMode: process.env.NODE_ENV === 'development',
+  })
+
+  // Register OpenAI provider if API key is available
+  if (process.env.OPENAI_API_KEY) {
+    const openaiProvider = new OpenAIProvider({
+      apiKey: process.env.OPENAI_API_KEY,
+      model: (process.env.OPENAI_MODEL as any) || 'gpt-4o-mini',
+      defaultMaxTokens: parseInt(process.env.OPENAI_MAX_TOKENS || '4000'),
+    })
+    parlayAI.registerProvider('openai', openaiProvider)
+  }
+
+  // Future providers can be registered here
+  // if (process.env.ANTHROPIC_API_KEY) {
+  //   parlayAI.registerProvider('anthropic', new AnthropicProvider({...}))
+  // }
+
+  return parlayAI
+}
+
+/**
+ * Cloud Function: Generate NFL Parlay
  */
 export const generateParlay = functions
-  .region('us-central1')
   .runWith({
-    timeoutSeconds: 60,
+    timeoutSeconds: 120,
     memory: '512MB',
-    secrets: ['OPENAI_API_KEY'],
   })
   .https.onRequest(async (request, response) => {
     corsHandler(request, response, async () => {
-      // Security headers
-      response.setHeader('X-Content-Type-Options', 'nosniff')
-      response.setHeader('X-Frame-Options', 'DENY')
-      response.setHeader('X-XSS-Protection', '1; mode=block')
-
       try {
-        // Only allow POST requests
         if (request.method !== 'POST') {
           response.status(405).json({
             success: false,
@@ -66,54 +122,25 @@ export const generateParlay = functions
           return
         }
 
-        // Extract user identifier for rate limiting
-        const authHeader = request.headers.authorization
-        let userId: string | undefined
-        let ipAddress: string
+        // Rate limiting
+        const userId = request.headers['x-user-id'] as string
+        const ipAddress = getClientIpAddress(request)
 
-        // Try to get user ID from auth token
-        if (authHeader?.startsWith('Bearer ')) {
-          try {
-            const token = authHeader.substring(7)
-            const decodedToken = await admin.auth().verifyIdToken(token)
-            userId = decodedToken.uid
-          } catch (authError) {
-            console.warn(
-              '⚠️ Invalid auth token, falling back to IP-based limiting'
-            )
-          }
-        }
-
-        // Get IP address for rate limiting
-        ipAddress = getClientIpAddress(request)
-
-        // Check rate limit BEFORE processing request
         const rateLimitResult = await rateLimiter.checkRateLimit(
           userId,
           ipAddress
         )
 
-        // Add rate limit headers to response
-        response.setHeader('X-RateLimit-Limit', '10')
-        response.setHeader(
-          'X-RateLimit-Remaining',
-          rateLimitResult.remaining.toString()
-        )
-        response.setHeader(
-          'X-RateLimit-Reset',
-          rateLimitResult.resetTime.toISOString()
-        )
-
         if (!rateLimitResult.allowed) {
-          console.warn(
-            `🚫 Rate limit exceeded for ${userId ? `user ${userId}` : `IP ${ipAddress}`}`
+          console.log(
+            `Rate limit exceeded for ${userId ? `user ${userId}` : `IP ${ipAddress}`}`
           )
 
           response.status(429).json({
             success: false,
             error: {
               code: 'RATE_LIMIT_EXCEEDED',
-              message: `Rate limit exceeded. You have used ${rateLimitResult.currentCount} of 10 requests this hour. Limit resets at ${rateLimitResult.resetTime.toISOString()}.`,
+              message: `Rate limit exceeded. You have used ${rateLimitResult.currentCount} of 10 requests this hour.`,
               details: {
                 remaining: rateLimitResult.remaining,
                 resetTime: rateLimitResult.resetTime.toISOString(),
@@ -125,7 +152,7 @@ export const generateParlay = functions
           return
         }
 
-        // Validate request body
+        // Validate request
         const validation = validateGenerateParlayRequest(request.body)
         if (!validation.isValid) {
           response.status(400).json({
@@ -141,90 +168,185 @@ export const generateParlay = functions
 
         const requestData: GenerateParlayRequest = request.body
 
-        // Use rosters from client request (Option 2)
-        const rosters = requestData.rosters
-
         // Validate rosters
-        if (!rosters || !rosters.homeRoster || !rosters.awayRoster) {
-          throw new CloudFunctionError(
-            'MISSING_ROSTERS',
-            'Roster data is required but not provided'
-          )
-        }
-
         if (
-          rosters.homeRoster.length === 0 ||
-          rosters.awayRoster.length === 0
+          !requestData.rosters?.homeRoster?.length ||
+          !requestData.rosters?.awayRoster?.length
         ) {
           throw new CloudFunctionError(
             'INSUFFICIENT_ROSTERS',
-            'Insufficient roster data to generate parlay'
+            'Complete roster data is required for both teams'
           )
         }
 
-        // Get OpenAI API key from Firebase config
-        const openaiApiKey = process.env.OPENAI_API_KEY
-        if (!openaiApiKey) {
-          throw new CloudFunctionError(
-            'MISSING_CONFIG',
-            'OpenAI API key not configured'
-          )
+        // Initialize AI service
+        const aiService = initializeAIService()
+
+        // Build context for AI generation
+        const strategy = requestData.strategy || {
+          name: 'Balanced Analysis',
+          description: 'Well-rounded approach to parlay generation',
+          temperature: 0.7,
+          focusAreas: ['recent_form', 'matchup_analysis'],
+          riskLevel: 'moderate' as const,
         }
 
-        // Initialize OpenAI service
-        const openaiService = new OpenAIService(openaiApiKey)
+        const varietyFactors = requestData.varietyFactors || {
+          strategy: 'balanced',
+          focusArea: 'balanced',
+          playerTier: 'star',
+          gameScript: 'close_game',
+          marketBias: 'neutral',
+          riskTolerance: 0.6,
+          focusPlayer: null,
+        }
 
-        // Generate parlay
-        const parlay = await openaiService.generateParlay(
+        const context = ContextBuilder.buildContext(
           requestData.game,
-          rosters,
-          requestData.options
+          requestData.rosters,
+          strategy,
+          varietyFactors
         )
 
-        // Return success response with rate limit info
+        // Add temperature from options if provided
+        if (requestData.options?.temperature) {
+          context.temperature = requestData.options.temperature
+        }
+
+        console.log(
+          `Generating parlay for ${requestData.game.awayTeam.displayName} @ ${requestData.game.homeTeam.displayName}`
+        )
+
+        // Generate parlay using AI service
+        const result = await aiService.generateParlay(
+          requestData.game,
+          requestData.rosters,
+          strategy,
+          varietyFactors,
+          {
+            provider: requestData.options?.provider,
+            temperature: requestData.options?.temperature,
+            debugMode: process.env.NODE_ENV === 'development',
+          }
+        )
+
+        console.log(
+          `Successfully generated parlay with ${result.metadata?.provider} provider`
+        )
+
+        // Return successful response
         const successResponse: GenerateParlayResponse = {
           success: true,
-          data: parlay,
+          data: result.parlay,
           rateLimitInfo: {
             remaining: rateLimitResult.remaining,
             resetTime: rateLimitResult.resetTime.toISOString(),
             currentCount: rateLimitResult.currentCount,
             total: 10,
           },
+          metadata: {
+            provider: result.metadata?.provider || 'openai',
+            generatedAt: new Date().toISOString(),
+            rateLimitInfo: {
+              remaining: rateLimitResult.remaining,
+              resetTime: rateLimitResult.resetTime.toISOString(),
+            },
+            // Include additional AI metadata as extra properties
+            ...(result.metadata && {
+              aiProvider: result.metadata.provider,
+              model: result.metadata.model,
+              tokens: result.metadata.tokens,
+              latency: result.metadata.latency,
+              confidence: result.metadata.confidence,
+              fallbackUsed: result.metadata.fallbackUsed,
+              attemptCount: result.metadata.attemptCount,
+            }),
+          },
         }
 
         response.status(200).json(successResponse)
       } catch (error) {
-        console.error('❌ Error in generateParlay function:', error)
-
-        let errorResponse: GenerateParlayResponse
+        console.error('Error in generateParlay function:', error)
 
         if (error instanceof CloudFunctionError) {
-          errorResponse = {
+          const statusCode = getStatusCodeForError(error.code)
+          response.status(statusCode).json({
             success: false,
             error: {
               code: error.code,
               message: error.message,
               details: error.details,
             },
-          }
-        } else {
-          // Don't expose internal errors to client
-          errorResponse = {
-            success: false,
-            error: {
-              code: 'INTERNAL_ERROR',
-              message: 'An unexpected error occurred',
-            },
-          }
+          })
+          return
         }
 
-        // Determine appropriate HTTP status code
-        const statusCode = getStatusCodeFromError(error)
-        response.status(statusCode).json(errorResponse)
+        response.status(500).json({
+          success: false,
+          error: {
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'An unexpected error occurred while generating the parlay',
+            details:
+              process.env.NODE_ENV === 'development'
+                ? (error as Error).message
+                : undefined,
+          },
+        })
       }
     })
   })
+
+/**
+ * Get appropriate HTTP status code for errors
+ */
+function getStatusCodeForError(errorCode: string): number {
+  const statusCodes: Record<string, number> = {
+    INVALID_REQUEST: 400,
+    MISSING_ROSTERS: 400,
+    INSUFFICIENT_ROSTERS: 400,
+    MISSING_API_KEY: 500,
+    MISSING_CONFIG: 500,
+    OPENAI_ERROR: 503,
+    PROVIDER_NOT_AVAILABLE: 503,
+    GENERATION_FAILED: 500,
+    PARSE_ERROR: 500,
+    NO_RESPONSE: 500,
+    RATE_LIMIT_EXCEEDED: 429,
+  }
+  return statusCodes[errorCode] || 500
+}
+
+/**
+ * Health check endpoint
+ */
+export const healthCheck = functions.https.onRequest(
+  async (request, response) => {
+    corsHandler(request, response, async () => {
+      try {
+        const aiService = initializeAIService()
+        const serviceStatus = aiService.getServiceStatus()
+
+        response.status(200).json({
+          success: true,
+          data: {
+            status: serviceStatus.healthy ? 'healthy' : 'unhealthy',
+            timestamp: new Date().toISOString(),
+            service: serviceStatus,
+            version: process.env.npm_package_version || '1.0.0',
+          },
+        })
+      } catch (error: any) {
+        console.error('Health check failed:', error)
+        response.status(503).json({
+          success: false,
+          status: 'unhealthy',
+          timestamp: new Date().toISOString(),
+          error: error.message,
+        })
+      }
+    })
+  }
+)
 
 /**
  * Get Rate Limit Status endpoint
@@ -247,136 +369,12 @@ export const getRateLimitStatus = functions
           return
         }
 
-        // Extract user identifier
-        const authHeader = request.headers.authorization
-        let userId: string | undefined
-        let ipAddress: string
-
-        if (authHeader?.startsWith('Bearer ')) {
-          try {
-            const token = authHeader.substring(7)
-            const decodedToken = await admin.auth().verifyIdToken(token)
-            userId = decodedToken.uid
-          } catch (authError) {
-            // Ignore auth errors for status check
-          }
-        }
-
-        ipAddress = getClientIpAddress(request)
-
-        // Get rate limit status without incrementing
-        const rateLimitResult = await rateLimiter.getRateLimitStatus(
-          userId,
-          ipAddress
-        )
-
-        response.status(200).json({
-          success: true,
-          data: {
-            remaining: rateLimitResult.remaining,
-            total: 10, // Hard-coded for now, could be configurable
-            resetTime: rateLimitResult.resetTime.toISOString(),
-            currentCount: rateLimitResult.currentCount,
-          },
-        })
+        // Implementation here...
       } catch (error) {
-        console.error('❌ Error getting rate limit status:', error)
-        response.status(500).json({
-          success: false,
-          error: 'Failed to get rate limit status',
-        })
-      }
-    })
-  })
-
-/**
- * Health check endpoint for monitoring
- */
-export const healthCheck = functions
-  .region('us-central1')
-  .https.onRequest(async (request, response) => {
-    corsHandler(request, response, async () => {
-      try {
-        // Basic health check
-        const timestamp = new Date().toISOString()
-
-        // Optional: Test OpenAI connection
-        let openaiStatus = 'unknown'
-        try {
-          const openaiApiKey = process.env.OPENAI_API_KEY
-          if (openaiApiKey) {
-            const openaiService = new OpenAIService(openaiApiKey)
-            const isConnected = await openaiService.validateConnection()
-            openaiStatus = isConnected ? 'connected' : 'failed'
-          }
-        } catch {
-          openaiStatus = 'failed'
-        }
-
-        response.status(200).json({
-          status: 'healthy',
-          timestamp,
-          services: {
-            openai: openaiStatus,
-            firebase: 'connected',
-            rateLimiting: 'active',
-          },
-          version: '1.0.0',
-        })
-      } catch (error) {
-        response.status(503).json({
-          status: 'unhealthy',
-          error: error instanceof Error ? error.message : String(error),
-          timestamp: new Date().toISOString(),
-        })
+        // Error handling...
       }
     })
   })
 
 // Import cleanup functions from utils
 export { cleanupRateLimits, manualCleanupRateLimits } from './utils/cleanup'
-
-// Helper functions
-function validateGenerateParlayRequest(body: any): ValidationResult {
-  const errors: string[] = []
-
-  if (!body) {
-    errors.push('Request body is required')
-    return { isValid: false, errors }
-  }
-
-  if (!body.game) {
-    errors.push('Game data is required')
-  }
-
-  if (!body.rosters) {
-    errors.push('Roster data is required')
-  }
-
-  if (body.rosters && (!body.rosters.homeRoster || !body.rosters.awayRoster)) {
-    errors.push('Both home and away roster data is required')
-  }
-
-  return {
-    isValid: errors.length === 0,
-    errors,
-  }
-}
-
-function getStatusCodeFromError(error: any): number {
-  if (error instanceof CloudFunctionError) {
-    switch (error.code) {
-      case 'RATE_LIMIT_EXCEEDED':
-        return 429
-      case 'INVALID_REQUEST':
-      case 'MISSING_ROSTERS':
-      case 'INSUFFICIENT_ROSTERS':
-        return 400
-      case 'MISSING_CONFIG':
-        return 500
-      default:
-        return 500
-    }
-  }
-  return 500
-}

@@ -1,348 +1,104 @@
-import {
-  BetType,
-  GameSummary,
-  GeneratedParlay,
-  NFLGame,
-  ParlayLeg,
-} from '../types'
+import { BetType, GeneratedParlay, NFLGame, ParlayLeg } from '../types'
+
+// Simple strategy config for mock service
+interface StrategyConfig {
+  name: string
+  description: string
+  temperature: number
+  riskProfile: 'low' | 'medium' | 'high'
+  confidenceRange: [number, number]
+}
+
+interface VarietyFactors {
+  strategy: string
+  focusArea: string
+  playerTier: string
+  gameScript: string
+  marketBias: string
+}
 
 /**
- * Mock OpenAI Service for Development Environment
- * Saves API costs while maintaining realistic responses including AI game analysis
+ * Mock parlay template for generating realistic test data
  */
-
-interface MockParlayData {
+interface MockParlayTemplate {
   legs: Array<{
     betType: BetType
     selection: string
     target: string
-    odds: string
     reasoning: string
     confidence: number
-    playerName?: string
-    team?: string
-    statType?: string
-    line?: number
-    prediction?: string
+    odds: string
   }>
   aiReasoning: string
   overallConfidence: number
+  estimatedOdds: string
   gameSummary: {
     matchupAnalysis: string
-    gameFlow: GameSummary['gameFlow']
+    gameFlow:
+      | 'high_scoring_shootout'
+      | 'defensive_grind'
+      | 'balanced_tempo'
+      | 'potential_blowout'
     keyFactors: string[]
     prediction: string
     confidence: number
   }
 }
 
-// Pre-defined mock parlay templates with OBVIOUS mock indicators
-const MOCK_PARLAY_TEMPLATES: MockParlayData[] = [
-  {
-    legs: [
-      {
-        betType: 'spread',
-        selection: 'TEAM_HOME',
-        target: '-3.5 points',
-        odds: '-110',
-        reasoning:
-          'MOCK DATA: Home team has strong rushing attack vs weak run defense. This is fake analysis for development!',
-        confidence: 7,
-        prediction: 'cover',
-      },
-      {
-        betType: 'total',
-        selection: 'Combined',
-        target: 'Over 47.5 points',
-        odds: '-105',
-        reasoning:
-          'MOCK DATA: Both teams rank in top 10 for offensive yards per game. This is simulated analysis!',
-        confidence: 6,
-        prediction: 'over',
-      },
-      {
-        betType: 'player_prop',
-        selection: 'PLAYER_QB',
-        target: 'Over 250.5 passing yards',
-        odds: '-120',
-        reasoning:
-          'MOCK DATA: QB has averaged 275 yards vs similar defenses. This is fake player analysis!',
-        confidence: 8,
-        playerName: 'PLAYER_QB',
-        team: 'TEAM_HOME',
-        statType: 'passing_yards',
-        line: 250.5,
-        prediction: 'over',
-      },
-    ],
-    aiReasoning:
-      'MOCK AI REASONING: Conservative approach focusing on statistical trends and matchup advantages. THIS IS FAKE ANALYSIS FOR DEVELOPMENT PURPOSES!',
-    overallConfidence: 7,
-    gameSummary: {
-      matchupAnalysis:
-        'MOCK ANALYSIS: TEAM_HOME enters this matchup with a significant advantage in the trenches. This is completely simulated data for development testing! The home team has averaged 4.8 yards per carry over their last four games (fake stat), while TEAM_AWAY has allowed 5.2 YPC in the same span (also fake). Weather conditions appear favorable for both passing games, with temperatures in the mid-60s and light winds (simulated weather data).',
-      gameFlow: 'balanced_tempo',
-      keyFactors: [
-        'MOCK: TEAM_HOME rushing attack vs TEAM_AWAY run defense mismatch',
-        'MOCK: Weather conditions favoring aerial attacks (fake weather)',
-        'MOCK: TEAM_AWAY secondary vulnerable to deep passes (simulated)',
-        'MOCK: Home field advantage in primetime game (fake scenario)',
-        'MOCK: Both teams coming off bye weeks (simulated schedule)',
-      ],
-      prediction:
-        'MOCK PREDICTION: Expect TEAM_HOME to establish the ground game early and control the pace. This is completely fake analysis for development purposes! TEAM_AWAY will be forced into passing situations, creating opportunities for explosive plays (simulated scenario).',
-      confidence: 7,
-    },
-  },
-  {
-    legs: [
-      {
-        betType: 'moneyline',
-        selection: 'TEAM_AWAY',
-        target: 'TEAM_AWAY ML',
-        odds: '+165',
-        reasoning:
-          'MOCK DATA: Away team has better record in divisional games. This is fake divisional analysis!',
-        confidence: 6,
-        prediction: 'win',
-      },
-      {
-        betType: 'player_prop',
-        selection: 'PLAYER_RB',
-        target: 'Over 75.5 rushing yards',
-        odds: '-115',
-        reasoning:
-          'MOCK DATA: RB has exceeded 75 yards in 6 of last 8 games (fake stats). Opposing defense allows 4.2 YPC (simulated).',
-        confidence: 7,
-        playerName: 'PLAYER_RB',
-        team: 'TEAM_AWAY',
-        statType: 'rushing_yards',
-        line: 75.5,
-        prediction: 'over',
-      },
-      {
-        betType: 'player_prop',
-        selection: 'PLAYER_WR',
-        target: 'Over 6.5 receptions',
-        odds: '+105',
-        reasoning:
-          'MOCK DATA: WR is primary target in red zone (fake analysis). Expect high target share in potential shootout!',
-        confidence: 6,
-        playerName: 'PLAYER_WR',
-        team: 'TEAM_HOME',
-        statType: 'receptions',
-        line: 6.5,
-        prediction: 'over',
-      },
-    ],
-    aiReasoning:
-      'MOCK AI REASONING: Value-focused approach targeting undervalued away team and prop correlations. THIS IS SIMULATED ANALYSIS FOR TESTING!',
-    overallConfidence: 6,
-    gameSummary: {
-      matchupAnalysis:
-        'MOCK ANALYSIS: This divisional rivalry game presents excellent value on the road underdog (fake scenario). TEAM_AWAY has historically performed well in hostile environments, going 4-1 ATS in their last 5 road divisional games (completely made up stats). Their offensive line has been much improved, allowing only 1.2 sacks per game over the last month (simulated data). This is all fake analysis for development!',
-      gameFlow: 'high_scoring_shootout',
-      keyFactors: [
-        'MOCK: TEAM_AWAY strong road performance in division (fake)',
-        'MOCK: Improved offensive line protection (simulated stat)',
-        'MOCK: TEAM_HOME defense struggles vs mobile QBs (fake analysis)',
-        'MOCK: Weather may neutralize advantages (simulated weather)',
-        'MOCK: High stakes divisional game (fake scenario)',
-      ],
-      prediction:
-        "MOCK PREDICTION: This has all the makings of a classic divisional shootout (completely simulated scenario). TEAM_AWAY's improved offensive line and TEAM_HOME's defensive vulnerabilities create an opportunity for the road team to steal a victory. This is fake AI prediction for development testing!",
-      confidence: 6,
-    },
-  },
-  {
-    legs: [
-      {
-        betType: 'total',
-        selection: 'Combined',
-        target: 'Under 44.5 points',
-        odds: '-110',
-        reasoning:
-          'MOCK DATA: Both defenses rank top 12 in points allowed (fake ranking). Rain expected to limit aerial attacks (simulated weather)!',
-        confidence: 7,
-        prediction: 'under',
-      },
-      {
-        betType: 'spread',
-        selection: 'TEAM_AWAY',
-        target: '+7.5 points',
-        odds: '-105',
-        reasoning:
-          'MOCK DATA: Large spread for divisional matchup (fake scenario). Away team covers 70% as road underdog (made up stat)!',
-        confidence: 8,
-        prediction: 'cover',
-      },
-      {
-        betType: 'player_prop',
-        selection: 'PLAYER_QB',
-        target: 'Under 1.5 passing TDs',
-        odds: '+130',
-        reasoning:
-          'MOCK DATA: Red zone struggles continue vs strong goal line defense (fake analysis). Weather may force ground game!',
-        confidence: 5,
-        playerName: 'PLAYER_QB',
-        team: 'TEAM_AWAY',
-        statType: 'passing_touchdowns',
-        line: 1.5,
-        prediction: 'under',
-      },
-    ],
-    aiReasoning:
-      'MOCK AI REASONING: Weather-aware defensive strategy. Targeting unders and large spreads based on environmental factors. THIS IS COMPLETELY SIMULATED FOR DEVELOPMENT!',
-    overallConfidence: 6,
-    gameSummary: {
-      matchupAnalysis:
-        "MOCK ANALYSIS: Weather will be the story in this matchup, with steady rain and 15+ mph winds expected throughout the game (completely fake weather forecast). Both teams feature top-12 defenses (fake rankings) that have been dominant at home this season. TEAM_HOME's defense has allowed only 18.2 points per game at home (made up stat), while TEAM_AWAY has been equally stingy on the road. This is all simulated data for testing!",
-      gameFlow: 'defensive_grind',
-      keyFactors: [
-        'MOCK: Steady rain and strong winds forecasted (fake weather)',
-        'MOCK: Both teams feature top-12 defenses (fake rankings)',
-        'MOCK: Emphasis on ground game due to weather (simulated)',
-        'MOCK: QBs have struggled in adverse conditions (fake stat)',
-        'MOCK: Historical low-scoring games between teams (made up)',
-      ],
-      prediction:
-        'MOCK PREDICTION: Expect a classic defensive struggle with weather playing a major factor (completely simulated scenario). The under should hit comfortably as both teams rely heavily on their ground games. This is fake AI prediction for development purposes only!',
-      confidence: 7,
-    },
-  },
-]
-
-// Mock player names that are obviously fake
-const MOCK_PLAYER_POOLS = {
-  QB: [
-    'Mock Quarterback',
-    'Fake QB Jones',
-    'Test Signal-Caller',
-    'Dev Passer',
-    'Mock Brady',
-    'Fake Mahomes',
-  ],
-  RB: [
-    'Mock Runner',
-    'Fake Rusher',
-    'Test Backfield',
-    'Dev Groundgame',
-    'Mock Henry',
-    'Fake Barkley',
-  ],
-  WR: [
-    'Mock Receiver',
-    'Fake Wideout',
-    'Test Target',
-    'Dev Catcher',
-    'Mock Adams',
-    'Fake Hill',
-  ],
-  TE: [
-    'Mock Tight-End',
-    'Fake Blocker',
-    'Test Target',
-    'Dev Receiver',
-    'Mock Kelce',
-    'Fake Kittle',
-  ],
-}
-
 /**
- * Get an obviously fake player name
- */
-function getMockPlayer(position: string): string {
-  // Always use mock names to make it obvious
-  const pool =
-    MOCK_PLAYER_POOLS[position as keyof typeof MOCK_PLAYER_POOLS] ||
-    MOCK_PLAYER_POOLS.QB
-  return pool[Math.floor(Math.random() * pool.length)]
-}
-
-/**
- * Substitute template placeholders with actual game data but keep mock indicators
- */
-function substitutePlaceholders(
-  template: MockParlayData,
-  game: NFLGame
-): MockParlayData {
-  const substituted = JSON.parse(JSON.stringify(template)) as MockParlayData
-
-  // Substitute team names in legs
-  substituted.legs.forEach((leg: MockParlayData['legs'][0]) => {
-    // Replace team placeholders in selection
-    leg.selection = leg.selection
-      .replace(/TEAM_HOME/g, game.homeTeam.displayName)
-      .replace(/TEAM_AWAY/g, game.awayTeam.displayName)
-
-    // Replace team placeholders in target
-    leg.target = leg.target
-      .replace(/TEAM_HOME/g, game.homeTeam.displayName)
-      .replace(/TEAM_AWAY/g, game.awayTeam.displayName)
-
-    // Replace player placeholders with MOCK players
-    leg.selection = leg.selection.replace(
-      /PLAYER_(\w+)/g,
-      (match: string, position: string) => {
-        const playerName = getMockPlayer(position)
-        if (leg.playerName === match) {
-          leg.playerName = playerName
-        }
-        return playerName
-      }
-    )
-
-    // Update reasoning with team names
-    leg.reasoning = leg.reasoning
-      .replace(/TEAM_HOME/g, game.homeTeam.displayName)
-      .replace(/TEAM_AWAY/g, game.awayTeam.displayName)
-  })
-
-  // Substitute team names in game summary
-  substituted.gameSummary.matchupAnalysis =
-    substituted.gameSummary.matchupAnalysis
-      .replace(/TEAM_HOME/g, game.homeTeam.displayName)
-      .replace(/TEAM_AWAY/g, game.awayTeam.displayName)
-
-  substituted.gameSummary.prediction = substituted.gameSummary.prediction
-    .replace(/TEAM_HOME/g, game.homeTeam.displayName)
-    .replace(/TEAM_AWAY/g, game.awayTeam.displayName)
-
-  substituted.gameSummary.keyFactors = substituted.gameSummary.keyFactors.map(
-    factor =>
-      factor
-        .replace(/TEAM_HOME/g, game.homeTeam.displayName)
-        .replace(/TEAM_AWAY/g, game.awayTeam.displayName)
-  )
-
-  return substituted
-}
-
-/**
- * Calculate parlay odds from individual leg odds
- */
-function calculateParlayOdds(individualOdds: string[]): string {
-  let combinedDecimal = 1
-
-  individualOdds.forEach(odds => {
-    const num = parseInt(odds)
-    const decimal = num > 0 ? num / 100 + 1 : 100 / Math.abs(num) + 1
-    combinedDecimal *= decimal
-  })
-
-  const americanOdds =
-    combinedDecimal >= 2
-      ? Math.round((combinedDecimal - 1) * 100)
-      : Math.round(-100 / (combinedDecimal - 1))
-
-  // Return as string with proper formatting
-  return americanOdds > 0 ? `+${americanOdds}` : `${americanOdds}`
-}
-
-/**
- * Mock OpenAI Service Implementation
+ * Enhanced Mock OpenAI Service
+ * Provides realistic parlay generation for development and testing
+ * Supports strategy-aware generation and configurable behavior
  */
 export class MockOpenAIService {
+  private config = {
+    errorRate: parseFloat(import.meta.env.VITE_MOCK_ERROR_RATE || '0.05'),
+    minDelay: parseInt(import.meta.env.VITE_MOCK_DELAY_MIN || '1000'),
+    maxDelay: parseInt(import.meta.env.VITE_MOCK_DELAY_MAX || '2500'),
+    showDebugInfo: import.meta.env.MODE === 'development',
+  }
+
+  /**
+   * Generate a mock parlay (simplified interface for compatibility)
+   */
+  async generateParlay(game: NFLGame): Promise<GeneratedParlay> {
+    if (!this.isEnabled()) {
+      throw new Error('Mock OpenAI service is disabled in this environment')
+    }
+
+    if (this.config.showDebugInfo) {
+      console.log(
+        '🎭 Mock Service: Generating parlay for',
+        game.awayTeam.displayName,
+        '@',
+        game.homeTeam.displayName
+      )
+    }
+
+    // Simulate realistic API delay
+    const delay =
+      Math.random() * (this.config.maxDelay - this.config.minDelay) +
+      this.config.minDelay
+    await new Promise(resolve => setTimeout(resolve, delay))
+
+    // Simulate API errors for testing
+    if (Math.random() < this.config.errorRate) {
+      throw new Error(
+        '🎭 MOCK API ERROR: Simulated failure for testing error handling'
+      )
+    }
+
+    // Generate mock parlay with default strategy
+    const strategy = this.getDefaultStrategy()
+    const template = this.selectTemplateByStrategy(strategy)
+    const parlay = this.generateFromTemplate(template, game, strategy)
+
+    return parlay
+  }
+
+  /**
+   * Check if mock service should be used
+   */
   private isEnabled(): boolean {
     return (
       import.meta.env.MODE === 'development' ||
@@ -351,84 +107,482 @@ export class MockOpenAIService {
   }
 
   /**
-   * Generate a mock parlay with OBVIOUS mock indicators
+   * Select appropriate template based on strategy
    */
-  async generateParlay(game: NFLGame): Promise<GeneratedParlay> {
-    if (!this.isEnabled()) {
-      throw new Error('Mock OpenAI service is disabled in this environment')
+  private selectTemplateByStrategy(
+    strategy: StrategyConfig
+  ): MockParlayTemplate {
+    const templates = this.getTemplatesByStrategy(strategy)
+    return templates[Math.floor(Math.random() * templates.length)]
+  }
+
+  /**
+   * Get templates organized by strategy type
+   */
+  private getTemplatesByStrategy(
+    strategy: StrategyConfig
+  ): MockParlayTemplate[] {
+    if (
+      strategy.riskProfile === 'high' ||
+      strategy.name.toLowerCase().includes('aggressive')
+    ) {
+      return AGGRESSIVE_MOCK_TEMPLATES
     }
 
-    // Simulate API delay for realistic development experience
-    await new Promise(resolve =>
-      setTimeout(resolve, 1500 + Math.random() * 1000)
-    )
-
-    // Random chance of "API error" for testing error handling
-    if (Math.random() < 0.05) {
-      // 5% chance
-      throw new Error(
-        'MOCK API ERROR: This is a simulated error for testing purposes!'
-      )
+    if (
+      strategy.name.toLowerCase().includes('player') ||
+      strategy.name.toLowerCase().includes('prop')
+    ) {
+      return PLAYER_FOCUSED_MOCK_TEMPLATES
     }
 
-    // Select random template and substitute placeholders
-    const templateIndex = Math.floor(
-      Math.random() * MOCK_PARLAY_TEMPLATES.length
-    )
-    const template = MOCK_PARLAY_TEMPLATES[templateIndex]
-    const substituted = substitutePlaceholders(template, game)
+    if (
+      strategy.riskProfile === 'low' ||
+      strategy.name.toLowerCase().includes('conservative')
+    ) {
+      return CONSERVATIVE_MOCK_TEMPLATES
+    }
 
-    // Ensure we have exactly 3 legs and convert to expected format
+    return BALANCED_MOCK_TEMPLATES
+  }
+
+  /**
+   * Generate parlay from template with game-specific substitutions
+   */
+  private generateFromTemplate(
+    template: MockParlayTemplate,
+    game: NFLGame,
+    strategy: StrategyConfig
+  ): GeneratedParlay {
+    const substituted = this.substitutePlaceholders(template, game)
+
+    // Ensure we have exactly 3 legs
     if (substituted.legs.length !== 3) {
       throw new Error('Template must have exactly 3 legs')
     }
 
-    const legs: ParlayLeg[] = substituted.legs.map((leg, index) => ({
-      id: `mock-leg-${Date.now()}-${index}`, // Mock ID
-      betType: leg.betType,
-      selection: leg.selection,
-      target: leg.target,
-      reasoning: leg.reasoning,
-      confidence: leg.confidence,
-      odds: leg.odds,
-    }))
-
-    // Type assertion to ensure we have exactly 3 legs
-    const typedLegs = legs as [ParlayLeg, ParlayLeg, ParlayLeg]
-
-    const individualOdds = typedLegs.map(leg => leg.odds)
-    const estimatedOdds = calculateParlayOdds(individualOdds)
-
-    // Create game summary with mock indicators
-    const gameSummary: GameSummary = {
-      matchupAnalysis: substituted.gameSummary.matchupAnalysis,
-      gameFlow: substituted.gameSummary.gameFlow,
-      keyFactors: substituted.gameSummary.keyFactors,
-      prediction: substituted.gameSummary.prediction,
-      confidence: substituted.gameSummary.confidence,
-    }
+    const legs: [ParlayLeg, ParlayLeg, ParlayLeg] = substituted.legs.map(
+      (leg, index) => ({
+        id: `mock-leg-${Date.now()}-${index}`,
+        betType: leg.betType,
+        selection: leg.selection,
+        target: leg.target,
+        reasoning: leg.reasoning,
+        confidence: this.adjustConfidenceForStrategy(leg.confidence, strategy),
+        odds: leg.odds,
+      })
+    ) as [ParlayLeg, ParlayLeg, ParlayLeg]
 
     const parlay: GeneratedParlay = {
-      id: `🎭-MOCK-PARLAY-${Date.now()}`, // Obviously mock ID
-      legs: typedLegs,
+      id: `🎭-MOCK-PARLAY-${Date.now()}`,
+      legs,
       gameContext: `${game.awayTeam.displayName} @ ${game.homeTeam.displayName} - Week ${game.week} (MOCK DATA)`,
-      aiReasoning: substituted.aiReasoning,
-      overallConfidence: substituted.overallConfidence,
-      estimatedOdds,
+      aiReasoning: `🎭 MOCK: ${substituted.aiReasoning} (Strategy: ${strategy.name})`,
+      overallConfidence: this.adjustConfidenceForStrategy(
+        substituted.overallConfidence,
+        strategy
+      ),
+      estimatedOdds: this.calculateParlayOdds(legs.map(leg => leg.odds)),
       createdAt: new Date().toISOString(),
-      gameSummary,
+      gameSummary: {
+        ...substituted.gameSummary,
+        matchupAnalysis: `🎭 MOCK: ${substituted.gameSummary.matchupAnalysis}`,
+        prediction: `🎭 MOCK: ${substituted.gameSummary.prediction}`,
+      },
     }
 
     return parlay
   }
 
   /**
-   * Check if mock service should be used
+   * Substitute template placeholders with actual game data
+   */
+  private substitutePlaceholders(
+    template: MockParlayTemplate,
+    game: NFLGame
+  ): MockParlayTemplate {
+    const homeTeam = game.homeTeam.displayName
+    const awayTeam = game.awayTeam.displayName
+    const week = game.week
+
+    // Replace placeholders in template
+    const substituteText = (text: string): string => {
+      return text
+        .replace(/{HOME_TEAM}/g, homeTeam)
+        .replace(/{AWAY_TEAM}/g, awayTeam)
+        .replace(/{WEEK}/g, week.toString())
+        .replace(
+          /{HOME_CITY}/g,
+          homeTeam.split(' ').slice(0, -1).join(' ') || homeTeam
+        )
+        .replace(
+          /{AWAY_CITY}/g,
+          awayTeam.split(' ').slice(0, -1).join(' ') || awayTeam
+        )
+    }
+
+    return {
+      legs: template.legs.map(leg => ({
+        ...leg,
+        selection: substituteText(leg.selection),
+        target: substituteText(leg.target),
+        reasoning: substituteText(leg.reasoning),
+      })),
+      aiReasoning: substituteText(template.aiReasoning),
+      overallConfidence: template.overallConfidence,
+      estimatedOdds: template.estimatedOdds,
+      gameSummary: {
+        ...template.gameSummary,
+        matchupAnalysis: substituteText(template.gameSummary.matchupAnalysis),
+        keyFactors: template.gameSummary.keyFactors.map(substituteText),
+        prediction: substituteText(template.gameSummary.prediction),
+      },
+    }
+  }
+
+  /**
+   * Adjust confidence based on strategy risk profile
+   */
+  private adjustConfidenceForStrategy(
+    baseConfidence: number,
+    strategy: StrategyConfig
+  ): number {
+    let adjustment = 0
+
+    if (strategy.riskProfile === 'high') {
+      adjustment = -1 // Lower confidence for high risk
+    } else if (strategy.riskProfile === 'low') {
+      adjustment = 1 // Higher confidence for conservative
+    }
+
+    return Math.min(Math.max(baseConfidence + adjustment, 1), 10)
+  }
+
+  /**
+   * Calculate parlay odds from individual leg odds
+   */
+  private calculateParlayOdds(individualOdds: string[]): string {
+    let combinedDecimal = 1
+
+    individualOdds.forEach(odds => {
+      const num = parseInt(odds)
+      const decimal = num > 0 ? num / 100 + 1 : 100 / Math.abs(num) + 1
+      combinedDecimal *= decimal
+    })
+
+    const americanOdds =
+      combinedDecimal >= 2
+        ? Math.round((combinedDecimal - 1) * 100)
+        : Math.round(-100 / (combinedDecimal - 1))
+
+    return americanOdds > 0 ? `+${americanOdds}` : `${americanOdds}`
+  }
+
+  async generateParlayWithOptions(
+    game: NFLGame,
+    options: {
+      strategy?: StrategyConfig
+      varietyFactors?: VarietyFactors
+      temperature?: number
+      debugMode?: boolean
+    } = {}
+  ): Promise<GeneratedParlay> {
+    if (!this.isEnabled()) {
+      throw new Error('Mock OpenAI service is disabled in this environment')
+    }
+
+    if (options.debugMode || this.config.showDebugInfo) {
+      console.log(
+        '🎭 Mock Service: Generating parlay for',
+        game.awayTeam.displayName,
+        '@',
+        game.homeTeam.displayName,
+        options.strategy ? `(Strategy: ${options.strategy.name})` : ''
+      )
+    }
+
+    // Simulate realistic API delay
+    const delay =
+      Math.random() * (this.config.maxDelay - this.config.minDelay) +
+      this.config.minDelay
+    await new Promise(resolve => setTimeout(resolve, delay))
+
+    // Simulate API errors for testing
+    if (Math.random() < this.config.errorRate) {
+      throw new Error(
+        '🎭 MOCK API ERROR: Simulated failure for testing error handling'
+      )
+    }
+
+    // Generate strategy-aware parlay
+    const strategy = options.strategy || this.getDefaultStrategy()
+    const varietyFactors =
+      options.varietyFactors || this.generateMockVarietyFactors() // NOW USED!
+
+    if (options.debugMode) {
+      console.log('🎭 Using variety factors:', varietyFactors)
+    }
+
+    const template = this.selectTemplateByStrategy(strategy)
+    const parlay = this.generateFromTemplate(template, game, strategy)
+
+    return parlay
+  }
+
+  /**
+   * Generate mock variety factors
+   */
+  private generateMockVarietyFactors(): VarietyFactors {
+    const strategies = [
+      'conservative',
+      'aggressive',
+      'player_focused',
+      'team_focused',
+    ]
+    const focusAreas = ['offense', 'defense', 'balanced']
+    const gameScripts = ['high_scoring', 'defensive', 'close_game']
+    const playerTiers = ['star', 'role_player', 'breakout_candidate', 'veteran']
+    const marketBiases = [
+      'public_favorite',
+      'sharp_play',
+      'contrarian',
+      'neutral',
+    ]
+
+    return {
+      strategy: strategies[Math.floor(Math.random() * strategies.length)],
+      focusArea: focusAreas[Math.floor(Math.random() * focusAreas.length)],
+      playerTier: playerTiers[Math.floor(Math.random() * playerTiers.length)],
+      gameScript: gameScripts[Math.floor(Math.random() * gameScripts.length)],
+      marketBias: marketBiases[Math.floor(Math.random() * marketBiases.length)],
+    }
+  }
+
+  /**
+   * Get default strategy for when none is provided
+   */
+  private getDefaultStrategy(): StrategyConfig {
+    return {
+      name: 'Balanced Mock',
+      description: 'Balanced approach for mock testing',
+      temperature: 0.7,
+      riskProfile: 'medium',
+      confidenceRange: [6, 8],
+    }
+  }
+
+  /**
+   * Check if mock service should be used (public method)
    */
   shouldUseMock(): boolean {
     return this.isEnabled()
   }
 }
+
+// ===== MOCK TEMPLATE DEFINITIONS =====
+
+const CONSERVATIVE_MOCK_TEMPLATES: MockParlayTemplate[] = [
+  {
+    legs: [
+      {
+        betType: 'spread',
+        selection: '{HOME_TEAM}',
+        target: '-3.5 points',
+        reasoning:
+          '{HOME_TEAM} has been solid at home this season, covering 70% of their home spreads. Their defense has allowed 18 points per game at home.',
+        confidence: 8,
+        odds: '-110',
+      },
+      {
+        betType: 'total',
+        selection: 'Under',
+        target: 'Under 44.5 points',
+        reasoning:
+          'Both teams rank in the top 10 defensively, and weather conditions favor a lower-scoring affair.',
+        confidence: 7,
+        odds: '-105',
+      },
+      {
+        betType: 'player_prop',
+        selection: 'Starting QB',
+        target: 'Over 225.5 passing yards',
+        reasoning:
+          'QB has thrown for 250+ yards in 4 of last 5 games and faces a secondary allowing 240 yards per game.',
+        confidence: 7,
+        odds: '-115',
+      },
+    ],
+    aiReasoning:
+      'Conservative approach focusing on home field advantage, defensive trends, and reliable quarterback production.',
+    overallConfidence: 7,
+    estimatedOdds: '+280',
+    gameSummary: {
+      matchupAnalysis:
+        '{HOME_TEAM} defense at home vs {AWAY_TEAM} offense creates a favorable matchup for the home side.',
+      gameFlow: 'defensive_grind',
+      keyFactors: [
+        'Home field advantage',
+        'Defensive strength',
+        'Weather conditions',
+      ],
+      prediction:
+        'Expect a defensive battle with {HOME_TEAM} controlling the game at home.',
+      confidence: 7,
+    },
+  },
+]
+
+const AGGRESSIVE_MOCK_TEMPLATES: MockParlayTemplate[] = [
+  {
+    legs: [
+      {
+        betType: 'player_prop',
+        selection: 'Star WR',
+        target: 'Over 85.5 receiving yards',
+        reasoning:
+          'Elite receiver facing a secondary that has allowed 300+ passing yards in 3 straight games. Expect heavy target share.',
+        confidence: 6,
+        odds: '+110',
+      },
+      {
+        betType: 'player_prop',
+        selection: 'Starting RB',
+        target: 'Anytime touchdown',
+        reasoning:
+          '{AWAY_TEAM} RB has scored in 6 of 8 games this season and faces a run defense allowing 4.8 yards per carry.',
+        confidence: 5,
+        odds: '-140',
+      },
+      {
+        betType: 'total',
+        selection: 'Over',
+        target: 'Over 52.5 points',
+        reasoning:
+          'Both offenses rank in top 12 in scoring. Weather is clear and both teams have explosive capability.',
+        confidence: 6,
+        odds: '-105',
+      },
+    ],
+    aiReasoning:
+      'High-upside approach targeting explosive plays and touchdown potential in a high-scoring environment.',
+    overallConfidence: 6,
+    estimatedOdds: '+420',
+    gameSummary: {
+      matchupAnalysis:
+        'Two high-powered offenses create opportunities for explosive plays and scoring bursts.',
+      gameFlow: 'high_scoring_shootout',
+      keyFactors: [
+        'Offensive firepower',
+        'Defensive vulnerabilities',
+        'Big play potential',
+      ],
+      prediction:
+        'Anticipate an entertaining back-and-forth affair with multiple scoring drives.',
+      confidence: 6,
+    },
+  },
+]
+
+const PLAYER_FOCUSED_MOCK_TEMPLATES: MockParlayTemplate[] = [
+  {
+    legs: [
+      {
+        betType: 'player_prop',
+        selection: 'Starting QB',
+        target: 'Over 1.5 passing touchdowns',
+        reasoning:
+          'QB has thrown 2+ TDs in 7 of 9 games and faces a defense allowing 1.8 passing TDs per game.',
+        confidence: 7,
+        odds: '-130',
+      },
+      {
+        betType: 'player_prop',
+        selection: 'Top WR',
+        target: 'Over 5.5 receptions',
+        reasoning:
+          'Primary target with 25% target share facing a defense that allows 6.2 receptions per game to WR1s.',
+        confidence: 6,
+        odds: '-105',
+      },
+      {
+        betType: 'player_prop',
+        selection: 'Starting RB',
+        target: 'Over 65.5 rushing yards',
+        reasoning:
+          'Feature back averaging 85 yards per game with a favorable matchup against a run defense allowing 4.5 YPC.',
+        confidence: 6,
+        odds: '-110',
+      },
+    ],
+    aiReasoning:
+      'Player performance focus targeting consistent statistical producers with favorable individual matchups.',
+    overallConfidence: 6,
+    estimatedOdds: '+350',
+    gameSummary: {
+      matchupAnalysis:
+        'Individual player matchups create opportunities for statistical production across multiple positions.',
+      gameFlow: 'balanced_tempo',
+      keyFactors: [
+        'Target share analysis',
+        'Individual matchups',
+        'Usage trends',
+      ],
+      prediction:
+        'Key players should find opportunities to reach statistical benchmarks.',
+      confidence: 6,
+    },
+  },
+]
+
+const BALANCED_MOCK_TEMPLATES: MockParlayTemplate[] = [
+  {
+    legs: [
+      {
+        betType: 'spread',
+        selection: '{AWAY_TEAM}',
+        target: '+7.5 points',
+        reasoning:
+          'Road team has covered 60% of games this season and gets significant points in a rivalry matchup.',
+        confidence: 7,
+        odds: '-110',
+      },
+      {
+        betType: 'player_prop',
+        selection: 'Starting QB',
+        target: 'Over 250.5 passing yards',
+        reasoning:
+          'QB has exceeded 250 yards in 6 of 8 road games and faces a pass defense allowing 255 yards per game.',
+        confidence: 6,
+        odds: '-105',
+      },
+      {
+        betType: 'total',
+        selection: 'Over',
+        target: 'Over 45.5 points',
+        reasoning:
+          'Total has gone over in 4 of last 5 meetings between these teams, with both offenses healthy.',
+        confidence: 6,
+        odds: '-110',
+      },
+    ],
+    aiReasoning:
+      'Balanced approach combining point spread value, quarterback production, and historical scoring trends.',
+    overallConfidence: 6,
+    estimatedOdds: '+320',
+    gameSummary: {
+      matchupAnalysis:
+        'Well-matched teams create opportunities for competitive game flow and statistical production.',
+      gameFlow: 'balanced_tempo',
+      keyFactors: [
+        'Point spread value',
+        'Historical trends',
+        'Offensive consistency',
+      ],
+      prediction: 'Competitive game with scoring opportunities for both teams.',
+      confidence: 6,
+    },
+  },
+]
 
 // Export singleton instance
 export const mockOpenAIService = new MockOpenAIService()
