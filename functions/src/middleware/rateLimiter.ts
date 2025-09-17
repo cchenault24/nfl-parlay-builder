@@ -1,3 +1,5 @@
+// functions/src/middleware/rateLimiter.ts - Fixed version with public config access
+
 import * as admin from 'firebase-admin'
 import { CloudFunctionError } from '../types'
 
@@ -28,7 +30,7 @@ export interface RateLimitData {
  */
 export class RateLimiter {
   private firestore: admin.firestore.Firestore
-  private config: RateLimitConfig
+  public readonly config: RateLimitConfig
 
   constructor(config: RateLimitConfig) {
     this.firestore = admin.firestore()
@@ -214,7 +216,6 @@ export class RateLimiter {
       }
     } catch (error) {
       console.error('❌ Failed to get rate limit status:', error)
-      // Fail open
       return {
         allowed: true,
         remaining: this.config.maxRequests,
@@ -237,7 +238,7 @@ export class RateLimiter {
       const expiredQuery = this.firestore
         .collection('rateLimits')
         .where('lastRequest', '<', cutoffTime)
-        .limit(500) // Process in batches to avoid timeouts
+        .limit(500)
 
       const snapshot = await expiredQuery.get()
 
@@ -255,42 +256,7 @@ export class RateLimiter {
       return { deletedCount: snapshot.size }
     } catch (error) {
       console.error('❌ Failed to cleanup expired entries:', error)
-      return { deletedCount: 0 }
+      throw error
     }
   }
-}
-
-/**
- * Extract client IP address from request
- * Handles various proxy headers and Firebase Functions specifics
- */
-export function getClientIpAddress(request: any): string {
-  // Try various headers in order of preference
-  const headers = [
-    'x-forwarded-for',
-    'x-real-ip',
-    'x-client-ip',
-    'cf-connecting-ip', // Cloudflare
-    'x-forwarded',
-    'forwarded-for',
-    'forwarded',
-  ]
-
-  for (const header of headers) {
-    const value = request.headers[header]
-    if (value) {
-      // x-forwarded-for can contain multiple IPs, take the first one
-      const ip = value.split(',')[0].trim()
-      if (ip && ip !== 'unknown') {
-        return ip
-      }
-    }
-  }
-
-  // Fallback to connection remote address
-  return (
-    request.connection?.remoteAddress ||
-    request.socket?.remoteAddress ||
-    'unknown'
-  )
 }

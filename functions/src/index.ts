@@ -2,6 +2,7 @@
 import cors from 'cors'
 import * as admin from 'firebase-admin'
 import * as functions from 'firebase-functions'
+import { RateLimiter } from './middleware/rateLimiter'
 import { ContextBuilder } from './service/ai/ContextBuilder'
 import { AIProvider, ParlayAIService } from './service/ai/ParlayAIService'
 import { MockProvider } from './service/ai/providers/MockProvider'
@@ -337,23 +338,70 @@ export const getRateLimitStatus = functions
           return
         }
 
-        // For now, return mock rate limit data
-        const mockRateLimitInfo = {
-          remaining: 9,
-          total: 10,
-          currentCount: 1,
-          resetTime: new Date(Date.now() + 3600000).toISOString(),
+        // Initialize rate limiter with same config as main function
+        const rateLimiter = new RateLimiter({
+          windowMinutes: parseInt(
+            process.env.RATE_LIMIT_WINDOW_MINUTES || '60'
+          ),
+          maxRequests: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '10'),
+        })
+
+        // Get user info from auth token or IP address
+        let userId: string | undefined
+        let ipAddress: string | undefined
+
+        // Try to get user from auth token
+        const authHeader = request.headers.authorization
+        if (authHeader?.startsWith('Bearer ')) {
+          try {
+            const token = authHeader.substring(7)
+            const decodedToken = await admin.auth().verifyIdToken(token)
+            userId = decodedToken.uid
+          } catch (authError) {
+            console.warn('Invalid auth token in getRateLimitStatus:', authError)
+            // Fall back to IP-based limiting
+          }
+        }
+
+        // If no valid user token, use IP address
+        if (!userId) {
+          ipAddress =
+            request.ip ||
+            (request.headers['x-forwarded-for'] as string) ||
+            request.connection.remoteAddress ||
+            'unknown'
+        }
+
+        // Get current rate limit status without incrementing counter
+        const rateLimitResult = await rateLimiter.getRateLimitStatus(
+          userId,
+          ipAddress
+        )
+
+        const rateLimitInfo = {
+          remaining: rateLimitResult.remaining,
+          total: rateLimiter.config.maxRequests, // Access max requests from config
+          currentCount: rateLimitResult.currentCount,
+          resetTime: rateLimitResult.resetTime.toISOString(),
         }
 
         response.status(200).json({
           success: true,
-          data: mockRateLimitInfo,
+          data: rateLimitInfo,
         })
       } catch (error) {
         console.error('Error in getRateLimitStatus:', error)
+
+        // Return error response but with fallback data to prevent UI breaking
         response.status(500).json({
           success: false,
           error: 'Failed to get rate limit status',
+          data: {
+            remaining: 0,
+            total: 10,
+            currentCount: 10,
+            resetTime: new Date(Date.now() + 3600000).toISOString(),
+          },
         })
       }
     })

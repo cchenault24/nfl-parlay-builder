@@ -1,4 +1,3 @@
-// src/hooks/useRateLimit.ts - Fixed types
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { useAuthState } from 'react-firebase-hooks/auth'
@@ -60,13 +59,32 @@ export const useRateLimit = () => {
       )
 
       if (!response.ok) {
-        throw new Error('Failed to fetch rate limit status')
+        throw new Error(
+          `HTTP ${response.status}: Failed to fetch rate limit status`
+        )
       }
 
       const result: RateLimitResponse = await response.json()
 
-      if (!result.success || !result.data) {
-        throw new Error(result.error || 'Invalid response')
+      if (!result.success) {
+        // If the API returned an error but included fallback data, use it
+        if (result.data) {
+          console.warn(
+            'Rate limit API error, using fallback data:',
+            result.error
+          )
+          return {
+            remaining: result.data.remaining,
+            total: result.data.total,
+            currentCount: result.data.currentCount,
+            resetTime: new Date(result.data.resetTime),
+          }
+        }
+        throw new Error(result.error || 'Invalid response from rate limit API')
+      }
+
+      if (!result.data) {
+        throw new Error('No data in rate limit response')
       }
 
       return {
@@ -79,7 +97,13 @@ export const useRateLimit = () => {
     enabled: !loading, // Don't run query until auth state is determined
     refetchInterval: 30000, // Refetch every 30 seconds
     staleTime: 15000, // Consider data stale after 15 seconds
-    retry: 2,
+    retry: (failureCount, error) => {
+      // Retry up to 2 times, but not for 4xx errors (client errors)
+      if (failureCount >= 2) return false
+      if (error?.message?.includes('HTTP 4')) return false
+      return true
+    },
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
   })
 
   // Update local state when query data changes
@@ -89,6 +113,10 @@ export const useRateLimit = () => {
     }
   }, [data])
 
+  /**
+   * Update rate limit info from a parlay generation response
+   * This allows real-time updates when rate limits change
+   */
   const updateFromResponse = (responseData: ParlayGenerationResponse) => {
     if (responseData.rateLimitInfo) {
       const resetTime =
@@ -107,12 +135,62 @@ export const useRateLimit = () => {
     }
   }
 
+  /**
+   * Force a refresh of rate limit data
+   * Useful after API calls that might change the rate limit
+   */
+  const refreshRateLimit = () => {
+    refetch()
+  }
+
+  /**
+   * Get a formatted string showing time until reset
+   */
+  const getTimeUntilReset = (): string => {
+    if (!rateLimitInfo?.resetTime) return ''
+
+    const now = new Date()
+    const resetTime = new Date(rateLimitInfo.resetTime)
+    const timeDiff = resetTime.getTime() - now.getTime()
+
+    if (timeDiff <= 0) return 'Reset available'
+
+    const minutes = Math.floor(timeDiff / (1000 * 60))
+    const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000)
+
+    if (minutes > 0) {
+      return `${minutes}m ${seconds}s`
+    } else {
+      return `${seconds}s`
+    }
+  }
+
+  /**
+   * Check if user is near rate limit (less than 20% remaining)
+   */
+  const isNearLimit = (): boolean => {
+    if (!rateLimitInfo) return false
+    const percentRemaining = rateLimitInfo.remaining / rateLimitInfo.total
+    return percentRemaining < 0.2
+  }
+
+  /**
+   * Check if user has hit rate limit
+   */
+  const isAtLimit = (): boolean => {
+    return rateLimitInfo?.remaining === 0
+  }
+
   return {
     rateLimitInfo,
     isLoading: isLoading || loading,
     error: error?.message || null,
     refetch,
+    refreshRateLimit,
     updateFromResponse,
+    getTimeUntilReset,
+    isNearLimit,
+    isAtLimit,
     isAuthenticated: !!user,
     userId: user?.uid,
   }
