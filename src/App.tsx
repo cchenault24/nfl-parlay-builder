@@ -24,6 +24,7 @@ import { useAvailableWeeks } from './hooks/useAvailableWeek'
 import { useCurrentWeek } from './hooks/useCurrentWeek'
 import { useNFLGames } from './hooks/useNFLGames'
 import { useParlayGeneratorSelector } from './hooks/useParlayGeneratorSelector'
+import useGeneralStore from './store/generalStore'
 import useParlayStore from './store/parlayStore'
 import { theme } from './theme'
 
@@ -40,6 +41,7 @@ function AppContent() {
   const selectedGame = useParlayStore(state => state.selectedGame)
   const setSelectedGame = useParlayStore(state => state.setSelectedGame)
   const parlay = useParlayStore(state => state.parlay)
+  const devMockOverride = useGeneralStore(state => state.devMockOverride)
 
   const { user, loading } = useAuth()
   const [historyOpen, setHistoryOpen] = useState(false)
@@ -93,7 +95,10 @@ function AppContent() {
 
   const handleGenerateParlay = () => {
     if (selectedGame) {
-      generateParlay(selectedGame)
+      generateParlay({
+        game: selectedGame,
+        shouldUseMock: devMockOverride,
+      })
     }
   }
 

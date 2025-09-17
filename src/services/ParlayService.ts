@@ -1,3 +1,4 @@
+// src/services/ParlayService.ts - Complete fix for UI provider selection
 import { INFLClient } from '../api/clients/base/interfaces'
 import { auth } from '../config/firebase'
 import {
@@ -9,7 +10,6 @@ import {
 import { RateLimitError } from '../types/errors'
 import { NFLDataService } from './NFLDataService'
 
-// Define strategy and variety factor types (can be simplified for client use)
 export interface StrategyConfig {
   name: string
   description: string
@@ -52,12 +52,19 @@ interface CloudFunctionResponse {
     confidence: number
     fallbackUsed: boolean
     attemptCount: number
+    serviceMode?: 'mock' | 'real'
+    environment?: string
   }
 }
 
-/**
- * Enhanced ParlayGenerationResult with metadata support
- */
+export interface ParlayGenerationOptions {
+  temperature?: number
+  strategy?: StrategyConfig
+  varietyFactors?: VarietyFactors
+  provider?: 'mock' | 'real' | 'openai' // Updated to include mock/real
+  debugMode?: boolean
+}
+
 export interface EnhancedParlayGenerationResult extends ParlayGenerationResult {
   metadata?: {
     provider: string
@@ -67,18 +74,29 @@ export interface EnhancedParlayGenerationResult extends ParlayGenerationResult {
     confidence: number
     fallbackUsed: boolean
     attemptCount: number
+    serviceMode?: 'mock' | 'real'
+    environment?: string
   }
 }
 
-/**
- * Enhanced Parlay Service
- * Intelligently routes between local mock service and cloud functions
- * Provides seamless development experience with production security
- */
+interface CloudFunctionErrorResponse {
+  success: false
+  error: {
+    code: string
+    message: string
+    details?: {
+      remaining?: number
+      resetTime?: string
+      currentCount?: number
+      [key: string]: unknown // Allow for additional error details
+    }
+  }
+  [key: string]: unknown // Allow for additional properties
+}
+
 export class ParlayService {
   private readonly cloudFunctionUrl: string
   private readonly healthCheckUrl: string
-  private readonly shouldUseMock: boolean
 
   constructor(
     private nflClient: INFLClient,
@@ -92,9 +110,6 @@ export class ParlayService {
       )
     }
 
-    // Auto-detect mock mode
-    this.shouldUseMock = import.meta.env.MODE === 'development'
-
     // Cloud function URLs
     const baseUrl =
       import.meta.env.VITE_CLOUD_FUNCTION_URL ||
@@ -104,18 +119,17 @@ export class ParlayService {
 
     this.cloudFunctionUrl = `${baseUrl}/generateParlay`
     this.healthCheckUrl = `${baseUrl}/healthCheck`
-
-    if (this.shouldUseMock) {
-      console.log('🎭 ParlayService: Using mock AI service for development')
-    }
   }
 
   /**
-   * Generate a parlay - routes to mock or cloud function based on environment
+   * Generate a parlay with provider options
    */
-  async generateParlay(game: NFLGame): Promise<EnhancedParlayGenerationResult> {
+  async generateParlay(
+    game: NFLGame,
+    options: { provider?: 'mock' | 'real' } = {}
+  ): Promise<EnhancedParlayGenerationResult> {
     try {
-      return await this.generateCloudParlay(game)
+      return await this.generateCloudParlay(game, options)
     } catch (error) {
       console.error('❌ Error generating parlay:', error)
       throw this.enhanceError(error)
@@ -126,7 +140,8 @@ export class ParlayService {
    * Generate parlay using cloud functions
    */
   private async generateCloudParlay(
-    game: NFLGame
+    game: NFLGame,
+    options: { provider?: 'mock' | 'real' }
   ): Promise<EnhancedParlayGenerationResult> {
     // Step 1: Get team rosters
     const rosters = await this.getGameRosters(game)
@@ -134,8 +149,8 @@ export class ParlayService {
     // Step 2: Validate rosters
     this.validateRosters(rosters)
 
-    // Step 3: Call cloud function
-    const response = await this.callCloudFunction(game, rosters)
+    // Step 3: Call cloud function with provider option
+    const response = await this.callCloudFunction(game, rosters, options)
 
     if (!response.success || !response.data) {
       throw new Error(response.error?.message || 'Failed to generate parlay')
@@ -149,11 +164,13 @@ export class ParlayService {
   }
 
   /**
-   * Check service health (mock or cloud)
+   * Check service health (updated to work with cloud functions)
    */
-  async checkServiceHealth(): Promise<{
+  async checkServiceHealth(
+    options: { provider?: 'mock' | 'real' } = {}
+  ): Promise<{
     healthy: boolean
-    mode: 'mock' | 'cloud'
+    mode: 'mock' | 'real'
     providers?: Array<{
       name: string
       healthy: boolean
@@ -162,21 +179,6 @@ export class ParlayService {
     }>
     timestamp: string
   }> {
-    if (this.shouldUseMock) {
-      return {
-        healthy: true,
-        mode: 'mock',
-        providers: [
-          {
-            name: 'mock',
-            healthy: true,
-            latency: 50,
-          },
-        ],
-        timestamp: new Date().toISOString(),
-      }
-    }
-
     try {
       const authToken = await this.getAuthToken()
 
@@ -195,14 +197,16 @@ export class ParlayService {
       }
 
       return {
-        ...data.data,
-        mode: 'cloud' as const,
+        healthy: data.success,
+        mode: options.provider || 'real',
+        providers: data.data?.service?.providers || [],
+        timestamp: new Date().toISOString(),
       }
     } catch (error) {
       console.error('Health check failed:', error)
       return {
         healthy: false,
-        mode: 'cloud',
+        mode: options.provider || 'real',
         providers: [],
         timestamp: new Date().toISOString(),
       }
@@ -234,60 +238,29 @@ export class ParlayService {
   }
 
   /**
-   * Validate roster data
+   * Validate that rosters have sufficient data
    */
   private validateRosters(rosters: GameRosters): void {
-    if (!rosters || !rosters.homeRoster || !rosters.awayRoster) {
-      throw new Error('Missing roster data for one or both teams')
+    if (!rosters.homeRoster || rosters.homeRoster.length < 10) {
+      throw new Error(
+        'Insufficient home team roster data. Please try again later.'
+      )
     }
 
-    if (rosters.homeRoster.length === 0) {
-      throw new Error('No home team roster data available')
-    }
-
-    if (rosters.awayRoster.length === 0) {
-      throw new Error('No away team roster data available')
-    }
-
-    // Check for minimum required positions
-    const requiredPositions = ['QB', 'RB', 'WR']
-
-    const getPositionString = (
-      position: string | { abbreviation?: string } | undefined
-    ): string | undefined => {
-      if (!position) {
-        return undefined
-      }
-      if (typeof position === 'string') {
-        return position
-      }
-      return position.abbreviation
-    }
-
-    const homePositions = new Set(
-      rosters.homeRoster
-        .map(p => getPositionString(p.position))
-        .filter((pos): pos is string => Boolean(pos))
-    )
-    const awayPositions = new Set(
-      rosters.awayRoster
-        .map(p => getPositionString(p.position))
-        .filter((pos): pos is string => Boolean(pos))
-    )
-
-    for (const pos of requiredPositions) {
-      if (!homePositions.has(pos) || !awayPositions.has(pos)) {
-        console.warn(`⚠️ Missing ${pos} position data for complete analysis`)
-      }
+    if (!rosters.awayRoster || rosters.awayRoster.length < 10) {
+      throw new Error(
+        'Insufficient away team roster data. Please try again later.'
+      )
     }
   }
 
   /**
-   * Call Firebase Cloud Function
+   * Call cloud function with provider selection
    */
   private async callCloudFunction(
     game: NFLGame,
-    rosters: GameRosters
+    rosters: GameRosters,
+    options: { provider?: 'mock' | 'real' }
   ): Promise<CloudFunctionResponse> {
     try {
       const authToken = await this.getAuthToken()
@@ -295,8 +268,11 @@ export class ParlayService {
       const requestBody = {
         game,
         rosters,
-        options: {},
+        options: {
+          provider: options.provider || 'real', // Default to real if not specified
+        },
       }
+
       const response = await fetch(this.cloudFunctionUrl, {
         method: 'POST',
         headers: {
@@ -307,9 +283,29 @@ export class ParlayService {
       })
 
       const responseData = await response.json()
-
       if (!response.ok) {
-        return this.handleErrorResponse(response, responseData)
+        console.error('[CF FAIL]', {
+          status: response.status,
+          statusText: response.statusText,
+          trace: null,
+          execId: null,
+          body: responseData,
+        })
+
+        // Type assertion to ensure we have the right error structure
+        const errorResponse: CloudFunctionErrorResponse = {
+          success: false,
+          error: {
+            code: responseData.error?.code || 'UNKNOWN_ERROR',
+            message:
+              responseData.error?.message ||
+              `HTTP ${response.status}: ${response.statusText}`,
+            details: responseData.error?.details,
+          },
+          ...responseData, // Spread any additional properties
+        }
+
+        return this.handleErrorResponse(response, errorResponse)
       }
 
       return responseData
@@ -319,10 +315,10 @@ export class ParlayService {
     }
   }
 
-  /**
-   * Handle error responses from cloud function
-   */
-  private handleErrorResponse(response: Response, responseData: any): never {
+  private handleErrorResponse(
+    response: Response,
+    responseData: CloudFunctionErrorResponse
+  ): never {
     if (response.status === 429) {
       const resetTime = responseData.error?.details?.resetTime
       const remaining = responseData.error?.details?.remaining || 0
@@ -391,7 +387,6 @@ export class ParlayService {
 
     return new Error(`Unexpected error: ${String(error)}`)
   }
-
   /**
    * Enhance any error with context
    */
@@ -420,10 +415,10 @@ export class ParlayService {
   }
 
   /**
-   * Get service mode for debugging
+   * Get service mode for debugging (now takes provider parameter)
    */
-  getServiceMode(): 'mock' | 'cloud' {
-    return this.shouldUseMock ? 'mock' : 'cloud'
+  getServiceMode(provider?: 'mock' | 'real'): 'mock' | 'real' {
+    return provider || 'real'
   }
 
   /**

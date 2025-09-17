@@ -1,3 +1,4 @@
+// src/hooks/useRateLimit.ts - Fixed types
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { useAuthState } from 'react-firebase-hooks/auth'
@@ -17,11 +18,13 @@ interface RateLimitResponse {
   error?: string
 }
 
+// Updated interface to make rateLimitInfo required when passed
 interface ParlayGenerationResponse {
-  rateLimitInfo?: {
+  rateLimitInfo: {
     remaining: number
-    resetTime: Date
+    resetTime: Date | string // Allow both types since we handle conversion
     currentCount: number
+    total?: number // Optional since some responses might not include it
   }
   [key: string]: unknown
 }
@@ -86,18 +89,21 @@ export const useRateLimit = () => {
     }
   }, [data])
 
-  // Update rate limit info from parlay generation response
   const updateFromResponse = (responseData: ParlayGenerationResponse) => {
     if (responseData.rateLimitInfo) {
-      setRateLimitInfo({
+      const resetTime =
+        typeof responseData.rateLimitInfo.resetTime === 'string'
+          ? new Date(responseData.rateLimitInfo.resetTime)
+          : responseData.rateLimitInfo.resetTime
+
+      const updatedInfo: RateLimitInfo = {
         remaining: responseData.rateLimitInfo.remaining,
-        total: rateLimitInfo?.total || 10,
-        resetTime:
-          responseData.rateLimitInfo.resetTime instanceof Date
-            ? responseData.rateLimitInfo.resetTime
-            : new Date(responseData.rateLimitInfo.resetTime),
+        total: responseData.rateLimitInfo.total || rateLimitInfo?.total || 10, // Use existing total or default
+        resetTime,
         currentCount: responseData.rateLimitInfo.currentCount,
-      })
+      }
+
+      setRateLimitInfo(updatedInfo)
     }
   }
 

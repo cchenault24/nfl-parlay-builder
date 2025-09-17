@@ -1,5 +1,6 @@
+// src/hooks/useParlayGenerator.ts - Fixed version
 import { useMutation } from '@tanstack/react-query'
-import { getParlayService } from '../services/container'
+import { ServiceContainer } from '../services/container'
 import useParlayStore from '../store/parlayStore'
 import { NFLGame } from '../types'
 import { RateLimitError } from '../types/errors'
@@ -7,56 +8,59 @@ import { useRateLimit } from './useRateLimit'
 
 export const useParlayGenerator = () => {
   const setParlay = useParlayStore(state => state.setParlay)
-
-  const parlayService = getParlayService()
+  const parlayService = ServiceContainer.instance.getParlayService()
   const { updateFromResponse } = useRateLimit()
 
   const mutation = useMutation({
-    mutationFn: async (game: NFLGame) => {
-      return await parlayService.generateParlay(game)
+    mutationFn: async ({
+      game,
+      shouldUseMock,
+    }: {
+      game: NFLGame
+      shouldUseMock: boolean | null
+    }) => {
+      const provider = shouldUseMock === true ? 'mock' : 'real'
+      return await parlayService.generateParlay(game, { provider })
     },
     onError: error => {
       console.error('Error generating parlay:', error)
 
-      // Handle rate limit errors specifically
       if (error instanceof RateLimitError) {
         console.warn('Rate limit exceeded:', error.rateLimitInfo)
-        // Update rate limit info from error
         updateFromResponse({ rateLimitInfo: error.rateLimitInfo })
       }
 
-      // Clear parlay on error
       setParlay(null)
     },
-    onSuccess: result => {
-      // Update rate limit info from response
-      if (result.rateLimitInfo) {
+    onSuccess: data => {
+      if (data.rateLimitInfo) {
         updateFromResponse({
           rateLimitInfo: {
-            ...result.rateLimitInfo,
-            resetTime: new Date(result.rateLimitInfo.resetTime),
+            remaining: data.rateLimitInfo.remaining,
+            total: data.rateLimitInfo.total || 10,
+            resetTime:
+              typeof data.rateLimitInfo.resetTime === 'string'
+                ? new Date(data.rateLimitInfo.resetTime)
+                : data.rateLimitInfo.resetTime,
+            currentCount: data.rateLimitInfo.currentCount,
           },
         })
       }
 
-      // Save parlay to store on success
-      setParlay(result.parlay)
+      setParlay(data.parlay)
     },
   })
 
-  // Custom reset that also clears store
-  const resetWithStore = () => {
-    mutation.reset()
-    setParlay(null)
-  }
-
   return {
-    mutate: mutation.mutate,
-    data: mutation.data?.parlay, // Return just the parlay data
-    isPending: mutation.isPending,
+    mutate: mutation.mutate, // Return 'mutate' to match App.tsx expectations
+    data: mutation.data?.parlay,
+    isPending: mutation.isPending, // Return 'isPending' to match App.tsx expectations
     isError: mutation.isError,
     error: mutation.error,
-    reset: resetWithStore,
+    reset: mutation.reset,
     isSuccess: mutation.isSuccess,
   }
 }
+
+// Also update the export to match the expected interface
+export const useParlayGeneratorReal = useParlayGenerator // Keep for backwards compatibility
