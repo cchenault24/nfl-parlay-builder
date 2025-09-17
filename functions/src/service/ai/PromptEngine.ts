@@ -1,5 +1,5 @@
-import { GameRosters, NFLGame, NFLPlayer } from '../../types'
-import { ParlayGenerationContext } from './BaseParlayProvider'
+import { GameRosters, NFLGame, NFLPlayer, VarietyFactors } from '../../types'
+import { GameContext, ParlayGenerationContext } from './BaseParlayProvider'
 
 /**
  * Enhanced bet type system for more diverse selections
@@ -135,7 +135,7 @@ export class PromptEngine {
    * Create system prompt with anti-template instructions
    */
   static createSystemPrompt(context: ParlayGenerationContext): string {
-    const { strategy, gameContext, antiTemplateHints } = context
+    const { strategy, antiTemplateHints } = context
 
     return `You are an expert NFL betting analyst creating authentic, game-specific parlay recommendations.
 
@@ -160,7 +160,7 @@ AVAILABLE BET TYPES:
 ${this.formatBetTypesForPrompt()}
 
 GAME-SPECIFIC CONTEXT TO ADDRESS:
-${antiTemplateHints.length > 0 ? antiTemplateHints.map(hint => `• ${hint}`).join('\n') : '• Analyze this specific matchup thoroughly'}
+${antiTemplateHints.emphasizeUnique.length > 0 ? antiTemplateHints.emphasizeUnique.map(hint => `• ${hint}`).join('\n') : '• Analyze this specific matchup thoroughly'}
 
 ANTI-TEMPLATE CHECKLIST:
 - ❌ Using the same bet type sequence as typical templates
@@ -221,23 +221,32 @@ Your analysis and bet selections must be specific to THIS matchup, not generic t
 Week ${game.week} | ${game.date || 'Date TBD'}`
   }
 
-  private static formatGameContext(gameContext: any): string {
+  private static formatGameContext(gameContext: GameContext): string {
     const contextLines: string[] = []
 
-    if (gameContext.weather?.condition !== 'clear') {
+    if (
+      gameContext.weather &&
+      gameContext.weather?.condition !== 'clear' &&
+      gameContext.weather?.condition !== 'indoor'
+    ) {
       contextLines.push(`Weather: ${gameContext.weather.condition} conditions`)
     }
 
-    if (gameContext.rivalry) {
+    if (gameContext.isRivalry) {
       contextLines.push('Context: Divisional rivalry game')
     }
 
-    if (gameContext.primeTime) {
+    if (gameContext.isPrimeTime) {
       contextLines.push('Spotlight: Prime time national game')
     }
 
-    if (gameContext.restDays !== 7) {
-      contextLines.push(`Rest: ${gameContext.restDays} days between games`)
+    const restDifference = Math.abs(
+      gameContext.restDays.home - gameContext.restDays.away
+    )
+    if (restDifference > 2) {
+      contextLines.push(
+        `Rest: Home ${gameContext.restDays.home}d, Away ${gameContext.restDays.away}d`
+      )
     }
 
     return contextLines.length > 0
@@ -257,13 +266,19 @@ Week ${game.week} | ${game.date || 'Date TBD'}`
       return positions
         .map(pos => {
           const posPlayers = players
-            .filter(p => p.position.abbreviation === pos)
+            .filter(p => {
+              const position = p.position
+              if (typeof position === 'string') {
+                return position === pos
+              }
+              return position?.abbreviation === pos
+            })
             .slice(0, limit)
 
           if (posPlayers.length === 0) return ''
 
           const playerNames = posPlayers
-            .map(p => `${p.fullName} (#${p.jersey})`)
+            .map(p => `${p.displayName || p.fullName} (#${p.jersey})`)
             .join(', ')
           return `${pos}: ${playerNames}`
         })
@@ -290,11 +305,11 @@ ${game.awayTeam.displayName.toUpperCase()} KEY PLAYERS:
 ${awayRoster}`
   }
 
-  private static formatVarietyGuidance(varietyFactors: any): string {
+  private static formatVarietyGuidance(varietyFactors: VarietyFactors): string {
     return `ANALYSIS FOCUS:
-• Strategy: ${varietyFactors.strategy}
-• Game Script: ${varietyFactors.gameScript}
-• Focus Area: ${varietyFactors.focusArea || 'balanced'}`
+- Strategy: ${varietyFactors.strategy}
+- Game Script: ${varietyFactors.gameScript}
+- Focus Area: ${varietyFactors.focusArea || 'balanced'}`
   }
 
   private static formatOutputInstructions(game: NFLGame): string {
@@ -303,7 +318,7 @@ ${awayRoster}`
   "legs": [
     {
       "id": "1",
-      "betType": "spread|total|moneyline|player_passing|player_rushing|player_receiving|team_total|first_touchdown|defensive_props",
+      "betType": "spread|total|moneyline|player_prop",
       "selection": "Specific bet description",
       "target": "Exact line/target",
       "reasoning": "Football-specific analysis for THIS game",

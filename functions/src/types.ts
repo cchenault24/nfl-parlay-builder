@@ -140,15 +140,16 @@ export interface StrategyConfig {
 }
 
 // === Cloud Function Request/Response Types ===
+// Add these to your GenerateParlayRequest interface
 export interface GenerateParlayRequest {
   game: NFLGame
   rosters: GameRosters
+  strategy?: StrategyConfig
+  varietyFactors?: VarietyFactors
   options?: {
     temperature?: number
     strategy?: string
-    provider?: 'openai' | 'anthropic' | 'google' | 'local'
-    varietyFactors?: Partial<VarietyFactors>
-    antiTemplate?: boolean
+    provider?: string
   }
 }
 
@@ -160,6 +161,12 @@ export interface GenerateParlayResponse {
     message: string
     details?: any
   }
+  rateLimitInfo?: {
+    remaining: number
+    resetTime: string
+    currentCount: number
+    total: number
+  }
   metadata?: {
     provider: string
     generatedAt: string
@@ -167,6 +174,13 @@ export interface GenerateParlayResponse {
       remaining: number
       resetTime: string
     }
+    aiProvider?: string
+    model?: string
+    tokens?: number
+    latency?: number
+    confidence?: number
+    fallbackUsed?: boolean
+    attemptCount?: number
   }
 }
 
