@@ -34,13 +34,39 @@ export const validateEnvironment = (): void => {
 }
 
 /**
+ * Determine if we're in a local development environment
+ */
+const isLocalDevelopment = () => {
+  // Check if we're running locally
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname
+    const isLocal =
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname.includes('192.168.')
+
+    // FORCE PRODUCTION: If we're on Firebase hosting domains, never use localhost
+    const isFirebaseHosting =
+      hostname.includes('.web.app') || hostname.includes('.firebaseapp.com')
+    if (isFirebaseHosting) {
+      console.log('🔧 Firebase hosting detected, forcing production URLs')
+      return false
+    }
+
+    console.log('🔧 Hostname check:', { hostname, isLocal })
+    return isLocal
+  }
+  return ENV.NODE_ENV === 'development'
+}
+
+/**
  * API Configuration with environment-based settings
  */
 export const API_CONFIG = {
   ESPN: {
     baseURL: 'https://site.api.espn.com/apis/site/v2/sports/football/nfl',
-    timeout: ENV.NODE_ENV === 'development' ? 15000 : 10000,
-    retryAttempts: ENV.NODE_ENV === 'development' ? 2 : 3,
+    timeout: isLocalDevelopment() ? 15000 : 10000,
+    retryAttempts: isLocalDevelopment() ? 2 : 3,
     retryDelay: 1000,
     endpoints: {
       scoreboard: '/scoreboard',
@@ -51,15 +77,16 @@ export const API_CONFIG = {
   CLOUD_FUNCTIONS: {
     baseURL:
       ENV.CLOUD_FUNCTION_URL ||
-      (ENV.NODE_ENV === 'development'
+      (isLocalDevelopment()
         ? `http://localhost:5001/${ENV.FIREBASE_PROJECT_ID}/us-central1`
         : `https://us-central1-${ENV.FIREBASE_PROJECT_ID}.cloudfunctions.net`),
-    timeout: ENV.NODE_ENV === 'development' ? 60000 : 45000,
+    timeout: isLocalDevelopment() ? 60000 : 45000,
     retryAttempts: 2,
     retryDelay: 2000,
     endpoints: {
       generateParlay: '/generateParlay',
       healthCheck: '/healthCheck',
+      getRateLimitStatus: '/getRateLimitStatus',
     },
   },
 } as const
@@ -69,14 +96,14 @@ export const API_CONFIG = {
  */
 export const FEATURES = {
   // Enable detailed logging in development
-  DETAILED_LOGGING: ENV.NODE_ENV === 'development',
+  DETAILED_LOGGING: isLocalDevelopment(),
 
   // Enable request/response logging
-  API_LOGGING: ENV.NODE_ENV === 'development',
+  API_LOGGING: isLocalDevelopment(),
 
   // Rate limiting settings
   RATE_LIMITING: {
-    enabled: ENV.NODE_ENV === 'production',
+    enabled: !isLocalDevelopment(),
     requestsPerMinute: 60,
   },
   USE_CLOUD_FUNCTIONS: true,
@@ -86,12 +113,22 @@ export const FEATURES = {
  * Logging configuration
  */
 export const LOGGING = {
-  level: ENV.NODE_ENV === 'development' ? 'debug' : 'info',
+  level: isLocalDevelopment() ? 'debug' : 'info',
   enableConsole: true,
-  enableRemote: ENV.NODE_ENV === 'production',
+  enableRemote: !isLocalDevelopment(),
 } as const
 
 // Initialize environment validation in non-test environments
 if (ENV.NODE_ENV !== 'test') {
   validateEnvironment()
 }
+
+// Debug logging for troubleshooting
+console.log('🔧 API CONFIG DEBUG:', {
+  hostname: typeof window !== 'undefined' ? window.location.hostname : 'server',
+  href: typeof window !== 'undefined' ? window.location.href : 'server',
+  isLocalDevelopment: isLocalDevelopment(),
+  NODE_ENV: ENV.NODE_ENV,
+  cloudFunctionURL: API_CONFIG.CLOUD_FUNCTIONS.baseURL,
+  projectId: ENV.FIREBASE_PROJECT_ID,
+})
