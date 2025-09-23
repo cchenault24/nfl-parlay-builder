@@ -23,13 +23,26 @@ function resolveConfig(input?: PartialConfig): APIConfig {
     )
   }
 
+  // Detect if we're on mobile - ESPN blocks User-Agent headers on mobile
+  const isMobile =
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+      navigator.userAgent
+    )
+
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    ...(input?.headers ?? {}),
+  }
+
+  // CRITICAL FIX: Don't add User-Agent header on mobile devices
+  // ESPN's API blocks requests with User-Agent headers on mobile networks
+  if (!isMobile) {
+    headers['User-Agent'] = 'nfl-parlay-builder'
+  }
+
   return {
     baseURL,
-    headers: {
-      Accept: 'application/json',
-      'User-Agent': 'nfl-parlay-builder',
-      ...(input?.headers ?? {}),
-    },
+    headers,
     timeoutMs: input?.timeoutMs ?? 15000,
     retries: input?.retries ?? 1,
     retryDelayMs: input?.retryDelayMs ?? 300,
