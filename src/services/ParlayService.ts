@@ -1,5 +1,4 @@
 // src/services/ParlayService.ts - Complete fix for UI provider selection
-import { INFLClient } from '../api/clients/base/interfaces'
 import { auth } from '../config/firebase'
 import {
   GameRosters,
@@ -8,7 +7,7 @@ import {
   ParlayGenerationResult,
 } from '../types'
 import { RateLimitError } from '../types/errors'
-import { NFLDataService } from './NFLDataService'
+import { container } from './container'
 
 export interface StrategyConfig {
   name: string
@@ -98,10 +97,7 @@ export class ParlayService {
   private readonly cloudFunctionUrl: string
   private readonly healthCheckUrl: string
 
-  constructor(
-    private nflClient: INFLClient,
-    private nflDataService: NFLDataService
-  ) {
+  constructor() {
     const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID
 
     if (!projectId) {
@@ -218,19 +214,15 @@ export class ParlayService {
    */
   async getGameRosters(game: NFLGame): Promise<GameRosters> {
     try {
-      const [homeRosterResponse, awayRosterResponse] = await Promise.all([
-        this.nflClient.getTeamRoster(game.homeTeam.id),
-        this.nflClient.getTeamRoster(game.awayTeam.id),
-      ])
-
+      const r = await container.nflData.gameRosters(game.id)
       return {
-        homeRoster: this.nflDataService.transformRosterResponse(
-          homeRosterResponse.data
-        ),
-        awayRoster: this.nflDataService.transformRosterResponse(
-          awayRosterResponse.data
-        ),
-      }
+        gameId: r.gameId ?? game.id,
+        home: r.home,
+        away: r.away,
+        // legacy aliases kept for UI components that still read these keys
+        homeRoster: (r as any).homeRoster ?? r.home,
+        awayRoster: (r as any).awayRoster ?? r.away,
+      } as GameRosters
     } catch (error) {
       console.error('Error fetching game rosters:', error)
       throw new Error('Failed to fetch team rosters. Please try again.')

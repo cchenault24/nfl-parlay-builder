@@ -1,44 +1,46 @@
-import { Timestamp } from 'firebase/firestore'
+// Core domain: re-export everything from the shared package
+export * from '@npb/shared'
 
-// ===== BET TYPES =====
+import type * as Shared from '@npb/shared'
+import type { Timestamp } from 'firebase/firestore'
+
+/**
+ * App-specific augmentations and legacy shapes.
+ * We use TypeScript declaration merging to add optional fields
+ * so we don't break the shared contracts or the server payloads.
+ *
+ * Nothing is renamed — we extend the existing names in place.
+ */
+
+// ===== BET TYPES (app) =====
 export type BetType = 'spread' | 'total' | 'moneyline' | 'player_prop'
 
-// ===== NFL TYPES =====
-export interface NFLTeam {
-  id: string
-  name: string
-  displayName: string
-  abbreviation: string
-  color: string
-  alternateColor: string
-  logo: string
+// ===== NFL TYPES (app augments) =====
+
+// Some UI code expects `team.name` in addition to shared fields.
+// Make it optional to avoid breaking server payloads that don't send it.
+export interface NFLTeam extends Shared.NFLTeam {
+  /** Legacy/UI convenience — prefer `displayName` going forward */
+  name?: string
 }
 
-export interface NFLGame {
-  id: string
-  date: string
-  homeTeam: NFLTeam
-  awayTeam: NFLTeam
-  week: number
-  season: number
-  status: 'scheduled' | 'in_progress' | 'final' | 'postponed'
+// Some UI code expects roster arrays under `homeRoster`/`awayRoster`.
+// Shared uses { home: NFLPlayer[]; away: NFLPlayer[] }.
+// Add optional aliases so existing UI can read them without changing server.
+export interface GameRosters extends Shared.GameRosters {
+  homeRoster?: NFLPlayer[]
+  awayRoster?: NFLPlayer[]
 }
 
-export interface NFLPlayer {
-  id: string
-  name: string
-  displayName: string
-  position: string
-  jerseyNumber: string
-  experience: number
+// Some UI code expects richer player fields.
+export interface NFLPlayer extends Shared.NFLPlayer {
+  name?: string
+  jerseyNumber?: string
+  experience?: number
   college?: string
 }
 
-export interface GameRosters {
-  homeRoster: NFLPlayer[]
-  awayRoster: NFLPlayer[]
-}
-
+// Additional app-only data models (not in shared)
 export interface TeamStats {
   teamId: string
   passingYards: number
@@ -70,7 +72,8 @@ export interface NewsItem {
   teamIds: string[]
 }
 
-// ===== PARLAY TYPES =====
+// ===== PARLAY TYPES (app augments) =====
+
 export interface ParlayLeg {
   id: string
   betType: BetType
@@ -79,6 +82,34 @@ export interface ParlayLeg {
   reasoning: string
   confidence: number
   odds: string
+}
+
+export interface GameSummary {
+  matchupAnalysis: string
+  gameFlow:
+    | 'high_scoring_shootout'
+    | 'defensive_grind'
+    | 'balanced_tempo'
+    | 'potential_blowout'
+  keyFactors: string[]
+  prediction: string
+  confidence: number
+}
+
+/**
+ * Shared GeneratedParlay is the minimum server contract.
+ * The UI expects more fields — add them as OPTIONAL so we don't
+ * force the server to provide them during the migration.
+ */
+export interface GeneratedParlay extends Shared.GeneratedParlay {
+  id?: string
+  gameContext?: string
+  aiReasoning?: string
+  overallConfidence?: number
+  estimatedOdds?: string
+  createdAt?: string
+  savedAt?: Timestamp
+  gameSummary?: GameSummary
 }
 
 export interface ParlayGenerationResult {
@@ -91,43 +122,20 @@ export interface ParlayGenerationResult {
   }
 }
 
-export interface GameSummary {
-  matchupAnalysis: string // Offensive vs defensive matchups (e.g., "Chiefs explosive offense vs Bills top-ranked pass defense")
-  gameFlow:
-    | 'high_scoring_shootout'
-    | 'defensive_grind'
-    | 'balanced_tempo'
-    | 'potential_blowout'
-  keyFactors: string[] // 3-5 key factors shaping the game
-  prediction: string // Overall game prediction/expectation (2-3 sentences)
-  confidence: number // 1-10 confidence in the summary analysis
-}
-
-export interface GeneratedParlay {
-  id: string
-  legs: [ParlayLeg, ParlayLeg, ParlayLeg]
-  gameContext: string
-  aiReasoning: string
-  overallConfidence: number
-  estimatedOdds: string
-  createdAt: string
-  savedAt?: Timestamp
-  gameSummary?: GameSummary
-}
-
 export interface ParlayRequest {
   gameId: string
   legCount: 3
 }
 
-// ===== AUTH TYPES =====
+// ===== AUTH TYPES (app) =====
+
 export interface UserProfile {
   uid: string
   displayName: string
   email: string
   photoURL?: string
   createdAt: Timestamp
-  savedParlays?: string[] // Array of parlay IDs
+  savedParlays?: string[]
 }
 
 export interface SavedParlay extends GeneratedParlay {

@@ -20,11 +20,10 @@ import { ParlayHistory } from './components/ParlayHistory'
 import AuthProvider from './contexts/authentication/AuthContext'
 import { useAgeVerification } from './hooks/useAgeVerification'
 import { useAuth } from './hooks/useAuth'
-import { useAvailableWeeks } from './hooks/useAvailableWeek'
+import { useAvailableWeeks } from './hooks/useAvailableWeeks'
 import { useCurrentWeek } from './hooks/useCurrentWeek'
+import { useGenerateParlay } from './hooks/useGenerateParlay'
 import { useNFLGames } from './hooks/useNFLGames'
-import { useParlayGeneratorSelector } from './hooks/useParlayGeneratorSelector'
-import useGeneralStore from './store/generalStore'
 import useParlayStore from './store/parlayStore'
 import { theme } from './theme'
 
@@ -40,8 +39,7 @@ const queryClient = new QueryClient({
 function AppContent() {
   const selectedGame = useParlayStore(state => state.selectedGame)
   const setSelectedGame = useParlayStore(state => state.setSelectedGame)
-  const parlay = useParlayStore(state => state.parlay)
-  const devMockOverride = useGeneralStore(state => state.devMockOverride)
+  // const devMockOverride = useGeneralStore(state => state.devMockOverride)
 
   const { user, loading } = useAuth()
   const [historyOpen, setHistoryOpen] = useState(false)
@@ -56,8 +54,19 @@ function AppContent() {
   const [ageVerificationOpen, setAgeVerificationOpen] = useState(false)
 
   // Get current week from API
-  const { currentWeek, isLoading: weekLoading } = useCurrentWeek()
-  const { availableWeeks } = useAvailableWeeks()
+  const { data: currentWeek, isLoading: weekLoading } = useCurrentWeek()
+  const { data: availableWeeks } = useAvailableWeeks()
+
+  // Compose weekArray for availableWeeks
+  const weekArray =
+    availableWeeks && Array.isArray(availableWeeks)
+      ? availableWeeks
+      : currentWeek
+        ? Array.from(
+            { length: 18 - currentWeek + 1 },
+            (_, i) => currentWeek + i
+          )
+        : Array.from({ length: 18 }, (_, i) => i + 1)
 
   // Initialize selectedWeek with currentWeek
   const [selectedWeek, setSelectedWeek] = useState<number>(currentWeek || 1)
@@ -78,7 +87,7 @@ function AppContent() {
     isPending: parlayLoading,
     error: parlayError,
     reset: resetParlay,
-  } = useParlayGeneratorSelector()
+  } = useGenerateParlay()
 
   // Check age verification status
   useEffect(() => {
@@ -96,8 +105,8 @@ function AppContent() {
   const handleGenerateParlay = () => {
     if (selectedGame) {
       generateParlay({
-        game: selectedGame,
-        shouldUseMock: devMockOverride,
+        gameId: selectedGame.id,
+        options: { strategy: 'balanced' },
       })
     }
   }
@@ -194,7 +203,7 @@ function AppContent() {
             canGenerate={!!selectedGame && !parlayLoading}
             currentWeek={selectedWeek}
             onWeekChange={handleWeekChange}
-            availableWeeks={availableWeeks}
+            availableWeeks={weekArray}
             weekLoading={weekLoading}
           />
 
@@ -208,7 +217,7 @@ function AppContent() {
           )}
 
           {/* ParlayDisplay gets parlay from store */}
-          <ParlayDisplay parlay={parlay || undefined} loading={parlayLoading} />
+          <ParlayDisplay loading={parlayLoading} />
 
           <ParlayHistory
             open={historyOpen}

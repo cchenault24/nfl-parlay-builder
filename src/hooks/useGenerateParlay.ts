@@ -1,21 +1,14 @@
 import type { GeneratedParlay, ParlayOptions } from '@npb/shared'
 import { useMutation } from '@tanstack/react-query'
-import { FunctionsAPI } from '../services/functionsClient'
+import { container } from '../services/container'
 
-type Result = {
-  success: boolean
-  data?: GeneratedParlay
-  error?: { message: string }
-}
+type Vars = { gameId: string; options?: ParlayOptions }
 
 export function useGenerateParlay() {
-  return useMutation({
-    mutationFn: async (args: {
-      gameId: string
-      options?: ParlayOptions
-    }): Promise<Result> => {
-      const resp = await FunctionsAPI.generateParlay(args.gameId, args.options)
-      return resp as Result
+  return useMutation<GeneratedParlay, Error, Vars>({
+    mutationKey: ['generateParlay'],
+    mutationFn: async ({ gameId, options }) => {
+      return container.parlay.generate(gameId, options)
     },
   })
 }

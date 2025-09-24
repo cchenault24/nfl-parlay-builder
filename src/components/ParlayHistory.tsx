@@ -23,7 +23,7 @@ import { Timestamp } from 'firebase/firestore'
 import React, { useEffect, useState } from 'react'
 import { getUserParlays } from '../config/firebase'
 import { useAuth } from '../hooks/useAuth'
-import { GeneratedParlay } from '../types'
+import { GeneratedParlay, ParlayLeg } from '../types'
 
 interface ParlayHistoryProps {
   open: boolean
@@ -147,102 +147,124 @@ export const ParlayHistory: React.FC<ParlayHistoryProps> = ({
           </Box>
         ) : (
           <Box sx={{ maxHeight: '60vh', overflowY: 'auto' }}>
-            {parlays.map((parlay, index) => (
-              <Card key={parlay.id || `parlay-${index}`} sx={{ mb: 2 }}>
-                <CardContent>
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      mb: 2,
-                    }}
-                  >
-                    <Typography variant="h6" gutterBottom>
-                      {parlay.gameContext || 'NFL Parlay'}
+            {parlays.map((parlay, index) => {
+              // Adapt server legs to UI ParlayLegs
+              const uiLegs: ParlayLeg[] = (parlay.legs ?? []).map((leg, i) => ({
+                id: `${parlay.id ?? 'parlay'}-L${i + 1}`,
+                betType: (leg.type as ParlayLeg['betType']) ?? 'spread',
+                selection: leg.selection,
+                target: leg.threshold != null ? String(leg.threshold) : '',
+                reasoning: leg.rationale ?? '',
+                confidence: 0,
+                odds: leg.price != null ? String(leg.price) : '',
+              }))
+
+              return (
+                <Card key={parlay.id || `parlay-${index}`} sx={{ mb: 2 }}>
+                  <CardContent>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        mb: 2,
+                      }}
+                    >
+                      <Typography variant="h6" gutterBottom>
+                        {parlay.gameContext || 'NFL Parlay'}
+                      </Typography>
+                      {parlay.estimatedOdds && (
+                        <Chip
+                          label={String(parlay.estimatedOdds)}
+                          color="primary"
+                          variant="outlined"
+                          size="small"
+                        />
+                      )}
+                    </Box>
+
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ mb: 2 }}
+                    >
+                      Saved: {formatDate(parlay.savedAt)}
                     </Typography>
-                    <Chip
-                      label={parlay.estimatedOdds || 'N/A'}
-                      color="primary"
-                      variant="outlined"
-                      size="small"
-                    />
-                  </Box>
 
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ mb: 2 }}
-                  >
-                    Saved: {formatDate(parlay.savedAt)}
-                  </Typography>
-
-                  <Grid container spacing={2}>
-                    {parlay.legs?.map(leg => (
-                      <Grid item xs={12} key={`${parlay.id}-leg-${leg.id}`}>
-                        <Box
-                          sx={{
-                            p: 2,
-                            border: '1px solid',
-                            borderColor: 'divider',
-                            borderRadius: 1,
-                            bgcolor: 'background.paper',
-                          }}
+                    <Grid container spacing={2}>
+                      {uiLegs.map((leg, i) => (
+                        <Grid
+                          item
+                          xs={12}
+                          key={`${parlay.id ?? 'parlay'}-leg-${i + 1}`}
                         >
                           <Box
                             sx={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              mb: 1,
+                              p: 2,
+                              border: '1px solid',
+                              borderColor: 'divider',
+                              borderRadius: 1,
+                              bgcolor: 'background.paper',
                             }}
                           >
                             <Box
                               sx={{
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: 1,
+                                justifyContent: 'space-between',
+                                mb: 1,
                               }}
                             >
+                              <Box
+                                sx={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 1,
+                                }}
+                              >
+                                <Chip
+                                  label={String(leg.betType).replace('_', ' ')}
+                                  color={getBetTypeColor(leg.betType)}
+                                  size="small"
+                                  variant="outlined"
+                                />
+                                <Typography
+                                  variant="body2"
+                                  sx={{ fontWeight: 'bold' }}
+                                >
+                                  {leg.odds}
+                                </Typography>
+                              </Box>
                               <Chip
-                                label={leg.betType.replace('_', ' ')}
-                                color={getBetTypeColor(leg.betType)}
+                                label={`${leg.confidence}/10`}
+                                color={getConfidenceColor(leg.confidence)}
                                 size="small"
-                                variant="outlined"
                               />
+                            </Box>
+
+                            <Typography
+                              variant="body1"
+                              sx={{ fontWeight: 'medium', mb: 1 }}
+                            >
+                              {leg.target}
+                            </Typography>
+
+                            {leg.reasoning && (
                               <Typography
                                 variant="body2"
-                                sx={{ fontWeight: 'bold' }}
+                                color="text.secondary"
                               >
-                                {leg.odds}
+                                {leg.reasoning}
                               </Typography>
-                            </Box>
-                            <Chip
-                              label={`${leg.confidence}/10`}
-                              color={getConfidenceColor(leg.confidence)}
-                              size="small"
-                            />
+                            )}
                           </Box>
-
-                          <Typography
-                            variant="body1"
-                            sx={{ fontWeight: 'medium', mb: 1 }}
-                          >
-                            {leg.target}
-                          </Typography>
-
-                          {leg.reasoning && (
-                            <Typography variant="body2" color="text.secondary">
-                              {leg.reasoning}
-                            </Typography>
-                          )}
-                        </Box>
-                      </Grid>
-                    ))}
-                  </Grid>
-                </CardContent>
-              </Card>
-            ))}
+                        </Grid>
+                      ))}
+                    </Grid>
+                  </CardContent>
+                </Card>
+              )
+            })}
           </Box>
         )}
       </DialogContent>

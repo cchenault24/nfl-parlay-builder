@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
 import { container } from '../services/container'
 
-export function useCurrentWeek() {
+export function useAvailableWeeks() {
   return useQuery({
-    queryKey: ['currentWeek'],
-    queryFn: () => container.nflData.currentWeek(),
+    queryKey: ['availableWeek'],
+    queryFn: () => container.nflData.availableWeek(),
     staleTime: 60 * 60 * 1000, // 1h
   })
 }

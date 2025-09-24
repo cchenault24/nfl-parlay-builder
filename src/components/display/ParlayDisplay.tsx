@@ -11,7 +11,7 @@ import {
 import React, { useEffect } from 'react'
 import useModalStore from '../../store/modalStore'
 import useParlayStore from '../../store/parlayStore'
-import type { GeneratedParlay } from '../../types'
+import type { ParlayLeg } from '../../types'
 import { AuthModal } from '../auth/AuthModal'
 import { LegalDisclaimer } from '../legal/LegalDisclaimer' // Add this import
 import GameSummaryView from './GameSummaryView'
@@ -21,12 +21,12 @@ import ParlayLegView from './ParlayLegView'
 import ParlayLoading from './ParlayLoading'
 
 interface ParlayDisplayProps {
-  parlay?: GeneratedParlay
   loading: boolean
 }
 
-const ParlayDisplay: React.FC<ParlayDisplayProps> = ({ parlay, loading }) => {
+const ParlayDisplay: React.FC<ParlayDisplayProps> = ({ loading }) => {
   // Store state and actions
+  const parlay = useParlayStore(state => state.parlay)
   const setParlay = useParlayStore(state => state.setParlay)
   const authModalOpen = useModalStore(state => state.authModalOpen)
   const setAuthModalOpen = useModalStore(state => state.setAuthModalOpen)
@@ -35,6 +35,19 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({ parlay, loading }) => {
   useEffect(() => {
     setParlay(parlay || null)
   }, [parlay, setParlay])
+
+  const uiLegs = React.useMemo<ParlayLeg[]>(() => {
+    if (!parlay) return []
+    return parlay.legs.map((leg, index) => ({
+      id: `${parlay.gameId ?? 'game'}-L${index + 1}`,
+      betType: leg.type as ParlayLeg['betType'],
+      selection: leg.selection,
+      target: leg.threshold != null ? String(leg.threshold) : '',
+      reasoning: leg.rationale ?? '',
+      confidence: 0,
+      odds: leg.price != null ? String(leg.price) : '',
+    }))
+  }, [parlay])
 
   if (loading) {
     return <ParlayLoading />
@@ -49,7 +62,7 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({ parlay, loading }) => {
       {parlay.gameSummary && (
         <GameSummaryView
           gameSummary={parlay.gameSummary}
-          gameContext={parlay.gameContext}
+          gameContext={parlay.gameContext ?? ''}
         />
       )}
 
@@ -59,17 +72,19 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({ parlay, loading }) => {
             <TrendingUpIcon sx={{ mr: 1 }} />
             <Typography variant="h6">AI Generated Parlay</Typography>
             <Box sx={{ ml: 'auto' }}>
-              <Chip
-                label={parlay.estimatedOdds}
-                color="primary"
-                variant="outlined"
-                size="small"
-              />
+              {parlay.estimatedOdds && (
+                <Chip
+                  label={String(parlay.estimatedOdds)}
+                  color="primary"
+                  variant="outlined"
+                  size="small"
+                />
+              )}
             </Box>
           </Box>
 
           <Grid container spacing={2} sx={{ mb: 3 }}>
-            {parlay.legs.map((leg, index) => (
+            {uiLegs.map((leg, index) => (
               <ParlayLegView key={leg.id} leg={leg} index={index} />
             ))}
           </Grid>

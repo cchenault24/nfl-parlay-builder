@@ -1,22 +1,22 @@
-import React from 'react'
+import { Casino as CasinoIcon } from '@mui/icons-material'
 import {
+  Box,
+  Button,
   Card,
   CardContent,
-  Typography,
+  CircularProgress,
   FormControl,
   InputLabel,
-  Select,
   MenuItem,
-  Button,
-  Box,
-  CircularProgress,
+  Select,
+  Typography,
 } from '@mui/material'
 import { SelectChangeEvent } from '@mui/material/Select'
-import { Casino as CasinoIcon } from '@mui/icons-material'
-import WeekSelector from './WeekSelector'
-import type { NFLGame } from '../types'
+import React from 'react'
+import { useGenerateParlay } from '../hooks/useGenerateParlay'
 import useParlayStore from '../store/parlayStore'
-import { useParlayGenerator } from '../hooks/useParlayGenerator'
+import type { NFLGame } from '../types'
+import WeekSelector from './WeekSelector'
 
 interface GameSelectorProps {
   games: NFLGame[]
@@ -42,14 +42,14 @@ const GameSelector: React.FC<GameSelectorProps> = ({
 }) => {
   const selectedGame = useParlayStore(state => state.selectedGame)
   const setSelectedGame = useParlayStore(state => state.setSelectedGame)
-  const { reset: resetParlay } = useParlayGenerator()
+  const parlayMutation = useGenerateParlay()
 
   const handleGameChange = (event: SelectChangeEvent<string>) => {
     const gameId = event.target.value
     const game = games.find(g => g.id === gameId)
     if (game) {
       setSelectedGame(game)
-      resetParlay()
+      parlayMutation.reset()
     }
   }
 
@@ -233,14 +233,18 @@ const GameSelector: React.FC<GameSelectorProps> = ({
                   size="large"
                   startIcon={<CasinoIcon />}
                   onClick={onGenerateParlay}
-                  disabled={!canGenerate || loading}
+                  disabled={!canGenerate || loading || parlayMutation.isPending}
                   sx={{
                     px: 4,
                     py: 1.5,
                     minHeight: '48px',
                   }}
                 >
-                  {loading ? 'Loading...' : 'Create 3-Leg Parlay'}
+                  {parlayMutation.isPending
+                    ? 'Generating...'
+                    : loading
+                      ? 'Loading...'
+                      : 'Create 3-Leg Parlay'}
                 </Button>
               </Box>
             )}
