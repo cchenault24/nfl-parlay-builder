@@ -27,6 +27,8 @@ export interface NFLGame {
     city?: string
     state?: string
   }
+  // Included to match existing references in your code
+  seasonType?: number
 }
 
 export interface NFLPlayer {

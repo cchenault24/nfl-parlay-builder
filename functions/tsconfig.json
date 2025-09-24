@@ -1,22 +1,26 @@
 {
     "compilerOptions": {
-        "module": "commonjs",
-        "noImplicitReturns": true,
-        "noUnusedLocals": true,
-        "outDir": "lib",
-        "sourceMap": true,
-        "strict": true,
-        "target": "es2017",
+        "target": "ES2022",
+        "module": "CommonJS",
+        "moduleResolution": "node",
         "esModuleInterop": true,
+        "resolveJsonModule": true,
+        "strict": true,
         "skipLibCheck": true,
-        "forceConsistentCasingInFileNames": true,
-        "resolveJsonModule": true
+        "rootDir": "src",
+        "outDir": "lib",
+        "baseUrl": "."
     },
-    "compileOnSave": true,
     "include": [
         "src"
     ],
     "exclude": [
-        "node_modules"
+        "src/middleware/**",
+        "src/service/ai/providers/**",
+        "src/service/ai/BaseParlayProvider.ts",
+        "src/service/ai/ContextBuilder.ts",
+        "src/service/ai/PromptEngine.ts",
+        "src/service/ai/ParlayAIService.ts",
+        "src/util/zodSchemas.ts"
     ]
 }

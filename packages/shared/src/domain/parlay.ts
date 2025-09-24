@@ -1,12 +1,19 @@
+export interface StrategyConfig {
+  name: string
+  // add knobs as you formalize them
+}
+
+export interface VarietyFactors {
+  strategy?: string
+  focusArea?: string
+  playerTier?: string
+  gameScript?: string
+  marketBias?: string
+}
+
 export interface ParlayOptions {
   strategy?: string
-  variety?: {
-    strategy?: string
-    focusArea?: string
-    playerTier?: string
-    gameScript?: string
-    marketBias?: string
-  }
+  variety?: VarietyFactors
   riskTolerance?: number
   temperature?: number
   maxLegs?: number
