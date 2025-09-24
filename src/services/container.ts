@@ -1,137 +1,59 @@
-import { APIConfig } from '../api/clients/base/types'
-import { ESPNClient } from '../api/clients/ESPNClient'
-import { NFLDataService } from './NFLDataService'
-import { ParlayService } from './ParlayService'
+// src/services/container.ts
+import type { GeneratedParlay, ParlayOptions } from '@npb/shared'
+import { FunctionsAPI } from './functionsClient'
 
-// Optional configuration interface for initializing clients from the outside
-export interface ServiceContainerConfig {
-  espn?: Partial<APIConfig>
+/**
+ * ParlayService is a thin facade over your Cloud Functions endpoint.
+ * It hides HTTP details from the UI and returns strongly typed results.
+ */
+export interface ParlayService {
+  /**
+   * Generate a parlay for a given gameId using server-side orchestration.
+   * The server composes rosters, injuries, weather, lines, etc., and calls the AI.
+   */
+  generate(gameId: string, options?: ParlayOptions): Promise<GeneratedParlay>
 }
 
 /**
- * Centralized dependency container with lazy singletons.
- * - All getters are safe to call repeatedly.
- * - You can override instances for tests using the register methods.
+ * Concrete implementation that calls Cloud Functions.
+ */
+class ParlayServiceImpl implements ParlayService {
+  async generate(
+    gameId: string,
+    options?: ParlayOptions
+  ): Promise<GeneratedParlay> {
+    if (!gameId || typeof gameId !== 'string') {
+      throw new Error('gameId is required')
+    }
+
+    const resp = await FunctionsAPI.generateParlay(gameId, options)
+
+    if (!resp?.success) {
+      const msg = resp?.error?.message || 'Parlay generation failed'
+      throw new Error(msg)
+    }
+
+    if (!resp.data) {
+      throw new Error('Parlay generation succeeded but no data was returned')
+    }
+
+    return resp.data
+  }
+}
+
+/**
+ * ServiceContainer exposes all frontend services.
+ * Add additional thin clients here as you stand up more Functions endpoints.
  */
 export class ServiceContainer {
-  private static _instance: ServiceContainer | undefined
+  readonly parlay: ParlayService
 
-  // Cached singletons
-  private espnClient?: ESPNClient
-  private nflDataService?: NFLDataService
-  private parlayService?: ParlayService
-
-  // Optional static config used at first instantiation
-  private static _bootstrapConfig?: ServiceContainerConfig
-
-  // ----- lifecycle -----
-
-  static get instance(): ServiceContainer {
-    if (!this._instance) {
-      this._instance = new ServiceContainer(this._bootstrapConfig)
-    }
-    return this._instance
-  }
-
-  /**
-   * Provide initial config before first access.
-   * Call this once at app bootstrap if you want to override defaults.
-   */
-  static configure(cfg: ServiceContainerConfig): void {
-    this._bootstrapConfig = cfg
-  }
-
-  /**
-   * Reset the container. Intended for tests or hot reload edge cases.
-   */
-  static reset(): void {
-    this._instance = undefined
-  }
-
-  private constructor(private readonly config?: ServiceContainerConfig) {}
-
-  // ----- registration for tests or manual overrides -----
-
-  registerESPNClient(instance: ESPNClient): void {
-    this.espnClient = instance
-  }
-
-  registerNFLDataService(instance: NFLDataService): void {
-    this.nflDataService = instance
-  }
-
-  registerParlayService(instance: ParlayService): void {
-    this.parlayService = instance
-  }
-
-  // ----- clients -----
-
-  getESPNClient(): ESPNClient {
-    if (!this.espnClient) {
-      // Pass the ESPN config if provided
-      this.espnClient = new ESPNClient(this.config?.espn)
-    }
-    return this.espnClient
-  }
-
-  // ----- services -----
-
-  getNFLDataService(): NFLDataService {
-    if (!this.nflDataService) {
-      // No casting needed - ESPNClient implements INFLClient
-      this.nflDataService = new NFLDataService(this.getESPNClient())
-    }
-    return this.nflDataService
-  }
-
-  getParlayService(): ParlayService {
-    if (!this.parlayService) {
-      // No casting needed - ESPNClient implements INFLClient
-      this.parlayService = new ParlayService(
-        this.getESPNClient(),
-        this.getNFLDataService()
-      )
-    }
-    return this.parlayService
-  }
-
-  // ----- utility methods -----
-
-  /**
-   * Clear all cached services (useful for testing)
-   */
-  clear(): void {
-    this.espnClient = undefined
-    this.nflDataService = undefined
-    this.parlayService = undefined
-  }
-
-  /**
-   * Get all registered services (useful for debugging)
-   */
-  getRegisteredServices(): Record<string, boolean> {
-    return {
-      espnClient: !!this.espnClient,
-      nflDataService: !!this.nflDataService,
-      parlayService: !!this.parlayService,
-    }
+  constructor() {
+    this.parlay = new ParlayServiceImpl()
   }
 }
 
 /**
- * Convenience accessors if you prefer free functions over calling through the class.
- * These all resolve from the same underlying singleton container instance.
+ * App-wide singleton. If you need testability, you can DI this in providers instead.
  */
-export const getESPNClient = (): ESPNClient =>
-  ServiceContainer.instance.getESPNClient()
-
-export const getNFLDataService = (): NFLDataService =>
-  ServiceContainer.instance.getNFLDataService()
-
-export const getParlayService = (): ParlayService =>
-  ServiceContainer.instance.getParlayService()
-
-/**
- * Get the container instance directly
- */
-export const getContainer = (): ServiceContainer => ServiceContainer.instance
+export const container = new ServiceContainer()
