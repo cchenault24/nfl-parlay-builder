@@ -189,13 +189,12 @@ function AppContent() {
 
           <GameSelector
             games={games || []}
-            loading={gamesLoading || weekLoading}
             onGenerateParlay={handleGenerateParlay}
             canGenerate={!!selectedGame && !parlayLoading}
             currentWeek={selectedWeek}
             onWeekChange={handleWeekChange}
             availableWeeks={availableWeeks}
-            weekLoading={weekLoading}
+            weekToFetch={weekToFetch}
           />
 
           {/* Show any parlay errors */}

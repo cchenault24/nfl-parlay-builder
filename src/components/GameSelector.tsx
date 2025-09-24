@@ -17,32 +17,37 @@ import WeekSelector from './WeekSelector'
 import type { NFLGame } from '../types'
 import useParlayStore from '../store/parlayStore'
 import { useParlayGenerator } from '../hooks/useParlayGenerator'
+import { LegSelector } from './LegSelector'
+import { useCurrentWeek } from '../hooks/useCurrentWeek'
+import { useNFLGames } from '../hooks/useNFLGames'
 
 interface GameSelectorProps {
   games: NFLGame[]
-  loading: boolean
   onGenerateParlay: () => void
   canGenerate: boolean
   // Week selector props
   currentWeek: number
   onWeekChange: (week: number) => void
   availableWeeks: number[]
-  weekLoading?: boolean
+  weekToFetch: number
 }
 
 const GameSelector: React.FC<GameSelectorProps> = ({
   games,
-  loading,
   onGenerateParlay,
   canGenerate,
   currentWeek,
   onWeekChange,
   availableWeeks,
-  weekLoading = false,
+  weekToFetch
+
 }) => {
   const selectedGame = useParlayStore(state => state.selectedGame)
   const setSelectedGame = useParlayStore(state => state.setSelectedGame)
   const { reset: resetParlay } = useParlayGenerator()
+  const { isLoading: weekLoading } = useCurrentWeek()
+  const { isLoading: gamesLoading } = useNFLGames(weekToFetch)
+  const loading = gamesLoading || weekLoading
 
   const handleGameChange = (event: SelectChangeEvent<string>) => {
     const gameId = event.target.value
@@ -219,14 +224,16 @@ const GameSelector: React.FC<GameSelectorProps> = ({
             </FormControl>
 
             {selectedGame && (
-              <Box sx={{ textAlign: 'center' }}>
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ mb: 2 }}
-                >
-                  Selected: <strong>{formatGameDisplay(selectedGame)}</strong>
-                </Typography>
+              <Box
+                sx={{
+                  textAlign: 'center',
+                  display: 'flex',
+                  flexDirection: 'column',
+                }}
+              >
+                
+
+                <LegSelector disabled={loading} />
 
                 <Button
                   variant="contained"
@@ -240,7 +247,7 @@ const GameSelector: React.FC<GameSelectorProps> = ({
                     minHeight: '48px',
                   }}
                 >
-                  {loading ? 'Loading...' : 'Create 3-Leg Parlay'}
+                  {loading ? 'Loading...' : 'Create Parlay'}
                 </Button>
               </Box>
             )}
