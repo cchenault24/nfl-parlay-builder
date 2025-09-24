@@ -35,3 +35,22 @@ export function handleWithCors(
     }
   }
 }
+
+// Robust CORS helper for Firebase HTTPS functions (Express-style)
+// - Reflects allowed origins (no wildcard when using credentials)
+// - Handles OPTIONS preflight correctly (including dynamic request headers)
+// - Keeps headers on both success and error paths
+
+// Allowlist: add production domains via env, and permissive local dev hosts.
+// Example env: CORS_ALLOWED_ORIGINS="https://app.example.com,https://www.example.com"
+const ENV_ALLOWED = (process.env.CORS_ALLOWED_ORIGINS || '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean)
+
+// Local dev/default allow rules (regex checks against req.headers.origin)
+const LOCAL_ORIGIN_REGEXES: RegExp[] = [
+  /^https?:\/\/localhost(?::\d+)?$/i,
+  /^https?:\/\/127\.0\.0\.1(?::\d+)?$/i,
+  /^https?:\/\/192\.168\.\d+\.\d+(?::\d+)?$/i, // your LAN (covers 192.168.68.100)
+]
