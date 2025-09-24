@@ -13,7 +13,7 @@ export class NFLDataService {
    */
   async getCurrentWeekGames(): Promise<NFLGame[]> {
     // No week provided -> server returns current-week games
-    return container.nflData.nflGames()
+    return container.nflData.nflGames(1)
   }
 
   /**
@@ -59,14 +59,14 @@ export class NFLDataService {
    * Calls server and ensures legacy aliases are present.
    */
   async getGameRosters(game: NFLGame): Promise<GameRosters> {
-    const r = await container.nflData.gameRosters(game.id)
+    const r = await container.nflData.gameRosters(game)
     // Ensure legacy aliases are available to UI (homeRoster/awayRoster)
     return {
-      gameId: r.gameId ?? game.id,
-      home: r.home,
-      away: r.away,
-      homeRoster: (r as any).homeRoster ?? r.home,
-      awayRoster: (r as any).awayRoster ?? r.away,
+      gameId: game.id,
+      home: r.homeRoster,
+      away: r.awayRoster,
+      homeRoster: (r as any).homeRoster ?? r.homeRoster,
+      awayRoster: (r as any).awayRoster ?? r.awayRoster,
     } as GameRosters
   }
 

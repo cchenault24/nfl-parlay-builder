@@ -214,14 +214,14 @@ export class ParlayService {
    */
   async getGameRosters(game: NFLGame): Promise<GameRosters> {
     try {
-      const r = await container.nflData.gameRosters(game.id)
+      const r = await container.nflData.gameRosters(game)
       return {
-        gameId: r.gameId ?? game.id,
-        home: r.home,
-        away: r.away,
+        gameId: game.id,
+        home: r.homeRoster,
+        away: r.awayRoster,
         // legacy aliases kept for UI components that still read these keys
-        homeRoster: (r as any).homeRoster ?? r.home,
-        awayRoster: (r as any).awayRoster ?? r.away,
+        homeRoster: (r as any).homeRoster ?? r.homeRoster,
+        awayRoster: (r as any).awayRoster ?? r.awayRoster,
       } as GameRosters
     } catch (error) {
       console.error('Error fetching game rosters:', error)

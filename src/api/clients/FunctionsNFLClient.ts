@@ -1,78 +1,105 @@
+// src/api/clients/FunctionsNFLClient.ts
 import type {
-  GameRosters,
-  GenerateParlayRequest,
-  GenerateParlayResponse,
+  GeneratedParlay,
   NFLGame,
   NFLPlayer,
-} from '@npb/shared'
+  ParlayOptions,
+} from '../../types' // adjust if your types barrel is elsewhere
 
-const FUNCTIONS_BASE_URL =
-  (import.meta as any)?.env?.VITE_FUNCTIONS_BASE_URL?.replace(/\/+$/, '') ||
-  (typeof window !== 'undefined' &&
-    (window as any)?.__APP_CONFIG__?.FUNCTIONS_BASE_URL?.replace(/\/+$/, '')) ||
-  'http://localhost:5001/nfl-parlay-builder/us-central1'
+// If your project puts shared types at '@npb/shared', swap the import:
+// import type { NFLGame, NFLPlayer, GeneratedParlay, ParlayOptions } from '@npb/shared'
 
-async function getJson<T>(url: string): Promise<T> {
-  const res = await fetch(url, { headers: { accept: 'application/json' } })
-  if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(`GET ${url} -> ${res.status} ${text}`)
-  }
-  return (await res.json()) as T
+const PROJECT_ID = import.meta.env.VITE_FIREBASE_PROJECT_ID
+if (!PROJECT_ID) {
+  throw new Error('VITE_FIREBASE_PROJECT_ID is required')
 }
 
-async function postJson<T>(url: string, body: unknown): Promise<T> {
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', accept: 'application/json' },
-    body: JSON.stringify(body),
-  })
-  if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(`POST ${url} -> ${res.status} ${text}`)
-  }
-  return (await res.json()) as T
-}
+const BASE =
+  import.meta.env.VITE_CLOUD_FUNCTION_URL ||
+  (import.meta.env.DEV
+    ? `http://localhost:5001/${PROJECT_ID}/us-central1`
+    : `https://us-central1-${PROJECT_ID}.cloudfunctions.net`)
 
 export class FunctionsNFLClient {
-  constructor(private baseUrl = FUNCTIONS_BASE_URL) {}
+  constructor(private readonly baseUrl: string = BASE) {}
 
-  // ---- Orchestrator ----
-  async generateParlay(
-    req: GenerateParlayRequest
-  ): Promise<GenerateParlayResponse> {
-    return postJson<GenerateParlayResponse>(
-      `${this.baseUrl}/generateParlay`,
-      req
+  // ---------- low-level helpers ----------
+  private async getJson<T>(path: string): Promise<T> {
+    const res = await fetch(`${this.baseUrl}${path}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'omit',
+    })
+    if (!res.ok) {
+      const text = await res.text().catch(() => '')
+      throw new Error(
+        `GET ${path} failed ${res.status} ${res.statusText} ${text}`
+      )
+    }
+    return res.json() as Promise<T>
+  }
+
+  private async postJson<T>(path: string, body: unknown): Promise<T> {
+    const res = await fetch(`${this.baseUrl}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'omit',
+      body: JSON.stringify(body),
+    })
+    if (!res.ok) {
+      const text = await res.text().catch(() => '')
+      throw new Error(
+        `POST ${path} failed ${res.status} ${res.statusText} ${text}`
+      )
+    }
+    return res.json() as Promise<T>
+  }
+
+  // ---------- endpoints you actually call ----------
+  currentWeek(): Promise<number> {
+    return this.getJson<number>('/currentWeek')
+  }
+
+  availableWeeks(): Promise<number[]> {
+    return this.getJson<number[]>('/availableWeeks')
+  }
+
+  gamesByWeek(week: number): Promise<NFLGame[]> {
+    return this.getJson<NFLGame[]>(
+      `/gamesByWeek?week=${encodeURIComponent(week)}`
     )
   }
 
-  // ---- Data proxy endpoints (to be implemented server-side) ----
-  async teamRoster(teamId: string): Promise<NFLPlayer[]> {
-    return getJson<NFLPlayer[]>(
-      `${this.baseUrl}/teamRoster?teamId=${encodeURIComponent(teamId)}`
+  teamRoster(teamId: string): Promise<NFLPlayer[]> {
+    return this.getJson<NFLPlayer[]>(
+      `/teamRoster?teamId=${encodeURIComponent(teamId)}`
     )
   }
 
-  async currentWeek(): Promise<number> {
-    return getJson<number>(`${this.baseUrl}/currentWeek`)
+  generateParlay(input: {
+    game: NFLGame
+    options?: ParlayOptions
+  }): Promise<GeneratedParlay> {
+    // server composes context — only needs game + options
+    return this.postJson<GeneratedParlay>('/generateParlay', input)
   }
 
-  async availableWeek(): Promise<number> {
-    return getJson<number>(`${this.baseUrl}/availableWeek`)
+  // ---------- compatibility shims for legacy callers ----------
+  // old name used in NFLDataService or hooks
+  nflGames(week: number): Promise<NFLGame[]> {
+    return this.gamesByWeek(week)
   }
 
-  async gameRosters(gameId: string): Promise<GameRosters> {
-    return getJson<GameRosters>(
-      `${this.baseUrl}/gameRosters?gameId=${encodeURIComponent(gameId)}`
-    )
-  }
-
-  async nflGames(week?: number): Promise<NFLGame[]> {
-    const url =
-      week != null
-        ? `${this.baseUrl}/nflGames?week=${encodeURIComponent(String(week))}`
-        : `${this.baseUrl}/nflGames`
-    return getJson<NFLGame[]>(url)
+  // some old code expects "gameRosters(game)" on the client
+  async gameRosters(
+    game: NFLGame
+  ): Promise<{ homeRoster: NFLPlayer[]; awayRoster: NFLPlayer[] }> {
+    const [homeRoster, awayRoster] = await Promise.all([
+      this.teamRoster(game.homeTeam.id),
+      this.teamRoster(game.awayTeam.id),
+    ])
+    return { homeRoster, awayRoster }
   }
 }
+
+export const functionsNFLClient = new FunctionsNFLClient()
