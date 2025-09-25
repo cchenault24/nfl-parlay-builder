@@ -1,7 +1,7 @@
 {
     "compilerOptions": {
         "target": "ES2022",
-        "module": "CommonJS",
+        "module": "CommonJS", 
         "moduleResolution": "node",
         "esModuleInterop": true,
         "resolveJsonModule": true,
@@ -12,15 +12,6 @@
         "baseUrl": "."
     },
     "include": [
-        "src"
-    ],
-    "exclude": [
-        "src/middleware/**",
-        "src/service/ai/providers/**",
-        "src/service/ai/BaseParlayProvider.ts",
-        "src/service/ai/ContextBuilder.ts",
-        "src/service/ai/PromptEngine.ts",
-        "src/service/ai/ParlayAIService.ts",
-        "src/util/zodSchemas.ts"
+        "src/**/*"
     ]
 }

@@ -7,15 +7,21 @@
   },
   "scripts": {
     "prebuild": "yarn workspace @npb/shared run build",
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -p tsconfig.json && cp lib/index.js ./ && cp -r lib/http ./ && cp -r lib/clients ./ && cp lib/types.js ./",
+    "serve": "yarn build && firebase emulators:start --only functions",
+    "shell": "yarn build && firebase functions:shell",
+    "start": "yarn shell",
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log"
   },
   "dependencies": {
     "@npb/shared": "*",
     "cors": "^2.8.5",
     "firebase-admin": "^12.6.0",
-    "firebase-functions": "^5.0.0"
+    "firebase-functions": "^5.1.1"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.17",
     "typescript": "^5.6.3"
   }
 }

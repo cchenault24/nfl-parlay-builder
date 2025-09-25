@@ -1,13 +1,10 @@
-// src/api/clients/FunctionsNFLClient.ts
+// src/api/clients/FunctionsNFLClient.ts - Updated for v2 Functions
 import type {
   GeneratedParlay,
   NFLGame,
   NFLPlayer,
   ParlayOptions,
-} from '../../types' // adjust if your types barrel is elsewhere
-
-// If your project puts shared types at '@npb/shared', swap the import:
-// import type { NFLGame, NFLPlayer, GeneratedParlay, ParlayOptions } from '@npb/shared'
+} from '../../types'
 
 const PROJECT_ID = import.meta.env.VITE_FIREBASE_PROJECT_ID
 if (!PROJECT_ID) {
@@ -21,38 +18,90 @@ const BASE =
     : `https://us-central1-${PROJECT_ID}.cloudfunctions.net`)
 
 export class FunctionsNFLClient {
-  constructor(private readonly baseUrl: string = BASE) {}
+  constructor(private readonly baseUrl: string = BASE) {
+    console.log('🔧 FunctionsNFLClient initialized with:', this.baseUrl)
+  }
 
   // ---------- low-level helpers ----------
   private async getJson<T>(path: string): Promise<T> {
-    const res = await fetch(`${this.baseUrl}${path}`, {
+    const url = `${this.baseUrl}${path}`
+    console.log('🔧 Making GET request to:', url)
+
+    const res = await fetch(url, {
       method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
       credentials: 'omit',
     })
+
+    console.log('🔧 Response status:', res.status, res.statusText)
+
     if (!res.ok) {
       const text = await res.text().catch(() => '')
+      console.error('🚨 Request failed:', {
+        url,
+        status: res.status,
+        statusText: res.statusText,
+        body: text,
+      })
       throw new Error(
         `GET ${path} failed ${res.status} ${res.statusText} ${text}`
       )
     }
-    return res.json() as Promise<T>
+
+    const data = await res.json()
+    console.log('🔧 Response data:', data)
+
+    // Handle Firebase Functions v2 response format
+    if (data.success === false) {
+      throw new Error(data.error || 'Request failed')
+    }
+
+    // Return the data field for successful responses
+    return data.data ?? data
   }
 
   private async postJson<T>(path: string, body: unknown): Promise<T> {
-    const res = await fetch(`${this.baseUrl}${path}`, {
+    const url = `${this.baseUrl}${path}`
+    console.log('🔧 Making POST request to:', url, 'with body:', body)
+
+    const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
       credentials: 'omit',
       body: JSON.stringify(body),
     })
+
+    console.log('🔧 Response status:', res.status, res.statusText)
+
     if (!res.ok) {
       const text = await res.text().catch(() => '')
+      console.error('🚨 Request failed:', {
+        url,
+        status: res.status,
+        statusText: res.statusText,
+        body: text,
+      })
       throw new Error(
         `POST ${path} failed ${res.status} ${res.statusText} ${text}`
       )
     }
-    return res.json() as Promise<T>
+
+    const data = await res.json()
+    console.log('🔧 Response data:', data)
+
+    // Handle Firebase Functions v2 response format
+    if (data.success === false) {
+      throw new Error(data.error || 'Request failed')
+    }
+
+    // Return the data field for successful responses
+    return data.data ?? data
   }
 
   // ---------- endpoints you actually call ----------
@@ -76,21 +125,27 @@ export class FunctionsNFLClient {
     )
   }
 
+  getRateLimitStatus(): Promise<{
+    remaining: number
+    total: number
+    resetTime: string
+    currentCount: number
+  }> {
+    return this.getJson('/getRateLimitStatus')
+  }
+
   generateParlay(input: {
     game: NFLGame
     options?: ParlayOptions
   }): Promise<GeneratedParlay> {
-    // server composes context — only needs game + options
     return this.postJson<GeneratedParlay>('/generateParlay', input)
   }
 
   // ---------- compatibility shims for legacy callers ----------
-  // old name used in NFLDataService or hooks
   nflGames(week: number): Promise<NFLGame[]> {
     return this.gamesByWeek(week)
   }
 
-  // some old code expects "gameRosters(game)" on the client
   async gameRosters(
     game: NFLGame
   ): Promise<{ homeRoster: NFLPlayer[]; awayRoster: NFLPlayer[] }> {

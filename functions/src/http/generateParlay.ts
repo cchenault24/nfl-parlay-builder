@@ -1,68 +1,71 @@
-import type { GenerateParlayResponse, ParlayOptions } from '@npb/shared'
-import cors from 'cors'
-import * as functions from 'firebase-functions/v1'
-import { DataOrchestrator } from '../service/data/dataOrchestrator'
-// REPLACE this:
-// import ParlayAIService from "../service/ai/ParlayAIService"
-// WITH this:
-import StubAIService from '../service/ai/StubAIService'
-import { validateGenerateParlayRequest } from '../util/validate'
+// functions/src/http/generateParlay.ts - Updated for POST endpoint
+import type { Request, Response } from 'express'
+import { onRequest } from 'firebase-functions/v2/https'
 
-const handleCors = cors({ origin: true })
+export const generateParlay = onRequest(
+  {
+    region: 'us-central1',
+    cors: [
+      'http://localhost:3001',
+      'http://localhost:3000',
+      'https://nfl-parlay-builder.web.app',
+      'https://nfl-parlay-builder.firebaseapp.com',
+    ],
+  },
+  async (req: Request, res: Response) => {
+    if (req.method !== 'POST') {
+      res.status(405).json({
+        success: false,
+        error: 'Method not allowed. Use POST.',
+      })
+      return
+    }
 
-export const generateParlay = functions
-  .region('us-central1')
-  .runWith({
-    timeoutSeconds: 120,
-    memory: '512MB',
-    secrets: ['OPENAI_API_KEY'],
-  })
-  .https.onRequest(async (req, res) => {
-    handleCors(req, res, async () => {
-      if (req.method !== 'POST') {
-        res.status(405).json({
-          success: false,
-          error: { code: 'METHOD_NOT_ALLOWED', message: 'Only POST allowed' },
-        } as GenerateParlayResponse)
-        return
-      }
+    const { game, options } = req.body
 
-      const parsed = validateGenerateParlayRequest(req.body)
-      if (!parsed.ok) {
-        res.status(400).json({
-          success: false,
-          error: { code: 'BAD_REQUEST', message: parsed.error },
-        } as GenerateParlayResponse)
-        return
-      }
+    if (!game?.id) {
+      res.status(400).json({
+        success: false,
+        error: 'Game object with id is required',
+      })
+      return
+    }
 
-      const { gameId, options } = parsed.data
+    // TODO: Replace with real AI parlay generation service
+    const mockParlay = {
+      id: `parlay_${Date.now()}`,
+      gameId: game.id,
+      legs: [
+        {
+          id: 'leg_1',
+          betType: 'spread' as const,
+          selection: game.homeTeam?.displayName || 'Home Team',
+          target: '-3.5',
+          reasoning:
+            'Strong home field advantage and recent offensive performance',
+          confidence: 7,
+          odds: '-110',
+        },
+        {
+          id: 'leg_2',
+          betType: 'total' as const,
+          selection: 'Over',
+          target: '47.5',
+          reasoning: 'Both teams have potent passing attacks',
+          confidence: 6,
+          odds: '-105',
+        },
+      ],
+      aiReasoning:
+        'This parlay leverages home field advantage and offensive matchups...',
+      overallConfidence: 6.5,
+      estimatedOdds: '+260',
+      createdAt: new Date().toISOString(),
+    }
 
-      try {
-        const orchestrator = new DataOrchestrator()
-        const unified = await orchestrator.byGameId(gameId)
-
-        // Use stub for now; we’ll swap to real provider after migration
-        const ai = new StubAIService()
-        const genOpts: ParlayOptions = options ?? {}
-        const result = await ai.generateParlay(
-          unified.game,
-          unified.rosters,
-          genOpts
-        )
-
-        res.status(200).json({
-          success: true,
-          data: result.parlay,
-        } as GenerateParlayResponse)
-      } catch (err: any) {
-        res.status(500).json({
-          success: false,
-          error: {
-            code: 'SERVER_ERROR',
-            message: err?.message ?? 'Unknown error',
-          },
-        } as GenerateParlayResponse)
-      }
+    res.status(200).json({
+      success: true,
+      data: mockParlay,
     })
-  })
+  }
+)

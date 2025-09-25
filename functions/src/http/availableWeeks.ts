@@ -1,10 +1,18 @@
 import type { Request, Response } from 'express'
 import { onRequest } from 'firebase-functions/v2/https'
-import { handleWithCors } from './cors'
 
 export const availableWeeks = onRequest(
-  { region: 'us-central1' },
-  handleWithCors(async (req: Request, res: Response) => {
+  {
+    region: 'us-central1',
+    cors: [
+      'http://localhost:3001',
+      'http://localhost:3000',
+      'https://nfl-parlay-builder.web.app',
+      'https://nfl-parlay-builder.firebaseapp.com',
+    ],
+  },
+  async (req: Request, res: Response) => {
+    // TODO: Replace with real ESPN service call
     const fallbackWeek = 3
     const current = Number.isFinite(
       parseInt(process.env.MOCK_CURRENT_WEEK ?? '', 10)
@@ -19,9 +27,9 @@ export const availableWeeks = onRequest(
       (_, i) => start + i
     )
 
-    // optional: help the browser cache very short-lived responses during dev
-    res.setHeader('Cache-Control', 'private, max-age=30')
-
-    res.status(200).json({ success: true, data: weeks })
-  })
+    res.status(200).json({
+      success: true,
+      data: weeks,
+    })
+  }
 )
