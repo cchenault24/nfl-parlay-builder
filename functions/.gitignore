@@ -1,18 +1,24 @@
-# Compiled JavaScript files - build artifacts
-lib/
+# Compiled JavaScript files - ignore all .js files since we only write .ts
 *.js
 *.js.map
+*.d.ts
 
-# Copied build artifacts (from build script)
-http/
-clients/
-middleware/
-service/
-util/
-
-# TypeScript v1 declaration files
-typings/
+# Temporary build directory
+lib/
 
 # Node.js dependency directory
 node_modules/
 *.local
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db

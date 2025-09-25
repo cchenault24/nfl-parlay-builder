@@ -1,4 +1,5 @@
-// src/api/clients/FunctionsNFLClient.ts - Updated for v2 Functions
+// src/api/clients/FunctionsNFLClient.ts - Updated to use gameId format consistently
+
 import type {
   GeneratedParlay,
   NFLGame,
@@ -6,105 +7,93 @@ import type {
   ParlayOptions,
 } from '../../types'
 
-const PROJECT_ID = import.meta.env.VITE_FIREBASE_PROJECT_ID
-if (!PROJECT_ID) {
-  throw new Error('VITE_FIREBASE_PROJECT_ID is required')
+// Base client for HTTP operations
+class HttpBase {
+  private baseUrl: string
+
+  constructor(baseUrl: string) {
+    this.baseUrl = baseUrl.replace(/\/$/, '') // Remove trailing slash
+  }
+
+  private async makeRequest<T>(
+    endpoint: string,
+    options: RequestInit = {}
+  ): Promise<T> {
+    const url = `${this.baseUrl}${endpoint}`
+
+    const defaultHeaders = {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    }
+
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        ...defaultHeaders,
+        ...options.headers,
+      },
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => 'Unknown error')
+      throw new Error(`HTTP ${response.status}: ${errorText}`)
+    }
+
+    return response.json()
+  }
+
+  async getJson<T>(endpoint: string): Promise<T> {
+    const response = await this.makeRequest<{ success: boolean; data: T }>(
+      endpoint,
+      { method: 'GET' }
+    )
+
+    if (!response.success) {
+      throw new Error('Request failed')
+    }
+
+    return response.data
+  }
+
+  async postJson<T>(endpoint: string, data: any): Promise<T> {
+    const response = await this.makeRequest<{ success: boolean; data: T }>(
+      endpoint,
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }
+    )
+
+    if (!response.success) {
+      throw new Error('Request failed')
+    }
+
+    return response.data
+  }
 }
 
-const BASE =
-  import.meta.env.VITE_CLOUD_FUNCTION_URL ||
-  (import.meta.env.DEV
-    ? `http://localhost:5001/${PROJECT_ID}/us-central1`
-    : `https://us-central1-${PROJECT_ID}.cloudfunctions.net`)
+/**
+ * Client for NFL-related Cloud Functions
+ * Updated to use consistent gameId format throughout
+ */
+export class FunctionsNFLClient extends HttpBase {
+  constructor() {
+    // Determine the base URL based on environment
+    const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID
+    if (!projectId) {
+      throw new Error('VITE_FIREBASE_PROJECT_ID is required')
+    }
 
-export class FunctionsNFLClient {
-  constructor(private readonly baseUrl: string = BASE) {
-    console.log('🔧 FunctionsNFLClient initialized with:', this.baseUrl)
+    const isDev = import.meta.env.DEV
+    const baseUrl = isDev
+      ? `http://localhost:5001/${projectId}/us-central1`
+      : `https://us-central1-${projectId}.cloudfunctions.net`
+
+    super(baseUrl)
   }
 
-  // ---------- low-level helpers ----------
-  private async getJson<T>(path: string): Promise<T> {
-    const url = `${this.baseUrl}${path}`
-    console.log('🔧 Making GET request to:', url)
+  // ---------- Core NFL Data endpoints ----------
 
-    const res = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      credentials: 'omit',
-    })
-
-    console.log('🔧 Response status:', res.status, res.statusText)
-
-    if (!res.ok) {
-      const text = await res.text().catch(() => '')
-      console.error('🚨 Request failed:', {
-        url,
-        status: res.status,
-        statusText: res.statusText,
-        body: text,
-      })
-      throw new Error(
-        `GET ${path} failed ${res.status} ${res.statusText} ${text}`
-      )
-    }
-
-    const data = await res.json()
-    console.log('🔧 Response data:', data)
-
-    // Handle Firebase Functions v2 response format
-    if (data.success === false) {
-      throw new Error(data.error || 'Request failed')
-    }
-
-    // Return the data field for successful responses
-    return data.data ?? data
-  }
-
-  private async postJson<T>(path: string, body: unknown): Promise<T> {
-    const url = `${this.baseUrl}${path}`
-    console.log('🔧 Making POST request to:', url, 'with body:', body)
-
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      credentials: 'omit',
-      body: JSON.stringify(body),
-    })
-
-    console.log('🔧 Response status:', res.status, res.statusText)
-
-    if (!res.ok) {
-      const text = await res.text().catch(() => '')
-      console.error('🚨 Request failed:', {
-        url,
-        status: res.status,
-        statusText: res.statusText,
-        body: text,
-      })
-      throw new Error(
-        `POST ${path} failed ${res.status} ${res.statusText} ${text}`
-      )
-    }
-
-    const data = await res.json()
-    console.log('🔧 Response data:', data)
-
-    // Handle Firebase Functions v2 response format
-    if (data.success === false) {
-      throw new Error(data.error || 'Request failed')
-    }
-
-    // Return the data field for successful responses
-    return data.data ?? data
-  }
-
-  // ---------- endpoints you actually call ----------
   currentWeek(): Promise<number> {
     return this.getJson<number>('/currentWeek')
   }
@@ -134,14 +123,48 @@ export class FunctionsNFLClient {
     return this.getJson('/getRateLimitStatus')
   }
 
-  generateParlay(input: {
-    game: NFLGame
+  // ---------- Parlay Generation (Updated to use gameId format) ----------
+
+  /**
+   * Generate parlay using gameId format
+   * @param gameId - The game ID string
+   * @param options - Optional parlay generation options
+   */
+  generateParlay(
+    gameId: string,
     options?: ParlayOptions
-  }): Promise<GeneratedParlay> {
-    return this.postJson<GeneratedParlay>('/generateParlay', input)
+  ): Promise<GeneratedParlay> {
+    if (!gameId || typeof gameId !== 'string') {
+      throw new Error('gameId is required and must be a string')
+    }
+
+    return this.postJson<GeneratedParlay>('/generateParlay', {
+      gameId,
+      options,
+    })
   }
 
-  // ---------- compatibility shims for legacy callers ----------
+  /**
+   * Generate parlay from game object (convenience method)
+   * @param game - The NFLGame object
+   * @param options - Optional parlay generation options
+   */
+  generateParlayFromGame(
+    game: NFLGame,
+    options?: ParlayOptions
+  ): Promise<GeneratedParlay> {
+    if (!game?.id) {
+      throw new Error('Game object must have an id property')
+    }
+
+    return this.generateParlay(game.id, options)
+  }
+
+  // ---------- Legacy compatibility methods ----------
+
+  /**
+   * @deprecated Use gamesByWeek instead
+   */
   nflGames(week: number): Promise<NFLGame[]> {
     return this.gamesByWeek(week)
   }

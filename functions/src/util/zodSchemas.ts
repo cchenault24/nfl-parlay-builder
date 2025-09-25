@@ -1,7 +1,8 @@
+// Updated Zod schema for gameId format
 import { z } from 'zod'
 
 export const GenerateParlayRequestSchema = z.object({
-  gameId: z.string().min(1),
+  gameId: z.string().min(1).trim(),
   options: z
     .object({
       strategy: z.string().optional(),
