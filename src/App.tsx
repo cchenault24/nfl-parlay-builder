@@ -39,7 +39,7 @@ const queryClient = new QueryClient({
 function AppContent() {
   const selectedGame = useParlayStore(state => state.selectedGame)
   const setSelectedGame = useParlayStore(state => state.setSelectedGame)
-  // const devMockOverride = useGeneralStore(state => state.devMockOverride)
+  const setParlay = useParlayStore(state => state.setParlay)
 
   const { user, loading } = useAuth()
   const [historyOpen, setHistoryOpen] = useState(false)
@@ -87,7 +87,15 @@ function AppContent() {
     isPending: parlayLoading,
     error: parlayError,
     reset: resetParlay,
+    data: generatedParlay,
   } = useGenerateParlay()
+
+  useEffect(() => {
+    if (generatedParlay) {
+      console.log('🔥 Setting parlay in store:', generatedParlay)
+      setParlay(generatedParlay)
+    }
+  }, [generatedParlay, setParlay])
 
   // Check age verification status
   useEffect(() => {
@@ -104,6 +112,9 @@ function AppContent() {
 
   const handleGenerateParlay = () => {
     if (selectedGame) {
+      setParlay(null)
+
+      console.log('🔥 Generating parlay for game:', selectedGame.id)
       generateParlay({
         gameId: selectedGame.id,
         options: { strategy: 'balanced' },
