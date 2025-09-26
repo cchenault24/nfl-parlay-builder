@@ -28,10 +28,12 @@ function mapTeam(t: any): NFLTeam {
     id: String(t?.team?.id ?? ''),
     abbreviation: t?.team?.abbreviation ?? '',
     displayName: t?.team?.displayName ?? '',
-    shortDisplayName: t?.team?.shortDisplayName ?? '',
-    color: t?.team?.color,
-    alternateColor: t?.team?.alternateColor,
-    logo: t?.team?.logo,
+    // Fix 1: Use displayName instead of shortDisplayName
+    location: t?.team?.location ?? '',
+    name: t?.team?.name ?? '',
+    color: t?.team?.color ?? '',
+    alternateColor: t?.team?.alternateColor ?? '',
+    logo: t?.team?.logo ?? '',
   }
 }
 
@@ -39,19 +41,22 @@ function mapGame(src: any): NFLGame {
   const comp = src?.header?.competitions?.[0]
   const home = comp?.competitors?.find((c: any) => c.homeAway === 'home')
   const away = comp?.competitors?.find((c: any) => c.homeAway === 'away')
+
+  // Fix 2: Create venue string instead of object
+  const venueName = comp?.venue?.fullName || ''
+  const venueCity = comp?.venue?.address?.city || ''
+  const venueState = comp?.venue?.address?.state || ''
+  const venue = [venueName, venueCity, venueState].filter(Boolean).join(', ')
+
   return {
     id: String(src?.header?.id ?? ''),
-    season: Number(src?.header?.season?.year ?? 0),
     week: Number(src?.header?.week?.number ?? 0),
     date: comp?.date ?? '',
+    startTime: comp?.date ?? '', // Add startTime field required by NFLGame
     status: normalizeStatus(comp?.status?.type?.state),
     homeTeam: mapTeam(home),
     awayTeam: mapTeam(away),
-    venue: {
-      name: comp?.venue?.fullName,
-      city: comp?.venue?.address?.city,
-      state: comp?.venue?.address?.state,
-    },
+    venue: venue, // Now a string as expected by NFLGame type
   }
 }
 

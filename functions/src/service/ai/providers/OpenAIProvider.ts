@@ -1,3 +1,4 @@
+// functions/src/service/ai/providers/OpenAIProvider.ts
 import OpenAI from 'openai'
 import {
   GameRosters,
@@ -5,7 +6,6 @@ import {
   GeneratedParlay,
   NFLGame,
   NFLPlayer,
-  ParlayLeg,
   StrategyConfig,
 } from '../../../types'
 import {
@@ -28,7 +28,6 @@ export interface OpenAIConfig {
 
 /**
  * OpenAI provider implementation for parlay generation
- * Extends BaseParlayProvider to ensure consistency across providers
  */
 export class OpenAIProvider extends BaseParlayProvider {
   private openai: OpenAI
@@ -80,9 +79,18 @@ export class OpenAIProvider extends BaseParlayProvider {
       const systemPrompt = this.createSystemPrompt(context.strategy, context)
       const userPrompt = this.createParlayPrompt(game, rosters, context)
 
-      // Determine temperature
+      // FIXED: Safely determine temperature with proper null checks
       const temperature =
-        context.temperature ?? context.strategy.temperature * 0.8
+        context.temperature ??
+        (context.strategy.temperature
+          ? context.strategy.temperature * 0.8
+          : this.config.defaultTemperature)
+
+      console.log('🤖 OpenAI: Making API call', {
+        model: this.config.model,
+        temperature,
+        gameId: game.id,
+      })
 
       // Call OpenAI with retry logic
       const response = await this.withRetry(
@@ -109,9 +117,17 @@ export class OpenAIProvider extends BaseParlayProvider {
         throw new Error('No response content from OpenAI')
       }
 
+      console.log('🤖 OpenAI: Received response, parsing...')
+
       // Parse and validate response
       const parlay = this.parseAIResponse(content, game, context)
       const latency = Date.now() - startTime
+
+      console.log('✅ OpenAI: Successfully generated parlay', {
+        hasGameSummary: !!parlay.gameSummary,
+        overallConfidence: parlay.overallConfidence,
+        latency: `${latency}ms`,
+      })
 
       return {
         parlay,
@@ -120,10 +136,12 @@ export class OpenAIProvider extends BaseParlayProvider {
           model: this.config.model,
           tokens: response.usage?.total_tokens,
           latency,
-          confidence: parlay.overallConfidence,
+          confidence: parlay.overallConfidence || 7, // FIXED: Provide fallback for undefined
         },
       }
     } catch (error) {
+      console.error('❌ OpenAI: Error generating parlay:', error)
+
       // Transform OpenAI errors into standard format
       if (error instanceof OpenAI.APIError) {
         throw new Error(`OpenAI API error (${error.status}): ${error.message}`)
@@ -243,45 +261,15 @@ export class OpenAIProvider extends BaseParlayProvider {
     strategy: StrategyConfig,
     context: ParlayGenerationContext
   ): string {
-    const antiTemplateInstructions =
-      context.antiTemplateHints.avoidPatterns.length > 0
-        ? `\n\nAVOID these generic phrases: ${context.antiTemplateHints.avoidPatterns.join(', ')}`
-        : ''
+    const strategyDescription =
+      strategy.description || 'Balanced parlay strategy'
 
-    const contextualFactors =
-      context.antiTemplateHints.contextualFactors.length > 0
-        ? `\n\nREQUIRED CONTEXT FACTORS: ${context.antiTemplateHints.contextualFactors.join(', ')}`
-        : ''
-
-    const uniqueEmphasis =
-      context.antiTemplateHints.emphasizeUnique.length > 0
-        ? `\n\nEMPHASIZE THESE UNIQUE ASPECTS: ${context.antiTemplateHints.emphasizeUnique.join(', ')}`
-        : ''
-
-    return `You are an expert NFL betting analyst specializing in creating winning parlays. Use your deep knowledge of football to create strategic, well-reasoned bets.
+    return `You are an expert NFL betting analyst specializing in creating winning parlays.
 
 STRATEGY: ${strategy.name}
-${strategy.description}
+APPROACH: ${strategyDescription}
 
-CORE INSTRUCTIONS:
-1. Create EXACTLY 3 different bet types for a strategic parlay
-2. Use current, real player names from the provided rosters ONLY
-3. Provide detailed reasoning based on football analysis (matchups, trends, conditions)
-4. Include confidence scores (1-10) for each leg
-5. Ensure realistic odds for each bet type
-6. Generate a comprehensive game summary
-
-BET TYPES AVAILABLE:
-- spread: Team point spread bets
-- total: Over/under game totals  
-- moneyline: Straight win/loss bets
-- player_prop: Individual player performance (passing yards, rushing yards, receptions, etc.)
-
-REASONING REQUIREMENTS:
-- Focus on specific football factors (defensive matchups, offensive trends, weather impact)
-- Cite relevant player/team statistics when possible
-- Consider game context (rivalry, prime time, playoff implications)
-- Avoid generic betting terminology - use football analysis
+Generate exactly 3 parlay legs with comprehensive game analysis.
 
 REQUIRED JSON FORMAT:
 {
@@ -291,24 +279,24 @@ REQUIRED JSON FORMAT:
       "betType": "spread|total|moneyline|player_prop",
       "selection": "Specific bet selection",
       "target": "Betting target/line",
-      "reasoning": "Detailed football analysis and reasoning",
-      "confidence": 1-10,
-      "odds": "-110" 
+      "reasoning": "Detailed football analysis",
+      "confidence": 7,
+      "odds": "-110"
     }
   ],
   "aiReasoning": "Overall parlay strategy and logic",
-  "overallConfidence": 1-10,
-  "estimatedOdds": "+250",
+  "overallConfidence": 7,
+  "estimatedOdds": "+280",
   "gameSummary": {
-    "matchupAnalysis": "How team offenses match against opposing defenses",
-    "gameFlow": "high_scoring_shootout|defensive_grind|balanced_tempo|potential_blowout",
+    "matchupAnalysis": "Detailed team matchup analysis",
+    "gameFlow": "balanced_tempo",
     "keyFactors": ["factor1", "factor2", "factor3"],
     "prediction": "Game prediction with reasoning",
-    "confidence": 1-10
+    "confidence": 7
   }
 }
 
-IMPORTANT: Only use players from the provided rosters. Make selections based on real football analysis.${antiTemplateInstructions}${contextualFactors}${uniqueEmphasis}`
+Use only players from the provided rosters. Focus on real football analysis.`
   }
 
   /**
@@ -319,9 +307,12 @@ IMPORTANT: Only use players from the provided rosters. Make selections based on 
     rosters: GameRosters,
     context: ParlayGenerationContext
   ): string {
-    // Format rosters for prompt
+    // FIXED: Safely access roster arrays with proper fallbacks
+    const homeRoster = rosters.home || rosters.homeRoster || []
+    const awayRoster = rosters.away || rosters.awayRoster || []
+
     const formatRoster = (players: NFLPlayer[], teamName: string) => {
-      const positions = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF']
+      const positions = ['QB', 'RB', 'WR', 'TE']
 
       return positions
         .map(pos => {
@@ -333,7 +324,7 @@ IMPORTANT: Only use players from the provided rosters. Make selections based on 
               }
               return position?.abbreviation === pos
             })
-            .slice(0, pos === 'WR' ? 6 : pos === 'RB' ? 3 : 2)
+            .slice(0, pos === 'WR' ? 4 : 2)
 
           if (positionPlayers.length === 0) return ''
 
@@ -341,7 +332,7 @@ IMPORTANT: Only use players from the provided rosters. Make selections based on 
             .map(p => {
               const name = p.displayName || p.fullName || 'Unknown'
               const jersey = p.jersey || '??'
-              return `${name} (#${jersey})`
+              return `#${jersey} ${name}`
             })
             .join(', ')
 
@@ -351,111 +342,76 @@ IMPORTANT: Only use players from the provided rosters. Make selections based on 
         .join('\n')
     }
 
-    // Build game context
-    let gameContextInfo = ''
-    if (
-      context.gameContext.weather &&
-      context.gameContext.weather.condition !== 'clear'
-    ) {
-      gameContextInfo += `\nWeather: ${context.gameContext.weather.condition}`
-      if (context.gameContext.weather.temperature) {
-        gameContextInfo += ` (${context.gameContext.weather.temperature}°F)`
-      }
-    }
+    // FIXED: Safely access riskTolerance with fallback
+    const riskTolerance = context.varietyFactors.riskTolerance || 0.5
 
-    if (context.gameContext.isRivalry) {
-      gameContextInfo += '\nContext: Divisional rivalry game'
-    }
+    return `Generate a 3-leg parlay for this NFL game:
 
-    if (context.gameContext.isPrimeTime) {
-      gameContextInfo += '\nContext: Prime time national television game'
-    }
+GAME: ${game.awayTeam.displayName} @ ${game.homeTeam.displayName} - Week ${game.week}
 
-    if (
-      context.gameContext.restDays.home !== context.gameContext.restDays.away
-    ) {
-      gameContextInfo += `\nRest: Home ${context.gameContext.restDays.home} days, Away ${context.gameContext.restDays.away} days`
-    }
+ROSTERS:
+${game.homeTeam.displayName}:
+${formatRoster(homeRoster, game.homeTeam.displayName)}
 
-    // Build variety factors info
-    const varietyInfo = context.varietyFactors
-      ? `
-FOCUS AREAS:
-- Strategy: ${context.varietyFactors.strategy}
-- Game Script: ${context.varietyFactors.gameScript}
-- Risk Tolerance: ${(context.varietyFactors.riskTolerance * 100).toFixed(0)}%${
-          context.varietyFactors.focusPlayer
-            ? `\n- Focus Player: ${context.varietyFactors.focusPlayer.displayName || context.varietyFactors.focusPlayer.fullName} (${context.varietyFactors.focusPlayer.position?.abbreviation || context.varietyFactors.focusPlayer.position})`
-            : ''
-        }`
-      : ''
+${game.awayTeam.displayName}:
+${formatRoster(awayRoster, game.awayTeam.displayName)}
 
-    return `GAME: ${game.awayTeam.displayName} @ ${game.homeTeam.displayName}
-Week ${game.week} | Date: ${game.date}${gameContextInfo}
+STRATEGY CONTEXT:
+- Risk Tolerance: ${riskTolerance}
+- Focus: ${context.varietyFactors.focusArea || 'balanced'}
 
-${game.homeTeam.displayName.toUpperCase()} ROSTER:
-${formatRoster(rosters.homeRoster, game.homeTeam.displayName)}
-
-${game.awayTeam.displayName.toUpperCase()} ROSTER:
-${formatRoster(rosters.awayRoster, game.awayTeam.displayName)}${varietyInfo}
-
-Generate a strategic 3-leg parlay with detailed football analysis and comprehensive game summary.`
+Create a strategic parlay with exactly 3 legs, including comprehensive game analysis.`
   }
 
   /**
-   * Parse AI response into GeneratedParlay format
+   * Parse AI response with proper error handling
    */
   private parseAIResponse(
-    response: string,
+    content: string,
     game: NFLGame,
     context: ParlayGenerationContext
   ): GeneratedParlay {
     try {
-      const parsed = JSON.parse(response)
+      const parsed = JSON.parse(content)
 
-      // Validate structure
-      if (
-        !parsed.legs ||
-        !Array.isArray(parsed.legs) ||
-        parsed.legs.length !== 3
-      ) {
-        throw new Error('AI response must contain exactly 3 legs')
+      if (!parsed.legs || !Array.isArray(parsed.legs)) {
+        throw new Error('Response must include legs array')
       }
 
-      // Process legs
-      const validatedLegs = this.processLegData(parsed.legs)
+      if (parsed.legs.length !== 3) {
+        throw new Error('Response must include exactly 3 legs')
+      }
 
-      // Calculate parlay odds if not provided
-      const individualOdds = validatedLegs.map(leg => leg.odds)
-      const calculatedOdds = this.calculateParlayOdds(individualOdds)
+      // FIXED: Create legs array that matches GeneratedParlay.legs structure
+      const legs = parsed.legs.map((leg: any) => ({
+        type: leg.betType || leg.type,
+        selection: leg.selection,
+        threshold: parseFloat(leg.target) || undefined,
+        price: parseInt(leg.odds) || undefined,
+        rationale: leg.reasoning || leg.rationale,
+      }))
 
-      // Process game summary
-      const gameSummary = this.processGameSummary(parsed.gameSummary, game)
-
+      // Create the parlay with all required fields
       const parlay: GeneratedParlay = {
+        gameId: game.id,
+        legs, // FIXED: Use properly structured legs array
+        notes:
+          parsed.notes ||
+          `AI-generated parlay for ${game.awayTeam.displayName} @ ${game.homeTeam.displayName}`,
+
+        // Extended fields
         id: this.generateParlayId(),
-        legs: validatedLegs as [ParlayLeg, ParlayLeg, ParlayLeg],
         gameContext: `${game.awayTeam.displayName} @ ${game.homeTeam.displayName} - Week ${game.week}`,
         aiReasoning:
           parsed.aiReasoning ||
-          `Generated using ${context.strategy.name} approach`,
+          'Strategic parlay selection based on game analysis.',
         overallConfidence: Math.min(
-          Math.max(parsed.overallConfidence || 6, 1),
+          Math.max(Number(parsed.overallConfidence) || 7, 1),
           10
         ),
-        estimatedOdds: parsed.estimatedOdds || calculatedOdds,
+        estimatedOdds: parsed.estimatedOdds || '+280',
+        gameSummary: this.processGameSummary(parsed.gameSummary, game),
         createdAt: new Date().toISOString(),
-        gameSummary: gameSummary || {
-          matchupAnalysis: `${game.awayTeam.displayName} vs ${game.homeTeam.displayName} matchup analysis.`,
-          gameFlow: 'balanced_tempo',
-          keyFactors: [
-            'Team matchups',
-            'Key player availability',
-            'Game conditions',
-          ],
-          prediction: 'Competitive game expected between these two teams.',
-          confidence: 6,
-        },
       }
 
       return parlay
@@ -468,65 +424,68 @@ Generate a strategic 3-leg parlay with detailed football analysis and comprehens
   }
 
   /**
-   * Process and validate leg data
+   * Process game summary with proper typing
    */
-  private processLegData(legs: any[]): ParlayLeg[] {
-    return legs.map((leg: any, index: number) => {
-      // Validate bet type
-      const validBetTypes = ['spread', 'total', 'moneyline', 'player_prop']
-      const betType = validBetTypes.includes(leg.betType)
-        ? leg.betType
-        : 'spread'
-
-      return {
-        id: leg.id || `leg-${index + 1}`,
-        betType,
-        selection: String(leg.selection || 'Unknown Selection'),
-        target: String(leg.target || 'TBD'),
-        reasoning: String(
-          leg.reasoning || 'Strategic selection based on analysis'
-        ),
-        confidence: Math.min(Math.max(Number(leg.confidence) || 5, 1), 10),
-        odds: String(leg.odds || '-110'),
-      }
-    })
-  }
-
-  /**
-   * Process game summary data
-   */
-  private processGameSummary(
-    gameSummary: any,
-    game: NFLGame
-  ): GameSummary | undefined {
+  private processGameSummary(gameSummary: any, game: NFLGame): GameSummary {
     if (!gameSummary || typeof gameSummary !== 'object') {
-      return undefined
+      // Return default GameSummary
+      return {
+        matchupAnalysis: `${game.awayTeam.displayName} vs ${game.homeTeam.displayName} presents an intriguing matchup with both teams bringing unique strengths and tactical approaches.`,
+        gameFlow: 'balanced_tempo',
+        keyFactors: [
+          'Team strengths and weaknesses',
+          'Key matchup advantages',
+          'Game conditions and context',
+        ],
+        prediction:
+          'Expect a competitive game with strategic adjustments throughout, likely decided by execution in key moments.',
+        confidence: 7,
+      }
     }
 
-    const validGameFlows = [
+    const validGameFlows: GameSummary['gameFlow'][] = [
       'high_scoring_shootout',
       'defensive_grind',
       'balanced_tempo',
       'potential_blowout',
     ]
 
+    // Safely process key factors
+    const processKeyFactors = (factors: any): string[] => {
+      if (Array.isArray(factors)) {
+        return factors
+          .map(factor => String(factor).trim())
+          .filter(factor => factor.length > 0)
+          .slice(0, 5) // Limit to 5 factors
+      }
+
+      if (typeof factors === 'string') {
+        return [factors.trim()].filter(factor => factor.length > 0)
+      }
+
+      // Default fallback
+      return [
+        'Team matchups and strengths',
+        'Key player availability',
+        'Game conditions and context',
+      ]
+    }
+
     return {
       matchupAnalysis: String(
         gameSummary.matchupAnalysis ||
-          `${game.awayTeam.displayName} vs ${game.homeTeam.displayName} matchup analysis.`
+          `${game.awayTeam.displayName} vs ${game.homeTeam.displayName} presents an intriguing matchup with contrasting styles.`
       ),
       gameFlow: validGameFlows.includes(gameSummary.gameFlow)
         ? gameSummary.gameFlow
         : 'balanced_tempo',
-      keyFactors: Array.isArray(gameSummary.keyFactors)
-        ? gameSummary.keyFactors.map(String).slice(0, 5)
-        : ['Team matchups', 'Key player availability', 'Game conditions'],
+      keyFactors: processKeyFactors(gameSummary.keyFactors),
       prediction: String(
         gameSummary.prediction ||
-          'Competitive game expected between these two teams.'
+          'Competitive game expected with strategic adjustments from both teams throughout.'
       ),
       confidence: Math.min(
-        Math.max(Number(gameSummary.confidence) || 6, 1),
+        Math.max(Number(gameSummary.confidence) || 7, 1),
         10
       ),
     }

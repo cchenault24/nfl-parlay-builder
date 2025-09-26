@@ -3,6 +3,7 @@ import type { Request, Response } from 'express'
 import { onRequest } from 'firebase-functions/v2/https'
 import { ESPNServerClient } from '../clients/espnClient'
 import { ParlayAIService } from '../service/ai/ParlayAIService'
+import { MockProvider } from '../service/ai/providers/MockProvider'
 import { OpenAIProvider } from '../service/ai/providers/OpenAIProvider'
 import { DataOrchestrator } from '../service/data/dataOrchestrator'
 
@@ -10,7 +11,7 @@ import { DataOrchestrator } from '../service/data/dataOrchestrator'
 const espnClient = new ESPNServerClient()
 const dataOrchestrator = new DataOrchestrator(espnClient)
 
-// Initialize AI service with OpenAI provider
+// Initialize AI service
 const aiService = new ParlayAIService({
   primaryProvider: 'openai',
   fallbackProviders: ['mock'],
@@ -29,10 +30,22 @@ if (process.env.OPENAI_API_KEY) {
   aiService.registerProvider('openai', openaiProvider)
   console.log('✅ OpenAI provider registered with API key')
 } else {
-  console.warn('⚠️ OPENAI_API_KEY not found, AI generation will use fallback')
+  console.warn('⚠️ OPENAI_API_KEY not found, OpenAI provider not available')
 }
 
-// Default strategy and variety factors
+// Always register Mock provider for development and fallback
+const mockProvider = new MockProvider({
+  enableErrorSimulation: false,
+  errorRate: 0.0,
+  minDelayMs: 800,
+  maxDelayMs: 2000,
+  defaultConfidence: 7,
+  debugMode: process.env.NODE_ENV === 'development',
+})
+aiService.registerProvider('mock', mockProvider)
+console.log('✅ Mock provider registered for fallback and development')
+
+// Default configurations
 const defaultStrategy = {
   name: 'Balanced Analysis',
   temperature: 0.7,
@@ -57,7 +70,6 @@ export const generateParlay = onRequest(
       'https://nfl-parlay-builder.web.app',
       'https://nfl-parlay-builder.firebaseapp.com',
     ],
-    // Increase timeout for AI processing
     timeoutSeconds: 60,
   },
   async (req: Request, res: Response) => {
@@ -69,215 +81,108 @@ export const generateParlay = onRequest(
       return
     }
 
-    const startTime = Date.now()
-    const { gameId, options } = req.body
-
-    if (!gameId || typeof gameId !== 'string' || !gameId.trim()) {
-      res.status(400).json({
-        success: false,
-        error: 'gameId is required and must be a non-empty string',
-      })
-      return
-    }
-
     try {
-      console.log(`🚀 Starting parlay generation for game: ${gameId}`)
-
-      // Step 1: Fetch unified game data (game + rosters)
-      console.log('📊 Fetching game data from ESPN...')
-      const unifiedData = await dataOrchestrator.byGameId(gameId.trim())
-      const { game, rosters } = unifiedData
-
-      if (!game || !game.id) {
-        throw new Error(`Game not found: ${gameId}`)
+      const { gameId, options = {} } = req.body as {
+        gameId: string
+        options?: ParlayOptions
       }
 
-      console.log(
-        `✅ Game data fetched: ${game.awayTeam.displayName} @ ${game.homeTeam.displayName}`
-      )
-
-      // Step 2: Validate rosters have sufficient data
-      if (!rosters || !rosters.home || !rosters.away) {
-        console.warn('⚠️ Roster data missing, using mock rosters')
-        // Create minimal roster structure for AI to work with
-        rosters.home = rosters.home || []
-        rosters.away = rosters.away || []
-      }
-
-      console.log(
-        `📋 Rosters: Home (${rosters.home.length}) vs Away (${rosters.away.length})`
-      )
-
-      // Step 3: Process options and set up generation context
-      const processedOptions: ParlayOptions = {
-        strategy: options?.strategy || 'balanced',
-        variety: {
-          strategy:
-            options?.variety?.strategy || defaultVarietyFactors.strategy,
-          focusArea:
-            options?.variety?.focusArea || defaultVarietyFactors.focusArea,
-          playerTier:
-            options?.variety?.playerTier || defaultVarietyFactors.playerTier,
-          gameScript:
-            options?.variety?.gameScript || defaultVarietyFactors.gameScript,
-          marketBias:
-            options?.variety?.marketBias || defaultVarietyFactors.marketBias,
-        },
-        riskTolerance: options?.riskTolerance ?? 0.5,
-        temperature: options?.temperature ?? 0.7,
-        maxLegs: options?.maxLegs ?? 3,
-      }
-
-      console.log('🎯 Generation options:', processedOptions)
-
-      // Step 4: Check if AI service has registered providers
-      const registeredProviders = aiService.getRegisteredProviders()
-      const hasOpenAI = registeredProviders.has('openai')
-      const shouldUseMock = !hasOpenAI || options?.provider === 'mock'
-
-      if (shouldUseMock) {
-        console.log('🤖 Using mock AI provider (OpenAI not available)')
-
-        // Generate enhanced mock response
-        const mockParlay = generateEnhancedMockParlay(
-          game,
-          rosters,
-          processedOptions
-        )
-
-        const responseTime = Date.now() - startTime
-
-        res.status(200).json({
-          success: true,
-          data: mockParlay,
-          metadata: {
-            provider: 'mock',
-            model: 'mock-enhanced-v1',
-            latency: responseTime,
-            confidence: 7, // Use fixed confidence since mockParlay doesn't have overallConfidence
-            fallbackUsed: !hasOpenAI,
-            attemptCount: 1,
-            serviceMode: 'mock',
-            environment: process.env.NODE_ENV || 'production',
-          },
+      if (!gameId) {
+        res.status(400).json({
+          success: false,
+          error: 'Missing required field: gameId',
         })
         return
       }
 
-      // Step 5: Generate parlay using AI service
-      console.log('🧠 Generating parlay with OpenAI...')
+      // CRITICAL: Extract provider preference from options
+      const requestedProvider = options.provider || 'auto'
+      console.log(
+        `🏈 Generating parlay for game: ${gameId} with provider: ${requestedProvider}`
+      )
 
+      // Fetch game and roster data
+      const unifiedData = await dataOrchestrator.byGameId(gameId)
+      const { game, rosters } = unifiedData
+
+      console.log(`📊 Game data retrieved:`, {
+        gameId,
+        awayTeam: game.awayTeam?.displayName,
+        homeTeam: game.homeTeam?.displayName,
+        week: game.week,
+        requestedProvider,
+      })
+
+      // Generate parlay using AI service with explicit provider selection
       const result = await aiService.generateParlay(
         game,
         rosters,
         defaultStrategy,
-        processedOptions.variety || defaultVarietyFactors,
+        defaultVarietyFactors,
         {
-          temperature: processedOptions.temperature,
-          provider: 'openai',
+          provider: requestedProvider, // CRITICAL: Pass through provider choice
+          temperature: options.temperature,
+          debugMode: true,
         }
       )
 
-      const responseTime = Date.now() - startTime
-      console.log(`✅ Parlay generated successfully in ${responseTime}ms`)
+      console.log(`✅ Parlay generated successfully:`, {
+        actualProvider: result.metadata.provider,
+        requestedProvider,
+        legCount: result.parlay.legs?.length || 0,
+        hasGameSummary: !!(result.parlay as any).gameSummary,
+        confidence: result.metadata.confidence,
+        latency: `${result.metadata.latency}ms`,
+        fallbackUsed: result.metadata.fallbackUsed,
+      })
+
+      // Ensure gameSummary exists for AI Analysis UI
+      const enhancedParlay = result.parlay as any
+      if (!enhancedParlay.gameSummary) {
+        console.warn('⚠️ Generated parlay missing gameSummary, adding fallback')
+        enhancedParlay.gameSummary = generateFallbackGameSummary(game)
+        enhancedParlay.gameContext = `${game.awayTeam?.displayName || 'Away'} @ ${game.homeTeam?.displayName || 'Home'} - Week ${game.week || 'TBD'}`
+      }
 
       res.status(200).json({
         success: true,
-        data: result.parlay,
+        data: enhancedParlay,
         metadata: {
           ...result.metadata,
-          latency: responseTime,
-          serviceMode: 'openai',
-          environment: process.env.NODE_ENV || 'production',
+          requestedProvider,
+          actualProvider: result.metadata.provider,
+          providerMatch: result.metadata.provider === requestedProvider,
         },
       })
     } catch (error) {
-      const responseTime = Date.now() - startTime
-      console.error(
-        `❌ Parlay generation failed after ${responseTime}ms:`,
-        error
-      )
+      console.error('❌ Error generating parlay:', error)
 
-      // Provide fallback mock response on error
-      try {
-        console.log('🔄 Attempting fallback mock generation...')
-        const mockData = await dataOrchestrator.byGameId(gameId.trim())
-        const mockParlay = generateEnhancedMockParlay(
-          mockData.game,
-          mockData.rosters,
-          options || {}
-        )
-
-        res.status(200).json({
-          success: true,
-          data: mockParlay,
-          metadata: {
-            provider: 'mock',
-            model: 'fallback-mock-v1',
-            latency: responseTime,
-            confidence: 6, // Use fixed confidence since mockParlay doesn't have overallConfidence
-            fallbackUsed: true,
-            attemptCount: 1,
-            serviceMode: 'mock',
-            environment: process.env.NODE_ENV || 'production',
-            error: error instanceof Error ? error.message : 'Unknown error',
-          },
-        })
-      } catch (fallbackError) {
-        console.error('💥 Fallback also failed:', fallbackError)
-
-        res.status(500).json({
-          success: false,
-          error:
-            'Parlay generation service is temporarily unavailable. Please try again.',
-          details: error instanceof Error ? error.message : 'Unknown error',
-        })
-      }
+      res.status(500).json({
+        success: false,
+        error:
+          'Parlay generation service is temporarily unavailable. Please try again.',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      })
     }
   }
 )
 
 /**
- * Generate enhanced mock parlay with game-specific data
- * Uses the correct GeneratedParlay interface from @npb/shared
+ * Generate fallback gameSummary when AI provider fails to include it
  */
-function generateEnhancedMockParlay(
-  game: any,
-  rosters: any,
-  options: any
-): any {
-  const gameContext = `${game.awayTeam?.displayName || 'Away Team'} @ ${game.homeTeam?.displayName || 'Home Team'} - Week ${game.week || 'TBD'}`
-
-  // Generate contextual legs using the correct interface structure
-  const legs = [
-    {
-      type: 'spread' as const,
-      selection: `${game.homeTeam?.displayName || 'Home Team'} -3.5`,
-      threshold: -3.5,
-      price: -110,
-      rationale: `${game.homeTeam?.displayName || 'Home team'} has strong home field advantage and favorable matchup against ${game.awayTeam?.displayName || 'the visiting team'}. Recent form and defensive metrics support the home favorite.`,
-    },
-    {
-      type: 'total' as const,
-      selection: 'Over 47.5',
-      threshold: 47.5,
-      price: -105,
-      rationale:
-        'Both offenses have shown consistent scoring ability this season. Weather conditions are favorable, and recent head-to-head matchups suggest a higher-scoring affair.',
-    },
-    {
-      type: 'player_prop' as const,
-      selection: 'Starting QB Over 275.5 Passing Yards',
-      threshold: 275.5,
-      price: 105,
-      rationale:
-        'Opposing secondary has allowed significant passing yardage in recent games. Game script likely favors passing volume, and weather conditions support the aerial attack.',
-    },
-  ]
+function generateFallbackGameSummary(game: any): any {
+  const awayTeam = game.awayTeam?.displayName || 'Away Team'
+  const homeTeam = game.homeTeam?.displayName || 'Home Team'
 
   return {
-    gameId: game.id,
-    legs,
-    notes: `AI-generated parlay analysis for ${gameContext}. This parlay combines strong statistical trends with current game conditions and matchup advantages.`,
+    matchupAnalysis: `This ${awayTeam} vs ${homeTeam} matchup features contrasting styles and should provide an interesting game flow. Both teams bring unique strengths that could determine the outcome.`,
+    gameFlow: 'balanced_tempo',
+    keyFactors: [
+      'Home field advantage could play a significant role',
+      'Weather conditions appear favorable for both teams',
+      'Recent form and injury reports favor competitive play',
+    ],
+    prediction: `Expecting a competitive game between ${awayTeam} and ${homeTeam} with multiple momentum swings and strategic adjustments.`,
+    confidence: 7,
   }
 }
