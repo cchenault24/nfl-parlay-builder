@@ -1,10 +1,10 @@
 // functions/src/service/ai/providers/MockProvider.ts
 import {
   GameRosters,
-  GameSummary,
+  // GameSummary,
   GeneratedParlay,
   NFLGame,
-  ParlayLeg,
+  // ParlayLeg,
   StrategyConfig,
 } from '../../../types'
 import {
@@ -125,7 +125,7 @@ export class MockProvider extends BaseParlayProvider {
           model: 'mock-gpt-4o-mini',
           tokens: Math.floor(Math.random() * 1000) + 500, // Simulate token usage
           latency,
-          confidence: parlay.overallConfidence,
+          confidence: 10,
         },
       }
     } catch (error) {
@@ -187,26 +187,26 @@ export class MockProvider extends BaseParlayProvider {
   private getTemplatesByStrategy(
     strategy: StrategyConfig
   ): MockParlayTemplate[] {
-    if (
-      strategy.riskLevel === 'aggressive' ||
-      strategy.name.toLowerCase().includes('aggressive')
-    ) {
-      return this.getAggressiveTemplates()
-    }
+    // if (
+    //   strategy.riskLevel === 'aggressive' ||
+    //   strategy.name.toLowerCase().includes('aggressive')
+    // ) {
+    //   return this.getAggressiveTemplates()
+    // }
 
-    if (
-      strategy.name.toLowerCase().includes('player') ||
-      strategy.name.toLowerCase().includes('prop')
-    ) {
-      return this.getPlayerFocusedTemplates()
-    }
+    // if (
+    //   strategy.name.toLowerCase().includes('player') ||
+    //   strategy.name.toLowerCase().includes('prop')
+    // ) {
+    //   return this.getPlayerFocusedTemplates()
+    // }
 
-    if (
-      strategy.riskLevel === 'conservative' ||
-      strategy.name.toLowerCase().includes('conservative')
-    ) {
-      return this.getConservativeTemplates()
-    }
+    // if (
+    //   strategy.riskLevel === 'conservative' ||
+    //   strategy.name.toLowerCase().includes('conservative')
+    // ) {
+    //   return this.getConservativeTemplates()
+    // }
 
     return this.getBalancedTemplates()
   }
@@ -219,7 +219,7 @@ export class MockProvider extends BaseParlayProvider {
     game: NFLGame,
     context: ParlayGenerationContext
   ): GeneratedParlay {
-    const legs: ParlayLeg[] = template.legs.map((leg, index) => ({
+    const legs: any[] = template.legs.map((leg, index) => ({
       id: `mock-leg-${index + 1}`,
       betType: leg.betType as any,
       selection: this.personalizeSelection(leg.selection, game),
@@ -232,7 +232,7 @@ export class MockProvider extends BaseParlayProvider {
       odds: leg.odds,
     }))
 
-    const gameSummary: GameSummary = {
+    const gameSummary: any = {
       matchupAnalysis: this.personalizeAnalysis(
         template.gameSummary.matchupAnalysis,
         game
@@ -247,14 +247,15 @@ export class MockProvider extends BaseParlayProvider {
     }
 
     return {
-      id: `mock-parlay-${Date.now()}`,
+      // id: `mock-parlay-${Date.now()}`,
       legs,
-      aiReasoning: template.aiReasoning,
-      overallConfidence: template.overallConfidence,
-      estimatedOdds: template.estimatedOdds,
+      gameId: '',
+      // aiReasoning: template.aiReasoning,
+      // overallConfidence: template.overallConfidence,
+      // estimatedOdds: template.estimatedOdds,
       gameSummary,
-      createdAt: new Date().toISOString(),
-      gameContext: `${game.awayTeam.displayName} @ ${game.homeTeam.displayName} - Week ${game.week}`,
+      // createdAt: new Date().toISOString(),
+      // gameContext: `${game.awayTeam.displayName} @ ${game.homeTeam.displayName} - Week ${game.week}`,
     }
   }
 
