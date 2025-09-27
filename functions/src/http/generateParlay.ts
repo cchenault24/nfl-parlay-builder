@@ -1,17 +1,26 @@
-import type { ParlayOptions } from '@npb/shared'
 import type { Request, Response } from 'express'
+import { defineSecret } from 'firebase-functions/params'
 import { onRequest } from 'firebase-functions/v2/https'
 import { ESPNServerClient } from '../clients/espnClient'
 import { ParlayAIService } from '../service/ai/ParlayAIService'
-import { MockProvider } from '../service/ai/providers/MockProvider'
 import { OpenAIProvider } from '../service/ai/providers/OpenAIProvider'
 import { DataOrchestrator } from '../service/data/dataOrchestrator'
+import {
+  DEFAULT_STRATEGIES,
+  DEFAULT_VARIETY_FACTORS,
+  ParlayOptions,
+  StrategyConfig,
+  VarietyFactors,
+} from '../types'
+
+// Define secret for OpenAI API key
+const openaiApiKey = defineSecret('OPENAI_API_KEY')
 
 // Initialize services
 const espnClient = new ESPNServerClient()
 const dataOrchestrator = new DataOrchestrator(espnClient)
 
-// Initialize AI service
+// Initialize AI service with OpenAI provider
 const aiService = new ParlayAIService({
   primaryProvider: 'openai',
   fallbackProviders: ['mock'],
@@ -19,47 +28,9 @@ const aiService = new ParlayAIService({
   debugMode: process.env.NODE_ENV === 'development',
 })
 
-// Register OpenAI provider if API key is available
-if (process.env.OPENAI_API_KEY) {
-  const openaiProvider = new OpenAIProvider({
-    apiKey: process.env.OPENAI_API_KEY,
-    model: 'gpt-4o-mini',
-    defaultTemperature: 0.7,
-    defaultMaxTokens: 4000,
-  })
-  aiService.registerProvider('openai', openaiProvider)
-  console.log('✅ OpenAI provider registered with API key')
-} else {
-  console.warn('⚠️ OPENAI_API_KEY not found, OpenAI provider not available')
-}
-
-// Always register Mock provider for development and fallback
-const mockProvider = new MockProvider({
-  enableErrorSimulation: false,
-  errorRate: 0.0,
-  minDelayMs: 800,
-  maxDelayMs: 2000,
-  defaultConfidence: 7,
-  debugMode: process.env.NODE_ENV === 'development',
-})
-aiService.registerProvider('mock', mockProvider)
-console.log('✅ Mock provider registered for fallback and development')
-
-// Default configurations
-const defaultStrategy = {
-  name: 'Balanced Analysis',
-  temperature: 0.7,
-  riskProfile: 'medium' as const,
-  confidenceRange: [5, 8] as [number, number],
-}
-
-const defaultVarietyFactors = {
-  strategy: 'balanced',
-  focusArea: 'matchup_based',
-  playerTier: 'all_players',
-  gameScript: 'competitive',
-  marketBias: 'neutral',
-}
+// Default strategy and variety factors
+const defaultStrategy: StrategyConfig = DEFAULT_STRATEGIES.balanced
+const defaultVarietyFactors: VarietyFactors = DEFAULT_VARIETY_FACTORS
 
 export const generateParlay = onRequest(
   {
@@ -71,118 +42,195 @@ export const generateParlay = onRequest(
       'https://nfl-parlay-builder.firebaseapp.com',
     ],
     timeoutSeconds: 60,
+    memory: '1GiB',
+    secrets: [openaiApiKey], // Include the secret
   },
   async (req: Request, res: Response) => {
-    if (req.method !== 'POST') {
-      res.status(405).json({
-        success: false,
-        error: 'Method not allowed. Use POST.',
-      })
-      return
-    }
-
     try {
+      // Register OpenAI provider with the secret at runtime
+      const apiKey = openaiApiKey.value()
+      if (apiKey) {
+        const openaiProvider = new OpenAIProvider({
+          apiKey,
+          model: 'gpt-4o-mini',
+          defaultTemperature: 0.7,
+          defaultMaxTokens: 4000,
+        })
+        aiService.registerProvider('openai', openaiProvider)
+        console.log('✅ OpenAI provider registered with API key')
+      } else {
+        console.warn(
+          '⚠️ OPENAI_API_KEY not found, AI generation will use fallback'
+        )
+      }
+
+      if (req.method !== 'POST') {
+        res.status(405).json({
+          success: false,
+          error: {
+            code: 'METHOD_NOT_ALLOWED',
+            message: 'Method not allowed. Use POST.',
+          },
+        })
+        return
+      }
+
+      console.log('🎯 Parlay generation request received')
+
       const { gameId, options = {} } = req.body as {
         gameId: string
         options?: ParlayOptions
       }
 
+      // Validate required fields
       if (!gameId) {
         res.status(400).json({
           success: false,
-          error: 'Missing required field: gameId',
+          error: {
+            code: 'MISSING_GAME_ID',
+            message: 'gameId is required',
+          },
         })
         return
       }
 
-      // CRITICAL: Extract provider preference from options
-      const requestedProvider = options.provider || 'auto'
-      console.log(
-        `🏈 Generating parlay for game: ${gameId} with provider: ${requestedProvider}`
-      )
+      console.log(`📊 Fetching game data for gameId: ${gameId}`)
 
-      // Fetch game and roster data
+      // Get unified game data
       const unifiedData = await dataOrchestrator.byGameId(gameId)
       const { game, rosters } = unifiedData
 
-      console.log(`📊 Game data retrieved:`, {
-        gameId,
-        awayTeam: game.awayTeam?.displayName,
-        homeTeam: game.homeTeam?.displayName,
-        week: game.week,
-        requestedProvider,
-      })
+      console.log(
+        `🏈 Game: ${game.awayTeam.displayName} @ ${game.homeTeam.displayName}`
+      )
+      console.log(
+        `👥 Rosters: ${rosters.home.length} home, ${rosters.away.length} away players`
+      )
 
-      // Generate parlay using AI service with explicit provider selection
+      // Validate roster data
+      if (
+        !rosters.home ||
+        !rosters.away ||
+        rosters.home.length === 0 ||
+        rosters.away.length === 0
+      ) {
+        res.status(400).json({
+          success: false,
+          error: {
+            code: 'INVALID_ROSTER_DATA',
+            message: 'Complete roster data is required for both teams',
+          },
+        })
+        return
+      }
+
+      // Use provided strategy and variety factors or defaults
+      const strategy: StrategyConfig = options.strategy || defaultStrategy
+      const varietyFactors: VarietyFactors =
+        options.variety || defaultVarietyFactors
+
+      console.log('🤖 Generating parlay with AI service...')
+      console.log(
+        `🎛️ Strategy: ${strategy.name}, Provider: ${options.provider || 'auto'}`
+      )
+      console.log(
+        `📈 Risk Level: ${strategy.riskLevel}, Temperature: ${strategy.temperature}`
+      )
+
+      // Generate parlay using AI service
       const result = await aiService.generateParlay(
         game,
         rosters,
-        defaultStrategy,
-        defaultVarietyFactors,
+        strategy,
+        varietyFactors,
         {
-          provider: requestedProvider, // CRITICAL: Pass through provider choice
-          temperature: options.temperature,
-          debugMode: true,
+          temperature: options.temperature || strategy.temperature,
+          provider: options.provider,
+          debugMode: process.env.NODE_ENV === 'development',
         }
       )
 
-      console.log(`✅ Parlay generated successfully:`, {
-        actualProvider: result.metadata.provider,
-        requestedProvider,
-        legCount: result.parlay.legs?.length || 0,
-        hasGameSummary: !!(result.parlay as any).gameSummary,
-        confidence: result.metadata.confidence,
-        latency: `${result.metadata.latency}ms`,
-        fallbackUsed: result.metadata.fallbackUsed,
-      })
+      console.log('✅ Parlay generated successfully')
+      console.log(
+        `🎲 Parlay: ${result.parlay.legs?.length || 0} legs, confidence: ${result.parlay.overallConfidence}/10`
+      )
+      console.log(
+        `🔧 Provider: ${result.metadata?.provider}, Model: ${result.metadata?.model}`
+      )
+      console.log(
+        `⚡ Latency: ${result.metadata?.latency}ms, Tokens: ${result.metadata?.tokens || 'N/A'}`
+      )
 
-      // Ensure gameSummary exists for AI Analysis UI
-      const enhancedParlay = result.parlay as any
-      if (!enhancedParlay.gameSummary) {
-        console.warn('⚠️ Generated parlay missing gameSummary, adding fallback')
-        enhancedParlay.gameSummary = generateFallbackGameSummary(game)
-        enhancedParlay.gameContext = `${game.awayTeam?.displayName || 'Away'} @ ${game.homeTeam?.displayName || 'Home'} - Week ${game.week || 'TBD'}`
+      // Prepare response
+      const response = {
+        success: true,
+        data: result.parlay,
+        metadata: {
+          ...(result.metadata || {}),
+          requestedProvider: options.provider,
+          actualProvider: result.metadata?.provider,
+          providerMatch:
+            !options.provider || options.provider === result.metadata?.provider,
+        },
       }
 
-      res.status(200).json({
-        success: true,
-        data: enhancedParlay,
-        metadata: {
-          ...result.metadata,
-          requestedProvider,
-          actualProvider: result.metadata.provider,
-          providerMatch: result.metadata.provider === requestedProvider,
-        },
-      })
+      res.status(200).json(response)
     } catch (error) {
       console.error('❌ Error generating parlay:', error)
 
-      res.status(500).json({
+      // Determine error type and appropriate response
+      let statusCode = 500
+      let errorCode = 'GENERATION_FAILED'
+      let errorMessage = 'Failed to generate parlay'
+
+      if (error instanceof Error) {
+        errorMessage = error.message
+
+        // Check for specific error types
+        if (error.message.includes('API key')) {
+          statusCode = 401
+          errorCode = 'INVALID_API_KEY'
+        } else if (
+          error.message.includes('rate limit') ||
+          error.message.includes('quota')
+        ) {
+          statusCode = 429
+          errorCode = 'RATE_LIMITED'
+        } else if (
+          error.message.includes('validation') ||
+          error.message.includes('invalid')
+        ) {
+          statusCode = 400
+          errorCode = 'VALIDATION_ERROR'
+        } else if (error.message.includes('timeout')) {
+          statusCode = 504
+          errorCode = 'TIMEOUT_ERROR'
+        } else if (
+          error.message.includes('network') ||
+          error.message.includes('fetch')
+        ) {
+          statusCode = 503
+          errorCode = 'NETWORK_ERROR'
+        }
+      }
+
+      const errorResponse = {
         success: false,
-        error:
-          'Parlay generation service is temporarily unavailable. Please try again.',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      })
+        error: {
+          code: errorCode,
+          message: errorMessage,
+          details:
+            process.env.NODE_ENV === 'development'
+              ? {
+                  stack: error instanceof Error ? error.stack : undefined,
+                  timestamp: new Date().toISOString(),
+                  gameId: req.body?.gameId,
+                }
+              : undefined,
+        },
+      }
+
+      res.status(statusCode).json(errorResponse)
     }
   }
 )
-
-/**
- * Generate fallback gameSummary when AI provider fails to include it
- */
-function generateFallbackGameSummary(game: any): any {
-  const awayTeam = game.awayTeam?.displayName || 'Away Team'
-  const homeTeam = game.homeTeam?.displayName || 'Home Team'
-
-  return {
-    matchupAnalysis: `This ${awayTeam} vs ${homeTeam} matchup features contrasting styles and should provide an interesting game flow. Both teams bring unique strengths that could determine the outcome.`,
-    gameFlow: 'balanced_tempo',
-    keyFactors: [
-      'Home field advantage could play a significant role',
-      'Weather conditions appear favorable for both teams',
-      'Recent form and injury reports favor competitive play',
-    ],
-    prediction: `Expecting a competitive game between ${awayTeam} and ${homeTeam} with multiple momentum swings and strategic adjustments.`,
-    confidence: 7,
-  }
-}

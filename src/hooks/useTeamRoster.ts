@@ -6,7 +6,9 @@ export const useTeamRoster = (teamId?: string) => {
   const query = useQuery({
     queryKey: ['team-roster', teamId],
     queryFn: async (): Promise<NFLPlayer[]> => {
-      if (!teamId) return []
+      if (!teamId) {
+        return []
+      }
       return container.nflData.teamRoster(teamId)
     },
     enabled: !!teamId,

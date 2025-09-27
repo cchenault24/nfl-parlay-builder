@@ -2,8 +2,9 @@ import type { GenerateParlayResponse, ParlayOptions } from '@npb/shared'
 import { RUNTIME } from '../config/runtime'
 
 const base = () => {
-  if (!RUNTIME.functionsBaseUrl)
+  if (!RUNTIME.functionsBaseUrl) {
     throw new Error('functionsBaseUrl is not configured')
+  }
   return RUNTIME.functionsBaseUrl
 }
 

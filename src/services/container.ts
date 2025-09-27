@@ -12,13 +12,16 @@ class ParlayServiceImpl implements ParlayService {
     gameId: string,
     options?: ParlayOptions
   ): Promise<GeneratedParlay> {
-    if (!gameId || typeof gameId !== 'string')
+    if (!gameId || typeof gameId !== 'string') {
       throw new Error('gameId is required')
+    }
     const resp = await FunctionsAPI.generateParlay(gameId, options)
-    if (!resp?.success)
+    if (!resp?.success) {
       throw new Error(resp?.error?.message || 'Parlay generation failed')
-    if (!resp.data)
+    }
+    if (!resp.data) {
       throw new Error('Parlay generation succeeded but no data was returned')
+    }
     return resp.data
   }
 }

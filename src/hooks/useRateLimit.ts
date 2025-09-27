@@ -99,8 +99,12 @@ export const useRateLimit = () => {
     staleTime: 15000, // Consider data stale after 15 seconds
     retry: (failureCount, error) => {
       // Retry up to 2 times, but not for 4xx errors (client errors)
-      if (failureCount >= 2) return false
-      if (error?.message?.includes('HTTP 4')) return false
+      if (failureCount >= 2) {
+        return false
+      }
+      if (error?.message?.includes('HTTP 4')) {
+        return false
+      }
       return true
     },
     retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
@@ -147,29 +151,34 @@ export const useRateLimit = () => {
    * Get a formatted string showing time until reset
    */
   const getTimeUntilReset = (): string => {
-    if (!rateLimitInfo?.resetTime) return ''
+    if (!rateLimitInfo?.resetTime) {
+      return ''
+    }
 
     const now = new Date()
     const resetTime = new Date(rateLimitInfo.resetTime)
     const timeDiff = resetTime.getTime() - now.getTime()
 
-    if (timeDiff <= 0) return 'Reset available'
+    if (timeDiff <= 0) {
+      return 'Reset available'
+    }
 
     const minutes = Math.floor(timeDiff / (1000 * 60))
     const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000)
 
     if (minutes > 0) {
       return `${minutes}m ${seconds}s`
-    } else {
-      return `${seconds}s`
     }
+    return `${seconds}s`
   }
 
   /**
    * Check if user is near rate limit (less than 20% remaining)
    */
   const isNearLimit = (): boolean => {
-    if (!rateLimitInfo) return false
+    if (!rateLimitInfo) {
+      return false
+    }
     const percentRemaining = rateLimitInfo.remaining / rateLimitInfo.total
     return percentRemaining < 0.2
   }

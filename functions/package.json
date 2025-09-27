@@ -6,8 +6,8 @@
     "node": "20"
   },
   "scripts": {
-    "prebuild": "yarn workspace @npb/shared run build",
     "build": "tsc -p tsconfig.json && cp lib/index.js ./ && cp -r lib/http ./ && cp -r lib/clients ./ && cp -r lib/util ./ && cp -r lib/service ./ && cp lib/types.js ./",
+    "lint": "echo 'No linting configured for functions'",
     "serve": "yarn build && firebase emulators:start --only functions",
     "shell": "yarn build && firebase functions:shell",
     "start": "yarn shell",
@@ -15,16 +15,14 @@
     "logs": "firebase functions:log"
   },
   "dependencies": {
-    "@npb/shared": "*",
     "cors": "^2.8.5",
     "firebase-admin": "^12.6.0",
     "firebase-functions": "^5.1.1",
-    "openai": "^5.23.1",
-    "zod": "^4.1.11"
+    "openai": "^4.67.3",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
-    "@types/node": "^24.5.2",
     "typescript": "^5.6.3"
   }
 }

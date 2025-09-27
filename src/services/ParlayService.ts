@@ -1,29 +1,17 @@
-// src/services/ParlayService.ts - Complete fix for UI provider selection
+// src/services/ParlayService.ts - Complete rich object implementation
 import { auth } from '../config/firebase'
 import {
+  DEFAULT_STRATEGIES,
+  DEFAULT_VARIETY_FACTORS,
   GameRosters,
   GeneratedParlay,
   NFLGame,
   ParlayGenerationResult,
+  StrategyConfig,
+  VarietyFactors,
 } from '../types'
 import { RateLimitError } from '../types/errors'
 import { container } from './container'
-
-export interface StrategyConfig {
-  name: string
-  description: string
-  temperature: number
-  riskProfile: 'low' | 'medium' | 'high'
-  confidenceRange: [number, number]
-}
-
-export interface VarietyFactors {
-  strategy: string
-  focusArea: string
-  playerTier: string
-  gameScript: string
-  marketBias: string
-}
 
 interface CloudFunctionResponse {
   success: boolean
@@ -58,9 +46,9 @@ interface CloudFunctionResponse {
 
 export interface ParlayGenerationOptions {
   temperature?: number
-  strategy?: StrategyConfig
-  varietyFactors?: VarietyFactors
-  provider?: 'mock' | 'openai' | 'openai' // Updated to include mock/real
+  strategy?: StrategyConfig // Always rich object
+  varietyFactors?: VarietyFactors // Always rich object
+  provider?: 'mock' | 'openai'
   debugMode?: boolean
 }
 
@@ -76,21 +64,6 @@ export interface EnhancedParlayGenerationResult extends ParlayGenerationResult {
     serviceMode?: 'mock' | 'openai'
     environment?: string
   }
-}
-
-interface CloudFunctionErrorResponse {
-  success: false
-  error: {
-    code: string
-    message: string
-    details?: {
-      remaining?: number
-      resetTime?: string
-      currentCount?: number
-      [key: string]: unknown // Allow for additional error details
-    }
-  }
-  [key: string]: unknown // Allow for additional properties
 }
 
 export class ParlayService {
@@ -118,11 +91,11 @@ export class ParlayService {
   }
 
   /**
-   * Generate a parlay with provider options
+   * Generate a parlay with rich object options
    */
   async generateParlay(
     game: NFLGame,
-    options: { provider?: 'mock' | 'openai' } = {}
+    options: ParlayGenerationOptions = {}
   ): Promise<EnhancedParlayGenerationResult> {
     try {
       return await this.generateCloudParlay(game, options)
@@ -133,11 +106,11 @@ export class ParlayService {
   }
 
   /**
-   * Generate parlay using cloud functions
+   * Generate parlay using cloud functions with rich objects
    */
   private async generateCloudParlay(
     game: NFLGame,
-    options: { provider?: 'mock' | 'openai' }
+    options: ParlayGenerationOptions
   ): Promise<EnhancedParlayGenerationResult> {
     // Step 1: Get team rosters
     const rosters = await this.getGameRosters(game)
@@ -145,8 +118,25 @@ export class ParlayService {
     // Step 2: Validate rosters
     this.validateRosters(rosters)
 
-    // Step 3: Call cloud function with provider option
-    const response = await this.callCloudFunction(game, rosters, options)
+    // Step 3: Prepare rich object payload
+    const payload = {
+      gameId: game.id,
+      options: {
+        strategy: options.strategy || DEFAULT_STRATEGIES.balanced,
+        variety: options.varietyFactors || DEFAULT_VARIETY_FACTORS,
+        temperature: options.temperature,
+        provider: options.provider,
+      },
+    }
+
+    console.log('🚀 Sending parlay generation request:', {
+      gameId: game.id,
+      strategy: payload.options.strategy.name,
+      provider: payload.options.provider || 'auto',
+    })
+
+    // Step 4: Call cloud function
+    const response = await this.callCloudFunction(payload)
 
     if (!response.success || !response.data) {
       throw new Error(response.error?.message || 'Failed to generate parlay')
@@ -160,7 +150,105 @@ export class ParlayService {
   }
 
   /**
-   * Check service health (updated to work with cloud functions)
+   * Call cloud function with rich object payload
+   */
+  private async callCloudFunction(
+    payload: any
+  ): Promise<CloudFunctionResponse> {
+    const authToken = await this.getAuthToken()
+
+    const response = await fetch(this.cloudFunctionUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+      },
+      body: JSON.stringify(payload),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw this.createHttpError(response.status, errorData)
+    }
+
+    return response.json()
+  }
+
+  /**
+   * Get team rosters for the game using container
+   */
+  private async getGameRosters(game: NFLGame): Promise<GameRosters> {
+    try {
+      // Use container.nflData instead of container.get('nflClient')
+      const nflClient = container.nflData
+
+      // Get rosters for both teams
+      const [homeRoster, awayRoster] = await Promise.all([
+        nflClient.teamRoster(game.homeTeam.id),
+        nflClient.teamRoster(game.awayTeam.id),
+      ])
+
+      return {
+        gameId: game.id,
+        home: homeRoster || [],
+        away: awayRoster || [],
+        // Legacy aliases for backward compatibility
+        homeRoster: homeRoster || [],
+        awayRoster: awayRoster || [],
+      }
+    } catch (error) {
+      console.error('Failed to get game rosters:', error)
+      throw new Error('Unable to fetch team rosters. Please try again.')
+    }
+  }
+
+  /**
+   * Validate roster data
+   */
+  private validateRosters(rosters: GameRosters): void {
+    if (!rosters.home || !rosters.away) {
+      throw new Error('Missing roster data for one or both teams')
+    }
+
+    if (rosters.home.length === 0 || rosters.away.length === 0) {
+      throw new Error('Empty roster data for one or both teams')
+    }
+
+    console.log(
+      `✅ Rosters validated: ${rosters.home.length} home, ${rosters.away.length} away players`
+    )
+  }
+
+  /**
+   * Get available strategy presets
+   */
+  getAvailableStrategies(): Record<string, StrategyConfig> {
+    return DEFAULT_STRATEGIES
+  }
+
+  /**
+   * Create custom strategy
+   */
+  createCustomStrategy(
+    name: string,
+    overrides: Partial<StrategyConfig> = {}
+  ): StrategyConfig {
+    return {
+      ...DEFAULT_STRATEGIES.balanced,
+      name,
+      ...overrides,
+    }
+  }
+
+  /**
+   * Get default variety factors
+   */
+  getDefaultVarietyFactors(): VarietyFactors {
+    return DEFAULT_VARIETY_FACTORS
+  }
+
+  /**
+   * Check service health with provider options
    */
   async checkServiceHealth(
     options: { provider?: 'mock' | 'openai' } = {}
@@ -186,152 +274,41 @@ export class ParlayService {
         },
       })
 
-      const data = await response.json()
-
       if (!response.ok) {
         throw new Error(`Health check failed: ${response.status}`)
       }
 
+      const data = await response.json()
       return {
-        healthy: data.success,
-        mode: options.provider || 'openai',
-        providers: data.data?.service?.providers || [],
+        healthy: data.healthy || false,
+        mode: options.provider || data.mode || 'openai',
+        providers: data.providers,
         timestamp: new Date().toISOString(),
       }
     } catch (error) {
-      console.error('Health check failed:', error)
+      console.warn('Health check failed:', error)
       return {
         healthy: false,
         mode: options.provider || 'openai',
-        providers: [],
         timestamp: new Date().toISOString(),
       }
     }
   }
 
   /**
-   * Get rosters for both teams
+   * Create HTTP error with proper status handling
    */
-  async getGameRosters(game: NFLGame): Promise<GameRosters> {
-    try {
-      const r = await container.nflData.gameRosters(game)
-      return {
-        gameId: game.id,
-        home: r.homeRoster,
-        away: r.awayRoster,
-        // legacy aliases kept for UI components that still read these keys
-        homeRoster: (r as any).homeRoster ?? r.homeRoster,
-        awayRoster: (r as any).awayRoster ?? r.awayRoster,
-      } as GameRosters
-    } catch (error) {
-      console.error('Error fetching game rosters:', error)
-      throw new Error('Failed to fetch team rosters. Please try again.')
-    }
-  }
-
-  /**
-   * Validate that rosters have sufficient data
-   */
-  private validateRosters(rosters: GameRosters): void {
-    if (!rosters.homeRoster || rosters.homeRoster.length < 10) {
-      throw new Error(
-        'Insufficient home team roster data. Please try again later.'
-      )
-    }
-
-    if (!rosters.awayRoster || rosters.awayRoster.length < 10) {
-      throw new Error(
-        'Insufficient away team roster data. Please try again later.'
-      )
-    }
-  }
-
-  /**
-   * Call cloud function with provider selection
-   */
-  private async callCloudFunction(
-    game: NFLGame,
-    rosters: GameRosters,
-    options: { provider?: 'mock' | 'openai' }
-  ): Promise<CloudFunctionResponse> {
-    try {
-      const authToken = await this.getAuthToken()
-
-      const requestBody = {
-        game,
-        rosters,
-        options: {
-          provider: options.provider || 'openai', // Default to real if not specified
-        },
-      }
-
-      const response = await fetch(this.cloudFunctionUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
-        },
-        body: JSON.stringify(requestBody),
-      })
-
-      const responseData = await response.json()
-      if (!response.ok) {
-        console.error('[CF FAIL]', {
-          status: response.status,
-          statusText: response.statusText,
-          trace: null,
-          execId: null,
-          body: responseData,
-        })
-
-        // Type assertion to ensure we have the right error structure
-        const errorResponse: CloudFunctionErrorResponse = {
-          success: false,
-          error: {
-            code: responseData.error?.code || 'UNKNOWN_ERROR',
-            message:
-              responseData.error?.message ||
-              `HTTP ${response.status}: ${response.statusText}`,
-            details: responseData.error?.details,
-          },
-          ...responseData, // Spread any additional properties
-        }
-
-        return this.handleErrorResponse(response, errorResponse)
-      }
-
-      return responseData
-    } catch (error) {
-      console.error('❌ Cloud Function call failed:', error)
-      throw this.enhanceNetworkError(error)
-    }
-  }
-
-  private handleErrorResponse(
-    response: Response,
-    responseData: CloudFunctionErrorResponse
-  ): never {
-    if (response.status === 429) {
-      const resetTime = responseData.error?.details?.resetTime
-      const remaining = responseData.error?.details?.remaining || 0
-
-      throw new RateLimitError(
-        responseData.error?.message || 'Rate limit exceeded',
-        {
-          remaining,
-          resetTime: resetTime ? new Date(resetTime) : new Date(),
-          currentCount: responseData.error?.details?.currentCount || 0,
-        }
-      )
-    }
-
+  private createHttpError(status: number, errorData: any): Error {
     const errorMessage =
-      responseData.error?.message ||
-      `HTTP ${response.status}: ${response.statusText}`
+      errorData?.error?.message || errorData?.message || 'Unknown error'
 
-    switch (response.status) {
-      case 400:
-        throw new Error(`Invalid request: ${errorMessage}`)
+    switch (status) {
+      case 429:
+        // Fixed: RateLimitError constructor takes only message and optional retryAfter
+        return new RateLimitError(
+          errorMessage,
+          errorData?.error?.details?.retryAfter
+        )
       case 401:
         throw new Error(
           'Authentication required. Please sign in and try again.'
@@ -353,32 +330,6 @@ export class ParlayService {
     }
   }
 
-  /**
-   * Enhance network errors
-   */
-  private enhanceNetworkError(error: unknown): Error {
-    if (error instanceof RateLimitError) {
-      return error
-    }
-
-    if (error instanceof TypeError && error.message.includes('fetch')) {
-      return new Error(
-        'Unable to connect to the parlay generation service. Please check your internet connection.'
-      )
-    }
-
-    if (error instanceof Error && error.message.includes('Failed to fetch')) {
-      return new Error(
-        'Network error: Unable to reach the parlay generation service. Please try again.'
-      )
-    }
-
-    if (error instanceof Error) {
-      return error
-    }
-
-    return new Error(`Unexpected error: ${String(error)}`)
-  }
   /**
    * Enhance any error with context
    */
@@ -407,7 +358,7 @@ export class ParlayService {
   }
 
   /**
-   * Get service mode for debugging (now takes provider parameter)
+   * Get service mode for debugging
    */
   getServiceMode(provider?: 'mock' | 'openai'): 'mock' | 'openai' {
     return provider || 'openai'

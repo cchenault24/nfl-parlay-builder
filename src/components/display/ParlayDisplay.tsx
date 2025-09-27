@@ -37,7 +37,9 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({ loading }) => {
   }, [parlay, setParlay])
 
   const uiLegs = React.useMemo<ParlayLeg[]>(() => {
-    if (!parlay) return []
+    if (!parlay) {
+      return []
+    }
     return parlay.legs.map((leg, index) => ({
       id: `${parlay.gameId ?? 'game'}-L${index + 1}`,
       betType: leg.type as ParlayLeg['betType'],
