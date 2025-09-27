@@ -1,9 +1,69 @@
 import cors from 'cors'
 import * as admin from 'firebase-admin'
 import * as functions from 'firebase-functions'
+import { ParlayAIService } from './service/ai/ParlayAIService'
+import { MockProvider } from './service/ai/providers/MockProvider'
+import { OpenAIProvider } from './service/ai/providers/OpenAIProvider'
+import { GameRosters, NFLGame, StrategyConfig, VarietyFactors } from './types'
 
 // Initialize Firebase Admin
 admin.initializeApp()
+
+// Initialize AI Service
+const aiService = new ParlayAIService({
+  primaryProvider: 'mock', // Start with mock as primary
+  fallbackProviders: ['openai'],
+  maxRetries: 3,
+  healthCheckInterval: 5 * 60 * 1000,
+  enableFallback: true,
+  debugMode: true,
+})
+
+// Register mock provider first (always available)
+const mockProvider = new MockProvider({
+  enableErrorSimulation: false,
+  debugMode: true,
+  defaultConfidence: 7,
+})
+
+aiService.registerProvider('mock', mockProvider)
+
+// Initialize OpenAI provider lazily when needed
+let openaiProvider: OpenAIProvider | null = null
+
+const initializeOpenAIProvider = async (): Promise<OpenAIProvider | null> => {
+  if (openaiProvider) {
+    return openaiProvider
+  }
+
+  try {
+    // Get OpenAI API key from Firebase config or environment
+    let apiKey =
+      process.env.OPENAI_API_KEY || functions.config().openai?.api_key
+
+    if (!apiKey) {
+      console.warn(
+        '⚠️ OpenAI API key not found in Firebase config or environment, using mock provider only'
+      )
+      return null
+    }
+
+    openaiProvider = new OpenAIProvider({
+      apiKey: apiKey,
+      model: 'gpt-4o-mini',
+      defaultMaxTokens: 2000,
+      defaultTemperature: 0.7,
+    })
+
+    aiService.registerProvider('openai', openaiProvider)
+    console.log('✅ OpenAI provider initialized successfully')
+
+    return openaiProvider
+  } catch (error) {
+    console.error('❌ Failed to initialize OpenAI provider:', error)
+    return null
+  }
+}
 
 // Configure CORS to allow requests from your frontend
 const corsOptions = {
@@ -12,47 +72,41 @@ const corsOptions = {
     'http://localhost:3001',
     'http://127.0.0.1:3000',
     'http://127.0.0.1:3001',
+    'http://localhost:5173', // Vite default port
+    'http://127.0.0.1:5173',
   ],
   credentials: true,
   optionsSuccessStatus: 200,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'x-request-id',
+    'x-start-time',
+  ],
 }
 
 const corsHandler = cors(corsOptions)
 
 // Types
-interface ParlayPreferences {
-  game: {
-    homeTeam: string
-    awayTeam: string
-    gameTime: string
-    venue: string
-  }
-  rosters: {
-    homeRoster: any[]
-    awayRoster: any[]
-  }
-  strategy: {
-    riskLevel: 'conservative' | 'moderate' | 'aggressive'
-    targetOdds: number
-    maxLegs: number
-    minLegs: number
-  }
-  varietyFactors: {
-    includePlayerProps: boolean
-    includeGameProps: boolean
-    includeTeamProps: boolean
-    diversifyPositions: boolean
-  }
+interface FrontendRequest {
+  gameId: string
   options: {
-    budget: number
-    excludeInjuredPlayers: boolean
-    favoriteTeamBias?: string
+    provider: string
+    strategy: {
+      riskLevel: 'conservative' | 'moderate' | 'aggressive'
+      targetOdds: number
+      maxLegs: number
+      minLegs: number
+    }
+    variety: {
+      includePlayerProps: boolean
+      includeGameProps: boolean
+      includeTeamProps: boolean
+      diversifyPositions: boolean
+    }
+    temperature: number
   }
-}
-
-interface RequestBody {
-  provider: string
-  preferences: ParlayPreferences
   timestamp?: string
 }
 
@@ -62,67 +116,165 @@ const validateRequest = (body: any): { isValid: boolean; error?: string } => {
     return { isValid: false, error: 'Request body is required' }
   }
 
-  if (!body.provider) {
+  if (!body.gameId) {
+    return { isValid: false, error: 'Game ID is required' }
+  }
+
+  if (!body.options?.provider) {
     return { isValid: false, error: 'Provider is required' }
   }
 
-  if (!body.preferences) {
-    return { isValid: false, error: 'Preferences are required' }
-  }
-
-  const { preferences } = body
-
-  if (!preferences.game?.homeTeam || !preferences.game?.awayTeam) {
-    return { isValid: false, error: 'Game teams are required' }
-  }
-
-  if (!preferences.strategy?.riskLevel) {
+  if (!body.options?.strategy?.riskLevel) {
     return { isValid: false, error: 'Risk level is required' }
-  }
-
-  if (!preferences.options?.budget || preferences.options.budget <= 0) {
-    return { isValid: false, error: 'Valid budget is required' }
   }
 
   return { isValid: true }
 }
 
-// Mock parlay generation logic (replace with your actual logic)
-const generateMockParlay = (preferences: ParlayPreferences) => {
-  const legs = [
-    {
-      type: 'player_prop',
-      player: `${preferences.game.homeTeam} QB`,
-      market: 'passing_yards',
-      selection: 'over 250.5',
-      odds: -110,
-      reasoning: 'Strong offensive matchup',
-    },
-    {
-      type: 'game_prop',
-      team: preferences.game.awayTeam,
-      market: 'team_total',
-      selection: 'over 21.5',
-      odds: -105,
-      reasoning: 'Favorable weather conditions',
-    },
-  ]
-
-  const totalOdds = legs.reduce((acc, leg) => {
-    const decimalOdds =
-      leg.odds > 0 ? leg.odds / 100 + 1 : 100 / Math.abs(leg.odds) + 1
-    return acc * decimalOdds
-  }, 1)
-
+// Helper function to create mock game data (replace with actual data fetching)
+const createMockGameData = (gameId: string): NFLGame => {
   return {
-    legs,
-    totalOdds: Math.round((totalOdds - 1) * 100), // Convert back to American odds
-    potentialPayout:
-      Math.round(preferences.options.budget * totalOdds * 100) / 100,
-    confidence: 0.75,
-    reasoning: `Generated ${legs.length}-leg parlay based on ${preferences.strategy.riskLevel} risk tolerance`,
-    generatedAt: new Date().toISOString(),
-    provider: 'mock',
+    id: gameId,
+    week: 1,
+    seasonType: 1,
+    date: new Date().toISOString(),
+    homeTeam: {
+      id: 'KC',
+      abbreviation: 'KC',
+      displayName: 'Kansas City Chiefs',
+      shortDisplayName: 'Chiefs',
+      color: '#E31837',
+      alternateColor: '#FFB81C',
+      logo: 'https://a.espncdn.com/i/teamlogos/nfl/500/kc.png',
+    },
+    awayTeam: {
+      id: 'BUF',
+      abbreviation: 'BUF',
+      displayName: 'Buffalo Bills',
+      shortDisplayName: 'Bills',
+      color: '#00338D',
+      alternateColor: '#C60C30',
+      logo: 'https://a.espncdn.com/i/teamlogos/nfl/500/buf.png',
+    },
+    status: {
+      type: {
+        id: '1',
+        name: 'Scheduled',
+        state: 'pre',
+        completed: false,
+      },
+    },
+  }
+}
+
+// Helper function to create mock roster data (replace with actual data fetching)
+const createMockRosterData = (): GameRosters => {
+  return {
+    homeRoster: [
+      {
+        id: 'mahomes',
+        fullName: 'Patrick Mahomes',
+        displayName: 'Patrick Mahomes',
+        shortName: 'P. Mahomes',
+        position: {
+          abbreviation: 'QB',
+          displayName: 'Quarterback',
+        },
+        jersey: '15',
+        experience: {
+          years: 7,
+        },
+        age: 28,
+        status: {
+          type: 'ACT',
+        },
+      },
+      {
+        id: 'kelce',
+        fullName: 'Travis Kelce',
+        displayName: 'Travis Kelce',
+        shortName: 'T. Kelce',
+        position: {
+          abbreviation: 'TE',
+          displayName: 'Tight End',
+        },
+        jersey: '87',
+        experience: {
+          years: 11,
+        },
+        age: 34,
+        status: {
+          type: 'ACT',
+        },
+      },
+    ],
+    awayRoster: [
+      {
+        id: 'allen',
+        fullName: 'Josh Allen',
+        displayName: 'Josh Allen',
+        shortName: 'J. Allen',
+        position: {
+          abbreviation: 'QB',
+          displayName: 'Quarterback',
+        },
+        jersey: '17',
+        experience: {
+          years: 6,
+        },
+        age: 27,
+        status: {
+          type: 'ACT',
+        },
+      },
+      {
+        id: 'diggs',
+        fullName: 'Stefon Diggs',
+        displayName: 'Stefon Diggs',
+        shortName: 'S. Diggs',
+        position: {
+          abbreviation: 'WR',
+          displayName: 'Wide Receiver',
+        },
+        jersey: '14',
+        experience: {
+          years: 9,
+        },
+        age: 30,
+        status: {
+          type: 'ACT',
+        },
+      },
+    ],
+  }
+}
+
+// Helper function to convert frontend strategy to AI service format
+const convertStrategy = (frontendStrategy: any): StrategyConfig => {
+  return {
+    name: `${frontendStrategy.riskLevel} strategy`,
+    description: `${frontendStrategy.riskLevel} risk approach`,
+    riskLevel: frontendStrategy.riskLevel,
+    temperature: 0.7,
+    focusAreas: ['offense', 'defense'],
+    betTypeWeights: {},
+    contextFactors: ['weather', 'injuries', 'rest'],
+    confidenceRange: [5, 9],
+    preferredGameScripts: ['close_game', 'balanced_tempo'],
+  }
+}
+
+// Helper function to convert frontend variety to AI service format
+const convertVarietyFactors = (frontendVariety: any): VarietyFactors => {
+  return {
+    strategy: 'balanced',
+    gameScript: 'close_game',
+    focusArea: frontendVariety.includePlayerProps ? 'offense' : 'balanced',
+    riskTolerance: 0.5,
+    playerTier: 'star',
+    marketBias: 'neutral',
+    timeContext: 'mid_season',
+    motivationalFactors: [],
   }
 }
 
@@ -161,46 +313,82 @@ export const generateParlay = functions.https.onRequest((req, res) => {
         return
       }
 
-      const { provider, preferences } = req.body as RequestBody
+      const request = req.body as FrontendRequest
 
       console.log('🎯 Generating parlay with:', {
-        provider,
-        riskLevel: preferences.strategy.riskLevel,
-        budget: preferences.options.budget,
-        game: `${preferences.game.awayTeam} @ ${preferences.game.homeTeam}`,
+        gameId: request.gameId,
+        provider: request.options.provider,
+        riskLevel: request.options.strategy.riskLevel,
+        targetOdds: request.options.strategy.targetOdds,
       })
 
-      // Generate parlay based on provider
-      let result
-      switch (provider.toLowerCase()) {
-        case 'openai':
-          // TODO: Implement OpenAI integration
-          result = generateMockParlay(preferences)
-          result.provider = 'openai'
-          break
-        case 'claude':
-          // TODO: Implement Claude integration
-          result = generateMockParlay(preferences)
-          result.provider = 'claude'
-          break
-        default:
-          result = generateMockParlay(preferences)
-          result.provider = 'mock'
+      // Create game and roster data (replace with actual data fetching)
+      const game = createMockGameData(request.gameId)
+      const rosters = createMockRosterData()
+      const strategy = convertStrategy(request.options.strategy)
+      const varietyFactors = convertVarietyFactors(request.options.variety)
+
+      console.log('🤖 Using AI service with context:', {
+        game: `${game.awayTeam.displayName} @ ${game.homeTeam.displayName}`,
+        strategy: strategy.name,
+        variety: varietyFactors.focusArea,
+      })
+
+      // Initialize OpenAI provider if requested and not already initialized
+      if (request.options.provider === 'openai') {
+        await initializeOpenAIProvider()
       }
 
-      console.log('✅ Parlay generated successfully:', result)
+      // Determine the actual provider to use (fallback to mock if openai not available)
+      let actualProvider = request.options.provider
+      if (request.options.provider === 'openai' && !openaiProvider) {
+        console.log(
+          '⚠️ OpenAI provider not available, falling back to mock provider'
+        )
+        actualProvider = 'mock'
+      }
+
+      // Generate parlay using AI service
+      const result = await aiService.generateParlay(
+        game,
+        rosters,
+        strategy,
+        varietyFactors,
+        {
+          provider: actualProvider,
+          temperature: request.options.temperature,
+        }
+      )
+
+      console.log('✅ Parlay generated successfully:', {
+        provider: result.metadata.provider,
+        confidence: result.metadata.confidence,
+        latency: result.metadata.latency,
+        legsCount: result.parlay.legs.length,
+      })
 
       res.status(200).json({
         success: true,
-        data: result,
+        data: {
+          legs: result.parlay.legs,
+          totalOdds: result.parlay.estimatedOdds,
+          potentialPayout: 0, // Calculate from odds if needed
+          confidence: result.parlay.overallConfidence,
+          reasoning: result.parlay.aiReasoning,
+          generatedAt: new Date().toISOString(),
+          provider: result.metadata.provider,
+          gameContext: result.parlay.gameContext,
+          gameSummary: result.parlay.gameSummary,
+        },
         metadata: {
           requestId: req.get('x-request-id') || 'unknown',
           timestamp: new Date().toISOString(),
-          processingTime:
-            Date.now() -
-            (req.get('x-start-time')
-              ? parseInt(req.get('x-start-time')!)
-              : Date.now()),
+          processingTime: result.metadata.latency,
+          provider: result.metadata.provider,
+          model: result.metadata.model,
+          tokens: result.metadata.tokens,
+          fallbackUsed: result.metadata.fallbackUsed,
+          attemptCount: result.metadata.attemptCount,
         },
       })
     } catch (error) {
@@ -325,6 +513,38 @@ export const getPlayerStats = functions.https.onRequest((req, res) => {
       console.error('Error fetching player stats:', error)
       res.status(500).json({
         error: 'Failed to fetch player stats',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      })
+    }
+  })
+})
+
+// Get rate limit status endpoint
+export const getRateLimitStatus = functions.https.onRequest((req, res) => {
+  corsHandler(req, res, () => {
+    try {
+      if (req.method !== 'GET') {
+        res.status(405).json({ error: 'Method not allowed' })
+        return
+      }
+
+      // Mock rate limit status (replace with actual rate limiting logic)
+      const rateLimitStatus = {
+        remaining: 95,
+        resetTime: new Date(Date.now() + 3600000).toISOString(), // 1 hour from now
+        currentCount: 5,
+        total: 100,
+        windowMs: 3600000, // 1 hour window
+      }
+
+      res.status(200).json({
+        success: true,
+        data: rateLimitStatus,
+      })
+    } catch (error) {
+      console.error('Error fetching rate limit status:', error)
+      res.status(500).json({
+        error: 'Failed to fetch rate limit status',
         message: error instanceof Error ? error.message : 'Unknown error',
       })
     }

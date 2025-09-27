@@ -1,9 +1,7 @@
 import { APIRequestConfig, APIRequestData, APIResponse } from '../core'
 import {
   GameRosters,
-  GeneratedParlay,
   NFLGame,
-  ParlayMetadata,
   RateLimitInfo,
   StrategyConfig,
   VarietyFactors,
@@ -50,7 +48,31 @@ export interface IAPIClient {
 // ================================================================================================
 export interface CloudFunctionResponse {
   success: boolean
-  data?: GeneratedParlay
+  data?: {
+    legs: Array<{
+      id: string
+      betType: string
+      selection: string
+      target: string
+      reasoning: string
+      confidence: number
+      odds: string
+    }>
+    totalOdds: string
+    potentialPayout: number
+    confidence: number
+    reasoning: string
+    generatedAt: string
+    provider: string
+    gameContext: string
+    gameSummary: {
+      matchupAnalysis: string
+      gameFlow: string
+      keyFactors: string[]
+      prediction: string
+      confidence: number
+    }
+  }
   error?: {
     code?: string
     message?: string
@@ -61,7 +83,16 @@ export interface CloudFunctionResponse {
     }
   }
   rateLimitInfo?: RateLimitInfo
-  metadata?: ParlayMetadata
+  metadata?: {
+    requestId: string
+    timestamp: string
+    processingTime: number
+    provider: string
+    model: string
+    tokens: number
+    fallbackUsed: boolean
+    attemptCount: number
+  }
 }
 
 export interface CloudFunctionErrorResponse {

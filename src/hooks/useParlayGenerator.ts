@@ -1,23 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ParlayPreferences, ParlayService } from '../services/ParlayService'
 import useParlayStore from '../store/parlayStore'
-
-// Define the actual Cloud Function response type
-interface CloudFunctionResponse {
-  success: boolean
-  parlay?: {
-    gameId: string
-    legs: Array<{
-      id: string
-      description: string
-      betType: string
-      odds: number
-      confidence: number
-    }>
-    summary?: string
-    gameSummary?: any
-  }
-}
+import { CloudFunctionResponse } from '../types/api/interfaces'
 
 // Create a singleton instance
 const parlayService = new ParlayService('openai')
@@ -61,26 +45,25 @@ export const useParlayGenerator = (options: UseParlayGeneratorOptions = {}) => {
     },
     onSuccess: (data: CloudFunctionResponse) => {
       // Store the parlay in the store
-      if (data.success && data.parlay) {
-        console.log(
-          '📊 Using actual Cloud Function response data:',
-          data.parlay
-        )
+      if (data.success && data.data) {
+        console.log('📊 Using actual Cloud Function response data:', data.data)
 
         const transformedParlay = {
-          id: data.parlay.gameId || Date.now().toString(),
+          id: Date.now().toString(),
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           legs: (() => {
-            const legs = (data.parlay.legs || []).map(
+            const legs = (data.data.legs || []).map(
               (leg: any, index: number) => ({
                 id: leg.id || `leg-${index}`,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
                 betType: leg.betType || 'spread',
-                selection: leg.description || `Selection ${index + 1}`,
-                target: leg.description || `Target ${index + 1}`,
-                reasoning: `AI-generated reasoning for ${leg.betType} bet`,
+                selection: leg.selection || `Selection ${index + 1}`,
+                target: leg.target || `Target ${index + 1}`,
+                reasoning:
+                  leg.reasoning ||
+                  `AI-generated reasoning for ${leg.betType} bet`,
                 confidence: leg.confidence || 7,
                 odds: leg.odds?.toString() || '+100',
               })
@@ -103,32 +86,34 @@ export const useParlayGenerator = (options: UseParlayGeneratorOptions = {}) => {
 
             return legs.slice(0, 3) as [any, any, any]
           })(),
-          gameContext: data.parlay.summary || 'Generated parlay',
+          gameContext: data.data.gameContext || 'Generated parlay',
           aiReasoning:
-            data.parlay.summary || 'AI-generated parlay based on game analysis',
-          overallConfidence:
-            data.parlay.legs?.reduce(
-              (acc: number, leg: any) => acc + (leg.confidence || 0),
-              0
-            ) / (data.parlay.legs?.length || 1) || 0.75,
-          estimatedOdds:
-            data.parlay.legs
-              ?.reduce((acc: number, leg: any) => acc * (leg.odds || 1), 1)
-              .toFixed(2) || '1.00',
-          gameSummary: data.parlay.gameSummary || {
-            matchupAnalysis:
-              'Game analysis based on current team performance and historical data.',
-            gameFlow: 'balanced_tempo' as const,
-            keyFactors: [
-              'Team performance trends',
-              'Weather conditions',
-              'Injury reports',
-              'Head-to-head history',
-            ],
-            prediction:
-              'This game is expected to be competitive with balanced offensive and defensive play.',
-            confidence: 7,
-          },
+            data.data.reasoning || 'AI-generated parlay based on game analysis',
+          overallConfidence: data.data.confidence || 0.75,
+          estimatedOdds: data.data.totalOdds || '+100',
+          gameSummary: data.data.gameSummary
+            ? {
+                ...data.data.gameSummary,
+                gameFlow: data.data.gameSummary.gameFlow as
+                  | 'balanced_tempo'
+                  | 'high_scoring_shootout'
+                  | 'defensive_grind'
+                  | 'potential_blowout',
+              }
+            : {
+                matchupAnalysis:
+                  'Game analysis based on current team performance and historical data.',
+                gameFlow: 'balanced_tempo' as const,
+                keyFactors: [
+                  'Team performance trends',
+                  'Weather conditions',
+                  'Injury reports',
+                  'Head-to-head history',
+                ],
+                prediction:
+                  'This game is expected to be competitive with balanced offensive and defensive play.',
+                confidence: 7,
+              },
           metadata: {
             provider: 'openai',
             model: 'gpt-4o-mini',
