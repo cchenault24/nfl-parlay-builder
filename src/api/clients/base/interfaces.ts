@@ -1,4 +1,4 @@
-import { ESPNRosterResponse, ESPNScoreboardResponse } from '../../../types/espn'
+import { ESPNRosterResponse, ESPNScoreboardResponse } from '../../../types'
 import { APIResponse } from './types'
 
 /**

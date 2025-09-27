@@ -1,7 +1,4 @@
-import type {
-  ESPNRosterResponse,
-  ESPNScoreboardResponse,
-} from '../../types/espn'
+import type { ESPNRosterResponse, ESPNScoreboardResponse } from '../../types/'
 import APIClient from './base/APIClient'
 import type { INFLClient } from './base/interfaces'
 import type { APIConfig, APIResponse } from './base/types'

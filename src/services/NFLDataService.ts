@@ -1,77 +1,15 @@
 import { INFLClient } from '../api/clients/base/interfaces'
-import { GameRosters, NFLGame, NFLPlayer } from '../types'
+import {
+  ESPNAthlete,
+  ESPNEvent,
+  ESPNRosterResponse,
+  ESPNScoreboardResponse,
+  GameRosters,
+  NFLGame,
+  NFLPlayer,
+} from '../types'
 
-// ESPN API response types (based on your existing code)
-interface ESPNCompetitor {
-  id: string
-  homeAway: 'home' | 'away'
-  team: {
-    id: string
-    name: string
-    displayName: string
-    abbreviation: string
-    color?: string
-    alternateColor?: string
-    logo: string
-  }
-}
-
-interface ESPNCompetition {
-  id: string
-  competitors: ESPNCompetitor[]
-}
-
-interface ESPNEvent {
-  id: string
-  date: string
-  competitions: ESPNCompetition[]
-  week?: {
-    number: number
-  }
-  season?: {
-    year: number
-  }
-  status?: {
-    type: {
-      name: string
-    }
-  }
-}
-
-interface ESPNScoreboardResponse {
-  events: ESPNEvent[]
-  week?: {
-    number: number
-  }
-  season?: {
-    year: number
-  }
-}
-
-interface ESPNAthlete {
-  id: string
-  displayName: string
-  fullName?: string
-  position?: {
-    name: string
-    abbreviation: string
-  }
-  jersey?: string
-  experience?: {
-    years: number
-  }
-  college?: {
-    name: string
-  }
-}
-
-interface ESPNRosterResponse {
-  athletes: Array<{
-    position?: string
-    items: ESPNAthlete[]
-  }>
-}
-
+// Local interface specific to this service (not ESPN-related)
 interface TeamInfo {
   id: string
   name?: string
@@ -214,17 +152,30 @@ export class NFLDataService {
         throw new Error(`Missing team data for game ${event.id}`)
       }
 
+      // Create game object matching the new NFLGame interface with BaseEntity
       const game: NFLGame = {
         id: event.id,
+        createdAt: new Date().toISOString(), // Required by BaseEntity
+        updatedAt: new Date().toISOString(), // Optional in BaseEntity
         date: event.date,
         week: event.week?.number || data.week?.number || 1,
         season:
           event.season?.year || data.season?.year || new Date().getFullYear(),
-        status: this.mapGameStatus(event.status?.type?.name),
+        seasonType: 2, // Regular season (required by new type)
+        // Map ESPN status to the new complex status structure
+        status: {
+          type: {
+            id: event.status?.type?.name?.toLowerCase() || 'scheduled',
+            name: event.status?.type?.name || 'Scheduled',
+            state: this.mapGameStatusToState(event.status?.type?.name),
+            completed: this.isGameCompleted(event.status?.type?.name),
+          },
+        },
         homeTeam: {
           id: homeCompetitor.team.id,
           name: homeCompetitor.team.name,
           displayName: homeCompetitor.team.displayName,
+          shortDisplayName: homeCompetitor.team.displayName, // Required by new type
           abbreviation: homeCompetitor.team.abbreviation,
           color: homeCompetitor.team.color || '000000',
           alternateColor: homeCompetitor.team.alternateColor || '000000',
@@ -234,6 +185,7 @@ export class NFLDataService {
           id: awayCompetitor.team.id,
           name: awayCompetitor.team.name,
           displayName: awayCompetitor.team.displayName,
+          shortDisplayName: awayCompetitor.team.displayName, // Required by new type
           abbreviation: awayCompetitor.team.abbreviation,
           color: awayCompetitor.team.color || '000000',
           alternateColor: awayCompetitor.team.alternateColor || '000000',
@@ -260,84 +212,115 @@ export class NFLDataService {
       const athleteData = athlete as {
         id: string
         displayName: string
+        fullName?: string
         position?: { abbreviation?: string; name?: string }
         jersey?: string
         experience?: { years?: number }
         college?: { name?: string }
       }
 
+      // Return object matching the new NFLPlayer interface
       return {
         id: athleteData.id,
+        createdAt: new Date().toISOString(), // Required by BaseEntity
+        updatedAt: new Date().toISOString(), // Optional in BaseEntity
         name: athleteData.displayName,
         displayName: athleteData.displayName,
-        position:
-          athleteData.position?.abbreviation ||
-          athleteData.position?.name ||
-          'N/A',
-        jerseyNumber: athleteData.jersey || '0',
-        experience: athleteData.experience?.years || 0,
+        fullName: athleteData.fullName || athleteData.displayName,
+        shortName: athleteData.displayName, // Required by new type
+        // Position is now an object, not a string
+        position: {
+          name: athleteData.position?.name || 'Unknown',
+          abbreviation:
+            athleteData.position?.abbreviation ||
+            athleteData.position?.name ||
+            'N/A',
+        },
+        jerseyNumber: athleteData.jersey || '0', // Keep original property name
+        experience: {
+          years: athleteData.experience?.years || 0,
+        },
+        age: 25, // Default age since ESPN doesn't provide it
+        status: {
+          type: 'active', // Default status
+        },
         college: athleteData.college?.name,
       }
     })
   }
 
-  private mapGameStatus(statusName?: string): NFLGame['status'] {
-    if (!statusName) {
-      return 'scheduled'
+  // Helper methods for the new status structure
+  private mapGameStatusToState(statusName?: string): string {
+    switch (statusName?.toLowerCase()) {
+      case 'final':
+      case 'final ot':
+        return 'post'
+      case 'in progress':
+      case 'halftime':
+      case '1st quarter':
+      case '2nd quarter':
+      case '3rd quarter':
+      case '4th quarter':
+      case 'overtime':
+        return 'in'
+      case 'postponed':
+      case 'suspended':
+        return 'post'
+      default:
+        return 'pre'
+    }
+  }
+
+  private isGameCompleted(statusName?: string): boolean {
+    switch (statusName?.toLowerCase()) {
+      case 'final':
+      case 'final ot':
+        return true
+      default:
+        return false
+    }
+  }
+
+  private estimateCurrentWeek(): number {
+    // Simple estimation based on date
+    // NFL season typically starts first week of September
+    const now = new Date()
+    const year = now.getFullYear()
+    const seasonStart = new Date(year, 8, 1) // September 1st
+
+    if (now < seasonStart) {
+      return 1
     }
 
-    const status = statusName.toLowerCase()
-    if (status.includes('final')) {
-      return 'final'
-    }
-    if (status.includes('progress') || status.includes('live')) {
-      return 'in_progress'
-    }
-    if (status.includes('postponed') || status.includes('delayed')) {
-      return 'postponed'
-    }
-    return 'scheduled'
+    const weeksElapsed = Math.floor(
+      (now.getTime() - seasonStart.getTime()) / (7 * 24 * 60 * 60 * 1000)
+    )
+
+    return Math.min(Math.max(weeksElapsed + 1, 1), 18)
   }
 
   private async getAdjustedWeekBasedOnCompletion(
     apiWeek: number,
     events: ESPNEvent[]
   ): Promise<number> {
-    // Check if all games in the current week are finished
-    const allGamesFinished = events.every(event =>
-      event.status?.type?.name?.toLowerCase().includes('final')
+    // Check if all games in the week are completed
+    const allGamesComplete = events.every(
+      event => event.status?.type?.name?.toLowerCase() === 'final'
     )
 
-    if (allGamesFinished) {
-      // Check if it's after Tuesday midnight (when new week typically starts)
-      const now = new Date()
-      const dayOfWeek = now.getDay() // 0 = Sunday, 1 = Monday, 2 = Tuesday
-      const hour = now.getHours()
+    if (!allGamesComplete) {
+      return apiWeek
+    }
 
-      // If it's Wednesday (3) or later, or Tuesday (2) after midnight, advance week
-      if (dayOfWeek >= 3 || (dayOfWeek === 2 && hour >= 0)) {
-        return Math.min(apiWeek + 1, 18) // Cap at week 18
-      }
+    // If all games are complete, check if it's after Tuesday
+    const now = new Date()
+    const dayOfWeek = now.getDay() // 0 = Sunday, 1 = Monday, 2 = Tuesday, etc.
+
+    // If it's Wednesday (3) or later, advance to next week
+    if (dayOfWeek >= 3) {
+      return Math.min(apiWeek + 1, 18)
     }
 
     return apiWeek
-  }
-
-  private estimateCurrentWeek(): number {
-    // Rough estimation based on date (NFL season typically starts in September)
-    const now = new Date()
-    const year = now.getFullYear()
-
-    // Estimate NFL season start (first Tuesday of September)
-    const seasonStart = new Date(year, 8, 1) // September 1st
-    const firstTuesday = new Date(seasonStart)
-    firstTuesday.setDate(1 + ((9 - seasonStart.getDay()) % 7))
-
-    // Calculate weeks since season start
-    const weeksSinceStart = Math.floor(
-      (now.getTime() - firstTuesday.getTime()) / (7 * 24 * 60 * 60 * 1000)
-    )
-
-    return Math.max(1, Math.min(weeksSinceStart + 1, 18))
   }
 }
