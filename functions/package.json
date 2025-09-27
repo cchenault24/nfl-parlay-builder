@@ -5,8 +5,10 @@
   "engines": {
     "node": "20"
   },
+  "main": "lib/index.js",
+  "type": "commonjs",
   "scripts": {
-    "build": "tsc -p tsconfig.json && cp lib/index.js ./ && cp -r lib/http ./ && cp -r lib/clients ./ && cp -r lib/util ./ && cp -r lib/service ./ && cp lib/types.js ./",
+    "build": "tsc -p tsconfig.json",
     "lint": "echo 'No linting configured for functions'",
     "serve": "yarn build && firebase emulators:start --only functions",
     "shell": "yarn build && firebase functions:shell",

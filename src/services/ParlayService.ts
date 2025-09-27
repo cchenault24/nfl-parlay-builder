@@ -1,4 +1,3 @@
-// src/services/ParlayService.ts - Complete rich object implementation
 import { auth } from '../config/firebase'
 import {
   DEFAULT_STRATEGIES,
@@ -9,7 +8,7 @@ import {
   ParlayGenerationResult,
   StrategyConfig,
   VarietyFactors,
-} from '../types'
+} from '../shared'
 import { RateLimitError } from '../types/errors'
 import { container } from './container'
 
@@ -122,7 +121,7 @@ export class ParlayService {
     const payload = {
       gameId: game.id,
       options: {
-        strategy: options.strategy || DEFAULT_STRATEGIES.balanced,
+        strategy: options.strategy || DEFAULT_STRATEGIES,
         variety: options.varietyFactors || DEFAULT_VARIETY_FACTORS,
         temperature: options.temperature,
         provider: options.provider,
@@ -131,7 +130,7 @@ export class ParlayService {
 
     console.log('🚀 Sending parlay generation request:', {
       gameId: game.id,
-      strategy: payload.options.strategy.name,
+      strategy: payload.options.strategy,
       provider: payload.options.provider || 'auto',
     })
 
@@ -192,9 +191,6 @@ export class ParlayService {
         gameId: game.id,
         home: homeRoster || [],
         away: awayRoster || [],
-        // Legacy aliases for backward compatibility
-        homeRoster: homeRoster || [],
-        awayRoster: awayRoster || [],
       }
     } catch (error) {
       console.error('Failed to get game rosters:', error)
@@ -222,7 +218,7 @@ export class ParlayService {
   /**
    * Get available strategy presets
    */
-  getAvailableStrategies(): Record<string, StrategyConfig> {
+  getAvailableStrategies(): string[] {
     return DEFAULT_STRATEGIES
   }
 
@@ -234,7 +230,7 @@ export class ParlayService {
     overrides: Partial<StrategyConfig> = {}
   ): StrategyConfig {
     return {
-      ...DEFAULT_STRATEGIES.balanced,
+      ...DEFAULT_STRATEGIES,
       name,
       ...overrides,
     }

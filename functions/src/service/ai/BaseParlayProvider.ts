@@ -273,7 +273,7 @@ export abstract class BaseParlayProvider {
 
     // Validate each leg has required fields
     parlay.legs.forEach((leg, index) => {
-      if (!leg.type) {
+      if (!leg.betType) {
         throw new Error(`Leg ${index + 1} missing bet type`)
       }
 
@@ -283,9 +283,9 @@ export abstract class BaseParlayProvider {
 
       // Validate bet type is supported
       const supportedTypes = ['spread', 'total', 'moneyline', 'player_prop']
-      if (!supportedTypes.includes(leg.type)) {
+      if (!supportedTypes.includes(leg.betType)) {
         throw new Error(
-          `Leg ${index + 1} has unsupported bet type: ${leg.type}`
+          `Leg ${index + 1} has unsupported bet type: ${leg.betType}`
         )
       }
     })

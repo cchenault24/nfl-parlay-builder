@@ -348,9 +348,6 @@ Week ${game.week} | ${startTime}${game.venue ? ` | ${game.venue}` : ''}`
           const posPlayers = players
             .filter(p => {
               const position = p.position
-              if (typeof position === 'string') {
-                return position === pos
-              }
               return position?.abbreviation === pos
             })
             .slice(0, limit)
@@ -360,7 +357,7 @@ Week ${game.week} | ${startTime}${game.venue ? ` | ${game.venue}` : ''}`
           const playerNames = posPlayers
             .map(
               p =>
-                `${p.displayName || p.fullName}${p.jersey ? ` (#${p.jersey})` : ''}`
+                `${p.fullName}${p.jerseyNumber ? ` (#${p.jerseyNumber})` : ''}`
             )
             .join(', ')
           return `${pos}: ${playerNames}`

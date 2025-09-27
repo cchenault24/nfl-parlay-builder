@@ -1,6 +1,9 @@
-// src/services/container.ts
-import type { GeneratedParlay, ParlayOptions } from '@npb/shared'
 import { FunctionsNFLClient } from '../api/clients/FunctionsNFLClient'
+import {
+  GeneratedParlay,
+  GenerateParlayResponse,
+  ParlayOptions,
+} from '../shared'
 import { FunctionsAPI } from './functionsClient'
 
 export interface ParlayService {
@@ -15,14 +18,17 @@ class ParlayServiceImpl implements ParlayService {
     if (!gameId || typeof gameId !== 'string') {
       throw new Error('gameId is required')
     }
-    const resp = await FunctionsAPI.generateParlay(gameId, options)
+    const resp = (await FunctionsAPI.generateParlay(
+      gameId,
+      options
+    )) as GenerateParlayResponse
     if (!resp?.success) {
-      throw new Error(resp?.error?.message || 'Parlay generation failed')
+      throw new Error(resp?.error || 'Parlay generation failed')
     }
-    if (!resp.data) {
-      throw new Error('Parlay generation succeeded but no data was returned')
+    if (!resp.parlay) {
+      throw new Error('Parlay generation succeeded but no parlay was returned')
     }
-    return resp.data
+    return resp.parlay
   }
 }
 

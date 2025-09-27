@@ -1,4 +1,4 @@
-import type { GameRosters, NFLGame, NFLPlayer, NFLTeam } from '@npb/shared'
+import { GameRosters, NFLGame, NFLPlayer, NFLTeam } from '../shared-types'
 import { HttpBase } from './httpBase'
 
 export class ESPNServerClient {

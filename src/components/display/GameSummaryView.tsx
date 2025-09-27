@@ -19,16 +19,13 @@ import {
   useTheme,
 } from '@mui/material'
 import React from 'react'
-import type { GameSummary } from '../../types'
-
-type MatchupAnalysisData = string | Record<string, unknown> | null | undefined
-type PredictionData = string | Record<string, unknown> | null | undefined
-type KeyFactorsData =
-  | string[]
-  | string
-  | Record<string, unknown>
-  | null
-  | undefined
+import {
+  GameFlow,
+  GameSummary,
+  KeyFactorsData,
+  MatchupAnalysisData,
+  PredictionData,
+} from '../../shared'
 
 interface GameSummaryViewProps {
   gameSummary: GameSummary
@@ -157,26 +154,33 @@ const GameSummaryView: React.FC<GameSummaryViewProps> = ({
   }
 
   // Map gameFlow to display properties
-  const getGameFlowDisplay = (gameFlow: GameSummary['gameFlow']) => {
-    const flowMap = {
+  const getGameFlowDisplay = (gameFlow: GameFlow) => {
+    const flowMap: Record<
+      GameFlow,
+      {
+        label: string
+        color: 'error' | 'warning' | 'info' | 'secondary'
+        icon: React.ReactElement
+      }
+    > = {
       high_scoring_shootout: {
         label: 'High-Scoring Shootout',
-        color: 'error' as const,
+        color: 'error',
         icon: <TrendingUpIcon fontSize="small" />,
       },
       defensive_grind: {
         label: 'Defensive Grind',
-        color: 'warning' as const,
+        color: 'warning',
         icon: <FootballIcon fontSize="small" />,
       },
       balanced_tempo: {
         label: 'Balanced Tempo',
-        color: 'info' as const,
+        color: 'info',
         icon: <AnalyticsIcon fontSize="small" />,
       },
       potential_blowout: {
         label: 'Potential Blowout',
-        color: 'secondary' as const,
+        color: 'secondary',
         icon: <TrendingUpIcon fontSize="small" />,
       },
     }

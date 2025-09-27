@@ -1,5 +1,5 @@
-import type { GenerateParlayResponse, ParlayOptions } from '@npb/shared'
 import { RUNTIME } from '../config/runtime'
+import { GenerateParlayResponse, ParlayOptions } from '../shared'
 
 const base = () => {
   if (!RUNTIME.functionsBaseUrl) {

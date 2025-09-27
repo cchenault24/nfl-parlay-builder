@@ -1,5 +1,5 @@
-import type { Request, Response } from 'express'
 import { onRequest } from 'firebase-functions/v2/https'
+import { z } from 'zod'
 
 // ESPN API response interface for scoreboard
 interface ESPNScoreboardResponse {
@@ -20,6 +20,22 @@ interface ESPNScoreboardResponse {
     year: number
   }
 }
+
+const ESPNScoreboardSchema = z.object({
+  events: z
+    .array(
+      z.object({
+        id: z.string(),
+        date: z.string(),
+        week: z.object({ number: z.number() }).optional(),
+        season: z.object({ year: z.number() }).optional(),
+      })
+    )
+    .optional()
+    .default([]),
+  week: z.object({ number: z.number() }).optional(),
+  season: z.object({ year: z.number() }).optional(),
+})
 
 /**
  * Get current NFL week from ESPN API
@@ -44,7 +60,9 @@ async function getCurrentWeekFromESPN(): Promise<number> {
       throw new Error(`ESPN API returned ${response.status}`)
     }
 
-    const data: ESPNScoreboardResponse = await response.json()
+    const data: ESPNScoreboardResponse = ESPNScoreboardSchema.parse(
+      await response.json()
+    )
 
     // Try to get week from top-level response first
     if (data.week?.number) {
@@ -79,7 +97,7 @@ export const currentWeek = onRequest(
       'https://nfl-parlay-builder.firebaseapp.com',
     ],
   },
-  async (req: Request, res: Response) => {
+  async (req, res) => {
     try {
       // Allow manual override via environment variable for testing
       const mockWeek = process.env.MOCK_CURRENT_WEEK

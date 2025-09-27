@@ -1,11 +1,11 @@
-import type {
+import { ESPNServerClient } from '../../clients/espnClient'
+import {
   InjuryReport,
   MarketLine,
   Trend,
   UnifiedGameData,
   Weather,
-} from '@npb/shared'
-import { ESPNServerClient } from '../../clients/espnClient'
+} from '../../shared-types'
 
 export class DataOrchestrator {
   constructor(private readonly espn = new ESPNServerClient()) {}

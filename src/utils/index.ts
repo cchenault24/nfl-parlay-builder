@@ -1,6 +1,5 @@
-import { BetType, ParlayLeg } from '../types'
+import { BetType, ParlayLeg } from '../shared'
 
-// Workaround for TypeScript env issue
 /**
  * Utility to get environment variables
  *

@@ -1,6 +1,3 @@
-// functions/src/shared-types.ts - Direct copy of shared types for Cloud Build
-// This avoids the workspace dependency issue during Firebase deployment
-
 // ===== CORE STRATEGY TYPES =====
 export interface StrategyConfig {
   name: string

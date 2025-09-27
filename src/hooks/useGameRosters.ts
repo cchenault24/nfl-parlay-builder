@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { container } from '../services/container'
-import type { GameRosters, NFLGame } from '../types'
+import { GameRosters, NFLGame } from '../shared'
 
 /**
  * Fetch rosters for a specific game.

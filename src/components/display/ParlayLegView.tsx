@@ -9,7 +9,7 @@ import {
   Typography,
 } from '@mui/material'
 import React from 'react'
-import type { BetType, ParlayLeg } from '../../types'
+import { BetType, ParlayLeg } from '../../shared'
 
 interface ParlayLegViewProps extends React.HTMLAttributes<HTMLDivElement> {
   leg: ParlayLeg

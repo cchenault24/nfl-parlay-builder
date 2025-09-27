@@ -1,11 +1,13 @@
-// src/hooks/useGenerateParlay.ts - Enhanced with provider awareness and debugging
-import type { GeneratedParlay, ParlayOptions } from '@npb/shared'
 import { useMutation } from '@tanstack/react-query'
 import { container } from '../services/container'
+import { GeneratedParlay, ParlayOptions } from '../shared'
 import useGeneralStore from '../store/generalStore'
 import useParlayStore from '../store/parlayStore'
 
-type Vars = { gameId: string; options?: ParlayOptions }
+// Allow passing provider through options without changing shared types
+type WithProvider<T> = T & { provider?: 'mock' | 'openai' }
+
+type Vars = { gameId: string; options?: WithProvider<ParlayOptions> }
 
 export function useGenerateParlay() {
   const setParlay = useParlayStore(state => state.setParlay)
@@ -13,7 +15,10 @@ export function useGenerateParlay() {
 
   return useMutation<GeneratedParlay, Error, Vars>({
     mutationKey: ['generateParlay', devMockOverride], // Include provider in cache key
-    mutationFn: async ({ gameId, options = {} }) => {
+    mutationFn: async ({
+      gameId,
+      options = {} as WithProvider<ParlayOptions>,
+    }) => {
       // DETAILED DEBUGGING
       console.log('🔍 FRONTEND DEBUG: Provider selection logic', {
         devMockOverride,
@@ -24,10 +29,10 @@ export function useGenerateParlay() {
 
       // CRITICAL: Pass provider selection based on DevStatus toggle
       const provider = devMockOverride ? 'mock' : 'openai'
-      const enhancedOptions: ParlayOptions = {
+      const enhancedOptions = {
         ...options,
-        provider, // Use toggle state
-      }
+        provider,
+      } as unknown as ParlayOptions
 
       console.log('🎯 FRONTEND DEBUG: Sending request with options:', {
         gameId,

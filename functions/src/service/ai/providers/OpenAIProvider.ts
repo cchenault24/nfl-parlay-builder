@@ -6,8 +6,17 @@ import {
   GeneratedParlay,
   NFLGame,
   NFLPlayer,
-  StrategyConfig,
-} from '../../../types'
+  ParlayLeg,
+} from '../../../shared'
+
+// Minimal strategy shape used in prompts
+interface StrategyConfig {
+  name: string
+  description?: string
+  temperature?: number
+  riskLevel?: 'conservative' | 'medium' | 'aggressive'
+}
+
 import {
   AIProviderResponse,
   BaseParlayProvider,
@@ -125,7 +134,12 @@ export class OpenAIProvider extends BaseParlayProvider {
 
       console.log('✅ OpenAI: Successfully generated parlay', {
         hasGameSummary: !!parlay.gameSummary,
-        overallConfidence: parlay.overallConfidence,
+        overallConfidence:
+          Math.round(
+            (parlay.legs?.reduce((s, l) => s + (l.confidence ?? 0), 0) /
+              (parlay.legs?.length || 1)) *
+              10
+          ) / 10,
         latency: `${latency}ms`,
       })
 
@@ -136,7 +150,12 @@ export class OpenAIProvider extends BaseParlayProvider {
           model: this.config.model,
           tokens: response.usage?.total_tokens,
           latency,
-          confidence: parlay.overallConfidence || 7, // FIXED: Provide fallback for undefined
+          confidence:
+            Math.round(
+              (parlay.legs?.reduce((s, l) => s + (l.confidence ?? 0), 0) /
+                (parlay.legs?.length || 1)) *
+                10
+            ) / 10 || 7,
         },
       }
     } catch (error) {
@@ -308,8 +327,8 @@ Use only players from the provided rosters. Focus on real football analysis.`
     context: ParlayGenerationContext
   ): string {
     // FIXED: Safely access roster arrays with proper fallbacks
-    const homeRoster = rosters.home || rosters.homeRoster || []
-    const awayRoster = rosters.away || rosters.awayRoster || []
+    const homeRoster = rosters.home || []
+    const awayRoster = rosters.away || []
 
     const formatRoster = (players: NFLPlayer[], teamName: string) => {
       const positions = ['QB', 'RB', 'WR', 'TE']
@@ -330,8 +349,8 @@ Use only players from the provided rosters. Focus on real football analysis.`
 
           const playerList = positionPlayers
             .map(p => {
-              const name = p.displayName || p.fullName || 'Unknown'
-              const jersey = p.jersey || '??'
+              const name = (p as any).displayName || p.fullName || 'Unknown'
+              const jersey = (p as any).jerseyNumber || '??'
               return `#${jersey} ${name}`
             })
             .join(', ')
@@ -364,6 +383,19 @@ Create a strategic parlay with exactly 3 legs, including comprehensive game anal
   }
 
   /**
+   * Local helper to normalize bet types
+   */
+  private normalizeBetType = (bt: any): ParlayLeg['betType'] => {
+    const s = String(bt || '').toLowerCase()
+    if (s === 'player_prop' || s === 'player-prop')
+      return 'player-prop' as ParlayLeg['betType']
+    if (s === 'moneyline') return 'moneyline' as ParlayLeg['betType']
+    if (s === 'spread') return 'spread' as ParlayLeg['betType']
+    if (s === 'total' || s === 'totals') return 'total' as ParlayLeg['betType']
+    return 'spread' as ParlayLeg['betType']
+  }
+
+  /**
    * Parse AI response with proper error handling
    */
   private parseAIResponse(
@@ -382,36 +414,30 @@ Create a strategic parlay with exactly 3 legs, including comprehensive game anal
         throw new Error('Response must include exactly 3 legs')
       }
 
-      // FIXED: Create legs array that matches GeneratedParlay.legs structure
-      const legs = parsed.legs.map((leg: any) => ({
-        type: leg.betType || leg.type,
-        selection: leg.selection,
-        threshold: parseFloat(leg.target) || undefined,
-        price: parseInt(leg.odds) || undefined,
-        rationale: leg.reasoning || leg.rationale,
+      // Build legs matching server contract
+      const legs: ParlayLeg[] = parsed.legs.map((leg: any, idx: number) => ({
+        id: String(leg.id ?? `leg-${idx + 1}`),
+        description: String(
+          leg.description ?? leg.selection ?? leg.reasoning ?? 'Leg'
+        ),
+        betType: this.normalizeBetType(leg.betType ?? leg.type),
+        odds:
+          typeof leg.odds === 'string'
+            ? parseInt(leg.odds, 10)
+            : Number(leg.odds ?? -110),
+        confidence: Number(leg.confidence ?? 7),
       }))
 
-      // Create the parlay with all required fields
       const parlay: GeneratedParlay = {
         gameId: game.id,
-        legs, // FIXED: Use properly structured legs array
-        notes:
-          parsed.notes ||
-          `AI-generated parlay for ${game.awayTeam.displayName} @ ${game.homeTeam.displayName}`,
-
-        // Extended fields
-        id: this.generateParlayId(),
-        gameContext: `${game.awayTeam.displayName} @ ${game.homeTeam.displayName} - Week ${game.week}`,
-        aiReasoning:
-          parsed.aiReasoning ||
-          'Strategic parlay selection based on game analysis.',
-        overallConfidence: Math.min(
-          Math.max(Number(parsed.overallConfidence) || 7, 1),
-          10
-        ),
-        estimatedOdds: parsed.estimatedOdds || '+280',
+        legs,
+        summary:
+          typeof parsed.aiReasoning === 'string'
+            ? parsed.aiReasoning
+            : typeof parsed.notes === 'string'
+              ? parsed.notes
+              : undefined,
         gameSummary: this.processGameSummary(parsed.gameSummary, game),
-        createdAt: new Date().toISOString(),
       }
 
       return parlay
@@ -427,67 +453,40 @@ Create a strategic parlay with exactly 3 legs, including comprehensive game anal
    * Process game summary with proper typing
    */
   private processGameSummary(gameSummary: any, game: NFLGame): GameSummary {
+    const defaultNarrative = `${game.awayTeam.displayName} vs ${game.homeTeam.displayName} presents an intriguing matchup with both teams bringing unique strengths and tactical approaches.`
+
     if (!gameSummary || typeof gameSummary !== 'object') {
-      // Return default GameSummary
       return {
-        matchupAnalysis: `${game.awayTeam.displayName} vs ${game.homeTeam.displayName} presents an intriguing matchup with both teams bringing unique strengths and tactical approaches.`,
-        gameFlow: 'balanced_tempo',
-        keyFactors: [
-          'Team strengths and weaknesses',
-          'Key matchup advantages',
+        matchup: `${game.awayTeam.displayName} @ ${game.homeTeam.displayName}`,
+        narrative: defaultNarrative,
+        edges: [
+          'Team matchups and strengths',
+          'Key player availability',
           'Game conditions and context',
         ],
-        prediction:
-          'Expect a competitive game with strategic adjustments throughout, likely decided by execution in key moments.',
-        confidence: 7,
       }
     }
 
-    const validGameFlows: GameSummary['gameFlow'][] = [
-      'high_scoring_shootout',
-      'defensive_grind',
-      'balanced_tempo',
-      'potential_blowout',
-    ]
+    const edges = Array.isArray(gameSummary.keyFactors)
+      ? gameSummary.keyFactors
+          .map((f: any) => String(f).trim())
+          .filter((f: string) => f.length > 0)
+          .slice(0, 5)
+      : typeof gameSummary.keyFactors === 'string'
+        ? [String(gameSummary.keyFactors).trim()]
+        : undefined
 
-    // Safely process key factors
-    const processKeyFactors = (factors: any): string[] => {
-      if (Array.isArray(factors)) {
-        return factors
-          .map(factor => String(factor).trim())
-          .filter(factor => factor.length > 0)
-          .slice(0, 5) // Limit to 5 factors
-      }
-
-      if (typeof factors === 'string') {
-        return [factors.trim()].filter(factor => factor.length > 0)
-      }
-
-      // Default fallback
-      return [
-        'Team matchups and strengths',
-        'Key player availability',
-        'Game conditions and context',
-      ]
-    }
+    const narrative =
+      (typeof gameSummary.matchupAnalysis === 'string' &&
+        gameSummary.matchupAnalysis.trim()) ||
+      (typeof gameSummary.prediction === 'string' &&
+        gameSummary.prediction.trim()) ||
+      defaultNarrative
 
     return {
-      matchupAnalysis: String(
-        gameSummary.matchupAnalysis ||
-          `${game.awayTeam.displayName} vs ${game.homeTeam.displayName} presents an intriguing matchup with contrasting styles.`
-      ),
-      gameFlow: validGameFlows.includes(gameSummary.gameFlow)
-        ? gameSummary.gameFlow
-        : 'balanced_tempo',
-      keyFactors: processKeyFactors(gameSummary.keyFactors),
-      prediction: String(
-        gameSummary.prediction ||
-          'Competitive game expected with strategic adjustments from both teams throughout.'
-      ),
-      confidence: Math.min(
-        Math.max(Number(gameSummary.confidence) || 7, 1),
-        10
-      ),
+      matchup: `${game.awayTeam.displayName} @ ${game.homeTeam.displayName}`,
+      narrative,
+      edges,
     }
   }
 }

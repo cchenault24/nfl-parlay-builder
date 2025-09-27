@@ -9,9 +9,9 @@ import {
   Typography,
 } from '@mui/material'
 import React, { useEffect } from 'react'
+import { ParlayLeg } from '../../shared'
 import useModalStore from '../../store/modalStore'
 import useParlayStore from '../../store/parlayStore'
-import type { ParlayLeg } from '../../types'
 import { AuthModal } from '../auth/AuthModal'
 import { LegalDisclaimer } from '../legal/LegalDisclaimer' // Add this import
 import GameSummaryView from './GameSummaryView'
@@ -40,15 +40,7 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({ loading }) => {
     if (!parlay) {
       return []
     }
-    return parlay.legs.map((leg, index) => ({
-      id: `${parlay.gameId ?? 'game'}-L${index + 1}`,
-      betType: leg.type as ParlayLeg['betType'],
-      selection: leg.selection,
-      target: leg.threshold != null ? String(leg.threshold) : '',
-      reasoning: leg.rationale ?? '',
-      confidence: 0,
-      odds: leg.price != null ? String(leg.price) : '',
-    }))
+    return parlay.legs
   }, [parlay])
 
   if (loading) {

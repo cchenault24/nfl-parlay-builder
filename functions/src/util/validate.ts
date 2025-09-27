@@ -1,5 +1,4 @@
-// functions/src/util/validate.ts - Updated for gameId format
-import type { GenerateParlayRequest } from '@npb/shared'
+import { GenerateParlayRequest } from '../shared-types'
 
 export function validateGenerateParlayRequest(
   body: any

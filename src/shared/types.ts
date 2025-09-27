@@ -35,14 +35,34 @@ export interface ParlayOptions {
   strategies?: string[]
 }
 
-/**
- * Optional high-level summary of how the game is expected to play out.
- */
+export type MatchupAnalysisData =
+  | string
+  | Record<string, unknown>
+  | null
+  | undefined
+
+export type PredictionData = string | Record<string, unknown> | null | undefined
+
+export type KeyFactorsData =
+  | string[]
+  | string
+  | Record<string, unknown>
+  | null
+  | undefined
+
 export interface GameSummary {
-  matchup: string
-  narrative: string
-  edges?: string[]
+  gameFlow: GameFlow
+  matchupAnalysis: MatchupAnalysisData
+  prediction: PredictionData
+  keyFactors: string[] | string | Record<string, unknown> | null | undefined
+  confidence: number
 }
+
+export type GameFlow =
+  | 'high_scoring_shootout'
+  | 'defensive_grind'
+  | 'balanced_tempo'
+  | 'potential_blowout'
 
 /**
  * The fully generated parlay result returned by AI.
@@ -100,60 +120,12 @@ export interface NFLGame {
   venue: string
 }
 
-/**
- * Strongly-typed football positions (server-side)
- */
-export type PositionAbbr =
-  | 'QB'
-  | 'RB'
-  | 'WR'
-  | 'TE'
-  | 'FB'
-  | 'OL'
-  | 'LT'
-  | 'LG'
-  | 'C'
-  | 'RG'
-  | 'RT'
-  | 'EDGE'
-  | 'DL'
-  | 'DE'
-  | 'DT'
-  | 'NT'
-  | 'LB'
-  | 'OLB'
-  | 'MLB'
-  | 'ILB'
-  | 'CB'
-  | 'S'
-  | 'FS'
-  | 'SS'
-  | 'DB'
-  | 'K'
-  | 'P'
-  | 'KR'
-  | 'PR'
-  | 'LS'
-
-export interface Position {
-  /** Short code like QB, RB, WR, etc. */
-  abbreviation: PositionAbbr | (string & {})
-  /** Optional human-friendly name, e.g., "Quarterback" */
-  name?: string
-  /** Optional role flags for convenience */
-  offense?: boolean
-  defense?: boolean
-  specialTeams?: boolean
-}
-
-// ...then in NFLPlayer, change the position type:
-
 export interface NFLPlayer {
   id: string
   fullName: string
   firstName?: string
   lastName?: string
-  position?: Position
+  position?: string
   jerseyNumber?: string
   teamId?: string
   status?: 'active' | 'inactive' | 'injured' | 'out'
@@ -193,9 +165,7 @@ export interface VarietyFactors {
 /** UI bet types for consistent display (alias kept for compatibility) */
 export type UIBetType = BetType
 
-/**
- * Parlay generation options for UI components
- */
+/** Parlay generation options for UI components */
 export interface UIParlayOptions extends ParlayOptions {
   strategy?: UIStrategyConfig
   variety?: UIVarietyFactors
@@ -203,7 +173,6 @@ export interface UIParlayOptions extends ParlayOptions {
 
 /** Strategy configuration options for UI */
 export interface UIStrategyConfig extends StrategyConfig {
-  // UI-specific fields can be added here
   displayOrder?: number
   category?: 'beginner' | 'advanced' | 'expert'
   icon?: string
@@ -212,14 +181,12 @@ export interface UIStrategyConfig extends StrategyConfig {
 
 /** UI variety factors with display metadata */
 export interface UIVarietyFactors extends VarietyFactors {
-  // UI-specific fields
   displayName?: string
   tooltip?: string
 }
 
 // ===== COMPONENT TYPES =====
 
-/** Props for strategy selection components */
 export interface StrategySelectionProps {
   value?: StrategyConfig
   onChange: (strategy: StrategyConfig) => void
@@ -227,14 +194,12 @@ export interface StrategySelectionProps {
   showAdvanced?: boolean
 }
 
-/** Props for variety factors components */
 export interface VarietyFactorsProps {
   value?: VarietyFactors
   onChange: (factors: VarietyFactors) => void
   disabled?: boolean
 }
 
-/** Props for parlay display components */
 export interface ParlayDisplayProps {
   parlay: GeneratedParlay
   showDetails?: boolean
@@ -259,19 +224,16 @@ export interface ParlayRequest {
   legCount: 3
 }
 
-/** Enhanced error response for UI handling */
 export interface UIErrorResponse {
   code: string
   message: string
-  userMessage?: string // User-friendly message for display
+  userMessage?: string
   retryable?: boolean
   details?: unknown
 }
 
-/** Loading states for UI components */
 export type LoadingState = 'idle' | 'loading' | 'success' | 'error'
 
-/** Notification types for UI feedback */
 export interface UINotification {
   id: string
   type: 'success' | 'error' | 'warning' | 'info'
@@ -284,7 +246,6 @@ export interface UINotification {
   }
 }
 
-/** Global app state interface */
 export interface AppState {
   user: UserProfile | null
   selectedGame: NFLGame | null
@@ -296,7 +257,6 @@ export interface AppState {
   notifications: UINotification[]
 }
 
-/** Parlay generation state */
 export interface ParlayState {
   isGenerating: boolean
   currentParlay: GeneratedParlay | null
@@ -310,7 +270,6 @@ export interface ParlayState {
   }
 }
 
-/** Auth & saved parlay types */
 export interface UserProfile {
   uid: string
   displayName: string
@@ -327,14 +286,12 @@ export interface SavedParlay extends GeneratedParlay {
 
 // ===== FORM & UTIL TYPES =====
 
-/** Form validation state */
 export interface ValidationState {
   isValid: boolean
   errors: Record<string, string>
   touched: Record<string, boolean>
 }
 
-/** Strategy form values */
 export interface StrategyFormValues {
   name: string
   description?: string
@@ -345,7 +302,6 @@ export interface StrategyFormValues {
   maxLegs?: number
 }
 
-/** Variety factors form values */
 export interface VarietyFormValues {
   strategy?: string
   focusArea?: string
@@ -356,15 +312,12 @@ export interface VarietyFormValues {
   focusPlayer?: string
 }
 
-/** Async operation result */
 export type AsyncResult<T> = {
   data?: T
   error?: UIErrorResponse
   loading: boolean
 }
 
-/** Optional fields helper */
 export type Optional<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>
 
-/** Required fields helper */
 export type RequiredFields<T, K extends keyof T> = T & Required<Pick<T, K>>

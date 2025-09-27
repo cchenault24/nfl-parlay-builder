@@ -1,9 +1,9 @@
-import type {
+import {
   GameRosters,
   GeneratedParlay,
   NFLGame,
   ParlayOptions,
-} from '@npb/shared'
+} from '../../types'
 
 export class StubAIService {
   async generateParlay(
@@ -25,15 +25,16 @@ export class StubAIService {
       gameId: game.id,
       legs: [
         {
-          type: 'spread',
+          betType: 'spread',
           selection: `${game.homeTeam.abbreviation} -2.5`,
-          threshold: -2.5,
-          price: -110,
-          rationale:
+          target: '-2.5',
+          odds: '-110',
+          reasoning:
             'Placeholder leg while AI provider is being migrated to server',
+          confidence: 5,
+          id: 'id',
         },
       ],
-      notes: `strategy=${options?.strategy ?? 'balanced'}`,
     }
     return {
       parlay,

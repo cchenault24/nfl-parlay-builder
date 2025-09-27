@@ -1,4 +1,5 @@
-import type { Request, Response } from 'express'
+// functions/src/http/generateParlay.ts
+
 import { defineSecret } from 'firebase-functions/params'
 import { onRequest } from 'firebase-functions/v2/https'
 import { ESPNServerClient } from '../clients/espnClient'
@@ -6,21 +7,32 @@ import { ParlayAIService } from '../service/ai/ParlayAIService'
 import { OpenAIProvider } from '../service/ai/providers/OpenAIProvider'
 import { DataOrchestrator } from '../service/data/dataOrchestrator'
 import {
-  DEFAULT_STRATEGIES,
-  DEFAULT_VARIETY_FACTORS,
+  GeneratedParlay,
+  GenerateParlayResponse,
+  NFLGameStatus,
+  ParlayLeg,
   ParlayOptions,
-  StrategyConfig,
-  VarietyFactors,
-} from '../types'
+} from '../shared'
+import { BetType } from '../types'
 
-// Define secret for OpenAI API key
+// --- Local helper types (server-side shape kept minimal) ---
+type ProviderName = 'mock' | 'openai'
+type WithProvider<T> = T & { provider?: ProviderName; temperature?: number }
+
+interface StrategyConfig {
+  name: string
+  riskLevel?: 'conservative' | 'medium' | 'aggressive'
+  temperature?: number
+}
+
+type VarietyFactors = Record<string, unknown>
+
+// --- Secrets ---
 const openaiApiKey = defineSecret('OPENAI_API_KEY')
 
-// Initialize services
+// --- Services ---
 const espnClient = new ESPNServerClient()
 const dataOrchestrator = new DataOrchestrator(espnClient)
-
-// Initialize AI service with OpenAI provider
 const aiService = new ParlayAIService({
   primaryProvider: 'openai',
   fallbackProviders: ['mock'],
@@ -28,9 +40,49 @@ const aiService = new ParlayAIService({
   debugMode: process.env.NODE_ENV === 'development',
 })
 
-// Default strategy and variety factors
-const defaultStrategy: StrategyConfig = DEFAULT_STRATEGIES.balanced
-const defaultVarietyFactors: VarietyFactors = DEFAULT_VARIETY_FACTORS
+// --- Local defaults (don’t depend on removed shared constants) ---
+const defaultStrategy: StrategyConfig = {
+  name: 'Balanced',
+  riskLevel: 'medium',
+  temperature: 0.7,
+}
+const defaultVarietyFactors: VarietyFactors = {}
+
+// --- Adapters to bridge legacy types (../types) and new shared types ---
+const normalizeStatus = (raw: string): NFLGameStatus => {
+  const s = raw.toLowerCase()
+  if (s === 'pre' || s === 'scheduled') return 'scheduled'
+  if (s === 'in' || s === 'live' || s === 'in_progress') return 'in_progress'
+  if (s === 'post' || s === 'final') return 'final'
+  return 'scheduled'
+}
+
+const normalizeBetType = (bt: BetType): ParlayLeg['betType'] => {
+  if (bt === 'player_prop') return 'player_prop'
+  if (
+    bt === 'moneyline' ||
+    bt === 'spread' ||
+    bt === 'total' ||
+    bt === 'player_prop'
+  )
+    return bt as ParlayLeg['betType']
+  return 'spread'
+}
+
+const toSharedParlay = (p: any): GeneratedParlay => ({
+  gameId: p.gameId,
+  legs: Array.isArray(p.legs)
+    ? p.legs.map((l: any) => ({
+        id: String(l.id),
+        description: String(l.description ?? ''),
+        betType: normalizeBetType(l.betType),
+        odds: Number(l.odds ?? 0),
+        confidence: Number(l.confidence ?? 0),
+      }))
+    : [],
+  summary: typeof p.summary === 'string' ? p.summary : undefined,
+  gameSummary: p.gameSummary,
+})
 
 export const generateParlay = onRequest(
   {
@@ -43,11 +95,20 @@ export const generateParlay = onRequest(
     ],
     timeoutSeconds: 60,
     memory: '1GiB',
-    secrets: [openaiApiKey], // Include the secret
+    secrets: [openaiApiKey],
   },
-  async (req: Request, res: Response) => {
+  async (req, res) => {
     try {
-      // Register OpenAI provider with the secret at runtime
+      // Enforce POST
+      if (req.method !== 'POST') {
+        const errorResp: GenerateParlayResponse & {
+          error: string
+        } = { success: false, error: 'Method not allowed. Use POST.' }
+        res.status(405).json(errorResp)
+        return
+      }
+
+      // Register OpenAI at runtime using secret
       const apiKey = openaiApiKey.value()
       if (apiKey) {
         const openaiProvider = new OpenAIProvider({
@@ -57,164 +118,133 @@ export const generateParlay = onRequest(
           defaultMaxTokens: 4000,
         })
         aiService.registerProvider('openai', openaiProvider)
-        console.log('✅ OpenAI provider registered with API key')
+        console.log('✅ OpenAI provider registered')
       } else {
-        console.warn(
-          '⚠️ OPENAI_API_KEY not found, AI generation will use fallback'
-        )
-      }
-
-      if (req.method !== 'POST') {
-        res.status(405).json({
-          success: false,
-          error: {
-            code: 'METHOD_NOT_ALLOWED',
-            message: 'Method not allowed. Use POST.',
-          },
-        })
-        return
+        console.warn('⚠️ OPENAI_API_KEY not found, using fallback provider')
       }
 
       console.log('🎯 Parlay generation request received')
 
-      const { gameId, options = {} } = req.body as {
-        gameId: string
-        options?: ParlayOptions
-      }
+      const { gameId, options = {} as WithProvider<ParlayOptions> } =
+        req.body as {
+          gameId: string
+          options?: WithProvider<ParlayOptions>
+        }
 
-      // Validate required fields
       if (!gameId) {
-        res.status(400).json({
+        const errorResp: GenerateParlayResponse & { error: string } = {
           success: false,
-          error: {
-            code: 'MISSING_GAME_ID',
-            message: 'gameId is required',
-          },
-        })
+          error: 'gameId is required',
+        }
+        res.status(400).json(errorResp)
         return
       }
 
       console.log(`📊 Fetching game data for gameId: ${gameId}`)
 
-      // Get unified game data
-      const unifiedData = await dataOrchestrator.byGameId(gameId)
-      const { game, rosters } = unifiedData
+      // Get unified game + rosters
+      const { game, rosters } = await dataOrchestrator.byGameId(gameId)
 
       console.log(
         `🏈 Game: ${game.awayTeam.displayName} @ ${game.homeTeam.displayName}`
       )
       console.log(
-        `👥 Rosters: ${rosters.home.length} home, ${rosters.away.length} away players`
+        `👥 Rosters: ${rosters.home.length} home, ${rosters.away.length} away`
       )
 
-      // Validate roster data
-      if (
-        !rosters.home ||
-        !rosters.away ||
-        rosters.home.length === 0 ||
-        rosters.away.length === 0
-      ) {
-        res.status(400).json({
+      // Basic roster validation
+      if (!rosters.home?.length || !rosters.away?.length) {
+        const errorResp: GenerateParlayResponse & { error: string } = {
           success: false,
-          error: {
-            code: 'INVALID_ROSTER_DATA',
-            message: 'Complete roster data is required for both teams',
-          },
-        })
+          error: 'Complete roster data is required for both teams',
+        }
+        res.status(400).json(errorResp)
         return
       }
 
-      // Use provided strategy and variety factors or defaults
-      const strategy: StrategyConfig = options.strategy || defaultStrategy
+      // Apply strategy and variety (with local defaults)
+      const strategy: StrategyConfig =
+        (options as any).strategy || defaultStrategy
       const varietyFactors: VarietyFactors =
-        options.variety || defaultVarietyFactors
+        (options as any).variety || defaultVarietyFactors
+
+      const provider: ProviderName | undefined = (options as any).provider
+      const temperature =
+        (options as any).temperature ?? strategy.temperature ?? 0.7
 
       console.log('🤖 Generating parlay with AI service...')
       console.log(
-        `🎛️ Strategy: ${strategy.name}, Provider: ${options.provider || 'auto'}`
+        `🎛️ Strategy: ${strategy.name}, Provider: ${provider || 'auto'}`
       )
       console.log(
-        `📈 Risk Level: ${strategy.riskLevel}, Temperature: ${strategy.temperature}`
+        `📈 Risk Level: ${strategy.riskLevel}, Temperature: ${temperature}`
       )
 
-      // Generate parlay using AI service
       const result = await aiService.generateParlay(
-        game,
-        rosters,
-        strategy,
-        varietyFactors,
+        // cast to legacy types (../types) expected by older AI service signatures
         {
-          temperature: options.temperature || strategy.temperature,
-          provider: options.provider,
+          ...game,
+          status: normalizeStatus((game as any).status ?? 'scheduled'),
+        } as unknown as import('../types').NFLGame,
+        rosters as unknown as import('../types').GameRosters,
+        strategy as any,
+        varietyFactors as any,
+        {
+          temperature,
+          provider,
           debugMode: process.env.NODE_ENV === 'development',
         }
       )
 
       console.log('✅ Parlay generated successfully')
-      console.log(
-        `🎲 Parlay: ${result.parlay.legs?.length || 0} legs, confidence: ${result.parlay.overallConfidence}/10`
-      )
-      console.log(
-        `🔧 Provider: ${result.metadata?.provider}, Model: ${result.metadata?.model}`
-      )
-      console.log(
-        `⚡ Latency: ${result.metadata?.latency}ms, Tokens: ${result.metadata?.tokens || 'N/A'}`
-      )
+      console.log(`🎲 Legs: ${result.parlay?.legs?.length ?? 0}`)
+      if (result.metadata) {
+        console.log(
+          `🔧 Provider: ${result.metadata.provider} | Model: ${result.metadata.model}`
+        )
+        console.log(
+          `⚡ Latency: ${result.metadata.latency}ms | Tokens: ${
+            (result.metadata as any).tokens ?? 'N/A'
+          }`
+        )
+      }
 
-      // Prepare response
-      const response = {
+      const response: GenerateParlayResponse = {
         success: true,
-        data: result.parlay,
-        metadata: {
-          ...(result.metadata || {}),
-          requestedProvider: options.provider,
-          actualProvider: result.metadata?.provider,
-          providerMatch:
-            !options.provider || options.provider === result.metadata?.provider,
-        },
+        parlay: result.parlay ? toSharedParlay(result.parlay) : undefined,
       }
 
       res.status(200).json(response)
     } catch (error) {
       console.error('❌ Error generating parlay:', error)
 
-      // Determine error type and appropriate response
+      // Map to a user-safe error
       let statusCode = 500
       let errorCode = 'GENERATION_FAILED'
       let errorMessage = 'Failed to generate parlay'
 
       if (error instanceof Error) {
         errorMessage = error.message
-
-        // Check for specific error types
-        if (error.message.includes('API key')) {
+        const msg = error.message.toLowerCase()
+        if (msg.includes('api key')) {
           statusCode = 401
           errorCode = 'INVALID_API_KEY'
-        } else if (
-          error.message.includes('rate limit') ||
-          error.message.includes('quota')
-        ) {
+        } else if (msg.includes('rate limit') || msg.includes('quota')) {
           statusCode = 429
           errorCode = 'RATE_LIMITED'
-        } else if (
-          error.message.includes('validation') ||
-          error.message.includes('invalid')
-        ) {
+        } else if (msg.includes('validation') || msg.includes('invalid')) {
           statusCode = 400
           errorCode = 'VALIDATION_ERROR'
-        } else if (error.message.includes('timeout')) {
+        } else if (msg.includes('timeout')) {
           statusCode = 504
           errorCode = 'TIMEOUT_ERROR'
-        } else if (
-          error.message.includes('network') ||
-          error.message.includes('fetch')
-        ) {
+        } else if (msg.includes('network') || msg.includes('fetch')) {
           statusCode = 503
           errorCode = 'NETWORK_ERROR'
         }
       }
 
-      const errorResponse = {
+      const body = {
         success: false,
         error: {
           code: errorCode,
@@ -224,13 +254,13 @@ export const generateParlay = onRequest(
               ? {
                   stack: error instanceof Error ? error.stack : undefined,
                   timestamp: new Date().toISOString(),
-                  gameId: req.body?.gameId,
+                  gameId: (req as any).body?.gameId,
                 }
               : undefined,
         },
       }
 
-      res.status(statusCode).json(errorResponse)
+      res.status(statusCode).json(body)
     }
   }
 )

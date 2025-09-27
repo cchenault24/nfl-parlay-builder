@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { container } from '../services/container'
-import type { NFLPlayer } from '../types'
+import { NFLPlayer } from '../shared'
 
 export const useTeamRoster = (teamId?: string) => {
   const query = useQuery({

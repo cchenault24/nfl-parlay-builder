@@ -1,5 +1,5 @@
-import type { Request, Response } from 'express'
 import { onRequest } from 'firebase-functions/v2/https'
+import { z } from 'zod'
 
 // ESPN API response interfaces
 interface ESPNTeam {
@@ -14,7 +14,7 @@ interface ESPNTeam {
 }
 
 interface ESPNCompetitor {
-  id: string
+  id?: string
   homeAway: 'home' | 'away'
   team: ESPNTeam
   score?: {
@@ -41,11 +41,11 @@ interface ESPNCompetition {
     displayClock?: string
     period?: number
     type: {
-      id: string
-      name: string
+      id?: string
+      name?: string
       state: string
-      completed: boolean
-      description: string
+      completed?: boolean
+      description?: string
     }
   }
   broadcast?: Array<{
@@ -65,11 +65,11 @@ interface ESPNEvent {
     displayClock?: string
     period?: number
     type: {
-      id: string
-      name: string
+      id?: string
+      name?: string
       state: string
-      completed: boolean
-      description: string
+      completed?: boolean
+      description?: string
     }
   }
   week?: {
@@ -91,6 +91,87 @@ interface ESPNScoreboardResponse {
     type?: number
   }
 }
+
+const ESPNTeamSchema = z
+  .object({
+    id: z.string(),
+    name: z.string().optional(),
+    displayName: z.string(),
+    shortDisplayName: z.string().optional(),
+    abbreviation: z.string(),
+    color: z.string().optional(),
+    alternateColor: z.string().optional(),
+    logo: z.string().optional(),
+  })
+  .passthrough()
+
+const ESPNCompetitorSchema = z.object({
+  id: z.string().optional(),
+  homeAway: z.enum(['home', 'away']),
+  team: ESPNTeamSchema,
+  score: z.object({ value: z.number() }).optional(),
+})
+
+const ESPNVenueSchema = z
+  .object({
+    id: z.string().optional(),
+    fullName: z.string().optional(),
+    shortName: z.string().optional(),
+    city: z.string().optional(),
+    state: z.string().optional(),
+    indoor: z.boolean().optional(),
+  })
+  .partial()
+  .passthrough()
+
+const ESPNStatusTypeSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().optional(),
+  state: z.string(),
+  completed: z.boolean().default(false),
+  description: z.string().optional(),
+})
+
+const ESPNStatusSchema = z.object({
+  clock: z.number().optional(),
+  displayClock: z.string().optional(),
+  period: z.number().optional(),
+  type: ESPNStatusTypeSchema,
+})
+
+const ESPNCompetitionSchema = z.object({
+  id: z.string(),
+  date: z.string(),
+  competitors: z.array(ESPNCompetitorSchema),
+  venue: ESPNVenueSchema.optional(),
+  status: ESPNStatusSchema,
+  broadcast: z
+    .array(
+      z.object({ market: z.string().optional(), names: z.array(z.string()) })
+    )
+    .optional(),
+})
+
+const ESPNEventSchema = z.object({
+  id: z.string(),
+  name: z.string().optional(),
+  shortName: z.string().optional(),
+  date: z.string(),
+  competitions: z.array(ESPNCompetitionSchema),
+  status: ESPNStatusSchema,
+  week: z.object({ number: z.number() }).optional(),
+  season: z
+    .object({ year: z.number(), type: z.number().optional() })
+    .optional(),
+})
+
+const ESPNScoreboardSchema = z.object({
+  events: z.array(ESPNEventSchema).default([]),
+  week: z.object({ number: z.number() }).optional(),
+  season: z
+    .object({ year: z.number(), type: z.number().optional() })
+    .optional(),
+})
 
 // Our app's expected interfaces
 interface NFLTeam {
@@ -215,7 +296,9 @@ async function getGamesFromESPN(week: number): Promise<NFLGame[]> {
       )
     }
 
-    const data: ESPNScoreboardResponse = await response.json()
+    const data: ESPNScoreboardResponse = ESPNScoreboardSchema.parse(
+      await response.json()
+    )
 
     if (!data.events || data.events.length === 0) {
       console.warn(`No games found for week ${week}`)
@@ -244,7 +327,7 @@ export const gamesByWeek = onRequest(
       'https://nfl-parlay-builder.firebaseapp.com',
     ],
   },
-  async (req: Request, res: Response) => {
+  async (req, res) => {
     const week = parseInt(req.query.week as string, 10)
 
     if (!week || week < 1 || week > 22) {

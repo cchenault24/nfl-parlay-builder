@@ -26,7 +26,6 @@ import { useGenerateParlay } from './hooks/useGenerateParlay'
 import { useNFLGames } from './hooks/useNFLGames'
 import useParlayStore from './store/parlayStore'
 import { theme } from './theme'
-import { DEFAULT_STRATEGIES } from './types' // Import the default strategies
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -118,9 +117,6 @@ function AppContent() {
       console.log('🔥 Generating parlay for game:', selectedGame.id)
       generateParlay({
         gameId: selectedGame.id,
-        options: {
-          strategy: DEFAULT_STRATEGIES.balanced, // Use rich object instead of string
-        },
       })
     }
   }

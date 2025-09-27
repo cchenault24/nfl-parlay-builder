@@ -1,11 +1,9 @@
-// src/api/clients/FunctionsNFLClient.ts - Updated to use gameId format consistently
-
-import type {
+import {
   GeneratedParlay,
   NFLGame,
   NFLPlayer,
   ParlayOptions,
-} from '../../types'
+} from '../../shared'
 
 // Base client for HTTP operations
 class HttpBase {

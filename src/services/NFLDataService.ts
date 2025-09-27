@@ -1,4 +1,4 @@
-import type { GameRosters, NFLGame, NFLPlayer } from '../types'
+import { GameRosters, NFLGame, NFLPlayer } from '../shared'
 import { container } from './container'
 
 /**

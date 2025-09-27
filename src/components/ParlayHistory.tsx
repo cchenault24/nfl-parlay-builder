@@ -23,7 +23,7 @@ import { Timestamp } from 'firebase/firestore'
 import React, { useEffect, useState } from 'react'
 import { getUserParlays } from '../config/firebase'
 import { useAuth } from '../hooks/useAuth'
-import { GeneratedParlay, ParlayLeg } from '../types'
+import { GeneratedParlay, ParlayLeg } from '../shared'
 
 interface ParlayHistoryProps {
   open: boolean
@@ -149,15 +149,7 @@ export const ParlayHistory: React.FC<ParlayHistoryProps> = ({
           <Box sx={{ maxHeight: '60vh', overflowY: 'auto' }}>
             {parlays.map((parlay, index) => {
               // Adapt server legs to UI ParlayLegs
-              const uiLegs: ParlayLeg[] = (parlay.legs ?? []).map((leg, i) => ({
-                id: `${parlay.id ?? 'parlay'}-L${i + 1}`,
-                betType: (leg.type as ParlayLeg['betType']) ?? 'spread',
-                selection: leg.selection,
-                target: leg.threshold != null ? String(leg.threshold) : '',
-                reasoning: leg.rationale ?? '',
-                confidence: 0,
-                odds: leg.price != null ? String(leg.price) : '',
-              }))
+              const uiLegs: ParlayLeg[] = parlay.legs ?? []
 
               return (
                 <Card key={parlay.id || `parlay-${index}`} sx={{ mb: 2 }}>
