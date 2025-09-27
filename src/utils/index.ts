@@ -1,4 +1,4 @@
-import { BetType, ParlayLeg } from '../shared'
+import { BetType, ParlayLeg } from '../types'
 
 /**
  * Utility to get environment variables

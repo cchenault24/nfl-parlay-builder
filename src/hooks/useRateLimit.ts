@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { useAuthState } from 'react-firebase-hooks/auth'
-import { API_CONFIG } from '../config/api'
 import { auth } from '../config/firebase'
+import { API_CONFIG } from '../constants'
 
 interface RateLimitInfo {
   remaining: number

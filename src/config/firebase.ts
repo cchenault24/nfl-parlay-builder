@@ -22,7 +22,7 @@ import {
   Timestamp,
   where,
 } from 'firebase/firestore'
-import { GeneratedParlay } from '../shared'
+import { GeneratedParlay } from '../types'
 
 export interface UserProfile {
   displayName: string

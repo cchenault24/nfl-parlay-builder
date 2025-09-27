@@ -5,7 +5,7 @@ import {
   APIResponse,
   HTTPError,
   IAPIClient,
-} from './types'
+} from '../../../types'
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 

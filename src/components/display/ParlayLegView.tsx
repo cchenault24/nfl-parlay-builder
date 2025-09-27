@@ -8,8 +8,7 @@ import {
   LinearProgress,
   Typography,
 } from '@mui/material'
-import React from 'react'
-import { BetType, ParlayLeg } from '../../shared'
+import { BetType, ParlayLeg } from '../../types'
 
 interface ParlayLegViewProps extends React.HTMLAttributes<HTMLDivElement> {
   leg: ParlayLeg

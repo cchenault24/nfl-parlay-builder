@@ -1,9 +1,4 @@
-import {
-  GeneratedParlay,
-  NFLGame,
-  NFLPlayer,
-  ParlayOptions,
-} from '../../shared'
+import { GeneratedParlay, NFLGame, NFLPlayer, ParlayOptions } from '../../types'
 
 // Base client for HTTP operations
 class HttpBase {

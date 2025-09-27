@@ -9,11 +9,11 @@ import {
   Typography,
 } from '@mui/material'
 import React, { useEffect } from 'react'
-import { ParlayLeg } from '../../shared'
 import useModalStore from '../../store/modalStore'
 import useParlayStore from '../../store/parlayStore'
+import { ParlayLeg } from '../../types'
 import { AuthModal } from '../auth/AuthModal'
-import { LegalDisclaimer } from '../legal/LegalDisclaimer' // Add this import
+import { LegalDisclaimer } from '../legal/LegalDisclaimer'
 import GameSummaryView from './GameSummaryView'
 import ParlayDisplayFooter from './ParlayDisplayFooter'
 import ParlayLanding from './ParlayLanding'

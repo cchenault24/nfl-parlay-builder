@@ -1,5 +1,8 @@
-import { ESPNRosterResponse, ESPNScoreboardResponse } from '../../../types/espn'
-import { APIResponse } from './types'
+import {
+  APIResponse,
+  ESPNRosterResponse,
+  ESPNScoreboardResponse,
+} from '../../../types'
 
 /**
  * NFL-specific client interface

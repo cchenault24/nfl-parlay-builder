@@ -18,14 +18,13 @@ import {
   useMediaQuery,
   useTheme,
 } from '@mui/material'
-import React from 'react'
 import {
   GameFlow,
   GameSummary,
   KeyFactorsData,
   MatchupAnalysisData,
   PredictionData,
-} from '../../shared'
+} from '../../types'
 
 interface GameSummaryViewProps {
   gameSummary: GameSummary
@@ -153,8 +152,8 @@ const GameSummaryView: React.FC<GameSummaryViewProps> = ({
     return ['Key factors data is not in the expected format']
   }
 
-  // Map gameFlow to display properties
-  const getGameFlowDisplay = (gameFlow: GameFlow) => {
+  // Map gameFlow to display properties - now handles undefined
+  const getGameFlowDisplay = (gameFlow?: GameFlow) => {
     const flowMap: Record<
       GameFlow,
       {
@@ -184,26 +183,39 @@ const GameSummaryView: React.FC<GameSummaryViewProps> = ({
         icon: <TrendingUpIcon fontSize="small" />,
       },
     }
+
+    // Return default if gameFlow is undefined
+    if (!gameFlow) {
+      return {
+        label: 'Standard Game',
+        color: 'info' as const,
+        icon: <AnalyticsIcon fontSize="small" />,
+      }
+    }
+
     return flowMap[gameFlow]
   }
 
-  const gameFlowDisplay = getGameFlowDisplay(gameSummary.gameFlow)
+  // Get confidence color - now handles undefined
+  const getConfidenceColor = (confidence?: number) => {
+    // Default to medium confidence if undefined
+    const conf = confidence ?? 5
 
-  // Get confidence color
-  const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 8) {
+    if (conf >= 8) {
       return 'success'
     }
-    if (confidence >= 6) {
+    if (conf >= 6) {
       return 'info'
     }
-    if (confidence >= 4) {
+    if (conf >= 4) {
       return 'warning'
     }
     return 'error'
   }
 
-  // Process the data safely
+  // Safe data processing with defaults
+  const gameFlowDisplay = getGameFlowDisplay(gameSummary.gameFlow)
+  const confidence = gameSummary.confidence ?? 5 // Default confidence
   const matchupText = renderMatchupAnalysis(gameSummary.matchupAnalysis)
   const predictionText = renderPrediction(gameSummary.prediction)
   const keyFactorsList = renderKeyFactors(gameSummary.keyFactors)
@@ -268,8 +280,8 @@ const GameSummaryView: React.FC<GameSummaryViewProps> = ({
                 }}
               />
               <Chip
-                label={`${gameSummary.confidence}/10 Confidence`}
-                color={getConfidenceColor(gameSummary.confidence)}
+                label={`${confidence}/10 Confidence`}
+                color={getConfidenceColor(confidence)}
                 variant="filled"
                 size="small"
                 sx={{
@@ -334,8 +346,11 @@ const GameSummaryView: React.FC<GameSummaryViewProps> = ({
             Key Factors
           </Typography>
           <List dense sx={{ pt: 0 }}>
-            {keyFactorsList.map(factor => (
-              <ListItem key={`keyFactor-${factor}`} sx={{ py: 0.5, px: 0 }}>
+            {keyFactorsList.map((factor, index) => (
+              <ListItem
+                key={`keyFactor-${index}-${factor.slice(0, 10)}`}
+                sx={{ py: 0.5, px: 0 }}
+              >
                 <ListItemIcon sx={{ minWidth: 32 }}>
                   <CheckCircleIcon
                     fontSize="small"

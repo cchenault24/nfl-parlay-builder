@@ -1,8 +1,8 @@
 import { useMutation } from '@tanstack/react-query'
 import { container } from '../services/container'
-import { GeneratedParlay, ParlayOptions } from '../shared'
 import useGeneralStore from '../store/generalStore'
 import useParlayStore from '../store/parlayStore'
+import { GeneratedParlay, ParlayOptions } from '../types'
 
 // Allow passing provider through options without changing shared types
 type WithProvider<T> = T & { provider?: 'mock' | 'openai' }

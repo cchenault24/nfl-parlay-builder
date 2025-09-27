@@ -1,16 +1,25 @@
 import { auth } from '../config/firebase'
+import { DEFAULT_STRATEGIES, DEFAULT_VARIETY_FACTORS } from '../constants'
 import {
-  DEFAULT_STRATEGIES,
-  DEFAULT_VARIETY_FACTORS,
   GameRosters,
   GeneratedParlay,
   NFLGame,
   ParlayGenerationResult,
   StrategyConfig,
   VarietyFactors,
-} from '../shared'
-import { RateLimitError } from '../types/errors'
+} from '../types'
 import { container } from './container'
+
+// Define RateLimitError class since it's missing
+export class RateLimitError extends Error {
+  constructor(
+    message: string,
+    public retryAfter?: number
+  ) {
+    super(message)
+    this.name = 'RateLimitError'
+  }
+}
 
 interface CloudFunctionResponse {
   success: boolean
@@ -22,6 +31,7 @@ interface CloudFunctionResponse {
       remaining?: number
       resetTime?: string
       currentCount?: number
+      retryAfter?: number
     }
   }
   rateLimitInfo?: {
@@ -121,7 +131,7 @@ export class ParlayService {
     const payload = {
       gameId: game.id,
       options: {
-        strategy: options.strategy || DEFAULT_STRATEGIES,
+        strategy: options.strategy || this.getDefaultStrategy(),
         variety: options.varietyFactors || DEFAULT_VARIETY_FACTORS,
         temperature: options.temperature,
         provider: options.provider,
@@ -216,21 +226,36 @@ export class ParlayService {
   }
 
   /**
-   * Get available strategy presets
+   * Get available strategy presets - Fixed: return mutable array
    */
   getAvailableStrategies(): string[] {
-    return DEFAULT_STRATEGIES
+    // Convert readonly array to mutable array
+    return [...DEFAULT_STRATEGIES]
   }
 
   /**
-   * Create custom strategy
+   * Get default strategy configuration
+   */
+  private getDefaultStrategy(): StrategyConfig {
+    return {
+      name: 'Balanced',
+      description: 'Mix of spread, props, and totals with moderate risk',
+      riskLevel: 'medium',
+      temperature: 0.7,
+      focusArea: 'balanced',
+      maxLegs: 3,
+    }
+  }
+
+  /**
+   * Create custom strategy - Fixed: return proper StrategyConfig
    */
   createCustomStrategy(
     name: string,
     overrides: Partial<StrategyConfig> = {}
   ): StrategyConfig {
     return {
-      ...DEFAULT_STRATEGIES,
+      ...this.getDefaultStrategy(),
       name,
       ...overrides,
     }
@@ -292,7 +317,7 @@ export class ParlayService {
   }
 
   /**
-   * Create HTTP error with proper status handling
+   * Create HTTP error with proper status handling - Fixed: return Error instead of throw
    */
   private createHttpError(status: number, errorData: any): Error {
     const errorMessage =
@@ -300,37 +325,41 @@ export class ParlayService {
 
     switch (status) {
       case 429:
-        // Fixed: RateLimitError constructor takes only message and optional retryAfter
+        // RateLimitError constructor takes message and optional retryAfter
         return new RateLimitError(
           errorMessage,
           errorData?.error?.details?.retryAfter
         )
       case 401:
-        throw new Error(
+        return new Error(
           'Authentication required. Please sign in and try again.'
         )
       case 403:
-        throw new Error(
+        return new Error(
           'Access denied. You may not have permission to use this service.'
         )
       case 500:
-        throw new Error(
+        return new Error(
           'Service temporarily unavailable. Please try again in a moment.'
         )
       case 503:
-        throw new Error(
+        return new Error(
           'AI service is currently unavailable. Please try again later.'
         )
       default:
-        throw new Error(errorMessage)
+        return new Error(errorMessage)
     }
   }
 
   /**
-   * Enhance any error with context
+   * Enhance any error with context - Fixed: proper error handling
    */
   private enhanceError(error: unknown): Error {
-    if (error instanceof RateLimitError || error instanceof Error) {
+    if (error instanceof RateLimitError) {
+      return error
+    }
+
+    if (error instanceof Error) {
       return error
     }
 

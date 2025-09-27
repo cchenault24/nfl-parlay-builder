@@ -23,7 +23,7 @@ import { Timestamp } from 'firebase/firestore'
 import React, { useEffect, useState } from 'react'
 import { getUserParlays } from '../config/firebase'
 import { useAuth } from '../hooks/useAuth'
-import { GeneratedParlay, ParlayLeg } from '../shared'
+import { GeneratedParlay, ParlayLeg } from '../types'
 
 interface ParlayHistoryProps {
   open: boolean

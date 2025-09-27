@@ -16,7 +16,7 @@ import React from 'react'
 import { useGenerateParlay } from '../hooks/useGenerateParlay'
 import useParlayStore from '../store/parlayStore'
 
-import { NFLGame } from '../shared'
+import { NFLGame } from '../types'
 import WeekSelector from './WeekSelector'
 
 interface GameSelectorProps {

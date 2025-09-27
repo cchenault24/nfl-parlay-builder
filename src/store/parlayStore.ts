@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { GeneratedParlay, NFLGame } from '../shared'
+import { GeneratedParlay, NFLGame } from '../types'
 
 interface ParlayStore {
   // State
