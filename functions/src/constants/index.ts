@@ -1,8 +1,8 @@
 // =============================================================================
-// APP CONSTANTS - FRONTEND/BROWSER VERSION
+// FUNCTIONS CONSTANTS - NODE.JS ENVIRONMENT
 // =============================================================================
-// src/constants/index.ts
-// This file is for the frontend React app (browser environment)
+// functions/src/constants/index.ts
+// Constants adapted for Firebase Functions (Node.js environment)
 
 import type { ParlayOptions, StrategyConfig, VarietyFactors } from '../types'
 
@@ -11,11 +11,11 @@ import type { ParlayOptions, StrategyConfig, VarietyFactors } from '../types'
 // =============================================================================
 
 /**
- * Environment detection helpers - Browser version
+ * Environment detection helpers - Node.js version
  */
 export const ENVIRONMENT = {
   get NODE_ENV() {
-    return import.meta?.env?.MODE || 'development'
+    return process.env.NODE_ENV || 'development'
   },
   get isDevelopment() {
     return this.NODE_ENV === 'development'
@@ -27,67 +27,48 @@ export const ENVIRONMENT = {
     return this.NODE_ENV === 'test'
   },
   get isLocalDevelopment() {
-    // Check if we're running locally
-    if (typeof window !== 'undefined') {
-      const hostname = window.location.hostname
-      const isLocal =
-        hostname === 'localhost' ||
-        hostname === '127.0.0.1' ||
-        hostname.includes('192.168.')
-
-      // FORCE PRODUCTION: If we're on Firebase hosting domains, never use localhost
-      const isFirebaseHosting =
-        hostname.includes('.web.app') || hostname.includes('.firebaseapp.com')
-      if (isFirebaseHosting) {
-        console.log('🔧 Firebase hosting detected, forcing production URLs')
-        return false
-      }
-
-      return isLocal
-    }
-    return this.isDevelopment
+    // In functions, we detect local by checking for emulator environment
+    return process.env.FUNCTIONS_EMULATOR === 'true' || this.isDevelopment
   },
 } as const
 
 /**
- * Environment variable helpers with validation - Browser version
+ * Environment variable helpers with validation - Node.js version
  */
 const getEnvVar = (key: string, fallback?: string): string => {
-  const value = import.meta?.env?.[key] || fallback
+  const value = process.env[key] || fallback
   return value || ''
 }
 
 /**
- * Environment variables with validation - Frontend specific
+ * Environment variables with validation - Functions specific
  */
 export const ENV = {
-  // Firebase Configuration
-  FIREBASE_API_KEY: getEnvVar('VITE_FIREBASE_API_KEY'),
-  FIREBASE_AUTH_DOMAIN: getEnvVar('VITE_FIREBASE_AUTH_DOMAIN'),
-  FIREBASE_PROJECT_ID: getEnvVar('VITE_FIREBASE_PROJECT_ID'),
-  FIREBASE_STORAGE_BUCKET: getEnvVar('VITE_FIREBASE_STORAGE_BUCKET'),
-  FIREBASE_MESSAGING_SENDER_ID: getEnvVar('VITE_FIREBASE_MESSAGING_SENDER_ID'),
-  FIREBASE_APP_ID: getEnvVar('VITE_FIREBASE_APP_ID'),
+  // Firebase Configuration (available in functions context)
+  FIREBASE_PROJECT_ID:
+    getEnvVar('GCLOUD_PROJECT') || getEnvVar('FIREBASE_PROJECT_ID'),
 
-  // API Configuration
-  CLOUD_FUNCTION_URL: getEnvVar('VITE_CLOUD_FUNCTION_URL'),
-  ESPN_BASE_URL: getEnvVar('VITE_ESPN_BASE_URL'),
+  // OpenAI Configuration
+  OPENAI_API_KEY: getEnvVar('OPENAI_API_KEY'),
 
   // Mock Configuration
-  MOCK_ERROR_RATE: parseFloat(getEnvVar('VITE_MOCK_ERROR_RATE', '0.05')),
-  MOCK_DELAY_MIN: parseInt(getEnvVar('VITE_MOCK_DELAY_MIN', '1000'), 10),
-  MOCK_DELAY_MAX: parseInt(getEnvVar('VITE_MOCK_DELAY_MAX', '2500'), 10),
+  MOCK_ERROR_RATE: parseFloat(getEnvVar('MOCK_ERROR_RATE', '0.05')),
+  MOCK_DELAY_MIN: parseInt(getEnvVar('MOCK_DELAY_MIN', '1000'), 10),
+  MOCK_DELAY_MAX: parseInt(getEnvVar('MOCK_DELAY_MAX', '2500'), 10),
 
   // Rate Limiting
-  RATE_LIMIT_ENABLED: getEnvVar('VITE_RATE_LIMIT_ENABLED', 'true') === 'true',
+  RATE_LIMIT_ENABLED: getEnvVar('RATE_LIMIT_ENABLED', 'true') === 'true',
   RATE_LIMIT_MAX_REQUESTS: parseInt(
-    getEnvVar('VITE_RATE_LIMIT_MAX_REQUESTS', '10'),
+    getEnvVar('RATE_LIMIT_MAX_REQUESTS', '10'),
     10
   ),
   RATE_LIMIT_WINDOW_MINUTES: parseInt(
-    getEnvVar('VITE_RATE_LIMIT_WINDOW_MINUTES', '60'),
+    getEnvVar('RATE_LIMIT_WINDOW_MINUTES', '60'),
     10
   ),
+
+  // Cleanup
+  CLEANUP_TOKEN: getEnvVar('CLEANUP_TOKEN'),
 } as const
 
 /**
@@ -96,6 +77,7 @@ export const ENV = {
 export const validateEnvironment = (): void => {
   const requiredVars = {
     FIREBASE_PROJECT_ID: ENV.FIREBASE_PROJECT_ID,
+    OPENAI_API_KEY: ENV.OPENAI_API_KEY,
   }
 
   const missing = Object.entries(requiredVars)
@@ -114,16 +96,14 @@ export const validateEnvironment = (): void => {
 // =============================================================================
 
 /**
- * ESPN API Configuration
+ * ESPN API Configuration - Functions version
  */
 export const ESPN_CONFIG = {
-  baseURL:
-    ENV.ESPN_BASE_URL ||
-    'https://site.api.espn.com/apis/site/v2/sports/football/nfl',
+  baseURL: 'https://site.api.espn.com/apis/site/v2/sports/football/nfl',
   timeout: ENVIRONMENT.isLocalDevelopment ? 15000 : 10000,
   retryAttempts: ENVIRONMENT.isLocalDevelopment ? 2 : 3,
   retryDelay: 1000,
-  userAgent: 'nfl-parlay-builder',
+  userAgent: 'nfl-parlay-builder-functions',
   endpoints: {
     scoreboard: '/scoreboard',
     games: '/scoreboard',
@@ -135,29 +115,7 @@ export const ESPN_CONFIG = {
 } as const
 
 /**
- * Cloud Functions Configuration
- */
-export const CLOUD_FUNCTIONS_CONFIG = {
-  get baseURL() {
-    return (
-      ENV.CLOUD_FUNCTION_URL ||
-      (ENVIRONMENT.isLocalDevelopment
-        ? `http://localhost:5001/${ENV.FIREBASE_PROJECT_ID}/us-central1`
-        : `https://us-central1-${ENV.FIREBASE_PROJECT_ID}.cloudfunctions.net`)
-    )
-  },
-  timeout: ENVIRONMENT.isLocalDevelopment ? 60000 : 45000,
-  retryAttempts: 2,
-  retryDelay: 2000,
-  endpoints: {
-    generateParlay: '/generateParlay',
-    healthCheck: '/healthCheck',
-    getRateLimitStatus: '/getRateLimitStatus',
-  },
-} as const
-
-/**
- * OpenAI Configuration (Frontend doesn't need API key)
+ * OpenAI Configuration
  */
 export const OPENAI_CONFIG = {
   model: 'gpt-4o-mini',
@@ -283,57 +241,11 @@ export const FOCUS_AREAS = {
 } as const
 
 // =============================================================================
-// UI CONSTANTS
-// =============================================================================
-
-/**
- * Loading and timing constants
- */
-export const UI = {
-  LOADING_TIMEOUT: 30000,
-  NOTIFICATION_DURATION: 5000,
-  DEBOUNCE_DELAY: 300,
-  ANIMATION_DURATION: 200,
-  POLLING_INTERVAL: 5000,
-} as const
-
-/**
- * Pagination constants
- */
-export const PAGINATION = {
-  DEFAULT_PAGE_SIZE: 20,
-  MAX_PAGE_SIZE: 100,
-  INFINITE_SCROLL_THRESHOLD: 200,
-} as const
-
-/**
- * Validation constants
- */
-export const VALIDATION = {
-  MIN_PASSWORD_LENGTH: 8,
-  MAX_PASSWORD_LENGTH: 128,
-  MAX_USERNAME_LENGTH: 50,
-  MAX_DISPLAY_NAME_LENGTH: 100,
-  MAX_BIO_LENGTH: 500,
-} as const
-
-/**
- * Storage keys for local storage
- */
-export const STORAGE_KEYS = {
-  USER_PREFERENCES: 'nfl-parlay-user-preferences',
-  LAST_STRATEGY: 'nfl-parlay-last-strategy',
-  SAVED_PARLAYS: 'nfl-parlay-saved-parlays',
-  RECENT_GAMES: 'nfl-parlay-recent-games',
-  THEME: 'nfl-parlay-theme',
-} as const
-
-// =============================================================================
 // FEATURE FLAGS
 // =============================================================================
 
 /**
- * Feature flags and configuration
+ * Feature flags and configuration - Functions version
  */
 export const FEATURES = {
   // Development features
@@ -343,27 +255,17 @@ export const FEATURES = {
 
   // Rate limiting
   RATE_LIMITING: {
-    enabled: !ENVIRONMENT.isLocalDevelopment,
+    enabled: !ENVIRONMENT.isLocalDevelopment && ENV.RATE_LIMIT_ENABLED,
     requestsPerMinute: ENV.RATE_LIMIT_MAX_REQUESTS,
     windowMinutes: ENV.RATE_LIMIT_WINDOW_MINUTES,
   },
-
-  // Cloud functions
-  USE_CLOUD_FUNCTIONS: true,
 
   // AI features
   AI_FALLBACK: true,
   AI_RETRY_ENABLED: true,
 
-  // UI features
-  DARK_MODE: true,
-  NOTIFICATIONS: true,
+  // Analytics (functions don't need UI features)
   ANALYTICS: ENVIRONMENT.isProduction,
-
-  // Beta features
-  ADVANCED_ANALYTICS: false,
-  SOCIAL_SHARING: true,
-  REAL_TIME_ODDS: false,
 } as const
 
 // =============================================================================
@@ -371,7 +273,7 @@ export const FEATURES = {
 // =============================================================================
 
 /**
- * Logging levels and configuration
+ * Logging levels and configuration - Functions version
  */
 export const LOGGING = {
   level: ENVIRONMENT.isLocalDevelopment ? 'debug' : 'info',
@@ -512,18 +414,3 @@ if (!ENVIRONMENT.isTest) {
     }
   }
 }
-
-// =============================================================================
-// EXPORTS FOR BACKWARD COMPATIBILITY
-// =============================================================================
-
-/**
- * Legacy exports - use these during migration period only
- * @deprecated Use the main constants instead
- */
-export const API_CONFIG = {
-  ESPN: ESPN_CONFIG,
-  CLOUD_FUNCTIONS: CLOUD_FUNCTIONS_CONFIG,
-} as const
-
-export const DEFAULT_ESPN_BASE_URL = ESPN_CONFIG.baseURL

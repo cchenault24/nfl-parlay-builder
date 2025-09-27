@@ -1,4 +1,10 @@
-import { GameRosters, NFLGame, NFLPlayer, VarietyFactors } from '../../types'
+import {
+  GameRosters,
+  NFLGame,
+  NFLPlayer,
+  Position,
+  VarietyFactors,
+} from '../../types'
 import { GameContext, ParlayGenerationContext } from './BaseParlayProvider'
 
 /**
@@ -124,6 +130,22 @@ export const ENHANCED_BET_TYPES: Record<string, EnhancedBetType> = {
       '{team} defensive TD',
     ],
   },
+}
+
+const getPositionAbbreviation = (position?: string | Position): string => {
+  if (!position) {
+    return 'UNK'
+  }
+
+  if (typeof position === 'string') {
+    return position
+  }
+
+  if (typeof position === 'object' && position.abbreviation) {
+    return position.abbreviation
+  }
+
+  return 'UNK'
 }
 
 /**
@@ -348,7 +370,7 @@ Week ${game.week} | ${startTime}${game.venue ? ` | ${game.venue}` : ''}`
           const posPlayers = players
             .filter(p => {
               const position = p.position
-              return position?.abbreviation === pos
+              return getPositionAbbreviation(position) === pos
             })
             .slice(0, limit)
 

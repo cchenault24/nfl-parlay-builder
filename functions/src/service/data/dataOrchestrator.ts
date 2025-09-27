@@ -5,7 +5,7 @@ import {
   Trend,
   UnifiedGameData,
   Weather,
-} from '../../shared-types'
+} from '../../types'
 
 export class DataOrchestrator {
   constructor(private readonly espn = new ESPNServerClient()) {}

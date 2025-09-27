@@ -1,4 +1,4 @@
-import { GenerateParlayRequest } from '../shared-types'
+import { GenerateParlayRequest } from '../types'
 
 export function validateGenerateParlayRequest(
   body: any

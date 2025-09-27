@@ -6,14 +6,15 @@ import { ESPNServerClient } from '../clients/espnClient'
 import { ParlayAIService } from '../service/ai/ParlayAIService'
 import { OpenAIProvider } from '../service/ai/providers/OpenAIProvider'
 import { DataOrchestrator } from '../service/data/dataOrchestrator'
+
 import {
+  BetType,
   GeneratedParlay,
   GenerateParlayResponse,
   NFLGameStatus,
   ParlayLeg,
   ParlayOptions,
-} from '../shared'
-import { BetType } from '../types'
+} from '../types'
 
 // --- Local helper types (server-side shape kept minimal) ---
 type ProviderName = 'mock' | 'openai'

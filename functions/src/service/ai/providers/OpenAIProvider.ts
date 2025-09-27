@@ -1,13 +1,5 @@
 // functions/src/service/ai/providers/OpenAIProvider.ts
 import OpenAI from 'openai'
-import {
-  GameRosters,
-  GameSummary,
-  GeneratedParlay,
-  NFLGame,
-  NFLPlayer,
-  ParlayLeg,
-} from '../../../shared'
 
 // Minimal strategy shape used in prompts
 interface StrategyConfig {
@@ -17,6 +9,14 @@ interface StrategyConfig {
   riskLevel?: 'conservative' | 'medium' | 'aggressive'
 }
 
+import {
+  GameRosters,
+  GameSummary,
+  GeneratedParlay,
+  NFLGame,
+  NFLPlayer,
+  ParlayLeg,
+} from '../../../types'
 import {
   AIProviderResponse,
   BaseParlayProvider,
