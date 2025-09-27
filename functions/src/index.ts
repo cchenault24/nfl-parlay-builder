@@ -1,463 +1,332 @@
-// functions/src/index.ts - Complete file with CORS fix and provider improvements
 import cors from 'cors'
 import * as admin from 'firebase-admin'
 import * as functions from 'firebase-functions'
-import { RateLimiter } from './middleware/rateLimiter'
-import { ContextBuilder } from './service/ai/ContextBuilder'
-import { AIProvider, ParlayAIService } from './service/ai/ParlayAIService'
-import { MockProvider } from './service/ai/providers/MockProvider'
-import { OpenAIProvider } from './service/ai/providers/OpenAIProvider'
-import {
-  CloudFunctionError,
-  GenerateParlayRequest,
-  GenerateParlayResponse,
-  ValidationResult,
-} from './types'
 
 // Initialize Firebase Admin
 admin.initializeApp()
 
-// Configure CORS for your frontend domain
-const corsHandler = cors({
+// Configure CORS to allow requests from your frontend
+const corsOptions = {
   origin: [
     'http://localhost:3000',
     'http://localhost:3001',
-    'http://localhost:5173',
-    'https://nfl-parlay-builder.web.app',
-    'https://nfl-parlay-builder.firebaseapp.com',
-    /^https:\/\/nfl-parlay-builder--[\w-]+\.web\.app$/,
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:3001',
   ],
   credentials: true,
-  methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-})
+  optionsSuccessStatus: 200,
+}
 
-/**
- * Get provider from client request - uses actual AIProvider values
- * Frontend should send: 'openai' | 'mock' | 'anthropic' | 'google' | 'auto'
- */
-function getProviderFromRequest(requestedProvider?: string): AIProvider {
-  // Validate against actual AIProvider types
-  const validProviders: AIProvider[] = [
-    'openai',
-    'anthropic',
-    'google',
-    'mock',
-    'auto',
+const corsHandler = cors(corsOptions)
+
+// Types
+interface ParlayPreferences {
+  game: {
+    homeTeam: string
+    awayTeam: string
+    gameTime: string
+    venue: string
+  }
+  rosters: {
+    homeRoster: any[]
+    awayRoster: any[]
+  }
+  strategy: {
+    riskLevel: 'conservative' | 'moderate' | 'aggressive'
+    targetOdds: number
+    maxLegs: number
+    minLegs: number
+  }
+  varietyFactors: {
+    includePlayerProps: boolean
+    includeGameProps: boolean
+    includeTeamProps: boolean
+    diversifyPositions: boolean
+  }
+  options: {
+    budget: number
+    excludeInjuredPlayers: boolean
+    favoriteTeamBias?: string
+  }
+}
+
+interface RequestBody {
+  provider: string
+  preferences: ParlayPreferences
+  timestamp?: string
+}
+
+// Helper function to validate request
+const validateRequest = (body: any): { isValid: boolean; error?: string } => {
+  if (!body) {
+    return { isValid: false, error: 'Request body is required' }
+  }
+
+  if (!body.provider) {
+    return { isValid: false, error: 'Provider is required' }
+  }
+
+  if (!body.preferences) {
+    return { isValid: false, error: 'Preferences are required' }
+  }
+
+  const { preferences } = body
+
+  if (!preferences.game?.homeTeam || !preferences.game?.awayTeam) {
+    return { isValid: false, error: 'Game teams are required' }
+  }
+
+  if (!preferences.strategy?.riskLevel) {
+    return { isValid: false, error: 'Risk level is required' }
+  }
+
+  if (!preferences.options?.budget || preferences.options.budget <= 0) {
+    return { isValid: false, error: 'Valid budget is required' }
+  }
+
+  return { isValid: true }
+}
+
+// Mock parlay generation logic (replace with your actual logic)
+const generateMockParlay = (preferences: ParlayPreferences) => {
+  const legs = [
+    {
+      type: 'player_prop',
+      player: `${preferences.game.homeTeam} QB`,
+      market: 'passing_yards',
+      selection: 'over 250.5',
+      odds: -110,
+      reasoning: 'Strong offensive matchup',
+    },
+    {
+      type: 'game_prop',
+      team: preferences.game.awayTeam,
+      market: 'team_total',
+      selection: 'over 21.5',
+      odds: -105,
+      reasoning: 'Favorable weather conditions',
+    },
   ]
 
-  if (
-    requestedProvider &&
-    validProviders.includes(requestedProvider as AIProvider)
-  ) {
-    return requestedProvider as AIProvider
-  }
-
-  // Default to openai if nothing specified or invalid
-
-  return 'openai'
-}
-
-/**
- * AI service initialization with proper provider health setup
- */
-function initializeAIService(): ParlayAIService {
-  const openaiKey = process.env.OPENAI_API_KEY
-  const hasOpenAIKey =
-    !!openaiKey && openaiKey !== 'undefined' && openaiKey.trim() !== ''
-
-  const parlayAI = new ParlayAIService({
-    primaryProvider: hasOpenAIKey ? 'openai' : 'mock',
-    fallbackProviders: hasOpenAIKey ? ['mock'] : [],
-    enableFallback: true,
-    debugMode: true,
-  })
-
-  // Always register mock provider first
-
-  const mockProvider = new MockProvider({
-    enableErrorSimulation: false,
-    errorRate: 0,
-    minDelayMs: 100,
-    maxDelayMs: 300,
-    debugMode: true,
-  })
-  parlayAI.registerProvider('mock', mockProvider)
-
-  // Register OpenAI if we have a valid API key
-  if (hasOpenAIKey) {
-    try {
-      const openaiProvider = new OpenAIProvider({
-        apiKey: openaiKey,
-        model: (process.env.OPENAI_MODEL as any) || 'gpt-4o-mini',
-        defaultTemperature: parseFloat(
-          process.env.OPENAI_DEFAULT_TEMPERATURE || '0.7'
-        ),
-        defaultMaxTokens: parseInt(process.env.OPENAI_MAX_TOKENS || '4000'),
-      })
-      parlayAI.registerProvider('openai', openaiProvider)
-    } catch (error) {
-      console.error('ERROR: Failed to register OpenAI provider:', error)
-      throw error
-    }
-  } else {
-    console.warn(
-      'WARNING: No valid OpenAI API key found, only mock provider available'
-    )
-  }
-
-  return parlayAI
-}
-
-/**
- * Main parlay generation endpoint with provider selection
- */
-export const generateParlay = functions
-  .region('us-central1')
-  .runWith({
-    timeoutSeconds: 120,
-    memory: '512MB',
-    secrets: ['OPENAI_API_KEY'],
-  })
-  .https.onRequest(async (request, response) => {
-    corsHandler(request, response, async () => {
-      try {
-        // Validate request method
-        if (request.method !== 'POST') {
-          response.status(405).json({
-            success: false,
-            error: {
-              code: 'METHOD_NOT_ALLOWED',
-              message: 'Only POST requests are allowed',
-            },
-          })
-          return
-        }
-
-        // Validate request body
-        const validation = validateGenerateParlayRequest(request.body)
-        if (!validation.isValid) {
-          response.status(400).json({
-            success: false,
-            error: {
-              code: 'INVALID_REQUEST',
-              message: 'Invalid request data',
-              details: validation.errors,
-            },
-          })
-          return
-        }
-
-        const requestData: GenerateParlayRequest = request.body
-
-        // Get provider - should now be 'openai' or 'mock' directly from frontend
-        const requestedProvider = requestData.options?.provider
-
-        const selectedProvider = getProviderFromRequest(requestedProvider)
-
-        // Initialize AI service
-        const aiService = initializeAIService()
-
-        // Build generation context
-        const strategy = requestData.strategy || {
-          name: 'balanced',
-          description: 'Balanced risk approach',
-          temperature: 0.7,
-          focusAreas: ['spread', 'total'],
-          riskLevel: 'moderate' as const,
-        }
-
-        const varietyFactors = requestData.varietyFactors || {
-          strategy: 'balanced',
-          focusArea: 'balanced',
-          playerTier: 'star',
-          gameScript: 'close_game',
-          marketBias: 'neutral',
-          riskTolerance: 0.6,
-          focusPlayer: null,
-        }
-
-        const context = ContextBuilder.buildContext(
-          requestData.game,
-          requestData.rosters,
-          strategy,
-          varietyFactors
-        )
-
-        if (requestData.options?.temperature) {
-          context.temperature = requestData.options.temperature
-        }
-
-        // Generation options
-        const generationOptions = {
-          provider: selectedProvider, // Now 'openai' or 'mock' directly
-          temperature: requestData.options?.temperature,
-          debugMode: true,
-        }
-
-        const result = await aiService.generateParlay(
-          requestData.game,
-          requestData.rosters,
-          strategy,
-          varietyFactors,
-          generationOptions
-        )
-
-        // Return successful response
-        const successResponse: GenerateParlayResponse = {
-          success: true,
-          data: result.parlay,
-          rateLimitInfo: {
-            remaining: 9,
-            resetTime: new Date(Date.now() + 3600000).toISOString(),
-            currentCount: 1,
-            total: selectedProvider === 'mock' ? 100 : 10,
-          },
-          metadata: {
-            provider: result.metadata?.provider || selectedProvider,
-            generatedAt: new Date().toISOString(),
-            rateLimitInfo: {
-              remaining: 9,
-              resetTime: new Date(Date.now() + 3600000).toISOString(),
-            },
-            ...(result.metadata && {
-              aiProvider: result.metadata.provider,
-              model: result.metadata.model,
-              tokens: result.metadata.tokens,
-              latency: result.metadata.latency,
-              confidence: result.metadata.confidence,
-              fallbackUsed: result.metadata.fallbackUsed,
-              attemptCount: result.metadata.attemptCount,
-            }),
-            serviceMode: selectedProvider, // 'openai' or 'mock'
-            environment: process.env.NODE_ENV || 'production',
-          },
-        }
-
-        response.status(200).json(successResponse)
-      } catch (error) {
-        console.error('ERROR: Full error in generateParlay function:', error)
-        console.error(
-          'ERROR: Error message:',
-          error instanceof Error ? error.message : String(error)
-        )
-        console.error(
-          'ERROR: Error stack:',
-          error instanceof Error ? error.stack : 'No stack'
-        )
-
-        if (error instanceof CloudFunctionError) {
-          const statusCode = getStatusCodeForError(error.code)
-          response.status(statusCode).json({
-            success: false,
-            error: {
-              code: error.code,
-              message: error.message,
-              details: error.details,
-            },
-          })
-          return
-        }
-
-        response.status(500).json({
-          success: false,
-          error: {
-            code: 'INTERNAL_ERROR',
-            message: 'An unexpected error occurred while generating the parlay',
-            details:
-              process.env.NODE_ENV === 'development'
-                ? {
-                    message:
-                      error instanceof Error ? error.message : String(error),
-                    stack: error instanceof Error ? error.stack : undefined,
-                  }
-                : undefined,
-          },
-        })
-      }
-    })
-  })
-
-/**
- * Health check endpoint with proper CORS
- */
-export const healthCheck = functions.https.onRequest(
-  async (request, response) => {
-    corsHandler(request, response, async () => {
-      try {
-        const aiService = initializeAIService()
-        const serviceStatus = aiService.getServiceStatus()
-        const providerHealth = aiService.getProviderHealth()
-        const registeredProviders = aiService.getRegisteredProviders()
-
-        response.status(200).json({
-          success: true,
-          data: {
-            service: serviceStatus,
-            providers: providerHealth,
-            registeredProviders: Array.from(registeredProviders.keys()),
-            environment: process.env.NODE_ENV || 'production',
-            timestamp: new Date().toISOString(),
-          },
-        })
-      } catch (error) {
-        console.error('ERROR: Health check failed:', error)
-        response.status(500).json({
-          success: false,
-          error: {
-            code: 'HEALTH_CHECK_FAILED',
-            message: 'Health check failed',
-            details:
-              process.env.NODE_ENV === 'development'
-                ? (error as Error).message
-                : undefined,
-          },
-        })
-      }
-    })
-  }
-)
-
-/**
- * FIXED: Get Rate Limit Status endpoint with proper CORS
- */
-export const getRateLimitStatus = functions
-  .region('us-central1')
-  .runWith({
-    timeoutSeconds: 60,
-    memory: '256MB',
-  })
-  .https.onRequest(async (request, response) => {
-    corsHandler(request, response, async () => {
-      try {
-        if (request.method !== 'GET') {
-          response.status(405).json({
-            success: false,
-            error: 'Only GET requests are allowed',
-          })
-          return
-        }
-
-        // Initialize rate limiter with same config as main function
-        const rateLimiter = new RateLimiter({
-          windowMinutes: parseInt(
-            process.env.RATE_LIMIT_WINDOW_MINUTES || '60'
-          ),
-          maxRequests: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '10'),
-        })
-
-        // Get user info from auth token or IP address
-        let userId: string | undefined
-        let ipAddress: string | undefined
-
-        // Try to get user from auth token
-        const authHeader = request.headers.authorization
-        if (authHeader?.startsWith('Bearer ')) {
-          try {
-            const token = authHeader.substring(7)
-            const decodedToken = await admin.auth().verifyIdToken(token)
-            userId = decodedToken.uid
-          } catch (authError) {
-            console.warn('Invalid auth token in getRateLimitStatus:', authError)
-            // Fall back to IP-based limiting
-          }
-        }
-
-        // If no valid user token, use IP address
-        if (!userId) {
-          ipAddress =
-            request.ip ||
-            (request.headers['x-forwarded-for'] as string) ||
-            request.connection.remoteAddress ||
-            'unknown'
-        }
-
-        // Get current rate limit status without incrementing counter
-        const rateLimitResult = await rateLimiter.getRateLimitStatus(
-          userId,
-          ipAddress
-        )
-
-        const rateLimitInfo = {
-          remaining: rateLimitResult.remaining,
-          total: rateLimiter.config.maxRequests, // Access max requests from config
-          currentCount: rateLimitResult.currentCount,
-          resetTime: rateLimitResult.resetTime.toISOString(),
-        }
-
-        response.status(200).json({
-          success: true,
-          data: rateLimitInfo,
-        })
-      } catch (error) {
-        console.error('Error in getRateLimitStatus:', error)
-
-        // Return error response but with fallback data to prevent UI breaking
-        response.status(500).json({
-          success: false,
-          error: 'Failed to get rate limit status',
-          data: {
-            remaining: 0,
-            total: 10,
-            currentCount: 10,
-            resetTime: new Date(Date.now() + 3600000).toISOString(),
-          },
-        })
-      }
-    })
-  })
-
-/**
- * Validation function
- */
-function validateGenerateParlayRequest(body: any): ValidationResult {
-  const errors: string[] = []
-
-  if (!body) {
-    errors.push('Request body is required')
-    return { isValid: false, errors }
-  }
-
-  if (!body.game) {
-    errors.push('Game data is required')
-  }
-
-  if (!body.rosters) {
-    errors.push('Roster data is required')
-  } else {
-    if (!body.rosters.homeRoster || !Array.isArray(body.rosters.homeRoster)) {
-      errors.push('Home roster is required and must be an array')
-    }
-    if (!body.rosters.awayRoster || !Array.isArray(body.rosters.awayRoster)) {
-      errors.push('Away roster is required and must be an array')
-    }
-  }
+  const totalOdds = legs.reduce((acc, leg) => {
+    const decimalOdds =
+      leg.odds > 0 ? leg.odds / 100 + 1 : 100 / Math.abs(leg.odds) + 1
+    return acc * decimalOdds
+  }, 1)
 
   return {
-    isValid: errors.length === 0,
-    errors,
+    legs,
+    totalOdds: Math.round((totalOdds - 1) * 100), // Convert back to American odds
+    potentialPayout:
+      Math.round(preferences.options.budget * totalOdds * 100) / 100,
+    confidence: 0.75,
+    reasoning: `Generated ${legs.length}-leg parlay based on ${preferences.strategy.riskLevel} risk tolerance`,
+    generatedAt: new Date().toISOString(),
+    provider: 'mock',
   }
 }
 
-/**
- * Error status code mapping
- */
-function getStatusCodeForError(errorCode: string): number {
-  const statusCodes: Record<string, number> = {
-    INVALID_REQUEST: 400,
-    MISSING_ROSTERS: 400,
-    INSUFFICIENT_ROSTERS: 400,
-    MISSING_API_KEY: 500,
-    MISSING_CONFIG: 500,
-    OPENAI_ERROR: 503,
-    PROVIDER_NOT_AVAILABLE: 503,
-    GENERATION_FAILED: 500,
-    PARSE_ERROR: 500,
-    NO_RESPONSE: 500,
-    RATE_LIMIT_EXCEEDED: 429,
-  }
-  return statusCodes[errorCode] || 500
-}
+// Main parlay generation function
+export const generateParlay = functions.https.onRequest((req, res) => {
+  corsHandler(req, res, async () => {
+    try {
+      console.log('📥 Received request:', {
+        method: req.method,
+        headers: req.headers,
+        body: req.body,
+      })
 
-// Import cleanup functions from utils
-export { cleanupRateLimits, manualCleanupRateLimits } from './utils/cleanup'
+      // Handle preflight requests
+      if (req.method === 'OPTIONS') {
+        res.status(204).send('')
+        return
+      }
+
+      // Only allow POST requests
+      if (req.method !== 'POST') {
+        res.status(405).json({
+          error: 'Method not allowed',
+          allowedMethods: ['POST'],
+        })
+        return
+      }
+
+      // Validate request body
+      const validation = validateRequest(req.body)
+      if (!validation.isValid) {
+        res.status(400).json({
+          error: validation.error,
+          receivedBody: req.body,
+        })
+        return
+      }
+
+      const { provider, preferences } = req.body as RequestBody
+
+      console.log('🎯 Generating parlay with:', {
+        provider,
+        riskLevel: preferences.strategy.riskLevel,
+        budget: preferences.options.budget,
+        game: `${preferences.game.awayTeam} @ ${preferences.game.homeTeam}`,
+      })
+
+      // Generate parlay based on provider
+      let result
+      switch (provider.toLowerCase()) {
+        case 'openai':
+          // TODO: Implement OpenAI integration
+          result = generateMockParlay(preferences)
+          result.provider = 'openai'
+          break
+        case 'claude':
+          // TODO: Implement Claude integration
+          result = generateMockParlay(preferences)
+          result.provider = 'claude'
+          break
+        default:
+          result = generateMockParlay(preferences)
+          result.provider = 'mock'
+      }
+
+      console.log('✅ Parlay generated successfully:', result)
+
+      res.status(200).json({
+        success: true,
+        data: result,
+        metadata: {
+          requestId: req.get('x-request-id') || 'unknown',
+          timestamp: new Date().toISOString(),
+          processingTime:
+            Date.now() -
+            (req.get('x-start-time')
+              ? parseInt(req.get('x-start-time')!)
+              : Date.now()),
+        },
+      })
+    } catch (error) {
+      console.error('❌ Error generating parlay:', error)
+
+      res.status(500).json({
+        error: 'Internal server error',
+        message:
+          error instanceof Error ? error.message : 'Unknown error occurred',
+        timestamp: new Date().toISOString(),
+      })
+    }
+  })
+})
+
+// Health check endpoint
+export const health = functions.https.onRequest((req, res) => {
+  corsHandler(req, res, () => {
+    res.status(200).json({
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      version: '1.0.0',
+      services: {
+        firebase: 'connected',
+        // Add other service checks here
+      },
+    })
+  })
+})
+
+// Get game data endpoint
+export const getGameData = functions.https.onRequest((req, res) => {
+  corsHandler(req, res, async () => {
+    try {
+      if (req.method !== 'POST') {
+        res.status(405).json({ error: 'Method not allowed' })
+        return
+      }
+
+      const { gameId } = req.body
+
+      if (!gameId) {
+        res.status(400).json({ error: 'Game ID is required' })
+        return
+      }
+
+      // Mock game data (replace with actual data fetching)
+      const gameData = {
+        gameId,
+        homeTeam: 'Chiefs',
+        awayTeam: 'Bills',
+        gameTime: '2024-01-15T18:00:00Z',
+        venue: 'Arrowhead Stadium',
+        weather: 'Clear, 45°F',
+        odds: {
+          spread: { home: -2.5, away: 2.5 },
+          total: 47.5,
+          moneyline: { home: -130, away: 110 },
+        },
+        injuries: [],
+        lastUpdated: new Date().toISOString(),
+      }
+
+      res.status(200).json({
+        success: true,
+        data: gameData,
+      })
+    } catch (error) {
+      console.error('Error fetching game data:', error)
+      res.status(500).json({
+        error: 'Failed to fetch game data',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      })
+    }
+  })
+})
+
+// Get player stats endpoint
+export const getPlayerStats = functions.https.onRequest((req, res) => {
+  corsHandler(req, res, async () => {
+    try {
+      if (req.method !== 'POST') {
+        res.status(405).json({ error: 'Method not allowed' })
+        return
+      }
+
+      const { playerId } = req.body
+
+      if (!playerId) {
+        res.status(400).json({ error: 'Player ID is required' })
+        return
+      }
+
+      // Mock player stats (replace with actual data fetching)
+      const playerStats = {
+        playerId,
+        name: 'Patrick Mahomes',
+        position: 'QB',
+        team: 'KC',
+        season2024: {
+          passingYards: 4183,
+          touchdowns: 26,
+          interceptions: 11,
+          completionPercentage: 67.5,
+          games: 16,
+        },
+        recentForm: {
+          last5Games: {
+            avgPassingYards: 245.6,
+            touchdowns: 8,
+            interceptions: 1,
+          },
+        },
+        lastUpdated: new Date().toISOString(),
+      }
+
+      res.status(200).json({
+        success: true,
+        data: playerStats,
+      })
+    } catch (error) {
+      console.error('Error fetching player stats:', error)
+      res.status(500).json({
+        error: 'Failed to fetch player stats',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      })
+    }
+  })
+})

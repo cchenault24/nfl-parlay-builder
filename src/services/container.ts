@@ -1,3 +1,4 @@
+// src/services/container.ts - Complete fixed file
 import { APIConfig } from '../api/clients/base/types'
 import { ESPNClient } from '../api/clients/ESPNClient'
 import { NFLDataService } from './NFLDataService'
@@ -86,11 +87,8 @@ export class ServiceContainer {
 
   getParlayService(): ParlayService {
     if (!this.parlayService) {
-      // No casting needed - ESPNClient implements INFLClient
-      this.parlayService = new ParlayService(
-        this.getESPNClient(),
-        this.getNFLDataService()
-      )
+      // ParlayService only needs nflDataService
+      this.parlayService = new ParlayService(this.getNFLDataService())
     }
     return this.parlayService
   }

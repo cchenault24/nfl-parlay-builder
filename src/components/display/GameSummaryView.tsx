@@ -183,7 +183,11 @@ const GameSummaryView: React.FC<GameSummaryViewProps> = ({
     return flowMap[gameFlow]
   }
 
-  const gameFlowDisplay = getGameFlowDisplay(gameSummary.gameFlow)
+  const gameFlowDisplay = getGameFlowDisplay(gameSummary.gameFlow) || {
+    label: 'Unknown Game Flow',
+    color: 'default' as const,
+    icon: <FootballIcon fontSize="small" />,
+  }
 
   // Get confidence color
   const getConfidenceColor = (confidence: number) => {

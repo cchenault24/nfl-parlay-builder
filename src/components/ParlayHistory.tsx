@@ -23,7 +23,7 @@ import { Timestamp } from 'firebase/firestore'
 import React, { useEffect, useState } from 'react'
 import { getUserParlays } from '../config/firebase'
 import { useAuth } from '../hooks/useAuth'
-import { GeneratedParlay } from '../types'
+import { SavedParlay } from '../types' // Use SavedParlay instead of GeneratedParlay
 
 interface ParlayHistoryProps {
   open: boolean
@@ -35,7 +35,7 @@ export const ParlayHistory: React.FC<ParlayHistoryProps> = ({
   onClose,
 }) => {
   const { user } = useAuth()
-  const [parlays, setParlays] = useState<GeneratedParlay[]>([])
+  const [parlays, setParlays] = useState<SavedParlay[]>([]) // Use SavedParlay type
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -49,7 +49,8 @@ export const ParlayHistory: React.FC<ParlayHistoryProps> = ({
 
     // getUserParlays returns an unsubscribe function for the real-time listener
     const unsubscribe = getUserParlays(user.uid, parlayData => {
-      setParlays(parlayData as GeneratedParlay[])
+      // Cast to SavedParlay since these come from Firebase with savedAt
+      setParlays(parlayData as SavedParlay[])
       setLoading(false)
     })
 
@@ -174,21 +175,18 @@ export const ParlayHistory: React.FC<ParlayHistoryProps> = ({
                     color="text.secondary"
                     sx={{ mb: 2 }}
                   >
-                    Saved: {formatDate(parlay.savedAt)}
+                    Saved: {formatDate(parlay.savedAt)}{' '}
+                    {/* Now properly typed */}
                   </Typography>
 
                   <Grid container spacing={2}>
-                    {parlay.legs?.map(leg => (
-                      <Grid item xs={12} key={`${parlay.id}-leg-${leg.id}`}>
-                        <Box
-                          sx={{
-                            p: 2,
-                            border: '1px solid',
-                            borderColor: 'divider',
-                            borderRadius: 1,
-                            bgcolor: 'background.paper',
-                          }}
-                        >
+                    {parlay.legs?.map((leg, legIndex) => (
+                      <Grid
+                        item
+                        xs={12}
+                        key={`${parlay.id}-leg-${leg.id || legIndex}`}
+                      >
+                        <Card variant="outlined" sx={{ p: 2 }}>
                           <Box
                             sx={{
                               display: 'flex',
@@ -197,49 +195,81 @@ export const ParlayHistory: React.FC<ParlayHistoryProps> = ({
                               mb: 1,
                             }}
                           >
-                            <Box
-                              sx={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 1,
-                              }}
-                            >
+                            <Chip
+                              label={leg.betType}
+                              color={getBetTypeColor(leg.betType) as any}
+                              size="small"
+                              sx={{ textTransform: 'capitalize' }}
+                            />
+                            <Box sx={{ display: 'flex', gap: 1 }}>
                               <Chip
-                                label={leg.betType.replace('_', ' ')}
-                                color={getBetTypeColor(leg.betType)}
+                                label={`${leg.confidence}/10`}
+                                color={
+                                  getConfidenceColor(leg.confidence) as any
+                                }
                                 size="small"
                                 variant="outlined"
                               />
-                              <Typography
-                                variant="body2"
-                                sx={{ fontWeight: 'bold' }}
-                              >
-                                {leg.odds}
-                              </Typography>
+                              <Chip
+                                label={leg.odds}
+                                size="small"
+                                variant="outlined"
+                              />
                             </Box>
-                            <Chip
-                              label={`${leg.confidence}/10`}
-                              color={getConfidenceColor(leg.confidence)}
-                              size="small"
-                            />
                           </Box>
 
                           <Typography
-                            variant="body1"
-                            sx={{ fontWeight: 'medium', mb: 1 }}
+                            variant="body2"
+                            fontWeight="medium"
+                            gutterBottom
                           >
-                            {leg.target}
+                            {leg.selection}
                           </Typography>
 
-                          {leg.reasoning && (
-                            <Typography variant="body2" color="text.secondary">
-                              {leg.reasoning}
-                            </Typography>
-                          )}
-                        </Box>
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            gutterBottom
+                          >
+                            Target: {leg.target}
+                          </Typography>
+
+                          <Typography variant="caption" color="text.secondary">
+                            {leg.reasoning}
+                          </Typography>
+                        </Card>
                       </Grid>
                     ))}
                   </Grid>
+
+                  <Box
+                    sx={{
+                      mt: 2,
+                      pt: 2,
+                      borderTop: '1px solid',
+                      borderColor: 'divider',
+                    }}
+                  >
+                    <Typography variant="body2" color="text.secondary">
+                      <strong>AI Analysis:</strong> {parlay.aiReasoning}
+                    </Typography>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        mt: 1,
+                      }}
+                    >
+                      <Typography variant="caption" color="text.secondary">
+                        Overall Confidence: {parlay.overallConfidence}/10
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Created:{' '}
+                        {new Date(parlay.createdAt).toLocaleDateString()}
+                      </Typography>
+                    </Box>
+                  </Box>
                 </CardContent>
               </Card>
             ))}
@@ -248,8 +278,12 @@ export const ParlayHistory: React.FC<ParlayHistoryProps> = ({
       </DialogContent>
 
       <DialogActions>
-        <Button onClick={onClose}>Close</Button>
+        <Button onClick={onClose} variant="outlined">
+          Close
+        </Button>
       </DialogActions>
     </Dialog>
   )
 }
+
+export default ParlayHistory

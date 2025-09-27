@@ -73,12 +73,14 @@ function AppContent() {
   const weekToFetch = selectedWeek
   const { data: games, isLoading: gamesLoading } = useNFLGames(weekToFetch)
 
+  // Fixed destructuring to match the actual return type of useParlayGeneratorSelector
+  const parlayGenerator = useParlayGeneratorSelector()
   const {
-    mutate: generateParlay,
-    isPending: parlayLoading,
+    generateParlay,
+    isGenerating: parlayLoading, // Use isGenerating instead of isPending
     error: parlayError,
     reset: resetParlay,
-  } = useParlayGeneratorSelector()
+  } = parlayGenerator
 
   // Check age verification status
   useEffect(() => {
@@ -95,10 +97,49 @@ function AppContent() {
 
   const handleGenerateParlay = () => {
     if (selectedGame) {
-      generateParlay({
-        game: selectedGame,
-        shouldUseMock: devMockOverride,
-      })
+      // Map NFLGame to the expected game format for ParlayPreferences
+      const gameData = {
+        homeTeam:
+          selectedGame.homeTeam.name ||
+          selectedGame.homeTeam.abbreviation ||
+          String(selectedGame.homeTeam),
+        awayTeam:
+          selectedGame.awayTeam.name ||
+          selectedGame.awayTeam.abbreviation ||
+          String(selectedGame.awayTeam),
+        gameTime: selectedGame.date,
+        venue: 'TBD', // NFLGame doesn't have venue info, so we'll use a placeholder
+      }
+
+      // Create the full ParlayPreferences object
+      const parlayPreferences: any = {
+        game: gameData,
+        rosters: {
+          homeRoster: [],
+          awayRoster: [],
+        },
+        strategy: {
+          riskLevel: 'moderate',
+          targetOdds: 300,
+          maxLegs: 4,
+          minLegs: 2,
+        },
+        varietyFactors: {
+          includePlayerProps: true,
+          includeGameProps: true,
+          includeTeamProps: false,
+          diversifyPositions: true,
+        },
+        options: {
+          budget: 50,
+          excludeInjuredPlayers: true,
+          favoriteTeamBias: gameData.homeTeam,
+        },
+        // Add the gameId at the top level as expected by the service
+        gameId: selectedGame.id,
+      }
+
+      generateParlay(parlayPreferences)
     }
   }
 

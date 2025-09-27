@@ -1,22 +1,22 @@
-import React from 'react'
+import { Casino as CasinoIcon } from '@mui/icons-material'
 import {
+  Box,
+  Button,
   Card,
   CardContent,
-  Typography,
+  CircularProgress,
   FormControl,
   InputLabel,
-  Select,
   MenuItem,
-  Button,
-  Box,
-  CircularProgress,
+  Select,
+  Typography,
 } from '@mui/material'
 import { SelectChangeEvent } from '@mui/material/Select'
-import { Casino as CasinoIcon } from '@mui/icons-material'
-import WeekSelector from './WeekSelector'
-import type { NFLGame } from '../types'
-import useParlayStore from '../store/parlayStore'
+import React from 'react'
 import { useParlayGenerator } from '../hooks/useParlayGenerator'
+import useParlayStore from '../store/parlayStore'
+import type { NFLGame } from '../types'
+import WeekSelector from './WeekSelector'
 
 interface GameSelectorProps {
   games: NFLGame[]
@@ -66,6 +66,25 @@ const GameSelector: React.FC<GameSelectorProps> = ({
       hour: 'numeric',
       minute: '2-digit',
     })
+  }
+
+  // Helper function to check if game is completed
+  const isGameCompleted = (game: NFLGame): boolean => {
+    // Handle both old simple status and new complex status structure
+    if (typeof game.status === 'string') {
+      return game.status === 'final'
+    } else if (
+      game.status &&
+      typeof game.status === 'object' &&
+      game.status.type
+    ) {
+      return (
+        game.status.type.completed === true ||
+        game.status.type.name?.toLowerCase() === 'final' ||
+        game.status.type.state === 'post'
+      )
+    }
+    return false
   }
 
   if (loading && !games.length) {
@@ -168,23 +187,23 @@ const GameSelector: React.FC<GameSelectorProps> = ({
                 }}
               >
                 {games.map(game => {
+                  const gameCompleted = isGameCompleted(game)
                   return (
                     <MenuItem
                       key={game.id}
                       value={game.id}
-                      disabled={game.status === 'final'} // Disable completed games
+                      disabled={gameCompleted} // Disable completed games
                       sx={{
                         padding: '12px 16px',
                         minHeight: '48px',
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: 'flex-start',
-                        opacity: game.status === 'final' ? 0.6 : 1,
+                        opacity: gameCompleted ? 0.6 : 1,
                         '&:hover': {
-                          backgroundColor:
-                            game.status === 'final'
-                              ? 'transparent'
-                              : 'rgba(46, 125, 50, 0.1)',
+                          backgroundColor: gameCompleted
+                            ? 'transparent'
+                            : 'rgba(46, 125, 50, 0.1)',
                         },
                         '&.Mui-selected': {
                           backgroundColor: 'rgba(46, 125, 50, 0.2)',

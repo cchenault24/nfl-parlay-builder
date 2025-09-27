@@ -14,12 +14,6 @@ function resolveConfig(input?: PartialConfig): APIConfig {
     import.meta?.env?.VITE_ESPN_BASE_URL ??
     DEFAULT_ESPN_BASE_URL
 
-  if (!input?.baseURL && !import.meta?.env?.VITE_ESPN_BASE_URL) {
-    console.warn(
-      'ESPNClient: using default ESPN base URL. Set VITE_ESPN_BASE_URL or pass a config to override.'
-    )
-  }
-
   // Detect if we're on mobile - ESPN blocks User-Agent headers on mobile
   const isMobile =
     /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(

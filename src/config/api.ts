@@ -53,7 +53,6 @@ const isLocalDevelopment = () => {
       return false
     }
 
-    console.log('🔧 Hostname check:', { hostname, isLocal })
     return isLocal
   }
   return ENV.NODE_ENV === 'development'
@@ -122,13 +121,3 @@ export const LOGGING = {
 if (ENV.NODE_ENV !== 'test') {
   validateEnvironment()
 }
-
-// Debug logging for troubleshooting
-console.log('🔧 API CONFIG DEBUG:', {
-  hostname: typeof window !== 'undefined' ? window.location.hostname : 'server',
-  href: typeof window !== 'undefined' ? window.location.href : 'server',
-  isLocalDevelopment: isLocalDevelopment(),
-  NODE_ENV: ENV.NODE_ENV,
-  cloudFunctionURL: API_CONFIG.CLOUD_FUNCTIONS.baseURL,
-  projectId: ENV.FIREBASE_PROJECT_ID,
-})
