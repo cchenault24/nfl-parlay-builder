@@ -129,7 +129,7 @@ export class ProviderCreationError extends ProviderFactoryError {
     )
     this.name = 'ProviderCreationError'
     if (originalError) {
-      this.cause = originalError
+      ;(this as any).cause = originalError
     }
   }
 }

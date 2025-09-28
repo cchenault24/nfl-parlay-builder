@@ -123,12 +123,12 @@ function classifyError(message: string): {
 } {
   const lowerMessage = message.toLowerCase()
 
-  for (const [type, config] of Object.entries(ERROR_CLASSIFICATION)) {
+  for (const [, config] of Object.entries(ERROR_CLASSIFICATION)) {
     if (config.patterns.some(pattern => pattern.test(lowerMessage))) {
       return {
         severity: config.severity,
         shouldRetry: config.shouldRetry,
-        retryAfter: config.retryAfter,
+        retryAfter: 'retryAfter' in config ? config.retryAfter : undefined,
       }
     }
   }

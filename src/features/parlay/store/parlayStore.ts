@@ -1,9 +1,5 @@
 import { GeneratedParlay, NFLGame } from '../../../types'
-import {
-  createFeatureStore,
-  createResetAction,
-  createSafeMigration,
-} from '../../../utils'
+import { createFeatureStore, createSafeMigration } from '../../../utils'
 
 interface ParlayState {
   // Parlay data
@@ -57,7 +53,7 @@ const initialState: ParlayState = {
 
 export const useParlayStore = createFeatureStore<ParlayState, ParlayActions>(
   initialState,
-  (set, get) => ({
+  set => ({
     // Data actions
     setParlay: parlay => set({ parlay }),
     setSelectedGame: game => set({ selectedGame: game }),
@@ -76,13 +72,14 @@ export const useParlayStore = createFeatureStore<ParlayState, ParlayActions>(
       set({ selectedDataProvider: provider }),
 
     // Reset actions
-    resetParlay: createResetAction({
-      parlay: null,
-      isGenerating: false,
-      generationError: null,
-      saveParlaySuccess: false,
-      saveParlayError: null,
-    }),
+    resetParlay: () =>
+      set({
+        parlay: null,
+        isGenerating: false,
+        generationError: null,
+        saveParlaySuccess: false,
+        saveParlayError: null,
+      }),
   }),
   {
     name: 'nfl-parlay-parlay-store',
@@ -91,6 +88,9 @@ export const useParlayStore = createFeatureStore<ParlayState, ParlayActions>(
       selectedAIProvider: state.selectedAIProvider,
       selectedDataProvider: state.selectedDataProvider,
     }),
-    migrate: createSafeMigration(initialState, 1),
+    migrate: createSafeMigration(initialState, 1) as (
+      persistedState: any,
+      version: number
+    ) => ParlayState & ParlayActions,
   }
 )

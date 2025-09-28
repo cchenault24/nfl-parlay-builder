@@ -1,9 +1,5 @@
 import { NFLGame } from '../../../types'
-import {
-  createArrayActions,
-  createResetAction,
-  createSimpleStore,
-} from '../../../utils'
+import { createSimpleStore } from '../../../utils'
 
 interface GamesState {
   // Game data
@@ -57,13 +53,8 @@ const initialState: GamesState = {
   weekError: null,
 }
 
-const arrayActions = createArrayActions<GamesState, 'games'>(
-  'games',
-  state => state.games
-)
-
 export const useGamesStore = createSimpleStore<GamesState & GamesActions>(
-  initialState,
+  initialState as GamesState & GamesActions,
   set => ({
     // Data actions
     setGames: games => set({ games }),
@@ -80,17 +71,29 @@ export const useGamesStore = createSimpleStore<GamesState & GamesActions>(
     setWeekError: error => set({ weekError: error }),
 
     // Array actions for games
-    addGame: game => set(arrayActions.addGame(game)),
-    removeGame: index => set(arrayActions.removeGame(index)),
-    updateGame: (index, game) => set(arrayActions.updateItem(index, game)),
-    clearGames: () => set(arrayActions.clearArray()),
+    addGame: game => {
+      const currentState = useGamesStore.getState()
+      set({ games: [...currentState.games, game] })
+    },
+    removeGame: index => {
+      const currentState = useGamesStore.getState()
+      set({ games: currentState.games.filter((_, i) => i !== index) })
+    },
+    updateGame: (index, game) => {
+      const currentState = useGamesStore.getState()
+      const newGames = [...currentState.games]
+      newGames[index] = game
+      set({ games: newGames })
+    },
+    clearGames: () => set({ games: [] }),
 
     // Reset actions
-    clearGamesData: createResetAction({
-      games: [],
-      selectedWeek: null,
-      gamesError: null,
-      weekError: null,
-    }),
+    clearGamesData: () =>
+      set({
+        games: [],
+        selectedWeek: null,
+        gamesError: null,
+        weekError: null,
+      }),
   })
 )

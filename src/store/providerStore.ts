@@ -1,5 +1,5 @@
 import { ProviderHealth } from '../types/providers'
-import { createResetAction, createSimpleStore } from '../utils'
+import { createFeatureStore } from '../utils'
 
 interface ProviderState {
   // Provider health monitoring
@@ -59,30 +59,45 @@ const initialState: ProviderState = {
   providerStats: new Map(),
 }
 
-export const useProviderStore = createSimpleStore<
-  ProviderState & ProviderActions
->(initialState, (set, get) => ({
-  // Health monitoring actions
-  setProviderHealth: (name, health) =>
-    set(state => {
-      const newHealth = new Map(state.providerHealth)
+export const useProviderStore = createFeatureStore<
+  ProviderState,
+  ProviderActions
+>(
+  initialState,
+  (set, get) => ({
+    // Health monitoring actions
+    setProviderHealth: (name: string, health: ProviderHealth) => {
+      const currentState = useProviderStore.getState()
+      const newHealth = new Map(currentState.providerHealth)
       newHealth.set(name, health)
-      return { providerHealth: newHealth }
-    }),
+      set({ providerHealth: newHealth })
+    },
 
-  setAllProviderHealth: health => set({ providerHealth: health }),
+    setAllProviderHealth: (health: Map<string, ProviderHealth>) =>
+      set({ providerHealth: health }),
 
-  setHealthMonitoring: enabled => set({ isHealthMonitoring: enabled }),
+    setHealthMonitoring: (enabled: boolean) =>
+      set({ isHealthMonitoring: enabled }),
 
-  // Provider selection actions
-  setSelectedAIProvider: provider => set({ selectedAIProvider: provider }),
+    // Provider selection actions
+    setSelectedAIProvider: (provider: string | null) =>
+      set({ selectedAIProvider: provider }),
 
-  setSelectedDataProvider: provider => set({ selectedDataProvider: provider }),
+    setSelectedDataProvider: (provider: string | null) =>
+      set({ selectedDataProvider: provider }),
 
-  // Statistics actions
-  updateProviderStats: (name, stats) =>
-    set(state => {
-      const newStats = new Map(state.providerStats)
+    // Statistics actions
+    updateProviderStats: (
+      name: string,
+      stats: Partial<{
+        usageCount: number
+        lastUsed: Date
+        averageResponseTime: number
+        successRate: number
+      }>
+    ) => {
+      const currentState = useProviderStore.getState()
+      const newStats = new Map(currentState.providerStats)
       const currentStats = newStats.get(name) || {
         usageCount: 0,
         lastUsed: undefined,
@@ -90,33 +105,43 @@ export const useProviderStore = createSimpleStore<
         successRate: undefined,
       }
       newStats.set(name, { ...currentStats, ...stats })
-      return { providerStats: newStats }
-    }),
+      set({ providerStats: newStats })
+    },
 
-  // Getter actions
-  getProviderHealth: (name: string): ProviderHealth | undefined => {
-    const state = get()
-    return state.providerHealth.get(name)
-  },
+    // Getter actions
+    getProviderHealth: (name: string): ProviderHealth | undefined => {
+      const state = get()
+      return state.providerHealth.get(name)
+    },
 
-  getHealthyProviders: (type: 'ai' | 'data'): string[] => {
-    const state = get()
-    const healthy: string[] = []
+    getHealthyProviders: (type: 'ai' | 'data'): string[] => {
+      const state = get()
+      const healthy: string[] = []
 
-    for (const [name, health] of state.providerHealth) {
-      if (health.healthy && name.includes(type)) {
-        healthy.push(name)
+      for (const [name, health] of state.providerHealth) {
+        if (health.healthy && name.includes(type)) {
+          healthy.push(name)
+        }
       }
-    }
 
-    return healthy
-  },
+      return healthy
+    },
 
-  // Reset actions
-  clearProviderData: createResetAction({
-    providerHealth: new Map(),
-    providerStats: new Map(),
-    selectedAIProvider: null,
-    selectedDataProvider: null,
+    // Reset actions
+    clearProviderData: () =>
+      set({
+        providerHealth: new Map(),
+        providerStats: new Map(),
+        selectedAIProvider: null,
+        selectedDataProvider: null,
+      }),
   }),
-}))
+  {
+    name: 'nfl-parlay-provider-store',
+    version: 1,
+    partialize: state => ({
+      selectedAIProvider: state.selectedAIProvider,
+      selectedDataProvider: state.selectedDataProvider,
+    }),
+  }
+)

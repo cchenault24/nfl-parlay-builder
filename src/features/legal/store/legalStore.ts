@@ -1,9 +1,4 @@
-import {
-  createFeatureStore,
-  createResetAction,
-  createSafeMigration,
-  createToggleAction,
-} from '../../../utils'
+import { createFeatureStore, createSafeMigration } from '../../../utils'
 
 interface LegalState {
   // Age verification
@@ -50,11 +45,14 @@ const initialState: LegalState = {
 
 export const useLegalStore = createFeatureStore<LegalState, LegalActions>(
   initialState,
-  (set, get) => ({
+  set => ({
     // Age verification actions
     setAgeVerified: verified => set({ isAgeVerified: verified }),
     setAgeVerificationOpen: open => set({ ageVerificationOpen: open }),
-    toggleAgeVerification: () => set(createToggleAction('ageVerificationOpen')),
+    toggleAgeVerification: () => {
+      const currentState = useLegalStore.getState()
+      set({ ageVerificationOpen: !currentState.ageVerificationOpen })
+    },
 
     // Modal actions
     setTermsModalOpen: open => set({ termsModalOpen: open }),
@@ -64,21 +62,32 @@ export const useLegalStore = createFeatureStore<LegalState, LegalActions>(
     setResponsibleGamblingOpen: open => set({ responsibleGamblingOpen: open }),
 
     // Toggle actions for modals
-    toggleTermsModal: () => set(createToggleAction('termsModalOpen')),
-    togglePrivacyModal: () => set(createToggleAction('privacyModalOpen')),
-    toggleLegalDisclaimerModal: () =>
-      set(createToggleAction('legalDisclaimerModalOpen')),
-    toggleResponsibleGambling: () =>
-      set(createToggleAction('responsibleGamblingOpen')),
+    toggleTermsModal: () => {
+      const currentState = useLegalStore.getState()
+      set({ termsModalOpen: !currentState.termsModalOpen })
+    },
+    togglePrivacyModal: () => {
+      const currentState = useLegalStore.getState()
+      set({ privacyModalOpen: !currentState.privacyModalOpen })
+    },
+    toggleLegalDisclaimerModal: () => {
+      const currentState = useLegalStore.getState()
+      set({ legalDisclaimerModalOpen: !currentState.legalDisclaimerModalOpen })
+    },
+    toggleResponsibleGambling: () => {
+      const currentState = useLegalStore.getState()
+      set({ responsibleGamblingOpen: !currentState.responsibleGamblingOpen })
+    },
 
     // Reset actions
-    closeAllModals: createResetAction({
-      ageVerificationOpen: false,
-      termsModalOpen: false,
-      privacyModalOpen: false,
-      legalDisclaimerModalOpen: false,
-      responsibleGamblingOpen: false,
-    }),
+    closeAllModals: () =>
+      set({
+        ageVerificationOpen: false,
+        termsModalOpen: false,
+        privacyModalOpen: false,
+        legalDisclaimerModalOpen: false,
+        responsibleGamblingOpen: false,
+      }),
   }),
   {
     name: 'nfl-parlay-legal-store',
@@ -86,6 +95,9 @@ export const useLegalStore = createFeatureStore<LegalState, LegalActions>(
     partialize: state => ({
       isAgeVerified: state.isAgeVerified,
     }),
-    migrate: createSafeMigration(initialState, 1),
+    migrate: createSafeMigration(initialState, 1) as (
+      persistedState: any,
+      version: number
+    ) => LegalState & LegalActions,
   }
 )

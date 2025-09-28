@@ -36,7 +36,7 @@ class Logger {
     level: LogLevel,
     message: string,
     context?: LogContext,
-    data?: unknown
+    _data?: unknown
   ): string {
     const timestamp = new Date().toISOString()
     const contextStr = context ? `[${context.component || 'Unknown'}]` : ''

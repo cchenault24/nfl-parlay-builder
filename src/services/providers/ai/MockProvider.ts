@@ -192,7 +192,7 @@ export class MockProvider implements IAIProvider {
         metadata: {
           provider: this.config.name,
           model: this.config.model,
-          tokens: this.estimateTokens(context),
+          tokens: this.estimateContextTokens(context),
           latency,
           confidence: parlay.overallConfidence,
           cost: 0,
@@ -229,7 +229,14 @@ export class MockProvider implements IAIProvider {
    * Get cost estimate for a request
    */
   estimateCost(context: AIGenerationContext): number {
-    return 0 // Free for testing
+    // Calculate estimated tokens based on context complexity
+    const baseTokens = 1000
+    const contextTokens = this.estimateContextTokens(context)
+    const totalTokens =
+      baseTokens + contextTokens + (context.maxTokens ?? this.config.maxTokens)
+
+    // Return cost based on token count and cost per request
+    return (totalTokens / 1000) * (this.metadata.costPerRequest || 0.0001)
   }
 
   // ===== PRIVATE METHODS =====
@@ -373,10 +380,10 @@ export class MockProvider implements IAIProvider {
       gameSummary: {
         matchupAnalysis: `${game.awayTeam.displayName} vs ${game.homeTeam.displayName} presents an interesting matchup. Both teams have strengths and weaknesses that could determine the outcome.`,
         gameFlow: [
-          'high_scoring_shootout',
-          'defensive_grind',
-          'balanced_tempo',
-          'potential_blowout',
+          'high_scoring_shootout' as const,
+          'defensive_grind' as const,
+          'balanced_tempo' as const,
+          'potential_blowout' as const,
         ][Math.floor(Math.random() * 4)],
         keyFactors: [
           'Weather conditions',
@@ -434,11 +441,48 @@ export class MockProvider implements IAIProvider {
   }
 
   /**
-   * Estimate tokens for cost calculation
+   * Estimate context tokens for cost calculation
    */
-  private estimateTokens(context: AIGenerationContext): number {
-    // Rough estimation
-    return 1000 + Math.floor(Math.random() * 500)
+  private estimateContextTokens(context: AIGenerationContext): number {
+    // Rough estimation based on context complexity
+    let tokens = 500 // Base context
+
+    // Add tokens based on weather information
+    if (context.gameContext.weather) tokens += 50
+
+    // Add tokens based on injury information
+    if (context.gameContext.injuries.length > 0) {
+      tokens += context.gameContext.injuries.length * 20
+    }
+
+    // Add tokens based on anti-template hints
+    if (context.antiTemplateHints.avoidPatterns.length > 0) tokens += 100
+    if (context.antiTemplateHints.contextualFactors.length > 0) tokens += 100
+
+    // Add tokens based on variety factors complexity
+    if (context.varietyFactors.focusArea !== 'balanced') tokens += 30
+    if (context.varietyFactors.playerTier === 'star') tokens += 40
+    if (context.varietyFactors.gameScript === 'high_scoring') tokens += 40
+    if (context.varietyFactors.gameScript === 'defensive') tokens += 40
+    if (context.varietyFactors.marketBias !== 'neutral') tokens += 30
+    if (context.varietyFactors.motivationalFactors?.length) {
+      tokens += context.varietyFactors.motivationalFactors.length * 15
+    }
+    if (context.varietyFactors.focusPlayer) tokens += 50
+
+    // Add tokens based on strategy complexity
+    if (context.strategy.riskProfile === 'high') tokens += 100
+    if (context.strategy.riskProfile === 'medium') tokens += 50
+    if (context.strategy.riskLevel === 'aggressive') tokens += 80
+    if (context.strategy.riskLevel === 'moderate') tokens += 40
+    if (context.strategy.focusAreas?.length) {
+      tokens += context.strategy.focusAreas.length * 20
+    }
+    if (context.strategy.contextFactors?.length) {
+      tokens += context.strategy.contextFactors.length * 15
+    }
+
+    return tokens
   }
 
   /**

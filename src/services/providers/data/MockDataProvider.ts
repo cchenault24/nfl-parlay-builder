@@ -4,6 +4,7 @@
 
 import { APIResponse } from '../../../types/core/api'
 import {
+  ESPNAthlete,
   ESPNRosterResponse,
   ESPNScoreboardResponse,
 } from '../../../types/external'
@@ -210,7 +211,7 @@ export class MockDataProvider implements IDataProvider {
    * Get available weeks for current season
    */
   async getAvailableWeeks(
-    options: DataQueryOptions = {}
+    _options: DataQueryOptions = {}
   ): Promise<DataProviderResponse<number[]>> {
     const weeks = Array.from({ length: 18 }, (_, i) => i + 1)
     const response: APIResponse<number[]> = {
@@ -305,7 +306,7 @@ export class MockDataProvider implements IDataProvider {
    */
   private async simulateRequest<T>(
     dataGenerator: () => T,
-    options: DataQueryOptions = {}
+    _options: DataQueryOptions = {}
   ): Promise<APIResponse<T>> {
     this.requestCount++
 
@@ -386,63 +387,38 @@ export class MockDataProvider implements IDataProvider {
         competitions: [
           {
             id: `comp-${i / 2 + 1}`,
-            date: new Date(
-              Date.now() + Math.random() * 7 * 24 * 60 * 60 * 1000
-            ).toISOString(),
             competitors: [
               {
                 id: awayTeam.id,
+                homeAway: 'away' as const,
                 team: {
                   id: awayTeam.id,
+                  name: awayTeam.name,
                   displayName: awayTeam.name,
                   abbreviation: awayTeam.abbreviation,
                   logo: `https://a.espncdn.com/i/teamlogos/nfl/500/${awayTeam.abbreviation.toLowerCase()}.png`,
                 },
-                score: Math.floor(Math.random() * 35),
               },
               {
                 id: homeTeam.id,
+                homeAway: 'home' as const,
                 team: {
                   id: homeTeam.id,
+                  name: homeTeam.name,
                   displayName: homeTeam.name,
                   abbreviation: homeTeam.abbreviation,
                   logo: `https://a.espncdn.com/i/teamlogos/nfl/500/${homeTeam.abbreviation.toLowerCase()}.png`,
                 },
-                score: Math.floor(Math.random() * 35),
               },
             ],
-            status: {
-              type: {
-                id: '1',
-                name: 'STATUS_SCHEDULED',
-                state: 'pre',
-                completed: false,
-                description: 'Scheduled',
-                detail: '12:00 PM ET',
-              },
-            },
           },
         ],
       })
     }
 
     return {
-      leagues: [
-        {
-          id: '1',
-          name: 'NFL',
-          abbreviation: 'NFL',
-          season: new Date().getFullYear(),
-          seasonType: {
-            id: '2',
-            type: 2,
-            name: 'Regular Season',
-          },
-        },
-      ],
       season: {
         year: new Date().getFullYear(),
-        type: 2,
       },
       week: {
         number: week,
@@ -456,7 +432,7 @@ export class MockDataProvider implements IDataProvider {
    */
   private generateMockRoster(teamId: string): ESPNRosterResponse {
     const positions = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF']
-    const athletes = []
+    const athletes: ESPNAthlete[] = []
 
     positions.forEach((pos, posIndex) => {
       const count = pos === 'WR' ? 6 : pos === 'RB' ? 3 : 2

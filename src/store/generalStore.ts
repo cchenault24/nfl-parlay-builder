@@ -1,9 +1,4 @@
-import {
-  createFeatureStore,
-  createResetAction,
-  createSafeMigration,
-  createToggleAction,
-} from '../utils'
+import { createFeatureStore, createSafeMigration } from '../utils'
 
 interface GeneralState {
   // Development settings
@@ -23,11 +18,14 @@ const initialState: GeneralState = {
 
 const useGeneralStore = createFeatureStore<GeneralState, GeneralActions>(
   initialState,
-  (set, get) => ({
+  set => ({
     // Development actions
     setDevMockOverride: useMock => set({ devMockOverride: useMock }),
-    toggleDevMockOverride: () => set(createToggleAction('devMockOverride')),
-    clearDevMockOverride: createResetAction({ devMockOverride: false }),
+    toggleDevMockOverride: () => {
+      const currentState = useGeneralStore.getState()
+      set({ devMockOverride: !currentState.devMockOverride })
+    },
+    clearDevMockOverride: () => set({ devMockOverride: false }),
   }),
   {
     name: 'nfl-parlay-general-store',
@@ -35,7 +33,10 @@ const useGeneralStore = createFeatureStore<GeneralState, GeneralActions>(
     partialize: state => ({
       devMockOverride: state.devMockOverride,
     }),
-    migrate: createSafeMigration(initialState, 1),
+    migrate: createSafeMigration(initialState, 1) as (
+      persistedState: any,
+      version: number
+    ) => GeneralState & GeneralActions,
   }
 )
 

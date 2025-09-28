@@ -182,7 +182,7 @@ export class ProviderNotRegisteredError extends ProviderRegistryError {
  * Provider selection error
  */
 export class ProviderSelectionError extends ProviderRegistryError {
-  constructor(message: string, criteria: ProviderSelectionCriteria) {
+  constructor(message: string, _criteria: ProviderSelectionCriteria) {
     super(
       `Provider selection failed: ${message}`,
       'registry',

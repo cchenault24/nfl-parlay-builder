@@ -2,7 +2,6 @@ import {
   createFeatureStore,
   createResetAction,
   createSafeMigration,
-  createToggleAction,
 } from '../../../utils'
 
 interface AuthState {
@@ -43,7 +42,10 @@ export const useAuthStore = createFeatureStore<AuthState, AuthActions>(
 
     // Modal actions
     setAuthModalOpen: open => set({ authModalOpen: open }),
-    toggleAuthModal: () => set(createToggleAction('authModalOpen')),
+    toggleAuthModal: () => {
+      const currentState = get()
+      set({ authModalOpen: !currentState.authModalOpen })
+    },
 
     // Reset actions
     clearAuth: createResetAction({
@@ -59,6 +61,9 @@ export const useAuthStore = createFeatureStore<AuthState, AuthActions>(
       isAuthenticated: state.isAuthenticated,
       user: state.user,
     }),
-    migrate: createSafeMigration(initialState, 1),
+    migrate: createSafeMigration(initialState, 1) as (
+      persistedState: any,
+      version: number
+    ) => AuthState & AuthActions,
   }
 )

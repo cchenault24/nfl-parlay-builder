@@ -101,13 +101,16 @@ const GameSummaryView: React.FC<GameSummaryViewProps> = ({
       cleaned = cleaned.replace(/^["']|["']$/g, '')
 
       // Remove common symbols from the start
-      cleaned = cleaned.replace(/^(-|•|\*|\+|►|▶️|✓|✅|→|➤|◦|‣|⁃)\s*/, '')
+      cleaned = cleaned.replace(/^(-|•|\*|\+|►|▶️|✓|✅|→|➤|◦|‣|⁃|\$)\s*/, '')
 
       // Remove numbered list prefixes (1., 2), etc.)
       cleaned = cleaned.replace(/^\d+[.)\]]\s*/, '')
 
       // Remove bullet point symbols
       cleaned = cleaned.replace(/^[■□▪▫●○◆◇]\s*/, '')
+
+      // Remove $ characters from anywhere in the string
+      cleaned = cleaned.replace(/\$/g, '')
 
       // Trim again after cleaning
       cleaned = cleaned.trim()
