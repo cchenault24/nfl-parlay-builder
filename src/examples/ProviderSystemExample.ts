@@ -3,6 +3,7 @@
 // ================================================================================================
 
 import { ProviderManager } from '../services/providers/ProviderManager'
+import { logger } from '../utils/logger'
 
 /**
  * Example demonstrating the unified provider system
@@ -19,33 +20,42 @@ export class ProviderSystemExample {
    */
   async initialize(): Promise<void> {
     await this.providerManager.initialize()
-    console.log('✅ Provider system initialized')
+    logger.info('Provider system initialized', {
+      component: 'ProviderSystemExample',
+    })
   }
 
   /**
    * Demonstrate AI provider selection with different criteria
    */
   async demonstrateAISelection(): Promise<void> {
-    console.log('\n🤖 AI Provider Selection Examples:')
+    logger.info('AI Provider Selection Examples', {
+      component: 'ProviderSystemExample',
+    })
 
     try {
       // Select by performance
       const performanceProvider =
         await this.providerManager.selectAIProvider('performance')
-      console.log(
-        `Performance: ${performanceProvider.metadata.name} (${performanceProvider.metadata.version})`
+      logger.info(
+        `Performance: ${performanceProvider.metadata.name} (${performanceProvider.metadata.version})`,
+        { component: 'ProviderSystemExample', action: 'selectAIProvider' }
       )
 
       // Select by cost
       const costProvider = await this.providerManager.selectAIProvider('cost')
-      console.log(
-        `Cost: ${costProvider.metadata.name} ($${costProvider.metadata.costPerRequest || 0}/request)`
+      logger.info(
+        `Cost: ${costProvider.metadata.name} ($${costProvider.metadata.costPerRequest || 0}/request)`,
+        { component: 'ProviderSystemExample', action: 'selectAIProvider' }
       )
 
       // Select by reliability
       const reliabilityProvider =
         await this.providerManager.selectAIProvider('reliability')
-      console.log(`Reliability: ${reliabilityProvider.metadata.name}`)
+      logger.info(`Reliability: ${reliabilityProvider.metadata.name}`, {
+        component: 'ProviderSystemExample',
+        action: 'selectAIProvider',
+      })
 
       // Select with custom criteria
       const customProvider = await this.providerManager.selectAIProvider({
@@ -53,7 +63,7 @@ export class ProviderSystemExample {
         maxCost: 0.01,
         capabilities: ['chat_completion', 'json_mode'],
       })
-      console.log(`Custom: ${customProvider.metadata.name}`)
+      logger.info(`Custom: ${customProvider.metadata.name}`)
     } catch (error) {
       console.error('❌ AI provider selection failed:', error)
     }
@@ -63,27 +73,27 @@ export class ProviderSystemExample {
    * Demonstrate data provider selection with different criteria
    */
   async demonstrateDataSelection(): Promise<void> {
-    console.log('\n📊 Data Provider Selection Examples:')
+    logger.info('\n📊 Data Provider Selection Examples:')
 
     try {
       // Select by reliability
       const reliabilityProvider =
         await this.providerManager.selectDataProvider('reliability')
-      console.log(
+      logger.info(
         `Reliability: ${reliabilityProvider.metadata.name} (${reliabilityProvider.metadata.dataQuality})`
       )
 
       // Select by performance
       const performanceProvider =
         await this.providerManager.selectDataProvider('performance')
-      console.log(`Performance: ${performanceProvider.metadata.name}`)
+      logger.info(`Performance: ${performanceProvider.metadata.name}`)
 
       // Select with custom criteria
       const customProvider = await this.providerManager.selectDataProvider({
         priority: 'reliability',
         capabilities: ['nfl_games', 'team_rosters'],
       })
-      console.log(`Custom: ${customProvider.metadata.name}`)
+      logger.info(`Custom: ${customProvider.metadata.name}`)
     } catch (error) {
       console.error('❌ Data provider selection failed:', error)
     }
@@ -93,7 +103,7 @@ export class ProviderSystemExample {
    * Demonstrate provider health monitoring
    */
   async demonstrateHealthMonitoring(): Promise<void> {
-    console.log('\n🏥 Provider Health Monitoring:')
+    logger.info('\n🏥 Provider Health Monitoring:')
 
     const allHealth = this.providerManager.getAllProviderHealth()
 
@@ -102,7 +112,7 @@ export class ProviderSystemExample {
       const responseTime = health.responseTime
         ? ` (${health.responseTime}ms)`
         : ''
-      console.log(
+      logger.info(
         `${status} ${name}: ${health.healthy ? 'Healthy' : 'Unhealthy'}${responseTime}`
       )
     }
@@ -112,32 +122,32 @@ export class ProviderSystemExample {
    * Demonstrate provider capabilities
    */
   async demonstrateProviderCapabilities(): Promise<void> {
-    console.log('\n🔧 Provider Capabilities:')
+    logger.info('\n🔧 Provider Capabilities:')
 
     // AI Providers
     const aiProviders = this.providerManager.getAIProviders()
-    console.log('\nAI Providers:')
+    logger.info('\nAI Providers:')
     for (const [name, provider] of aiProviders) {
-      console.log(`  ${name}:`)
-      console.log(`    Models: ${provider.metadata.supportedModels.join(', ')}`)
-      console.log(
+      logger.info(`  ${name}:`)
+      logger.info(`    Models: ${provider.metadata.supportedModels.join(', ')}`)
+      logger.info(
         `    Capabilities: ${provider.metadata.capabilities.join(', ')}`
       )
-      console.log(`    Max Tokens: ${provider.metadata.maxTokens}`)
-      console.log(`    Cost: $${provider.metadata.costPerRequest || 0}/request`)
+      logger.info(`    Max Tokens: ${provider.metadata.maxTokens}`)
+      logger.info(`    Cost: $${provider.metadata.costPerRequest || 0}/request`)
     }
 
     // Data Providers
     const dataProviders = this.providerManager.getDataProviders()
-    console.log('\nData Providers:')
+    logger.info('\nData Providers:')
     for (const [name, provider] of dataProviders) {
-      console.log(`  ${name}:`)
-      console.log(`    Quality: ${provider.metadata.dataQuality}`)
-      console.log(`    Update Frequency: ${provider.metadata.updateFrequency}`)
-      console.log(
+      logger.info(`  ${name}:`)
+      logger.info(`    Quality: ${provider.metadata.dataQuality}`)
+      logger.info(`    Update Frequency: ${provider.metadata.updateFrequency}`)
+      logger.info(
         `    Capabilities: ${provider.metadata.capabilities.join(', ')}`
       )
-      console.log(
+      logger.info(
         `    Endpoints: ${provider.metadata.supportedEndpoints.join(', ')}`
       )
     }
@@ -147,20 +157,20 @@ export class ProviderSystemExample {
    * Demonstrate configuration-driven loading
    */
   demonstrateConfiguration(): void {
-    console.log('\n⚙️ Provider Configuration:')
+    logger.info('\n⚙️ Provider Configuration:')
 
     const config = this.providerManager.getConfig()
-    console.log(`Default AI Provider: ${config.defaultAIProvider}`)
-    console.log(`Default Data Provider: ${config.defaultDataProvider}`)
-    console.log(`Auto Initialize: ${config.autoInitialize}`)
+    logger.info(`Default AI Provider: ${config.defaultAIProvider}`)
+    logger.info(`Default Data Provider: ${config.defaultDataProvider}`)
+    logger.info(`Auto Initialize: ${config.autoInitialize}`)
   }
 
   /**
    * Run all demonstrations
    */
   async runAllDemonstrations(): Promise<void> {
-    console.log('🚀 Unified Provider System Demonstration')
-    console.log('==========================================')
+    logger.info('🚀 Unified Provider System Demonstration')
+    logger.info('==========================================')
 
     await this.initialize()
     this.demonstrateConfiguration()
@@ -169,7 +179,7 @@ export class ProviderSystemExample {
     await this.demonstrateHealthMonitoring()
     await this.demonstrateProviderCapabilities()
 
-    console.log('\n✅ All demonstrations completed!')
+    logger.info('\n✅ All demonstrations completed!')
   }
 
   /**
@@ -177,7 +187,7 @@ export class ProviderSystemExample {
    */
   async cleanup(): Promise<void> {
     await this.providerManager.dispose()
-    console.log('🧹 Provider system cleaned up')
+    logger.info('🧹 Provider system cleaned up')
   }
 }
 

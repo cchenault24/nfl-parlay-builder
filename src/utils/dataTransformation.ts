@@ -82,7 +82,9 @@ export function transformGamesResponse(
  * Map ESPN game status to internal state
  */
 function mapGameStatusToState(status?: string): 'pre' | 'in' | 'post' {
-  if (!status) return 'pre'
+  if (!status) {
+    return 'pre'
+  }
 
   const statusLower = status.toLowerCase()
   if (statusLower.includes('in') || statusLower.includes('live')) {
@@ -98,7 +100,9 @@ function mapGameStatusToState(status?: string): 'pre' | 'in' | 'post' {
  * Check if game is completed
  */
 function isGameCompleted(status?: string): boolean {
-  if (!status) return false
+  if (!status) {
+    return false
+  }
 
   const statusLower = status.toLowerCase()
   return statusLower.includes('post') || statusLower.includes('final')

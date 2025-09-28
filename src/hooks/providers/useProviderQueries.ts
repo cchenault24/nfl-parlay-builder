@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { useProviderContext } from '../../contexts/ProviderContext'
+import { useProviderContext } from '../../contexts/useProviderContext'
 import { useProviderStore } from '../../store/providerStore'
 import { ProviderHealth } from '../../types/providers'
 import {
@@ -112,10 +112,9 @@ export const useTestProviderConnection = () => {
         if (type === 'ai') {
           const provider = await getAIProvider(name)
           return await provider.validateConnection()
-        } else {
-          const provider = await getDataProvider(name)
-          return await provider.validateConnection()
         }
+        const provider = await getDataProvider(name)
+        return await provider.validateConnection()
       } catch (error) {
         if (import.meta.env.DEV) {
           console.error(`Failed to test ${type} provider connection:`, error)

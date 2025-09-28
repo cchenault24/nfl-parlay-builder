@@ -1,52 +1,10 @@
-import React, { createContext, useContext, useEffect, useState } from 'react'
+import React, { createContext, useEffect, useState } from 'react'
 import { ProviderManager } from '../services/providers/ProviderManager'
 import { useProviderStore } from '../store/providerStore'
-import {
-  IAIProvider,
-  IDataProvider,
-  ProviderSelectionCriteria,
-} from '../types/providers'
+import { IAIProvider, IDataProvider } from '../types/providers'
+import { ProviderContextValue } from './ProviderContextValue'
 
-interface ProviderContextValue {
-  // Provider manager
-  providerManager: ProviderManager | null
-  isInitialized: boolean
-
-  // Provider access
-  getAIProvider: (name?: string) => Promise<IAIProvider>
-  getDataProvider: (name?: string) => Promise<IDataProvider>
-
-  // Provider health
-  refreshProviderHealth: () => Promise<void>
-
-  // Provider selection
-  selectBestAIProvider: (
-    criteria?:
-      | 'performance'
-      | 'reliability'
-      | 'cost'
-      | 'balanced'
-      | Partial<ProviderSelectionCriteria>
-  ) => Promise<IAIProvider>
-  selectBestDataProvider: (
-    criteria?:
-      | 'performance'
-      | 'reliability'
-      | 'cost'
-      | 'balanced'
-      | Partial<ProviderSelectionCriteria>
-  ) => Promise<IDataProvider>
-}
-
-const ProviderContext = createContext<ProviderContextValue | null>(null)
-
-export const useProviderContext = () => {
-  const context = useContext(ProviderContext)
-  if (!context) {
-    throw new Error('useProviderContext must be used within a ProviderProvider')
-  }
-  return context
-}
+export const ProviderContext = createContext<ProviderContextValue | null>(null)
 
 interface ProviderProviderProps {
   children: React.ReactNode
@@ -99,7 +57,9 @@ export const ProviderProvider: React.FC<ProviderProviderProps> = ({
 
   const refreshProviderHealth = async (manager?: ProviderManager) => {
     const mgr = manager || providerManager
-    if (!mgr) return
+    if (!mgr) {
+      return
+    }
 
     try {
       const healthMap = mgr.getAllProviderHealth()

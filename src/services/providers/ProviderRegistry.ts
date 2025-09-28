@@ -122,12 +122,15 @@ export class ProviderRegistry implements IProviderRegistry {
 
     // Filter by requirements and exclusions
     const filtered = candidates.filter(candidate => {
-      if (criteria.exclude?.includes(candidate.name)) return false
+      if (criteria.exclude?.includes(candidate.name)) {
+        return false
+      }
       if (
         criteria.require?.length &&
         !criteria.require.includes(candidate.name)
-      )
+      ) {
         return false
+      }
       return candidate.enabled && candidate.health.healthy
     })
 
@@ -135,12 +138,15 @@ export class ProviderRegistry implements IProviderRegistry {
       if (criteria.fallback) {
         // Try with unhealthy providers as fallback
         const fallbackCandidates = candidates.filter(candidate => {
-          if (criteria.exclude?.includes(candidate.name)) return false
+          if (criteria.exclude?.includes(candidate.name)) {
+            return false
+          }
           if (
             criteria.require?.length &&
             !criteria.require.includes(candidate.name)
-          )
+          ) {
             return false
+          }
           return candidate.enabled
         })
 
@@ -395,7 +401,9 @@ export class ProviderRegistry implements IProviderRegistry {
   ): ProviderRegistration<T>[] {
     return candidates.filter(candidate => {
       // Check exclusions
-      if (criteria.exclude?.includes(candidate.name)) return false
+      if (criteria.exclude?.includes(candidate.name)) {
+        return false
+      }
 
       // Check requirements
       if (
@@ -408,19 +416,25 @@ export class ProviderRegistry implements IProviderRegistry {
       // Check cost constraints
       if (criteria.maxCost !== undefined) {
         const cost = this.getProviderCost(candidate)
-        if (cost > criteria.maxCost) return false
+        if (cost > criteria.maxCost) {
+          return false
+        }
       }
 
       // Check success rate constraints
       if (criteria.minSuccessRate !== undefined) {
         const successRate = this.getProviderSuccessRate(candidate)
-        if (successRate < criteria.minSuccessRate) return false
+        if (successRate < criteria.minSuccessRate) {
+          return false
+        }
       }
 
       // Check response time constraints
       if (criteria.maxResponseTime !== undefined) {
         const avgResponseTime = this.getProviderAverageResponseTime(candidate)
-        if (avgResponseTime > criteria.maxResponseTime) return false
+        if (avgResponseTime > criteria.maxResponseTime) {
+          return false
+        }
       }
 
       // Check model preferences (for AI providers)
@@ -432,7 +446,9 @@ export class ProviderRegistry implements IProviderRegistry {
         const hasPreferredModel = criteria.preferredModels.some(model =>
           availableModels.includes(model)
         )
-        if (!hasPreferredModel) return false
+        if (!hasPreferredModel) {
+          return false
+        }
       }
 
       // Check capabilities
@@ -441,7 +457,9 @@ export class ProviderRegistry implements IProviderRegistry {
         const hasRequiredCapabilities = criteria.capabilities.every(
           capability => providerCapabilities.includes(capability)
         )
-        if (!hasRequiredCapabilities) return false
+        if (!hasRequiredCapabilities) {
+          return false
+        }
       }
 
       return true
@@ -466,11 +484,15 @@ export class ProviderRegistry implements IProviderRegistry {
     // Performance score based on response time
     const avgResponseTime = this.getProviderAverageResponseTime(candidate)
     if (avgResponseTime > 0) {
-      if (avgResponseTime < 1000)
-        score += 30 // Excellent
-      else if (avgResponseTime < 3000)
-        score += 20 // Good
-      else if (avgResponseTime < 10000) score += 10 // Acceptable
+      if (avgResponseTime < 1000) {
+        score += 30
+      } // Excellent
+      else if (avgResponseTime < 3000) {
+        score += 20
+      } // Good
+      else if (avgResponseTime < 10000) {
+        score += 10
+      } // Acceptable
     }
 
     // Reliability score based on success rate
@@ -479,11 +501,16 @@ export class ProviderRegistry implements IProviderRegistry {
 
     // Cost score (lower cost = higher score)
     const cost = this.getProviderCost(candidate)
-    if (cost === 0)
-      score += 25 // Free providers get bonus
-    else if (cost < 0.01) score += 20
-    else if (cost < 0.05) score += 15
-    else if (cost < 0.1) score += 10
+    if (cost === 0) {
+      score += 25
+    } // Free providers get bonus
+    else if (cost < 0.01) {
+      score += 20
+    } else if (cost < 0.05) {
+      score += 15
+    } else if (cost < 0.1) {
+      score += 10
+    }
 
     // Usage balancing (less used = higher score)
     const maxUsage = Math.max(

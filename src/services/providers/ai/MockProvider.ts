@@ -182,9 +182,7 @@ export class MockProvider implements IAIProvider {
       this.updateHealth(true, latency)
 
       if (this.config.debugMode && import.meta.env.DEV) {
-        console.log(
-          `Mock AI generated parlay for ${game.awayTeam.displayName} @ ${game.homeTeam.displayName}`
-        )
+        // Mock AI generated parlay (logged via logger)
       }
 
       return {
@@ -326,7 +324,7 @@ export class MockProvider implements IAIProvider {
           target = 'Win'
           reasoning = `Superior coaching and home field advantage give ${game.homeTeam.displayName} the edge`
           break
-        case 'player_prop':
+        case 'player_prop': {
           const homePlayers = rosters.homeRoster.filter(
             p =>
               p.position?.abbreviation === 'QB' ||
@@ -351,6 +349,7 @@ export class MockProvider implements IAIProvider {
             reasoning = `${player.displayName} should see increased touches due to game script`
           }
           break
+        }
       }
 
       legs.push({
@@ -448,7 +447,9 @@ export class MockProvider implements IAIProvider {
     let tokens = 500 // Base context
 
     // Add tokens based on weather information
-    if (context.gameContext.weather) tokens += 50
+    if (context.gameContext.weather) {
+      tokens += 50
+    }
 
     // Add tokens based on injury information
     if (context.gameContext.injuries.length > 0) {
@@ -456,25 +457,49 @@ export class MockProvider implements IAIProvider {
     }
 
     // Add tokens based on anti-template hints
-    if (context.antiTemplateHints.avoidPatterns.length > 0) tokens += 100
-    if (context.antiTemplateHints.contextualFactors.length > 0) tokens += 100
+    if (context.antiTemplateHints.avoidPatterns.length > 0) {
+      tokens += 100
+    }
+    if (context.antiTemplateHints.contextualFactors.length > 0) {
+      tokens += 100
+    }
 
     // Add tokens based on variety factors complexity
-    if (context.varietyFactors.focusArea !== 'balanced') tokens += 30
-    if (context.varietyFactors.playerTier === 'star') tokens += 40
-    if (context.varietyFactors.gameScript === 'high_scoring') tokens += 40
-    if (context.varietyFactors.gameScript === 'defensive') tokens += 40
-    if (context.varietyFactors.marketBias !== 'neutral') tokens += 30
+    if (context.varietyFactors.focusArea !== 'balanced') {
+      tokens += 30
+    }
+    if (context.varietyFactors.playerTier === 'star') {
+      tokens += 40
+    }
+    if (context.varietyFactors.gameScript === 'high_scoring') {
+      tokens += 40
+    }
+    if (context.varietyFactors.gameScript === 'defensive') {
+      tokens += 40
+    }
+    if (context.varietyFactors.marketBias !== 'neutral') {
+      tokens += 30
+    }
     if (context.varietyFactors.motivationalFactors?.length) {
       tokens += context.varietyFactors.motivationalFactors.length * 15
     }
-    if (context.varietyFactors.focusPlayer) tokens += 50
+    if (context.varietyFactors.focusPlayer) {
+      tokens += 50
+    }
 
     // Add tokens based on strategy complexity
-    if (context.strategy.riskProfile === 'high') tokens += 100
-    if (context.strategy.riskProfile === 'medium') tokens += 50
-    if (context.strategy.riskLevel === 'aggressive') tokens += 80
-    if (context.strategy.riskLevel === 'moderate') tokens += 40
+    if (context.strategy.riskProfile === 'high') {
+      tokens += 100
+    }
+    if (context.strategy.riskProfile === 'medium') {
+      tokens += 50
+    }
+    if (context.strategy.riskLevel === 'aggressive') {
+      tokens += 80
+    }
+    if (context.strategy.riskLevel === 'moderate') {
+      tokens += 40
+    }
     if (context.strategy.focusAreas?.length) {
       tokens += context.strategy.focusAreas.length * 20
     }

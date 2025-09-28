@@ -6,7 +6,7 @@ import { CloudFunctionResponse } from '../types/api/interfaces'
 import { useClientRateLimit } from './useClientRateLimit'
 
 // Create a singleton instance - will be updated based on mock toggle
-let parlayService = new ParlayService('openai')
+const parlayService = new ParlayService('openai')
 
 interface UseParlayGeneratorOptions {
   onSuccess?: (data: any) => void

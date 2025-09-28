@@ -367,7 +367,9 @@ export class ProviderManager {
     for (const [providerType, providerConfig] of Object.entries(
       envConfig.ai.providers
     )) {
-      if (!providerConfig?.enabled) continue
+      if (!providerConfig?.enabled) {
+        continue
+      }
 
       try {
         const provider = await this.factory.createAIProvider(
@@ -408,7 +410,9 @@ export class ProviderManager {
     for (const [providerType, providerConfig] of Object.entries(
       envConfig.data.providers
     )) {
-      if (!providerConfig?.enabled) continue
+      if (!providerConfig?.enabled) {
+        continue
+      }
 
       try {
         const provider = await this.factory.createDataProvider(

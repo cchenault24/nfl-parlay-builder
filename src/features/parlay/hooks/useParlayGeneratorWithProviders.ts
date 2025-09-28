@@ -1,5 +1,5 @@
 import { useCallback } from 'react'
-import { useProviderContext } from '../../../contexts/ProviderContext'
+import { useProviderContext } from '../../../contexts/useProviderContext'
 import { useProviderStore } from '../../../store/providerStore'
 import { ParlayPreferences } from '../../../types'
 import { useParlayStore } from '../store/parlayStore'
@@ -151,12 +151,11 @@ export const useParlayGeneratorWithProviders = () => {
             ? await getAIProvider(providerName)
             : await selectBestAIProvider()
           return await provider.validateConnection()
-        } else {
-          const provider = providerName
-            ? await getDataProvider(providerName)
-            : await selectBestDataProvider()
-          return await provider.validateConnection()
         }
+        const provider = providerName
+          ? await getDataProvider(providerName)
+          : await selectBestDataProvider()
+        return await provider.validateConnection()
       } catch (error) {
         if (import.meta.env.DEV) {
           console.error(`Failed to test ${type} provider connection:`, error)

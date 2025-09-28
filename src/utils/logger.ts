@@ -24,7 +24,9 @@ class Logger {
   private isProduction = import.meta.env.PROD
 
   private shouldLog(level: LogLevel): boolean {
-    if (this.isDevelopment) return true
+    if (this.isDevelopment) {
+      return true
+    }
     if (this.isProduction) {
       // In production, only log warnings and errors
       return level === 'warn' || level === 'error'
@@ -51,7 +53,9 @@ class Logger {
     context?: LogContext,
     data?: unknown
   ): void {
-    if (!this.shouldLog(level)) return
+    if (!this.shouldLog(level)) {
+      return
+    }
 
     const formattedMessage = this.formatMessage(level, message, context, data)
 

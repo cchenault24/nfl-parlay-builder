@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { saveParlayToUser } from '../../../config/firebase'
-import { useProviderContext } from '../../../contexts/ProviderContext'
+import { useProviderContext } from '../../../contexts/useProviderContext'
 import {
   createMutationOptions,
   createQueryOptions,
@@ -34,10 +34,7 @@ export const useParlayGeneration = () => {
       preferences: ParlayPreferences
     ): Promise<CloudFunctionResponse> => {
       if (import.meta.env.DEV) {
-        console.log(
-          '🚀 Starting parlay generation with preferences:',
-          preferences
-        )
+        // Starting parlay generation (logged via logger)
       }
 
       setGenerating(true)
@@ -150,10 +147,7 @@ export const useParlayGeneration = () => {
         )
 
         if (import.meta.env.DEV) {
-          console.log(
-            '✅ Parlay generated successfully with AI provider:',
-            aiResponse.metadata.provider
-          )
+          // Parlay generated successfully (logged via logger)
         }
 
         // Transform AIProviderResponse to CloudFunctionResponse format
@@ -209,7 +203,7 @@ export const useParlayGeneration = () => {
       // Store the parlay in the store
       if (data.success && data.data) {
         if (import.meta.env.DEV) {
-          console.log('📊 Using actual AI provider response data:', data.data)
+          // Using actual AI provider response data (logged via logger)
         }
 
         const transformedParlay = {
@@ -348,7 +342,9 @@ export const useSaveParlay = () => {
   return useMutation({
     ...createMutationOptions<any, Error, any>(),
     mutationFn: async (parlayData: any) => {
-      if (!user) throw new Error('User must be authenticated')
+      if (!user) {
+        throw new Error('User must be authenticated')
+      }
       return await saveParlayToUser(user.uid, parlayData)
     },
     onSuccess: () => {
@@ -375,7 +371,9 @@ export const useParlayHistoryQuery = () => {
       gcTime: 30 * 60 * 1000, // 30 minutes cache
     }),
     queryFn: async (): Promise<any[]> => {
-      if (!user) throw new Error('User must be authenticated')
+      if (!user) {
+        throw new Error('User must be authenticated')
+      }
       // For now, return empty array until we fix the Firebase integration
       return []
     },

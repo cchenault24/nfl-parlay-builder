@@ -90,7 +90,7 @@ export class ParlayService {
 
     // Make the request with gameId, game data, and roster data as expected by Cloud Function
     const requestPayload = {
-      gameId: gameId,
+      gameId,
       game: preferences.game, // Include the complete game data
       rosters: preferences.rosters, // Include the complete roster data
       options: {
@@ -243,7 +243,7 @@ export class ParlayService {
   setProvider(provider: string): void {
     this.provider = provider
     if (import.meta.env.DEV) {
-      console.log('🔄 Provider updated to:', provider)
+      // Provider updated (logged via logger)
     }
   }
 

@@ -472,7 +472,9 @@ IMPORTANT: Only use players from the provided rosters. Make selections based on 
             })
             .slice(0, pos === 'WR' ? 6 : pos === 'RB' ? 3 : 2)
 
-          if (positionPlayers.length === 0) return ''
+          if (positionPlayers.length === 0) {
+            return ''
+          }
 
           const playerList = positionPlayers
             .map(p => {
@@ -701,11 +703,18 @@ Generate a strategic 3-leg parlay with detailed football analysis and comprehens
     // Rough estimation based on context complexity
     let tokens = 500 // Base context
 
-    if (context.gameContext.weather) tokens += 50
-    if (context.gameContext.injuries.length > 0)
+    if (context.gameContext.weather) {
+      tokens += 50
+    }
+    if (context.gameContext.injuries.length > 0) {
       tokens += context.gameContext.injuries.length * 20
-    if (context.antiTemplateHints.avoidPatterns.length > 0) tokens += 100
-    if (context.antiTemplateHints.contextualFactors.length > 0) tokens += 100
+    }
+    if (context.antiTemplateHints.avoidPatterns.length > 0) {
+      tokens += 100
+    }
+    if (context.antiTemplateHints.contextualFactors.length > 0) {
+      tokens += 100
+    }
 
     return tokens
   }

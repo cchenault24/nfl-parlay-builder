@@ -252,7 +252,7 @@ export async function retryWithBackoff<T>(
         processedError.retryAfter || baseDelay * Math.pow(2, attempt - 1)
 
       if (import.meta.env.DEV) {
-        console.log(`Retry attempt ${attempt}/${maxRetries} after ${delay}ms`)
+        // Retry attempt (logged via logger)
       }
 
       await new Promise(resolve => setTimeout(resolve, delay))

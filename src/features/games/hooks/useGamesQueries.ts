@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { useProviderContext } from '../../../contexts/ProviderContext'
+import { useProviderContext } from '../../../contexts/useProviderContext'
 import {
   createQueryOptions,
   QUERY_KEYS,
