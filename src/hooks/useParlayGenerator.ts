@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ParlayPreferences, ParlayService } from '../services/ParlayService'
 import useParlayStore from '../store/parlayStore'
 import { CloudFunctionResponse } from '../types/api/interfaces'
+import { useRateLimit } from './useRateLimit'
 
 // Create a singleton instance
 const parlayService = new ParlayService('openai')
@@ -15,6 +16,7 @@ interface UseParlayGeneratorOptions {
 export const useParlayGenerator = (options: UseParlayGeneratorOptions = {}) => {
   const queryClient = useQueryClient()
   const setParlay = useParlayStore(state => state.setParlay)
+  const { refreshRateLimit } = useRateLimit()
 
   // Update provider if specified
   if (options.provider) {
@@ -128,6 +130,10 @@ export const useParlayGenerator = (options: UseParlayGeneratorOptions = {}) => {
         setParlay(transformedParlay)
       }
 
+      // Refresh rate limit data after parlay generation
+      console.log('🔄 Refreshing rate limit data after parlay generation')
+      refreshRateLimit()
+
       // Invalidate related queries to refresh any cached data
       queryClient.invalidateQueries({ queryKey: ['parlays'] })
       queryClient.invalidateQueries({ queryKey: ['gameData'] })
@@ -202,30 +208,6 @@ export const useParlayGenerator = (options: UseParlayGeneratorOptions = {}) => {
     getServiceConfig: () => parlayService.getConfig(),
     checkServiceHealth: () => parlayService.healthCheck(),
   }
-}
-
-// Hook for getting game data
-export const useGameData = () => {
-  return useMutation({
-    mutationFn: async (gameId: string) => {
-      return parlayService.getGameData(gameId)
-    },
-    onError: error => {
-      console.error('Error fetching game data:', error)
-    },
-  })
-}
-
-// Hook for getting player stats
-export const usePlayerStats = () => {
-  return useMutation({
-    mutationFn: async (playerId: string) => {
-      return parlayService.getPlayerStats(playerId)
-    },
-    onError: error => {
-      console.error('Error fetching player stats:', error)
-    },
-  })
 }
 
 // Helper hook for service health monitoring

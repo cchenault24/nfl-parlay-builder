@@ -103,16 +103,6 @@ export class ParlayService {
     return this.makeCloudFunctionRequest('generateParlay', requestPayload)
   }
 
-  async getGameData(gameId: string): Promise<any> {
-    console.log('📊 Fetching game data for:', gameId)
-    return this.makeCloudFunctionRequest('getGameData', { gameId })
-  }
-
-  async getPlayerStats(playerId: string): Promise<any> {
-    console.log('👤 Fetching player stats for:', playerId)
-    return this.makeCloudFunctionRequest('getPlayerStats', { playerId })
-  }
-
   private validatePreferences(preferences: ParlayPreferences): void {
     if (!preferences.game?.homeTeam || !preferences.game?.awayTeam) {
       throw new Error('Game teams are required')

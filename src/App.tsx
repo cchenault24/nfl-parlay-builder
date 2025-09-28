@@ -25,6 +25,7 @@ import { useCurrentWeek } from './hooks/useCurrentWeek'
 import { useGameRosters } from './hooks/useGameRosters'
 import { useNFLGames } from './hooks/useNFLGames'
 import { useParlayGeneratorSelector } from './hooks/useParlayGeneratorSelector'
+import { useRateLimit } from './hooks/useRateLimit'
 import useParlayStore from './store/parlayStore'
 import { theme } from './theme'
 
@@ -74,6 +75,9 @@ function AppContent() {
 
   // Get roster data for the selected game
   const { rosters } = useGameRosters(selectedGame || undefined)
+
+  // Get rate limit info to disable generation when limit reached
+  const { isAtLimit } = useRateLimit()
 
   // Fixed destructuring to match the actual return type of useParlayGeneratorSelector
   const parlayGenerator = useParlayGeneratorSelector()
@@ -237,7 +241,7 @@ function AppContent() {
             games={games || []}
             loading={gamesLoading || weekLoading}
             onGenerateParlay={handleGenerateParlay}
-            canGenerate={!!selectedGame && !parlayLoading}
+            canGenerate={!!selectedGame && !parlayLoading && !isAtLimit()}
             currentWeek={selectedWeek}
             onWeekChange={handleWeekChange}
             availableWeeks={availableWeeks}
