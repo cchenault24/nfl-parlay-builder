@@ -92,7 +92,7 @@ export const useLegalStore = createFeatureStore<LegalState, LegalActions>(
   {
     name: 'nfl-parlay-legal-store',
     version: 1,
-    partialize: state => ({
+    partialize: (state: LegalState) => ({
       isAgeVerified: state.isAgeVerified,
     }),
     migrate: createSafeMigration(initialState, 1) as (

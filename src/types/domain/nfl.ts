@@ -34,6 +34,11 @@ export interface NFLPlayer {
   status?: {
     type: string
   }
+  team: {
+    abbreviation: string
+    displayName: string
+    id: string
+  }
 }
 
 export interface NFLGame extends BaseEntity {

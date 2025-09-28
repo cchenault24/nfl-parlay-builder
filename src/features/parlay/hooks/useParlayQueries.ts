@@ -13,6 +13,17 @@ import {
   ParlayPreferences,
   SavedParlay,
 } from '../../../types'
+
+// Raw leg data from API response
+interface RawParlayLeg {
+  id?: string
+  betType?: string
+  selection?: string
+  target?: string
+  reasoning?: string
+  confidence?: number
+  odds?: string | number
+}
 import { CloudFunctionResponse } from '../../../types/api/interfaces'
 import { transformRosterResponse } from '../../../utils/dataTransformation'
 import { useParlayStore } from '../store/parlayStore'
@@ -71,8 +82,12 @@ export const useParlayGeneration = () => {
         )
 
         // Transform roster responses to proper format
-        const homeRoster = transformRosterResponse(homeRostersResponse.data)
-        const awayRoster = transformRosterResponse(awayRostersResponse.data)
+        const homeRoster = transformRosterResponse(
+          homeRostersResponse.data as unknown as Record<string, unknown>
+        )
+        const awayRoster = transformRosterResponse(
+          awayRostersResponse.data as unknown as Record<string, unknown>
+        )
 
         const rosters = {
           homeRoster: homeRoster.homeRoster,
@@ -217,7 +232,7 @@ export const useParlayGeneration = () => {
           updatedAt: new Date().toISOString(),
           legs: (() => {
             const legs = (data.data.legs || []).map(
-              (leg: ParlayLeg, index: number) => ({
+              (leg: RawParlayLeg, index: number) => ({
                 id: leg.id || `leg-${index}`,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
@@ -350,7 +365,8 @@ export const useSaveParlay = () => {
       if (!user) {
         throw new Error('User must be authenticated')
       }
-      return await saveParlayToUser(user.uid, parlayData)
+      await saveParlayToUser(user.uid, parlayData)
+      return parlayData
     },
     onSuccess: () => {
       setSaveParlaySuccess(true)

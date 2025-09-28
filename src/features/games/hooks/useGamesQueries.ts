@@ -9,6 +9,7 @@ import {
   extractAvailableWeeks,
   extractCurrentWeek,
   transformGamesResponse,
+  transformRosterResponse,
 } from '../../../utils/dataTransformation'
 import { useGamesStore } from '../store/gamesStore'
 
@@ -140,7 +141,10 @@ export const useGameRostersQuery = (gameId?: string) => {
 
       const dataProvider = await getDataProvider()
       const response = await dataProvider.getTeamRoster(gameId)
-      return response.data
+      // Transform ESPN roster response to GameRosters format
+      return transformRosterResponse(
+        response.data as unknown as Record<string, unknown>
+      )
     },
     enabled: !!gameId,
   })
@@ -164,7 +168,11 @@ export const useTeamRosterQuery = (teamId?: string) => {
       }
 
       const dataProvider = await getDataProvider()
-      return await dataProvider.getTeamRoster(teamId)
+      const response = await dataProvider.getTeamRoster(teamId)
+      // Transform ESPN roster response to GameRosters format
+      return transformRosterResponse(
+        response.data as unknown as Record<string, unknown>
+      )
     },
     enabled: !!teamId,
   })

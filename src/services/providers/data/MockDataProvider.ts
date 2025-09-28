@@ -2,6 +2,12 @@
 // MOCK DATA PROVIDER - Mock implementation of IDataProvider interface for testing
 // ================================================================================================
 
+import {
+  InjuryReport,
+  PlayerStats,
+  TeamStats,
+  WeatherData,
+} from '../../../types/api/player'
 import { APIResponse } from '../../../types/core/api'
 import {
   ESPNAthlete,
@@ -230,12 +236,20 @@ export class MockDataProvider implements IDataProvider {
     playerId: string,
     season?: number,
     options: DataQueryOptions = {}
-  ): Promise<DataProviderResponse<Record<string, unknown>>> {
+  ): Promise<DataProviderResponse<PlayerStats>> {
     const response = await this.simulateRequest<Record<string, unknown>>(
       () => this.generateMockPlayerStats(playerId, season),
       options
     )
-    return this.wrapResponse(response, false)
+
+    // Transform the response to PlayerStats format
+    const playerStats: PlayerStats = {
+      playerId,
+      season: season || new Date().getFullYear(),
+      ...response.data,
+    }
+
+    return this.wrapResponse({ data: playerStats, status: 200 }, false)
   }
 
   /**
@@ -245,12 +259,20 @@ export class MockDataProvider implements IDataProvider {
     teamId: string,
     season?: number,
     options: DataQueryOptions = {}
-  ): Promise<DataProviderResponse<Record<string, unknown>>> {
+  ): Promise<DataProviderResponse<TeamStats>> {
     const response = await this.simulateRequest<Record<string, unknown>>(
       () => this.generateMockTeamStats(teamId, season),
       options
     )
-    return this.wrapResponse(response, false)
+
+    // Transform the response to TeamStats format
+    const teamStats: TeamStats = {
+      teamId,
+      season: season || new Date().getFullYear(),
+      ...response.data,
+    }
+
+    return this.wrapResponse({ data: teamStats, status: 200 }, false)
   }
 
   /**
@@ -259,12 +281,17 @@ export class MockDataProvider implements IDataProvider {
   async getInjuryReports(
     teamId?: string,
     options: DataQueryOptions = {}
-  ): Promise<DataProviderResponse<Record<string, unknown>>> {
+  ): Promise<DataProviderResponse<InjuryReport[]>> {
     const response = await this.simulateRequest<Record<string, unknown>>(
       () => this.generateMockInjuryReports(teamId),
       options
     )
-    return this.wrapResponse(response, false)
+
+    // Transform the response to InjuryReport[] format
+    const injuryData = response.data as { injuries?: InjuryReport[] }
+    const injuryReports: InjuryReport[] = injuryData?.injuries || []
+
+    return this.wrapResponse({ data: injuryReports, status: 200 }, false)
   }
 
   /**
@@ -273,12 +300,19 @@ export class MockDataProvider implements IDataProvider {
   async getWeatherData(
     gameId: string,
     options: DataQueryOptions = {}
-  ): Promise<DataProviderResponse<Record<string, unknown>>> {
+  ): Promise<DataProviderResponse<WeatherData>> {
     const response = await this.simulateRequest<Record<string, unknown>>(
       () => this.generateMockWeatherData(gameId),
       options
     )
-    return this.wrapResponse(response, false)
+
+    // Transform the response to WeatherData format
+    const weatherData: WeatherData = {
+      gameId,
+      ...response.data,
+    }
+
+    return this.wrapResponse({ data: weatherData, status: 200 }, false)
   }
 
   // ===== PRIVATE METHODS =====

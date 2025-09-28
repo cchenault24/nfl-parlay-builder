@@ -139,7 +139,7 @@ export const useProviderStore = createFeatureStore<
   {
     name: 'nfl-parlay-provider-store',
     version: 1,
-    partialize: state => ({
+    partialize: (state: ProviderState) => ({
       selectedAIProvider: state.selectedAIProvider,
       selectedDataProvider: state.selectedDataProvider,
     }),

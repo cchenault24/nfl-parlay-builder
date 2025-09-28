@@ -42,6 +42,29 @@ export interface ProviderMetadata {
 }
 
 /**
+ * Criteria for selecting the best provider
+ */
+export interface ProviderSelectionCriteria {
+  type: 'ai' | 'data'
+  priority?: 'cost' | 'performance' | 'reliability' | 'balanced'
+  exclude?: string[]
+  require?: string[]
+  fallback?: boolean
+  maxCost?: number
+  minSuccessRate?: number
+  maxResponseTime?: number
+  preferredModels?: string[]
+  capabilities?: string[]
+  // Legacy support for numeric weights
+  performance?: number // 0-1 weight for performance
+  reliability?: number // 0-1 weight for reliability
+  cost?: number // 0-1 weight for cost efficiency
+  latency?: number // 0-1 weight for low latency
+  availability?: number // 0-1 weight for availability
+  customWeights?: Record<string, number> // Custom criteria weights
+}
+
+/**
  * Base provider interface that all providers must implement
  */
 export interface IProvider {

@@ -2,7 +2,12 @@
 // PROVIDER REGISTRY TYPES - Provider management and health monitoring
 // ================================================================================================
 
-import { IProvider, ProviderError, ProviderHealth } from './base'
+import {
+  IProvider,
+  ProviderError,
+  ProviderHealth,
+  ProviderSelectionCriteria,
+} from './base'
 
 /**
  * Provider registry configuration
@@ -27,22 +32,6 @@ export interface ProviderRegistration<T extends IProvider> {
   health: ProviderHealth
   lastUsed?: Date
   usageCount: number
-}
-
-/**
- * Provider selection criteria
- */
-export interface ProviderSelectionCriteria {
-  type: 'ai' | 'data'
-  priority?: 'cost' | 'performance' | 'reliability' | 'balanced'
-  exclude?: string[]
-  require?: string[]
-  fallback?: boolean
-  maxCost?: number
-  minSuccessRate?: number
-  maxResponseTime?: number
-  preferredModels?: string[]
-  capabilities?: string[]
 }
 
 /**

@@ -1,5 +1,6 @@
-import { CloudFunctionResponse } from '../types/api/interfaces'
 import { ParsedError } from '../types/api'
+import { CloudFunctionResponse } from '../types/api/interfaces'
+import { NFLPlayer } from '../types/domain/nfl'
 
 export interface ParlayPreferences {
   game: {
@@ -9,8 +10,8 @@ export interface ParlayPreferences {
     venue: string
   }
   rosters: {
-    homeRoster: Player[]
-    awayRoster: Player[]
+    homeRoster: NFLPlayer[]
+    awayRoster: NFLPlayer[]
   }
   strategy: {
     riskLevel: 'conservative' | 'moderate' | 'aggressive'
@@ -29,14 +30,6 @@ export interface ParlayPreferences {
     excludeInjuredPlayers: boolean
     favoriteTeamBias?: string
   }
-}
-
-interface Player {
-  id: string
-  name: string
-  position: string
-  team: string
-  injuryStatus?: string
 }
 
 export class ParlayService {

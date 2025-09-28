@@ -58,7 +58,7 @@ export const useAuthStore = createFeatureStore<AuthState, AuthActions>(
   {
     name: 'nfl-parlay-auth-store',
     version: 1,
-    partialize: state => ({
+    partialize: (state: AuthState) => ({
       isAuthenticated: state.isAuthenticated,
       user: state.user,
     }),

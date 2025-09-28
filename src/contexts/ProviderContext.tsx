@@ -1,7 +1,11 @@
 import React, { useEffect, useState } from 'react'
 import { ProviderManager } from '../services/providers/ProviderManager'
 import { useProviderStore } from '../store/providerStore'
-import { IAIProvider, IDataProvider } from '../types/providers'
+import {
+  IAIProvider,
+  IDataProvider,
+  ProviderSelectionCriteria,
+} from '../types/providers'
 import { ProviderContext } from './ProviderContextInstance'
 import { ProviderContextValue } from './ProviderContextValue'
 

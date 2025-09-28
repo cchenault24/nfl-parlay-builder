@@ -124,6 +124,28 @@ export interface GenerateParlayRequest {
 
 export interface GenerateParlayResponse extends CloudFunctionResponse {
   data: {
-    parlay: Record<string, unknown> // TODO: Define proper parlay type
+    legs: Array<{
+      id: string
+      betType: string
+      selection: string
+      target: string
+      reasoning: string
+      confidence: number
+      odds: string
+    }>
+    totalOdds: string
+    potentialPayout: number
+    confidence: number
+    reasoning: string
+    generatedAt: string
+    provider: string
+    gameContext: string
+    gameSummary: {
+      matchupAnalysis: string
+      gameFlow: string
+      keyFactors: string[]
+      prediction: string
+      confidence: number
+    }
   }
 }

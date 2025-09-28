@@ -64,6 +64,11 @@ export interface ESPNAthlete {
   college?: {
     name: string
   }
+  team?: {
+    id: string
+    abbreviation: string
+    displayName: string
+  }
 }
 
 export interface ESPNRosterResponse {

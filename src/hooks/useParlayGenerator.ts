@@ -6,6 +6,17 @@ import { GeneratedParlay, ParlayLeg } from '../types'
 import { CloudFunctionResponse } from '../types/api/interfaces'
 import { useClientRateLimit } from './useClientRateLimit'
 
+// Raw leg data from API response
+interface RawParlayLeg {
+  id?: string
+  betType?: string
+  selection?: string
+  target?: string
+  reasoning?: string
+  confidence?: number
+  odds?: string | number
+}
+
 // Create a singleton instance - will be updated based on mock toggle
 const parlayService = new ParlayService('openai')
 
@@ -85,19 +96,21 @@ export const useParlayGenerator = (options: UseParlayGeneratorOptions = {}) => {
       }
     },
     onSuccess: (data: CloudFunctionResponse) => {
+      let transformedParlay: GeneratedParlay | undefined
+
       // Store the parlay in the store
       if (data.success && data.data) {
         if (import.meta.env.DEV) {
           // Using actual Cloud Function response data (logged via logger)
         }
 
-        const transformedParlay = {
+        transformedParlay = {
           id: Date.now().toString(),
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           legs: (() => {
             const legs = (data.data.legs || []).map(
-              (leg: ParlayLeg, index: number) => ({
+              (leg: RawParlayLeg, index: number) => ({
                 id: leg.id || `leg-${index}`,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
@@ -178,8 +191,8 @@ export const useParlayGenerator = (options: UseParlayGeneratorOptions = {}) => {
       queryClient.invalidateQueries({ queryKey: ['gameData'] })
 
       // Call user-provided success callback
-      if (options.onSuccess) {
-        options.onSuccess(data)
+      if (options.onSuccess && transformedParlay) {
+        options.onSuccess(transformedParlay)
       }
     },
     onError: (error: Error) => {

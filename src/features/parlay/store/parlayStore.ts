@@ -84,7 +84,7 @@ export const useParlayStore = createFeatureStore<ParlayState, ParlayActions>(
   {
     name: 'nfl-parlay-parlay-store',
     version: 1,
-    partialize: state => ({
+    partialize: (state: ParlayState) => ({
       selectedAIProvider: state.selectedAIProvider,
       selectedDataProvider: state.selectedDataProvider,
     }),

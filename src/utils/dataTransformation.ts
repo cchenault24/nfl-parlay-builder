@@ -7,6 +7,13 @@ import {
   NFLPlayer,
 } from '../types'
 
+// ESPN roster response structure
+interface ESPNRosterData {
+  athletes?: Array<{
+    items?: ESPNAthlete[]
+  }>
+}
+
 /**
  * Transform ESPN API response to NFLGame format
  */
@@ -127,7 +134,10 @@ export function extractAvailableWeeks(_data: ESPNScoreboardResponse): number[] {
 /**
  * Transform ESPN athlete data to NFLPlayer format
  */
-export function transformAthleteToNFLPlayer(athlete: ESPNAthlete): NFLPlayer {
+export function transformAthleteToNFLPlayer(
+  athlete: ESPNAthlete,
+  teamId?: string
+): NFLPlayer {
   return {
     id: athlete.id,
     name: athlete.fullName || athlete.displayName,
@@ -147,6 +157,11 @@ export function transformAthleteToNFLPlayer(athlete: ESPNAthlete): NFLPlayer {
     status: {
       type: 'active',
     },
+    team: {
+      abbreviation: athlete.team?.abbreviation || 'UNK',
+      displayName: athlete.team?.displayName || 'Unknown Team',
+      id: athlete.team?.id || teamId || 'unknown',
+    },
   }
 }
 
@@ -156,9 +171,12 @@ export function transformAthleteToNFLPlayer(athlete: ESPNAthlete): NFLPlayer {
 export function transformRosterResponse(
   data: Record<string, unknown>
 ): GameRosters {
-  const athletes = data?.athletes?.[0]?.items || []
+  const rosterData = data as ESPNRosterData
+  const athletes = rosterData?.athletes?.[0]?.items || []
   return {
-    homeRoster: athletes.map(transformAthleteToNFLPlayer),
+    homeRoster: athletes.map((athlete: ESPNAthlete) =>
+      transformAthleteToNFLPlayer(athlete)
+    ),
     awayRoster: [], // Will be populated separately
   }
 }

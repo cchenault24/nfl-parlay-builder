@@ -30,7 +30,7 @@ const useGeneralStore = createFeatureStore<GeneralState, GeneralActions>(
   {
     name: 'nfl-parlay-general-store',
     version: 1,
-    partialize: state => ({
+    partialize: (state: GeneralState) => ({
       devMockOverride: state.devMockOverride,
     }),
     migrate: createSafeMigration(initialState, 1) as (

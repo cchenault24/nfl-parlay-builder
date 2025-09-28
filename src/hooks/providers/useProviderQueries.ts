@@ -1,7 +1,11 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useProviderContext } from '../../contexts/useProviderContext'
 import { useProviderStore } from '../../store/providerStore'
-import { ProviderHealth } from '../../types/providers'
+import {
+  IAIProvider,
+  IDataProvider,
+  ProviderHealth,
+} from '../../types/providers'
 import {
   createMutationOptions,
   createQueryOptions,
@@ -42,12 +46,12 @@ export const useAIProvidersQuery = () => {
   const { providerManager } = useProviderContext()
 
   return useQuery({
-    ...createQueryOptions<Map<string, ProviderHealth>>({
+    ...createQueryOptions<Map<string, IAIProvider>>({
       queryKey: QUERY_KEYS.PROVIDERS.AI_PROVIDERS,
       staleTime: 60 * 60 * 1000, // 1 hour for provider list
       gcTime: 24 * 60 * 60 * 1000, // 24 hours cache
     }),
-    queryFn: async (): Promise<Map<string, ProviderHealth>> => {
+    queryFn: async (): Promise<Map<string, IAIProvider>> => {
       if (!providerManager) {
         throw new Error('Provider manager not initialized')
       }
@@ -65,12 +69,12 @@ export const useDataProvidersQuery = () => {
   const { providerManager } = useProviderContext()
 
   return useQuery({
-    ...createQueryOptions<Map<string, ProviderHealth>>({
+    ...createQueryOptions<Map<string, IDataProvider>>({
       queryKey: QUERY_KEYS.PROVIDERS.DATA_PROVIDERS,
       staleTime: 60 * 60 * 1000, // 1 hour for provider list
       gcTime: 24 * 60 * 60 * 1000, // 24 hours cache
     }),
-    queryFn: async (): Promise<Map<string, ProviderHealth>> => {
+    queryFn: async (): Promise<Map<string, IDataProvider>> => {
       if (!providerManager) {
         throw new Error('Provider manager not initialized')
       }
@@ -157,7 +161,11 @@ export const useProviderStatsQuery = (providerName: string) => {
         throw new Error('Provider manager not initialized')
       }
 
-      return providerManager.getProviderStats(providerName)
+      const stats = providerManager.getProviderStats(providerName)
+      if (!stats) {
+        throw new Error(`Provider stats not found for ${providerName}`)
+      }
+      return stats
     },
     enabled: !!providerManager && !!providerName,
   })

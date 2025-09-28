@@ -46,10 +46,10 @@ export function createBasicStore<T extends LoadingState & LoadingActions>(
       'createBasicStore is deprecated. Use createFeatureStore instead.'
     )
   }
-  return createFeatureStore(
+  return createFeatureStore<T, Record<string, never>>(
     initialState as T,
     () => ({}),
-    config as StoreConfig<T>
+    config as StoreConfig<T & Record<string, never>>
   )
 }
 
@@ -127,25 +127,39 @@ export function createSelectors<T>() {
   }
 }
 
+// Store middleware types
+type MiddlewareConfig<T> = (
+  set: (partial: T | Partial<T> | ((state: T) => T | Partial<T>)) => void,
+  get: () => T,
+  api: unknown
+) => T
+type SetFunction<T> = (
+  partial: T | Partial<T> | ((state: T) => T | Partial<T>)
+) => void
+type GetFunction<T> = () => T
+
 /**
  * Store middleware for logging (development only)
  */
 export function createLoggingMiddleware(storeName: string) {
-  return (config: unknown) => (set: unknown, get: unknown, api: unknown) =>
-    config(
-      (...args: unknown[]) => {
-        if (import.meta.env.DEV) {
-          // Only log in development and for significant changes
-          const [partial] = args
-          if (partial && typeof partial === 'object') {
-            console.info(`[${storeName}] Store update:`, Object.keys(partial))
+  return <T>(config: MiddlewareConfig<T>) =>
+    (set: SetFunction<T>, get: GetFunction<T>, api: unknown) =>
+      config(
+        (partial: T | Partial<T> | ((state: T) => T | Partial<T>)) => {
+          if (import.meta.env.DEV) {
+            // Only log in development and for significant changes
+            if (partial && typeof partial === 'object') {
+              console.info(
+                `[${storeName}] Store update:`,
+                Object.keys(partial as Record<string, unknown>)
+              )
+            }
           }
-        }
-        set(...args)
-      },
-      get,
-      api
-    )
+          set(partial)
+        },
+        get,
+        api
+      )
 }
 
 /**
@@ -195,7 +209,7 @@ export function createSafeMigration<T>(initialState: T, version: number = 1) {
     if (persistedVersion === version) {
       return {
         ...initialState,
-        ...persistedState,
+        ...(persistedState as Partial<T>),
       }
     }
 
@@ -208,7 +222,7 @@ export function createSafeMigration<T>(initialState: T, version: number = 1) {
       }
       return {
         ...initialState,
-        ...persistedState,
+        ...(persistedState as Partial<T>),
       }
     }
 
@@ -253,7 +267,7 @@ export function createFeatureStore<TState, TActions>(
         // Default migration: merge persisted state with initial state
         return {
           ...initialState,
-          ...persistedState,
+          ...(persistedState as Partial<TState & TActions>),
         } as TState & TActions
       }),
   }

@@ -247,6 +247,11 @@ export class NFLDataService {
           type: 'active', // Default status
         },
         college: athleteData.college?.name,
+        team: {
+          id: 'unknown',
+          abbreviation: 'UNK',
+          displayName: 'Unknown Team',
+        },
       }
     })
   }

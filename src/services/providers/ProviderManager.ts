@@ -7,7 +7,9 @@ import {
   PROVIDER_SELECTION_PRESETS,
 } from '../../config/providers'
 import {
+  AIProviderFactoryConfig,
   AIProviderType,
+  DataProviderFactoryConfig,
   DataProviderType,
   IAIProvider,
   IDataProvider,
@@ -327,39 +329,73 @@ export class ProviderManager {
     // Register AI provider creators
     this.factory.registerAICreator(
       'openai',
-      async (config: Record<string, unknown>) => {
+      async (config: AIProviderFactoryConfig) => {
         const OpenAIProviderModule = await import('./ai/OpenAIProvider')
         const OpenAIProvider = OpenAIProviderModule.default
-        return new OpenAIProvider(config.config)
+        return new OpenAIProvider({
+          name: 'openai',
+          model: 'gpt-4',
+          temperature: 0.7,
+          maxTokens: 1000,
+          enabled: true,
+          priority: 1,
+          timeout: 30000,
+          retries: 3,
+          ...config.config,
+        })
       }
     )
 
     this.factory.registerAICreator(
       'mock',
-      async (config: Record<string, unknown>) => {
+      async (config: AIProviderFactoryConfig) => {
         const MockProviderModule = await import('./ai/MockProvider')
         const MockProvider = MockProviderModule.default
-        return new MockProvider(config.config)
+        return new MockProvider({
+          name: 'mock',
+          responseDelay: 1000,
+          enabled: true,
+          priority: 1,
+          timeout: 30000,
+          retries: 3,
+          ...config.config,
+        })
       }
     )
 
     // Register data provider creators
     this.factory.registerDataCreator(
       'espn',
-      async (config: Record<string, unknown>) => {
+      async (config: DataProviderFactoryConfig) => {
         const ESPNDataProviderModule = await import('./data/ESPNDataProvider')
         const ESPNDataProvider = ESPNDataProviderModule.default
-        return new ESPNDataProvider(config.config)
+        return new ESPNDataProvider({
+          name: 'espn',
+          baseURL: 'https://site.api.espn.com/apis/site/v2/sports/football/nfl',
+          enabled: true,
+          priority: 1,
+          timeout: 30000,
+          retries: 3,
+          ...config.config,
+        })
       }
     )
 
     this.factory.registerDataCreator(
       'mock',
-      async (config: Record<string, unknown>) => {
+      async (config: DataProviderFactoryConfig) => {
         try {
           const MockDataProviderModule = await import('./data/MockDataProvider')
           const MockDataProvider = MockDataProviderModule.default
-          return new MockDataProvider(config.config)
+          return new MockDataProvider({
+            name: 'mock',
+            baseURL: 'https://mock.api.com',
+            enabled: true,
+            priority: 1,
+            timeout: 30000,
+            retries: 3,
+            ...config.config,
+          })
         } catch (error) {
           throw new Error(`Failed to load MockDataProvider: ${error}`)
         }
@@ -386,7 +422,7 @@ export class ProviderManager {
           providerType as AIProviderType,
           {
             config: {
-              name: providerConfig.config.name || providerType,
+              name: (providerConfig.config?.name as string) || providerType,
               enabled: providerConfig.enabled,
               priority: providerConfig.priority,
               timeout: 30000,
@@ -400,7 +436,7 @@ export class ProviderManager {
         )
 
         this.registry.register(
-          providerConfig.config.name || providerType,
+          (providerConfig.config?.name as string) || providerType,
           provider,
           'ai',
           providerConfig.priority
@@ -429,7 +465,7 @@ export class ProviderManager {
           providerType as DataProviderType,
           {
             config: {
-              name: providerConfig.config.name || providerType,
+              name: (providerConfig.config?.name as string) || providerType,
               enabled: providerConfig.enabled,
               priority: providerConfig.priority,
               timeout: 30000,
@@ -443,7 +479,7 @@ export class ProviderManager {
         )
 
         this.registry.register(
-          providerConfig.config.name || providerType,
+          (providerConfig.config?.name as string) || providerType,
           provider,
           'data',
           providerConfig.priority
