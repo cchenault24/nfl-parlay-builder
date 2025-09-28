@@ -1,48 +1,68 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useRefreshRateLimit } from '../features/auth/hooks/useAuthQueries'
-import { useParlayStore } from '../features/parlay/store/parlayStore'
-import { ParlayPreferences, ParlayService } from '../services/ParlayService'
-import { CloudFunctionResponse } from '../types/api/interfaces'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useProviderContext } from '../../../contexts/ProviderContext'
+import {
+  createMutationOptions,
+  createQueryOptions,
+  QUERY_KEYS,
+} from '../../../hooks/query/useQueryConfig'
+import { CloudFunctionResponse, ParlayPreferences } from '../../../types'
+import { useParlayStore } from '../store/parlayStore'
 
-// Create a singleton instance
-const parlayService = new ParlayService('openai')
-
-interface UseParlayGeneratorOptions {
-  onSuccess?: (data: any) => void
-  onError?: (error: Error) => void
-  provider?: string
-}
-
-export const useParlayGenerator = (options: UseParlayGeneratorOptions = {}) => {
+/**
+ * Hook for parlay generation with provider abstraction
+ */
+export const useParlayGeneration = () => {
   const queryClient = useQueryClient()
-  const setParlay = useParlayStore(state => state.setParlay)
-  const { mutate: refreshRateLimit } = useRefreshRateLimit()
+  const {
+    setParlay,
+    setGenerating,
+    setGenerationError,
+    selectedAIProvider,
+    selectedDataProvider,
+  } = useParlayStore()
+  const { getAIProvider, getDataProvider } = useProviderContext()
 
-  // Update provider if specified
-  if (options.provider) {
-    parlayService.setProvider(options.provider)
-  }
-
-  const mutation = useMutation({
-    mutationKey: ['generateParlay'],
-    mutationFn: async (preferences: ParlayPreferences) => {
+  return useMutation({
+    ...createMutationOptions<CloudFunctionResponse, Error, ParlayPreferences>({
+      mutationKey: ['generateParlay'],
+    }),
+    mutationFn: async (
+      preferences: ParlayPreferences
+    ): Promise<CloudFunctionResponse> => {
       console.log(
         '🚀 Starting parlay generation with preferences:',
         preferences
       )
 
-      // Validate that we have the minimum required data
-      if (!preferences) {
-        throw new Error('Preferences are required to generate a parlay')
-      }
+      setGenerating(true)
+      setGenerationError(null)
 
       try {
-        const result = (await parlayService.generateParlay(preferences)) as any
+        // Get the selected providers or use best available
+        const aiProvider = selectedAIProvider
+          ? await getAIProvider(selectedAIProvider)
+          : await getAIProvider()
+
+        const dataProvider = selectedDataProvider
+          ? await getDataProvider(selectedDataProvider)
+          : await getDataProvider()
+
+        // Generate parlay using the providers
+        const result = await aiProvider.generateParlay(
+          preferences,
+          dataProvider
+        )
+
         console.log('✅ Parlay generated successfully')
         return result
       } catch (error) {
         console.error('❌ Parlay generation failed:', error)
+        const errorMessage =
+          error instanceof Error ? error.message : 'Unknown error'
+        setGenerationError(errorMessage)
         throw error
+      } finally {
+        setGenerating(false)
       }
     },
     onSuccess: (data: CloudFunctionResponse) => {
@@ -117,7 +137,7 @@ export const useParlayGenerator = (options: UseParlayGeneratorOptions = {}) => {
                 confidence: 7,
               },
           metadata: {
-            provider: 'openai',
+            provider: selectedAIProvider || 'openai',
             model: 'gpt-4o-mini',
             generatedAt: new Date().toISOString(),
             latency: 0,
@@ -130,18 +150,9 @@ export const useParlayGenerator = (options: UseParlayGeneratorOptions = {}) => {
         setParlay(transformedParlay)
       }
 
-      // Refresh rate limit data after parlay generation
-      console.log('🔄 Refreshing rate limit data after parlay generation')
-      refreshRateLimit()
-
       // Invalidate related queries to refresh any cached data
-      queryClient.invalidateQueries({ queryKey: ['parlays'] })
-      queryClient.invalidateQueries({ queryKey: ['gameData'] })
-
-      // Call user-provided success callback
-      if (options.onSuccess) {
-        options.onSuccess(data)
-      }
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PARLAYS.ALL })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.GAMES.ALL })
     },
     onError: (error: Error) => {
       console.error('💥 Error generating parlay:', error.message)
@@ -159,11 +170,6 @@ export const useParlayGenerator = (options: UseParlayGeneratorOptions = {}) => {
         console.error('📝 Bad request. Check the request payload format.')
       } else if (error.message.includes('500')) {
         console.error('🔥 Server error. Check Cloud Function logs.')
-      }
-
-      // Call user-provided error callback
-      if (options.onError) {
-        options.onError(error)
       }
     },
     retry: (failureCount, error) => {
@@ -186,44 +192,47 @@ export const useParlayGenerator = (options: UseParlayGeneratorOptions = {}) => {
       return Math.min(1000 * 2 ** attemptIndex, 4000)
     },
   })
-
-  return {
-    generateParlay: mutation.mutate,
-    generateParlayAsync: mutation.mutateAsync,
-    isGenerating: mutation.isPending,
-    isSuccess: mutation.isSuccess,
-    isError: mutation.isError,
-    error: mutation.error,
-    data: mutation.data,
-    reset: mutation.reset,
-
-    // Additional utility methods
-    canRetry:
-      !mutation.isPending &&
-      mutation.isError &&
-      !mutation.error?.message.includes('400') &&
-      !mutation.error?.message.includes('CORS'),
-
-    // Service utilities
-    getServiceConfig: () => parlayService.getConfig(),
-    checkServiceHealth: () => parlayService.healthCheck(),
-  }
 }
 
-// Helper hook for service health monitoring
-export const useServiceHealth = () => {
+/**
+ * Hook for saving parlay with provider abstraction
+ */
+export const useSaveParlay = () => {
+  const { setSaveParlaySuccess, setSaveParlayError } = useParlayStore()
+  const { getDataProvider } = useProviderContext()
+
   return useMutation({
-    mutationFn: async () => {
-      return parlayService.healthCheck()
+    ...createMutationOptions<any, Error, any>(),
+    mutationFn: async (parlayData: any) => {
+      const dataProvider = await getDataProvider()
+      return await dataProvider.saveParlay(parlayData)
     },
-    onSuccess: isHealthy => {
-      console.log(
-        'Service health check:',
-        isHealthy ? '✅ Healthy' : '❌ Unhealthy'
-      )
+    onSuccess: () => {
+      setSaveParlaySuccess(true)
+      setSaveParlayError(null)
     },
-    onError: error => {
-      console.warn('Health check failed:', error)
+    onError: (error: Error) => {
+      setSaveParlayError(error.message)
+      setSaveParlaySuccess(false)
+    },
+  })
+}
+
+/**
+ * Hook for fetching parlay history with provider abstraction
+ */
+export const useParlayHistoryQuery = () => {
+  const { getDataProvider } = useProviderContext()
+
+  return useQuery({
+    ...createQueryOptions<any[]>({
+      queryKey: QUERY_KEYS.PARLAYS.HISTORY,
+      staleTime: 5 * 60 * 1000, // 5 minutes for history data
+      gcTime: 30 * 60 * 1000, // 30 minutes cache
+    }),
+    queryFn: async (): Promise<any[]> => {
+      const dataProvider = await getDataProvider()
+      return await dataProvider.getParlayHistory()
     },
   })
 }

@@ -18,6 +18,8 @@ import { LoadingScreen } from './components/LoadingScreen'
 import ParlAIdLogo from './components/ParlAIdLogo'
 import { ParlayHistory } from './components/ParlayHistory'
 import AuthProvider from './contexts/authentication/AuthContext'
+import { ProviderProvider } from './contexts/ProviderContext'
+import { useParlayStore } from './features/parlay/store/parlayStore'
 import { useAgeVerification } from './hooks/useAgeVerification'
 import { useAuth } from './hooks/useAuth'
 import { useAvailableWeeks } from './hooks/useAvailableWeek'
@@ -26,7 +28,6 @@ import { useGameRosters } from './hooks/useGameRosters'
 import { useNFLGames } from './hooks/useNFLGames'
 import { useParlayGeneratorSelector } from './hooks/useParlayGeneratorSelector'
 import { useRateLimit } from './hooks/useRateLimit'
-import useParlayStore from './store/parlayStore'
 import { theme } from './theme'
 
 const queryClient = new QueryClient({
@@ -283,9 +284,11 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <AuthProvider>
-          <AppContent />
-        </AuthProvider>
+        <ProviderProvider>
+          <AuthProvider>
+            <AppContent />
+          </AuthProvider>
+        </ProviderProvider>
       </ThemeProvider>
     </QueryClientProvider>
   )

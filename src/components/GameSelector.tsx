@@ -13,8 +13,8 @@ import {
 } from '@mui/material'
 import { SelectChangeEvent } from '@mui/material/Select'
 import React from 'react'
+import { useParlayStore } from '../features/parlay/store/parlayStore'
 import { useParlayGenerator } from '../hooks/useParlayGenerator'
-import useParlayStore from '../store/parlayStore'
 import type { NFLGame } from '../types'
 import WeekSelector from './WeekSelector'
 
