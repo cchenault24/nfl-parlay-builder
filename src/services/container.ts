@@ -87,8 +87,8 @@ export class ServiceContainer {
 
   getParlayService(): ParlayService {
     if (!this.parlayService) {
-      // ParlayService only needs nflDataService
-      this.parlayService = new ParlayService(this.getNFLDataService())
+      // ParlayService constructor takes a provider string, not NFLDataService
+      this.parlayService = new ParlayService('openai')
     }
     return this.parlayService
   }

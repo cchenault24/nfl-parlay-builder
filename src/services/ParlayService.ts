@@ -86,9 +86,10 @@ export class ParlayService {
     // Validate preferences (without gameId)
     this.validatePreferences(preferencesWithoutGameId)
 
-    // Make the request with gameId at top level as expected by Cloud Function
+    // Make the request with gameId and game data as expected by Cloud Function
     const requestPayload = {
       gameId: gameId,
+      game: preferences.game, // Include the complete game data
       options: {
         provider: this.provider,
         strategy: preferences.strategy,

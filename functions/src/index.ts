@@ -81,6 +81,13 @@ const initializeOpenAIProvider = async (): Promise<OpenAIProvider | null> => {
 // Types
 interface FrontendRequest {
   gameId: string
+  game?: {
+    homeTeam: string
+    awayTeam: string
+    gameTime: string
+    venue: string
+    week: number
+  }
   options: {
     provider: string
     strategy: {
@@ -121,31 +128,45 @@ const validateRequest = (body: any): { isValid: boolean; error?: string } => {
   return { isValid: true }
 }
 
-// Helper function to create mock game data (replace with actual data fetching)
-const createMockGameData = (gameId: string): NFLGame => {
-  return {
-    id: gameId,
+// Helper function to create game data from request (using actual game data)
+const createGameDataFromRequest = (request: FrontendRequest): NFLGame => {
+  // Extract game data from the request
+  const gameData = request.game || {
+    homeTeam: 'Unknown Team',
+    awayTeam: 'Unknown Team',
+    gameTime: new Date().toISOString(),
+    venue: 'Unknown',
     week: 1,
+  }
+
+  // Create team objects from the request data
+  const homeTeam = {
+    id: gameData.homeTeam || 'UNKNOWN',
+    abbreviation: gameData.homeTeam || 'UNK',
+    displayName: gameData.homeTeam || 'Unknown Team',
+    shortDisplayName: gameData.homeTeam || 'Unknown',
+    color: '#000000',
+    alternateColor: '#FFFFFF',
+    logo: 'https://a.espncdn.com/i/teamlogos/nfl/500/default.png',
+  }
+
+  const awayTeam = {
+    id: gameData.awayTeam || 'UNKNOWN',
+    abbreviation: gameData.awayTeam || 'UNK',
+    displayName: gameData.awayTeam || 'Unknown Team',
+    shortDisplayName: gameData.awayTeam || 'Unknown',
+    color: '#000000',
+    alternateColor: '#FFFFFF',
+    logo: 'https://a.espncdn.com/i/teamlogos/nfl/500/default.png',
+  }
+
+  return {
+    id: request.gameId || 'unknown-game',
+    week: gameData.week || 1, // Use week from request, default to 1
     seasonType: 1,
-    date: new Date().toISOString(),
-    homeTeam: {
-      id: 'KC',
-      abbreviation: 'KC',
-      displayName: 'Kansas City Chiefs',
-      shortDisplayName: 'Chiefs',
-      color: '#E31837',
-      alternateColor: '#FFB81C',
-      logo: 'https://a.espncdn.com/i/teamlogos/nfl/500/kc.png',
-    },
-    awayTeam: {
-      id: 'BUF',
-      abbreviation: 'BUF',
-      displayName: 'Buffalo Bills',
-      shortDisplayName: 'Bills',
-      color: '#00338D',
-      alternateColor: '#C60C30',
-      logo: 'https://a.espncdn.com/i/teamlogos/nfl/500/buf.png',
-    },
+    date: gameData.gameTime || new Date().toISOString(),
+    homeTeam,
+    awayTeam,
     status: {
       type: {
         id: '1',
@@ -317,8 +338,8 @@ export const generateParlay = onRequest(
         targetOdds: request.options.strategy.targetOdds,
       })
 
-      // Create game and roster data (replace with actual data fetching)
-      const game = createMockGameData(request.gameId)
+      // Create game and roster data using actual game data from request
+      const game = createGameDataFromRequest(request)
       const rosters = createMockRosterData()
       const strategy = convertStrategy(request.options.strategy)
       const varietyFactors = convertVarietyFactors(request.options.variety)
