@@ -141,7 +141,10 @@ export class ProviderFactory implements IProviderFactory {
   /**
    * Validate provider configuration
    */
-  validateProviderConfig(type: string, config: any): boolean {
+  validateProviderConfig(
+    type: string,
+    config: Record<string, unknown>
+  ): boolean {
     try {
       // Basic validation - can be extended with more specific rules
       if (!config || typeof config !== 'object') {
@@ -227,7 +230,7 @@ export class ProviderFactory implements IProviderFactory {
   /**
    * Validate AI provider configuration
    */
-  private validateAIConfig(config: any): boolean {
+  private validateAIConfig(config: Record<string, unknown>): boolean {
     return (
       typeof config.name === 'string' &&
       typeof config.enabled === 'boolean' &&
@@ -243,7 +246,7 @@ export class ProviderFactory implements IProviderFactory {
   /**
    * Validate data provider configuration
    */
-  private validateDataConfig(config: any): boolean {
+  private validateDataConfig(config: Record<string, unknown>): boolean {
     return (
       typeof config.name === 'string' &&
       typeof config.enabled === 'boolean' &&

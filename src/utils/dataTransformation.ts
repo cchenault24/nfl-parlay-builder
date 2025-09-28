@@ -153,7 +153,9 @@ export function transformAthleteToNFLPlayer(athlete: ESPNAthlete): NFLPlayer {
 /**
  * Transform ESPN roster response to GameRosters format
  */
-export function transformRosterResponse(data: any): GameRosters {
+export function transformRosterResponse(
+  data: Record<string, unknown>
+): GameRosters {
   const athletes = data?.athletes?.[0]?.items || []
   return {
     homeRoster: athletes.map(transformAthleteToNFLPlayer),

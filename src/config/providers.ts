@@ -15,7 +15,7 @@ export interface EnvironmentProviderConfig {
       [K in AIProviderType]?: {
         enabled: boolean
         priority: number
-        config: any
+        config: Record<string, unknown>
       }
     }
   }
@@ -26,7 +26,7 @@ export interface EnvironmentProviderConfig {
       [K in DataProviderType]?: {
         enabled: boolean
         priority: number
-        config: any
+        config: Record<string, unknown>
       }
     }
   }

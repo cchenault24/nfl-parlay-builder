@@ -29,7 +29,7 @@ export interface StoreConfig<T> {
   name: string
   partialize?: (state: T) => Partial<T>
   version?: number
-  migrate?: (persistedState: any, version: number) => T
+  migrate?: (persistedState: unknown, version: number) => T
 }
 
 /**
@@ -46,7 +46,11 @@ export function createBasicStore<T extends LoadingState & LoadingActions>(
       'createBasicStore is deprecated. Use createFeatureStore instead.'
     )
   }
-  return createFeatureStore(initialState as any, () => ({}), config as any)
+  return createFeatureStore(
+    initialState as T,
+    () => ({}),
+    config as StoreConfig<T>
+  )
 }
 
 /**
@@ -94,16 +98,16 @@ export function createToggleAction<T>(key: keyof T) {
  */
 export function createArrayActions<T, K extends keyof T>(
   key: K,
-  getArray: (state: T) => any[]
+  getArray: (state: T) => unknown[]
 ) {
   return {
-    addItem: (item: any) => (state: T) => ({
+    addItem: (item: unknown) => (state: T) => ({
       [key]: [...getArray(state), item],
     }),
     removeItem: (index: number) => (state: T) => ({
-      [key]: getArray(state).filter((_: any, i: number) => i !== index),
+      [key]: getArray(state).filter((_: unknown, i: number) => i !== index),
     }),
-    updateItem: (index: number, item: any) => (state: T) => {
+    updateItem: (index: number, item: unknown) => (state: T) => {
       const array = [...getArray(state)]
       array[index] = item
       return { [key]: array }
@@ -117,9 +121,9 @@ export function createArrayActions<T, K extends keyof T>(
  */
 export function createSelectors<T>() {
   return {
-    selectLoading: (state: T) => (state as any).isLoading,
-    selectError: (state: T) => (state as any).error,
-    selectHasError: (state: T) => !!(state as any).error,
+    selectLoading: (state: T) => (state as { isLoading?: boolean }).isLoading,
+    selectError: (state: T) => (state as { error?: unknown }).error,
+    selectHasError: (state: T) => !!(state as { error?: unknown }).error,
   }
 }
 
@@ -127,14 +131,14 @@ export function createSelectors<T>() {
  * Store middleware for logging (development only)
  */
 export function createLoggingMiddleware(storeName: string) {
-  return (config: any) => (set: any, get: any, api: any) =>
+  return (config: unknown) => (set: unknown, get: unknown, api: unknown) =>
     config(
-      (...args: any[]) => {
+      (...args: unknown[]) => {
         if (import.meta.env.DEV) {
           // Only log in development and for significant changes
           const [partial] = args
           if (partial && typeof partial === 'object') {
-            console.debug(`[${storeName}] Store update:`, Object.keys(partial))
+            console.info(`[${storeName}] Store update:`, Object.keys(partial))
           }
         }
         set(...args)
@@ -151,7 +155,7 @@ export function clearStoreFromStorage(storeName: string): void {
   try {
     localStorage.removeItem(storeName)
     if (import.meta.env.DEV) {
-      console.debug(`Cleared store data for: ${storeName}`)
+      console.info(`Cleared store data for: ${storeName}`)
     }
   } catch (error) {
     if (import.meta.env.DEV) {
@@ -173,7 +177,7 @@ export function clearAllStoreData(): void {
     })
 
     if (import.meta.env.DEV) {
-      console.debug(`Cleared ${storeKeys.length} store data entries`)
+      console.info(`Cleared ${storeKeys.length} store data entries`)
     }
   } catch (error) {
     if (import.meta.env.DEV) {
@@ -186,7 +190,7 @@ export function clearAllStoreData(): void {
  * Create a migration function that safely merges old state with new state
  */
 export function createSafeMigration<T>(initialState: T, version: number = 1) {
-  return (persistedState: any, persistedVersion: number): T => {
+  return (persistedState: unknown, persistedVersion: number): T => {
     // If versions match, return the persisted state
     if (persistedVersion === version) {
       return {
@@ -198,7 +202,7 @@ export function createSafeMigration<T>(initialState: T, version: number = 1) {
     // If persisted version is older, merge safely
     if (persistedVersion < version) {
       if (import.meta.env.DEV) {
-        console.debug(
+        console.info(
           `Migrating store from version ${persistedVersion} to ${version}`
         )
       }
@@ -223,7 +227,7 @@ export function createSafeMigration<T>(initialState: T, version: number = 1) {
  */
 export type StoreState<T> = T
 export type StoreActions<T> = T extends {
-  [K in keyof T]: T[K] extends (...args: any[]) => any ? T[K] : never
+  [K in keyof T]: T[K] extends (...args: unknown[]) => unknown ? T[K] : never
 }
   ? T
   : never
@@ -245,7 +249,7 @@ export function createFeatureStore<TState, TActions>(
     version: config?.version || 1,
     migrate:
       config?.migrate ||
-      ((persistedState: any) => {
+      ((persistedState: unknown) => {
         // Default migration: merge persisted state with initial state
         return {
           ...initialState,

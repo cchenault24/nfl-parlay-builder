@@ -1,3 +1,6 @@
+import { CloudFunctionResponse } from '../types/api/interfaces'
+import { ParsedError } from '../types/api'
+
 export interface ParlayPreferences {
   game: {
     homeTeam: string
@@ -36,24 +39,6 @@ interface Player {
   injuryStatus?: string
 }
 
-interface ParlayResult {
-  legs: ParlayLeg[]
-  totalOdds: number
-  potentialPayout: number
-  confidence: number
-  reasoning: string
-}
-
-interface ParlayLeg {
-  type: string
-  player?: string
-  team?: string
-  market: string
-  selection: string
-  odds: number
-  reasoning: string
-}
-
 export class ParlayService {
   private provider: string
   private baseUrl: string
@@ -77,9 +62,9 @@ export class ParlayService {
 
   async generateParlay(
     preferences: ParlayPreferences & { gameId?: string }
-  ): Promise<ParlayResult> {
+  ): Promise<CloudFunctionResponse> {
     if (import.meta.env.DEV) {
-      console.debug('🎯 Generating parlay with provider:', this.provider)
+      console.info('🎯 Generating parlay with provider:', this.provider)
     }
 
     // Extract gameId from preferences first
@@ -125,17 +110,17 @@ export class ParlayService {
 
   private async makeCloudFunctionRequest(
     endpoint: string,
-    data: any
-  ): Promise<any> {
+    data: Record<string, unknown>
+  ): Promise<CloudFunctionResponse> {
     if (import.meta.env.DEV) {
-      console.debug('🔍 Request endpoint:', endpoint)
-      console.debug('🔍 Request payload:', JSON.stringify(data, null, 2))
+      console.info('🔍 Request endpoint:', endpoint)
+      console.info('🔍 Request payload:', JSON.stringify(data, null, 2))
     }
 
     try {
       const url = `${this.baseUrl}/${endpoint}`
       if (import.meta.env.DEV) {
-        console.debug('🌐 Full URL:', url)
+        console.info('🌐 Full URL:', url)
       }
 
       const response = await fetch(url, {
@@ -148,8 +133,8 @@ export class ParlayService {
       })
 
       if (import.meta.env.DEV) {
-        console.debug('📡 Response status:', response.status)
-        console.debug(
+        console.info('📡 Response status:', response.status)
+        console.info(
           '📡 Response headers:',
           Object.fromEntries(response.headers.entries())
         )
@@ -183,18 +168,18 @@ export class ParlayService {
 
       const result = await response.json()
       if (import.meta.env.DEV) {
-        console.debug('✅ Response received:', result)
+        console.info('✅ Response received:', result)
       }
       return result
     } catch (error) {
       if (import.meta.env.DEV) {
         console.error('❌ Request failed:', error)
       }
-      this.handleHttpError(error)
+      this.handleHttpError(error as ParsedError)
     }
   }
 
-  private handleHttpError(error: any): never {
+  private handleHttpError(error: ParsedError): never {
     if (
       error instanceof TypeError &&
       error.message.includes('Failed to fetch')
@@ -204,22 +189,24 @@ export class ParlayService {
       )
     }
 
-    if (error.message.includes('CORS')) {
-      throw new Error(
-        'CORS error: The server is not configured to accept requests from this origin.'
-      )
-    }
+    if (error instanceof Error) {
+      if (error.message.includes('CORS')) {
+        throw new Error(
+          'CORS error: The server is not configured to accept requests from this origin.'
+        )
+      }
 
-    if (error.message.includes('404')) {
-      throw new Error(
-        'Endpoint not found: The requested Cloud Function endpoint does not exist.'
-      )
-    }
+      if (error.message.includes('404')) {
+        throw new Error(
+          'Endpoint not found: The requested Cloud Function endpoint does not exist.'
+        )
+      }
 
-    if (error.message.includes('500')) {
-      throw new Error(
-        'Server error: The Cloud Function encountered an internal error.'
-      )
+      if (error.message.includes('500')) {
+        throw new Error(
+          'Server error: The Cloud Function encountered an internal error.'
+        )
+      }
     }
 
     // Re-throw the original error if we can't categorize it

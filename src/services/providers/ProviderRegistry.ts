@@ -442,7 +442,9 @@ export class ProviderRegistry implements IProviderRegistry {
         criteria.preferredModels?.length &&
         'getAvailableModels' in candidate.provider
       ) {
-        const availableModels = (candidate.provider as any).getAvailableModels()
+        const availableModels = (
+          candidate.provider as { getAvailableModels: () => string[] }
+        ).getAvailableModels()
         const hasPreferredModel = criteria.preferredModels.some(model =>
           availableModels.includes(model)
         )

@@ -7,7 +7,12 @@ import {
   QUERY_KEYS,
 } from '../../../hooks/query/useQueryConfig'
 import { useAuth } from '../../../hooks/useAuth'
-import { ParlayPreferences } from '../../../types'
+import {
+  GeneratedParlay,
+  ParlayLeg,
+  ParlayPreferences,
+  SavedParlay,
+} from '../../../types'
 import { CloudFunctionResponse } from '../../../types/api/interfaces'
 import { transformRosterResponse } from '../../../utils/dataTransformation'
 import { useParlayStore } from '../store/parlayStore'
@@ -212,7 +217,7 @@ export const useParlayGeneration = () => {
           updatedAt: new Date().toISOString(),
           legs: (() => {
             const legs = (data.data.legs || []).map(
-              (leg: any, index: number) => ({
+              (leg: ParlayLeg, index: number) => ({
                 id: leg.id || `leg-${index}`,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
@@ -242,7 +247,7 @@ export const useParlayGeneration = () => {
               })
             }
 
-            return legs.slice(0, 3) as [any, any, any]
+            return legs.slice(0, 3) as [ParlayLeg, ParlayLeg, ParlayLeg]
           })(),
           gameContext: data.data.gameContext || 'Generated parlay',
           aiReasoning:
@@ -340,8 +345,8 @@ export const useSaveParlay = () => {
   const { user } = useAuth()
 
   return useMutation({
-    ...createMutationOptions<any, Error, any>(),
-    mutationFn: async (parlayData: any) => {
+    ...createMutationOptions<GeneratedParlay, Error, GeneratedParlay>(),
+    mutationFn: async (parlayData: GeneratedParlay) => {
       if (!user) {
         throw new Error('User must be authenticated')
       }
@@ -365,12 +370,12 @@ export const useParlayHistoryQuery = () => {
   const { user } = useAuth()
 
   return useQuery({
-    ...createQueryOptions<any[]>({
+    ...createQueryOptions<SavedParlay[]>({
       queryKey: QUERY_KEYS.PARLAYS.HISTORY,
       staleTime: 5 * 60 * 1000, // 5 minutes for history data
       gcTime: 30 * 60 * 1000, // 30 minutes cache
     }),
-    queryFn: async (): Promise<any[]> => {
+    queryFn: async (): Promise<SavedParlay[]> => {
       if (!user) {
         throw new Error('User must be authenticated')
       }

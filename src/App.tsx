@@ -29,6 +29,7 @@ import { useParlayGeneratorSelector } from './hooks/useParlayGeneratorSelector'
 import DevStatus from './shared/components/DevStatus'
 import { LoadingScreen } from './shared/components/LoadingScreen'
 import { theme } from './theme'
+import { ParlayPreferences } from './types'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -123,7 +124,7 @@ function AppContent() {
       }
 
       // Create the full ParlayPreferences object
-      const parlayPreferences: any = {
+      const parlayPreferences: ParlayPreferences = {
         game: gameData,
         rosters: rosters || {
           homeRoster: [],

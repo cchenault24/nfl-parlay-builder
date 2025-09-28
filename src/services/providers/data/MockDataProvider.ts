@@ -103,7 +103,7 @@ export class MockDataProvider implements IDataProvider {
 
     if (this.config.debugMode) {
       if (import.meta.env.DEV) {
-        console.debug('Mock Data Provider initialized successfully')
+        console.info('Mock Data Provider initialized successfully')
       }
     }
   }
@@ -148,7 +148,7 @@ export class MockDataProvider implements IDataProvider {
 
     if (this.config.debugMode) {
       if (import.meta.env.DEV) {
-        console.debug('Mock Data Provider disposed')
+        console.info('Mock Data Provider disposed')
       }
     }
   }
@@ -230,8 +230,8 @@ export class MockDataProvider implements IDataProvider {
     playerId: string,
     season?: number,
     options: DataQueryOptions = {}
-  ): Promise<DataProviderResponse<any>> {
-    const response = await this.simulateRequest<any>(
+  ): Promise<DataProviderResponse<Record<string, unknown>>> {
+    const response = await this.simulateRequest<Record<string, unknown>>(
       () => this.generateMockPlayerStats(playerId, season),
       options
     )
@@ -245,8 +245,8 @@ export class MockDataProvider implements IDataProvider {
     teamId: string,
     season?: number,
     options: DataQueryOptions = {}
-  ): Promise<DataProviderResponse<any>> {
-    const response = await this.simulateRequest<any>(
+  ): Promise<DataProviderResponse<Record<string, unknown>>> {
+    const response = await this.simulateRequest<Record<string, unknown>>(
       () => this.generateMockTeamStats(teamId, season),
       options
     )
@@ -259,8 +259,8 @@ export class MockDataProvider implements IDataProvider {
   async getInjuryReports(
     teamId?: string,
     options: DataQueryOptions = {}
-  ): Promise<DataProviderResponse<any>> {
-    const response = await this.simulateRequest<any>(
+  ): Promise<DataProviderResponse<Record<string, unknown>>> {
+    const response = await this.simulateRequest<Record<string, unknown>>(
       () => this.generateMockInjuryReports(teamId),
       options
     )
@@ -273,8 +273,8 @@ export class MockDataProvider implements IDataProvider {
   async getWeatherData(
     gameId: string,
     options: DataQueryOptions = {}
-  ): Promise<DataProviderResponse<any>> {
-    const response = await this.simulateRequest<any>(
+  ): Promise<DataProviderResponse<Record<string, unknown>>> {
+    const response = await this.simulateRequest<Record<string, unknown>>(
       () => this.generateMockWeatherData(gameId),
       options
     )
@@ -467,7 +467,10 @@ export class MockDataProvider implements IDataProvider {
   /**
    * Generate mock player stats
    */
-  private generateMockPlayerStats(playerId: string, season?: number): any {
+  private generateMockPlayerStats(
+    playerId: string,
+    season?: number
+  ): Record<string, unknown> {
     return {
       playerId,
       season: season || new Date().getFullYear(),
@@ -493,7 +496,10 @@ export class MockDataProvider implements IDataProvider {
   /**
    * Generate mock team stats
    */
-  private generateMockTeamStats(teamId: string, season?: number): any {
+  private generateMockTeamStats(
+    teamId: string,
+    season?: number
+  ): Record<string, unknown> {
     return {
       teamId,
       season: season || new Date().getFullYear(),
@@ -515,7 +521,7 @@ export class MockDataProvider implements IDataProvider {
   /**
    * Generate mock injury reports
    */
-  private generateMockInjuryReports(teamId?: string): any {
+  private generateMockInjuryReports(teamId?: string): Record<string, unknown> {
     const injuries = []
     const injuryTypes = ['Ankle', 'Knee', 'Shoulder', 'Hamstring', 'Concussion']
     const statuses = ['out', 'doubtful', 'questionable', 'probable']
@@ -541,7 +547,7 @@ export class MockDataProvider implements IDataProvider {
   /**
    * Generate mock weather data
    */
-  private generateMockWeatherData(gameId: string): any {
+  private generateMockWeatherData(gameId: string): Record<string, unknown> {
     const conditions = ['clear', 'rain', 'snow', 'wind', 'fog']
     const condition = conditions[Math.floor(Math.random() * conditions.length)]
 

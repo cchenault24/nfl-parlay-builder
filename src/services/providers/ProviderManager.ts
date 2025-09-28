@@ -82,7 +82,7 @@ export class ProviderManager {
 
       this.initialized = true
       if (import.meta.env.DEV) {
-        console.debug('Provider Manager initialized successfully')
+        console.info('Provider Manager initialized successfully')
       }
     } catch (error) {
       if (import.meta.env.DEV) {
@@ -172,7 +172,7 @@ export class ProviderManager {
   async registerAIProvider(
     name: string,
     type: AIProviderType,
-    config: any,
+    config: Record<string, unknown>,
     priority: number = 1
   ): Promise<IAIProvider> {
     const provider = await this.factory.createAIProvider(type, config)
@@ -186,7 +186,7 @@ export class ProviderManager {
   async registerDataProvider(
     name: string,
     type: DataProviderType,
-    config: any,
+    config: Record<string, unknown>,
     priority: number = 1
   ): Promise<IDataProvider> {
     const provider = await this.factory.createDataProvider(type, config)
@@ -267,7 +267,7 @@ export class ProviderManager {
   /**
    * Update provider configuration
    */
-  updateProviderConfig(name: string, config: any): void {
+  updateProviderConfig(name: string, config: Record<string, unknown>): void {
     const provider = this.registry.get(name)
     if (provider) {
       provider.updateConfig(config)
@@ -325,36 +325,46 @@ export class ProviderManager {
    */
   private async registerProviderCreators(): Promise<void> {
     // Register AI provider creators
-    this.factory.registerAICreator('openai', async (config: any) => {
-      const OpenAIProviderModule = await import('./ai/OpenAIProvider')
-      const OpenAIProvider = OpenAIProviderModule.default
-      return new OpenAIProvider(config.config)
-    })
+    this.factory.registerAICreator(
+      'openai',
+      async (config: Record<string, unknown>) => {
+        const OpenAIProviderModule = await import('./ai/OpenAIProvider')
+        const OpenAIProvider = OpenAIProviderModule.default
+        return new OpenAIProvider(config.config)
+      }
+    )
 
-    this.factory.registerAICreator('mock', async (config: any) => {
-      const MockProviderModule = await import('./ai/MockProvider')
-      const MockProvider = MockProviderModule.default
-      return new MockProvider(config.config)
-    })
+    this.factory.registerAICreator(
+      'mock',
+      async (config: Record<string, unknown>) => {
+        const MockProviderModule = await import('./ai/MockProvider')
+        const MockProvider = MockProviderModule.default
+        return new MockProvider(config.config)
+      }
+    )
 
     // Register data provider creators
-    this.factory.registerDataCreator('espn', async (config: any) => {
-      const ESPNDataProviderModule = await import('./data/ESPNDataProvider')
-      const ESPNDataProvider = ESPNDataProviderModule.default
-      return new ESPNDataProvider(config.config)
-    })
-
-    this.factory.registerDataCreator('mock', async (config: any) => {
-      try {
-        const MockDataProviderModule = await import(
-          './data/MockDataProvider' as any
-        )
-        const MockDataProvider = MockDataProviderModule.default
-        return new MockDataProvider(config.config)
-      } catch (error) {
-        throw new Error(`Failed to load MockDataProvider: ${error}`)
+    this.factory.registerDataCreator(
+      'espn',
+      async (config: Record<string, unknown>) => {
+        const ESPNDataProviderModule = await import('./data/ESPNDataProvider')
+        const ESPNDataProvider = ESPNDataProviderModule.default
+        return new ESPNDataProvider(config.config)
       }
-    })
+    )
+
+    this.factory.registerDataCreator(
+      'mock',
+      async (config: Record<string, unknown>) => {
+        try {
+          const MockDataProviderModule = await import('./data/MockDataProvider')
+          const MockDataProvider = MockDataProviderModule.default
+          return new MockDataProvider(config.config)
+        } catch (error) {
+          throw new Error(`Failed to load MockDataProvider: ${error}`)
+        }
+      }
+    )
   }
 
   /**
@@ -397,7 +407,7 @@ export class ProviderManager {
         )
 
         if (import.meta.env.DEV) {
-          console.debug(`Loaded AI provider: ${providerType}`)
+          console.info(`Loaded AI provider: ${providerType}`)
         }
       } catch (error) {
         if (import.meta.env.DEV) {
@@ -440,7 +450,7 @@ export class ProviderManager {
         )
 
         if (import.meta.env.DEV) {
-          console.debug(`Loaded data provider: ${providerType}`)
+          console.info(`Loaded data provider: ${providerType}`)
         }
       } catch (error) {
         if (import.meta.env.DEV) {
@@ -459,8 +469,19 @@ export class ProviderManager {
       return process.env[name]
     }
 
-    if (typeof window !== 'undefined' && (window as any).import?.meta?.env) {
-      return (window as any).import.meta.env[`VITE_${name}`]
+    if (
+      typeof window !== 'undefined' &&
+      (
+        window as unknown as {
+          import?: { meta?: { env?: Record<string, string> } }
+        }
+      ).import?.meta?.env
+    ) {
+      return (
+        window as unknown as {
+          import: { meta: { env: Record<string, string> } }
+        }
+      ).import.meta.env[`VITE_${name}`]
     }
 
     return undefined

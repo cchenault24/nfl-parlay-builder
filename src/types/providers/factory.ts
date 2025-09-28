@@ -9,6 +9,7 @@ import {
   DataProviderType,
   IDataProvider,
 } from './data'
+import { ProviderConfigData, ParsedError } from '../api'
 
 /**
  * Provider factory configuration
@@ -64,7 +65,7 @@ export interface IProviderFactory {
   /**
    * Validate provider configuration
    */
-  validateProviderConfig(type: string, config: any): boolean
+  validateProviderConfig(type: string, config: ProviderConfigData): boolean
 
   /**
    * Get provider factory configuration
@@ -129,7 +130,7 @@ export class ProviderCreationError extends ProviderFactoryError {
     )
     this.name = 'ProviderCreationError'
     if (originalError) {
-      ;(this as any).cause = originalError
+      ;(this as { cause?: ParsedError }).cause = originalError as ParsedError
     }
   }
 }

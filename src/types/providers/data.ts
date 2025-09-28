@@ -5,6 +5,7 @@
 import { APIResponse } from '../core/api'
 import { ESPNRosterResponse, ESPNScoreboardResponse } from '../external'
 import { IProvider, ProviderConfig, ProviderMetadata } from './base'
+import { PlayerStats, TeamStats, InjuryReport, WeatherData } from '../api'
 
 /**
  * Data provider query options
@@ -106,7 +107,7 @@ export interface IDataProvider extends IProvider {
     playerId: string,
     season?: number,
     options?: DataQueryOptions
-  ): Promise<DataProviderResponse<any>>
+  ): Promise<DataProviderResponse<PlayerStats>>
 
   /**
    * Get team statistics
@@ -115,7 +116,7 @@ export interface IDataProvider extends IProvider {
     teamId: string,
     season?: number,
     options?: DataQueryOptions
-  ): Promise<DataProviderResponse<any>>
+  ): Promise<DataProviderResponse<TeamStats>>
 
   /**
    * Get injury reports
@@ -123,7 +124,7 @@ export interface IDataProvider extends IProvider {
   getInjuryReports(
     teamId?: string,
     options?: DataQueryOptions
-  ): Promise<DataProviderResponse<any>>
+  ): Promise<DataProviderResponse<InjuryReport[]>>
 
   /**
    * Get weather data for a game
@@ -131,7 +132,7 @@ export interface IDataProvider extends IProvider {
   getWeatherData(
     gameId: string,
     options?: DataQueryOptions
-  ): Promise<DataProviderResponse<any>>
+  ): Promise<DataProviderResponse<WeatherData>>
 }
 
 /**

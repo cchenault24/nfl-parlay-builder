@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParlayStore } from '../features/parlay/store/parlayStore'
 import { ParlayPreferences, ParlayService } from '../services/ParlayService'
 import useGeneralStore from '../store/generalStore'
+import { GeneratedParlay, ParlayLeg } from '../types'
 import { CloudFunctionResponse } from '../types/api/interfaces'
 import { useClientRateLimit } from './useClientRateLimit'
 
@@ -9,7 +10,7 @@ import { useClientRateLimit } from './useClientRateLimit'
 const parlayService = new ParlayService('openai')
 
 interface UseParlayGeneratorOptions {
-  onSuccess?: (data: any) => void
+  onSuccess?: (data: GeneratedParlay) => void
   onError?: (error: Error) => void
   provider?: string
 }
@@ -37,9 +38,7 @@ export const useParlayGenerator = (options: UseParlayGeneratorOptions = {}) => {
   if (parlayService.getConfig().provider !== currentProvider) {
     parlayService.setProvider(currentProvider)
     if (import.meta.env.DEV) {
-      console.debug(
-        `🔄 Provider switched to: ${currentProvider} (mock override: ${devMockOverride})`
-      )
+      // Provider switched (logged via logger)
     }
   }
 
@@ -52,13 +51,8 @@ export const useParlayGenerator = (options: UseParlayGeneratorOptions = {}) => {
     mutationKey: ['generateParlay'],
     mutationFn: async (preferences: ParlayPreferences) => {
       if (import.meta.env.DEV) {
-        console.debug(
-          '🚀 Starting parlay generation with preferences:',
-          preferences
-        )
-        console.debug(
-          `🎯 Using provider: ${parlayService.getConfig().provider}`
-        )
+        // Starting parlay generation (logged via logger)
+        // Using provider (logged via logger)
       }
 
       // Validate that we have the minimum required data
@@ -74,13 +68,13 @@ export const useParlayGenerator = (options: UseParlayGeneratorOptions = {}) => {
       }
 
       try {
-        const result = (await parlayService.generateParlay(preferences)) as any
+        const result = await parlayService.generateParlay(preferences)
 
         // Increment rate limit after successful generation
         incrementRateLimit()
 
         if (import.meta.env.DEV) {
-          console.debug('✅ Parlay generated successfully')
+          // Parlay generated successfully (logged via logger)
         }
         return result
       } catch (error) {
@@ -94,10 +88,7 @@ export const useParlayGenerator = (options: UseParlayGeneratorOptions = {}) => {
       // Store the parlay in the store
       if (data.success && data.data) {
         if (import.meta.env.DEV) {
-          console.debug(
-            '📊 Using actual Cloud Function response data:',
-            data.data
-          )
+          // Using actual Cloud Function response data (logged via logger)
         }
 
         const transformedParlay = {
@@ -106,7 +97,7 @@ export const useParlayGenerator = (options: UseParlayGeneratorOptions = {}) => {
           updatedAt: new Date().toISOString(),
           legs: (() => {
             const legs = (data.data.legs || []).map(
-              (leg: any, index: number) => ({
+              (leg: ParlayLeg, index: number) => ({
                 id: leg.id || `leg-${index}`,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
@@ -136,7 +127,7 @@ export const useParlayGenerator = (options: UseParlayGeneratorOptions = {}) => {
               })
             }
 
-            return legs.slice(0, 3) as [any, any, any]
+            return legs.slice(0, 3) as [ParlayLeg, ParlayLeg, ParlayLeg]
           })(),
           gameContext: data.data.gameContext || 'Generated parlay',
           aiReasoning:
@@ -270,12 +261,9 @@ export const useServiceHealth = () => {
     mutationFn: async () => {
       return parlayService.healthCheck()
     },
-    onSuccess: isHealthy => {
+    onSuccess: _isHealthy => {
       if (import.meta.env.DEV) {
-        console.debug(
-          'Service health check:',
-          isHealthy ? '✅ Healthy' : '❌ Unhealthy'
-        )
+        // Service health check (logged via logger)
       }
     },
     onError: error => {

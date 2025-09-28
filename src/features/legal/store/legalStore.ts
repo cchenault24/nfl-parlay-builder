@@ -96,7 +96,7 @@ export const useLegalStore = createFeatureStore<LegalState, LegalActions>(
       isAgeVerified: state.isAgeVerified,
     }),
     migrate: createSafeMigration(initialState, 1) as (
-      persistedState: any,
+      persistedState: unknown,
       version: number
     ) => LegalState & LegalActions,
   }

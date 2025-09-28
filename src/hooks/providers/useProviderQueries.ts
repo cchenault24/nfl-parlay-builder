@@ -42,12 +42,12 @@ export const useAIProvidersQuery = () => {
   const { providerManager } = useProviderContext()
 
   return useQuery({
-    ...createQueryOptions<Map<string, any>>({
+    ...createQueryOptions<Map<string, ProviderHealth>>({
       queryKey: QUERY_KEYS.PROVIDERS.AI_PROVIDERS,
       staleTime: 60 * 60 * 1000, // 1 hour for provider list
       gcTime: 24 * 60 * 60 * 1000, // 24 hours cache
     }),
-    queryFn: async (): Promise<Map<string, any>> => {
+    queryFn: async (): Promise<Map<string, ProviderHealth>> => {
       if (!providerManager) {
         throw new Error('Provider manager not initialized')
       }
@@ -65,12 +65,12 @@ export const useDataProvidersQuery = () => {
   const { providerManager } = useProviderContext()
 
   return useQuery({
-    ...createQueryOptions<Map<string, any>>({
+    ...createQueryOptions<Map<string, ProviderHealth>>({
       queryKey: QUERY_KEYS.PROVIDERS.DATA_PROVIDERS,
       staleTime: 60 * 60 * 1000, // 1 hour for provider list
       gcTime: 24 * 60 * 60 * 1000, // 24 hours cache
     }),
-    queryFn: async (): Promise<Map<string, any>> => {
+    queryFn: async (): Promise<Map<string, ProviderHealth>> => {
       if (!providerManager) {
         throw new Error('Provider manager not initialized')
       }
@@ -142,7 +142,12 @@ export const useProviderStatsQuery = (providerName: string) => {
   // const { providerStats } = useProviderStore()
 
   return useQuery({
-    ...createQueryOptions<any>({
+    ...createQueryOptions<{
+      usageCount: number
+      lastUsed?: Date
+      errorCount?: number
+      averageResponseTime?: number
+    }>({
       queryKey: [...QUERY_KEYS.PROVIDERS.STATS, providerName],
       staleTime: 60 * 1000, // 1 minute for stats
       gcTime: 10 * 60 * 1000, // 10 minutes cache

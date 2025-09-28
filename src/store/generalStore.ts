@@ -34,7 +34,7 @@ const useGeneralStore = createFeatureStore<GeneralState, GeneralActions>(
       devMockOverride: state.devMockOverride,
     }),
     migrate: createSafeMigration(initialState, 1) as (
-      persistedState: any,
+      persistedState: unknown,
       version: number
     ) => GeneralState & GeneralActions,
   }

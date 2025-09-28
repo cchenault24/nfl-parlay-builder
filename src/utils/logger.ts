@@ -61,7 +61,7 @@ class Logger {
 
     switch (level) {
       case 'debug':
-        console.log(formattedMessage, data || '')
+        console.info(formattedMessage, data || '')
         break
       case 'info':
         console.info(formattedMessage, data || '')
@@ -197,7 +197,7 @@ export const logDebug = (
 // Development-only logging
 export const devLog = (message: string, data?: unknown) => {
   if (import.meta.env.DEV) {
-    console.log(`[DEV] ${message}`, data || '')
+    console.info(`[DEV] ${message}`, data || '')
   }
 }
 

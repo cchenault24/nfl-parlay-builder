@@ -1,3 +1,4 @@
+import { UserProfile } from '../../../config/firebase'
 import {
   createFeatureStore,
   createResetAction,
@@ -7,7 +8,7 @@ import {
 interface AuthState {
   // User authentication state
   isAuthenticated: boolean
-  user: any | null
+  user: UserProfile | null
 
   // Auth modal state
   authModalOpen: boolean
@@ -15,8 +16,8 @@ interface AuthState {
 
 interface AuthActions {
   // Authentication actions
-  setAuthenticated: (isAuthenticated: boolean, user?: any) => void
-  setUser: (user: any | null) => void
+  setAuthenticated: (isAuthenticated: boolean, user?: UserProfile) => void
+  setUser: (user: UserProfile | null) => void
 
   // Modal actions
   setAuthModalOpen: (open: boolean) => void
@@ -62,7 +63,7 @@ export const useAuthStore = createFeatureStore<AuthState, AuthActions>(
       user: state.user,
     }),
     migrate: createSafeMigration(initialState, 1) as (
-      persistedState: any,
+      persistedState: unknown,
       version: number
     ) => AuthState & AuthActions,
   }

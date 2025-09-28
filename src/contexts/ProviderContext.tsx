@@ -1,10 +1,9 @@
-import React, { createContext, useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { ProviderManager } from '../services/providers/ProviderManager'
 import { useProviderStore } from '../store/providerStore'
 import { IAIProvider, IDataProvider } from '../types/providers'
+import { ProviderContext } from './ProviderContextInstance'
 import { ProviderContextValue } from './ProviderContextValue'
-
-export const ProviderContext = createContext<ProviderContextValue | null>(null)
 
 interface ProviderProviderProps {
   children: React.ReactNode

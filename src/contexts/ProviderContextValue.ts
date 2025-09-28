@@ -1,3 +1,4 @@
+import { ProviderManager } from '../services/providers/ProviderManager'
 import {
   IAIProvider,
   IDataProvider,
@@ -6,7 +7,7 @@ import {
 
 export interface ProviderContextValue {
   // Provider manager
-  providerManager: any | null
+  providerManager: ProviderManager | null
   isInitialized: boolean
 
   // Provider access

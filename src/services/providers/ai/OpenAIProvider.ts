@@ -4,9 +4,19 @@
 
 import OpenAI from 'openai'
 import {
+  APIError,
+  ParsedError,
+  RawGameSummary,
+  RawParlayLeg,
+} from '../../../types/api'
+import {
+  BetType,
   GameRosters,
+  GameSummary,
   GeneratedParlay,
   NFLGame,
+  NFLPlayer,
+  ParlayLeg,
   StrategyConfig,
 } from '../../../types/domain'
 import {
@@ -319,13 +329,13 @@ export class OpenAIProvider implements IAIProvider {
     operation: () => Promise<T>,
     context?: string
   ): Promise<T> {
-    let lastError: any
+    let lastError: ParsedError | null = null
 
     for (let attempt = 1; attempt <= this.config.retries; attempt++) {
       try {
         return await operation()
       } catch (error) {
-        lastError = error
+        lastError = error as ParsedError
         if (import.meta.env.DEV) {
           console.warn(
             `${this.config.name} attempt ${attempt} failed${context ? ` (${context})` : ''}:`,
@@ -334,7 +344,7 @@ export class OpenAIProvider implements IAIProvider {
         }
 
         // Don't retry on certain errors
-        if (this.shouldNotRetry(error)) {
+        if (this.shouldNotRetry(error as ParsedError)) {
           throw error
         }
 
@@ -352,20 +362,22 @@ export class OpenAIProvider implements IAIProvider {
   /**
    * Determine if an error should not be retried
    */
-  private shouldNotRetry(error: any): boolean {
-    // Check for OpenAI API error structure
-    if (error && typeof error === 'object' && error.status) {
+  private shouldNotRetry(error: ParsedError): boolean {
+    // Check for API error structure
+    if (error && typeof error === 'object' && 'status' in error) {
+      const apiError = error as APIError
+
       // Don't retry on authentication or bad request errors
       if (
-        error.status === 401 ||
-        error.status === 403 ||
-        error.status === 400
+        apiError.status === 401 ||
+        apiError.status === 403 ||
+        apiError.status === 400
       ) {
         return true
       }
 
       // Don't retry on insufficient quota
-      if (error.status === 429 && error.message?.includes('quota')) {
+      if (apiError.status === 429 && apiError.message?.includes('quota')) {
         return true
       }
     }
@@ -457,18 +469,14 @@ IMPORTANT: Only use players from the provided rosters. Make selections based on 
     context: AIGenerationContext
   ): string {
     // Format rosters for prompt
-    const formatRoster = (players: any[]) => {
+    const formatRoster = (players: NFLPlayer[]) => {
       const positions = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF']
 
       return positions
         .map(pos => {
           const positionPlayers = players
             .filter(p => {
-              const position = p.position
-              if (typeof position === 'string') {
-                return position === pos
-              }
-              return position?.abbreviation === pos
+              return p.position?.abbreviation === pos
             })
             .slice(0, pos === 'WR' ? 6 : pos === 'RB' ? 3 : 2)
 
@@ -479,7 +487,7 @@ IMPORTANT: Only use players from the provided rosters. Make selections based on 
           const playerList = positionPlayers
             .map(p => {
               const name = p.displayName || p.fullName || 'Unknown'
-              const jersey = p.jerseyNumber || p.jersey || '??'
+              const jersey = p.jerseyNumber || '??'
               return `${name} (#${jersey})`
             })
             .join(', ')
@@ -573,7 +581,7 @@ Generate a strategic 3-leg parlay with detailed football analysis and comprehens
 
       const parlay: GeneratedParlay = {
         id: this.generateParlayId(),
-        legs: validatedLegs as [any, any, any], // Type assertion for now
+        legs: validatedLegs as [ParlayLeg, ParlayLeg, ParlayLeg],
         gameContext: `${game.awayTeam.displayName} @ ${game.homeTeam.displayName} - Week ${game.week}`,
         aiReasoning:
           parsed.aiReasoning ||
@@ -611,11 +619,16 @@ Generate a strategic 3-leg parlay with detailed football analysis and comprehens
   /**
    * Process and validate leg data
    */
-  private processLegData(legs: any[]): any[] {
-    return legs.map((leg: any, index: number) => {
-      const validBetTypes = ['spread', 'total', 'moneyline', 'player_prop']
-      const betType = validBetTypes.includes(leg.betType)
-        ? leg.betType
+  private processLegData(legs: RawParlayLeg[]): ParlayLeg[] {
+    return legs.map((leg: RawParlayLeg, index: number) => {
+      const validBetTypes: BetType[] = [
+        'spread',
+        'total',
+        'moneyline',
+        'player_prop',
+      ]
+      const betType: BetType = validBetTypes.includes(leg.betType as BetType)
+        ? (leg.betType as BetType)
         : 'spread'
 
       return {
@@ -628,6 +641,8 @@ Generate a strategic 3-leg parlay with detailed football analysis and comprehens
         ),
         confidence: Math.min(Math.max(Number(leg.confidence) || 5, 1), 10),
         odds: String(leg.odds || '-110'),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       }
     })
   }
@@ -635,7 +650,10 @@ Generate a strategic 3-leg parlay with detailed football analysis and comprehens
   /**
    * Process game summary data
    */
-  private processGameSummary(gameSummary: any, game: NFLGame): any {
+  private processGameSummary(
+    gameSummary: RawGameSummary,
+    game: NFLGame
+  ): GameSummary | undefined {
     if (!gameSummary || typeof gameSummary !== 'object') {
       return undefined
     }
@@ -647,25 +665,28 @@ Generate a strategic 3-leg parlay with detailed football analysis and comprehens
       'potential_blowout',
     ]
 
+    const summary = gameSummary
+
     return {
       matchupAnalysis: String(
-        gameSummary.matchupAnalysis ||
+        summary.matchupAnalysis ||
           `${game.awayTeam.displayName} vs ${game.homeTeam.displayName} matchup analysis.`
       ),
-      gameFlow: validGameFlows.includes(gameSummary.gameFlow)
-        ? gameSummary.gameFlow
+      gameFlow: validGameFlows.includes(summary.gameFlow || '')
+        ? (summary.gameFlow as
+            | 'high_scoring_shootout'
+            | 'defensive_grind'
+            | 'balanced_tempo'
+            | 'potential_blowout')
         : 'balanced_tempo',
-      keyFactors: Array.isArray(gameSummary.keyFactors)
-        ? gameSummary.keyFactors.map(String).slice(0, 5)
+      keyFactors: Array.isArray(summary.keyFactors)
+        ? summary.keyFactors.map(String).slice(0, 5)
         : ['Team matchups', 'Key player availability', 'Game conditions'],
       prediction: String(
-        gameSummary.prediction ||
+        summary.prediction ||
           'Competitive game expected between these two teams.'
       ),
-      confidence: Math.min(
-        Math.max(Number(gameSummary.confidence) || 6, 1),
-        10
-      ),
+      confidence: Math.min(Math.max(Number(summary.confidence) || 6, 1), 10),
     }
   }
 

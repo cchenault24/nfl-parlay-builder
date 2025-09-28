@@ -2,7 +2,12 @@
 // MOCK PROVIDER - Mock implementation of IAIProvider interface for testing
 // ================================================================================================
 
-import { GameRosters, GeneratedParlay, NFLGame } from '../../../types/domain'
+import {
+  GameRosters,
+  GeneratedParlay,
+  NFLGame,
+  ParlayLeg,
+} from '../../../types/domain'
 import {
   AIGenerationContext,
   AIProviderConfig,
@@ -94,7 +99,7 @@ export class MockProvider implements IAIProvider {
 
     if (this.config.debugMode) {
       if (import.meta.env.DEV) {
-        console.debug('Mock AI Provider initialized successfully')
+        console.info('Mock AI Provider initialized successfully')
       }
     }
   }
@@ -139,7 +144,7 @@ export class MockProvider implements IAIProvider {
 
     if (this.config.debugMode) {
       if (import.meta.env.DEV) {
-        console.debug('Mock AI Provider disposed')
+        console.info('Mock AI Provider disposed')
       }
     }
   }
@@ -370,7 +375,7 @@ export class MockProvider implements IAIProvider {
 
     return {
       id: this.generateParlayId(),
-      legs: legs as [any, any, any], // Type assertion for now
+      legs: legs as [ParlayLeg, ParlayLeg, ParlayLeg],
       gameContext: `${game.awayTeam.displayName} @ ${game.homeTeam.displayName} - Week ${game.week}`,
       aiReasoning: `Mock AI generated parlay using ${context.strategy.name} strategy. This is simulated data for testing purposes.`,
       overallConfidence: Math.min(Math.max(overallConfidence, 1), 10),

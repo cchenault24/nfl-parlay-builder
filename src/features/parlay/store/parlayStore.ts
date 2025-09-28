@@ -89,7 +89,7 @@ export const useParlayStore = createFeatureStore<ParlayState, ParlayActions>(
       selectedDataProvider: state.selectedDataProvider,
     }),
     migrate: createSafeMigration(initialState, 1) as (
-      persistedState: any,
+      persistedState: unknown,
       version: number
     ) => ParlayState & ParlayActions,
   }

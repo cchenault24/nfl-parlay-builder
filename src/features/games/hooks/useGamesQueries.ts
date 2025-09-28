@@ -4,7 +4,7 @@ import {
   createQueryOptions,
   QUERY_KEYS,
 } from '../../../hooks/query/useQueryConfig'
-import { NFLGame } from '../../../types'
+import { GameRosters, NFLGame } from '../../../types'
 import {
   extractAvailableWeeks,
   extractCurrentWeek,
@@ -128,12 +128,12 @@ export const useGameRostersQuery = (gameId?: string) => {
   const { getDataProvider } = useProviderContext()
 
   return useQuery({
-    ...createQueryOptions<any>({
+    ...createQueryOptions<GameRosters>({
       queryKey: QUERY_KEYS.GAMES.ROSTERS(gameId || ''),
       staleTime: 5 * 60 * 1000, // 5 minutes for roster data
       gcTime: 30 * 60 * 1000, // 30 minutes cache
     }),
-    queryFn: async (): Promise<any> => {
+    queryFn: async (): Promise<GameRosters> => {
       if (!gameId) {
         throw new Error('Game ID is required')
       }
@@ -153,12 +153,12 @@ export const useTeamRosterQuery = (teamId?: string) => {
   const { getDataProvider } = useProviderContext()
 
   return useQuery({
-    ...createQueryOptions<any>({
+    ...createQueryOptions<GameRosters>({
       queryKey: QUERY_KEYS.GAMES.TEAM_ROSTER(teamId || ''),
       staleTime: 5 * 60 * 1000, // 5 minutes for roster data
       gcTime: 30 * 60 * 1000, // 30 minutes cache
     }),
-    queryFn: async (): Promise<any> => {
+    queryFn: async (): Promise<GameRosters> => {
       if (!teamId) {
         throw new Error('Team ID is required')
       }

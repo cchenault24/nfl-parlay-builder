@@ -224,11 +224,11 @@ export class ESPNDataProvider implements IDataProvider {
     playerId: string,
     season?: number,
     options: DataQueryOptions = {}
-  ): Promise<DataProviderResponse<any>> {
+  ): Promise<DataProviderResponse<Record<string, unknown>>> {
     const endpoint = `/players/${playerId}/stats`
     const params = season ? { season } : {}
 
-    const response = await this.makeRequest<any>(endpoint, {
+    const response = await this.makeRequest<Record<string, unknown>>(endpoint, {
       ...options,
       params: { ...params, ...options.params },
     })
@@ -243,11 +243,11 @@ export class ESPNDataProvider implements IDataProvider {
     teamId: string,
     season?: number,
     options: DataQueryOptions = {}
-  ): Promise<DataProviderResponse<any>> {
+  ): Promise<DataProviderResponse<Record<string, unknown>>> {
     const endpoint = `/teams/${teamId}/stats`
     const params = season ? { season } : {}
 
-    const response = await this.makeRequest<any>(endpoint, {
+    const response = await this.makeRequest<Record<string, unknown>>(endpoint, {
       ...options,
       params: { ...params, ...options.params },
     })
@@ -261,10 +261,13 @@ export class ESPNDataProvider implements IDataProvider {
   async getInjuryReports(
     teamId?: string,
     options: DataQueryOptions = {}
-  ): Promise<DataProviderResponse<any>> {
+  ): Promise<DataProviderResponse<Record<string, unknown>>> {
     const endpoint = teamId ? `/teams/${teamId}/injuries` : '/injuries'
 
-    const response = await this.makeRequest<any>(endpoint, options)
+    const response = await this.makeRequest<Record<string, unknown>>(
+      endpoint,
+      options
+    )
     return this.wrapResponse(response, false)
   }
 
@@ -274,8 +277,8 @@ export class ESPNDataProvider implements IDataProvider {
   async getWeatherData(
     gameId: string,
     options: DataQueryOptions = {}
-  ): Promise<DataProviderResponse<any>> {
-    const response = await this.makeRequest<any>(
+  ): Promise<DataProviderResponse<Record<string, unknown>>> {
+    const response = await this.makeRequest<Record<string, unknown>>(
       `/games/${gameId}/weather`,
       options
     )

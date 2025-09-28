@@ -124,6 +124,6 @@ export interface GenerateParlayRequest {
 
 export interface GenerateParlayResponse extends CloudFunctionResponse {
   data: {
-    parlay: any // TODO: Define proper parlay type
+    parlay: Record<string, unknown> // TODO: Define proper parlay type
   }
 }
