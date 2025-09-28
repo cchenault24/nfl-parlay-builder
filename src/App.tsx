@@ -22,6 +22,7 @@ import { useAgeVerification } from './hooks/useAgeVerification'
 import { useAuth } from './hooks/useAuth'
 import { useAvailableWeeks } from './hooks/useAvailableWeek'
 import { useCurrentWeek } from './hooks/useCurrentWeek'
+import { useGameRosters } from './hooks/useGameRosters'
 import { useNFLGames } from './hooks/useNFLGames'
 import { useParlayGeneratorSelector } from './hooks/useParlayGeneratorSelector'
 import useParlayStore from './store/parlayStore'
@@ -71,6 +72,9 @@ function AppContent() {
   const weekToFetch = selectedWeek
   const { data: games, isLoading: gamesLoading } = useNFLGames(weekToFetch)
 
+  // Get roster data for the selected game
+  const { rosters } = useGameRosters(selectedGame || undefined)
+
   // Fixed destructuring to match the actual return type of useParlayGeneratorSelector
   const parlayGenerator = useParlayGeneratorSelector()
   const {
@@ -115,7 +119,7 @@ function AppContent() {
       // Create the full ParlayPreferences object
       const parlayPreferences: any = {
         game: gameData,
-        rosters: {
+        rosters: rosters || {
           homeRoster: [],
           awayRoster: [],
         },

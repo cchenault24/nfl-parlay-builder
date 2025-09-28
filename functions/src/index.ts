@@ -5,7 +5,13 @@ import { onRequest } from 'firebase-functions/v2/https'
 import { ParlayAIService } from './service/ai/ParlayAIService'
 import { MockProvider } from './service/ai/providers/MockProvider'
 import { OpenAIProvider } from './service/ai/providers/OpenAIProvider'
-import { GameRosters, NFLGame, StrategyConfig, VarietyFactors } from './types'
+import {
+  GameRosters,
+  NFLGame,
+  NFLPlayer,
+  StrategyConfig,
+  VarietyFactors,
+} from './types'
 
 // Initialize Firebase Admin
 admin.initializeApp()
@@ -87,6 +93,10 @@ interface FrontendRequest {
     gameTime: string
     venue: string
     week: number
+  }
+  rosters?: {
+    homeRoster: NFLPlayer[]
+    awayRoster: NFLPlayer[]
   }
   options: {
     provider: string
@@ -178,85 +188,17 @@ const createGameDataFromRequest = (request: FrontendRequest): NFLGame => {
   }
 }
 
-// Helper function to create mock roster data (replace with actual data fetching)
-const createMockRosterData = (): GameRosters => {
+// Helper function to create roster data from request (using actual roster data)
+const createRosterDataFromRequest = (request: FrontendRequest): GameRosters => {
+  // Extract roster data from the request
+  const rosterData = request.rosters || {
+    homeRoster: [],
+    awayRoster: [],
+  }
+
   return {
-    homeRoster: [
-      {
-        id: 'mahomes',
-        fullName: 'Patrick Mahomes',
-        displayName: 'Patrick Mahomes',
-        shortName: 'P. Mahomes',
-        position: {
-          abbreviation: 'QB',
-          displayName: 'Quarterback',
-        },
-        jersey: '15',
-        experience: {
-          years: 7,
-        },
-        age: 28,
-        status: {
-          type: 'ACT',
-        },
-      },
-      {
-        id: 'kelce',
-        fullName: 'Travis Kelce',
-        displayName: 'Travis Kelce',
-        shortName: 'T. Kelce',
-        position: {
-          abbreviation: 'TE',
-          displayName: 'Tight End',
-        },
-        jersey: '87',
-        experience: {
-          years: 11,
-        },
-        age: 34,
-        status: {
-          type: 'ACT',
-        },
-      },
-    ],
-    awayRoster: [
-      {
-        id: 'allen',
-        fullName: 'Josh Allen',
-        displayName: 'Josh Allen',
-        shortName: 'J. Allen',
-        position: {
-          abbreviation: 'QB',
-          displayName: 'Quarterback',
-        },
-        jersey: '17',
-        experience: {
-          years: 6,
-        },
-        age: 27,
-        status: {
-          type: 'ACT',
-        },
-      },
-      {
-        id: 'diggs',
-        fullName: 'Stefon Diggs',
-        displayName: 'Stefon Diggs',
-        shortName: 'S. Diggs',
-        position: {
-          abbreviation: 'WR',
-          displayName: 'Wide Receiver',
-        },
-        jersey: '14',
-        experience: {
-          years: 9,
-        },
-        age: 30,
-        status: {
-          type: 'ACT',
-        },
-      },
-    ],
+    homeRoster: rosterData.homeRoster || [],
+    awayRoster: rosterData.awayRoster || [],
   }
 }
 
@@ -338,9 +280,9 @@ export const generateParlay = onRequest(
         targetOdds: request.options.strategy.targetOdds,
       })
 
-      // Create game and roster data using actual game data from request
+      // Create game and roster data using actual data from request
       const game = createGameDataFromRequest(request)
-      const rosters = createMockRosterData()
+      const rosters = createRosterDataFromRequest(request)
       const strategy = convertStrategy(request.options.strategy)
       const varietyFactors = convertVarietyFactors(request.options.variety)
 
