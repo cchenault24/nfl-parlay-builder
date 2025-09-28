@@ -3,6 +3,10 @@
 // ================================================================================================
 
 import {
+  getProviderConfig,
+  PROVIDER_SELECTION_PRESETS,
+} from '../../config/providers'
+import {
   AIProviderType,
   DataProviderType,
   IAIProvider,
@@ -11,6 +15,7 @@ import {
   IProviderRegistry,
   ProviderFactoryConfig,
   ProviderRegistryConfig,
+  ProviderSelectionCriteria,
 } from '../../types/providers'
 import { ProviderFactory } from './ProviderFactory'
 import { ProviderRegistry } from './ProviderRegistry'
@@ -36,12 +41,15 @@ export class ProviderManager {
   private initialized: boolean = false
 
   constructor(config: Partial<ProviderManagerConfig> = {}) {
+    // Load environment-specific configuration
+    const envConfig = getProviderConfig()
+
     this.config = {
       factory: {},
       registry: {},
       autoInitialize: true,
-      defaultAIProvider: 'openai',
-      defaultDataProvider: 'espn',
+      defaultAIProvider: envConfig.ai.primary,
+      defaultDataProvider: envConfig.data.primary,
       ...config,
     }
 
@@ -87,7 +95,10 @@ export class ProviderManager {
   /**
    * Get AI provider by name or select best available
    */
-  async getAIProvider(name?: string): Promise<IAIProvider> {
+  async getAIProvider(
+    name?: string,
+    criteria?: Partial<ProviderSelectionCriteria>
+  ): Promise<IAIProvider> {
     if (!this.initialized) {
       await this.initialize()
     }
@@ -100,11 +111,16 @@ export class ProviderManager {
       throw new Error(`AI provider '${name}' not found`)
     }
 
-    // Select best available AI provider
-    const result = await this.registry.selectProvider<IAIProvider>({
+    // Use provided criteria or default to performance
+    const selectionCriteria: ProviderSelectionCriteria = {
       type: 'ai',
       priority: 'performance',
-    })
+      ...criteria,
+    }
+
+    // Select best available AI provider
+    const result =
+      await this.registry.selectProvider<IAIProvider>(selectionCriteria)
 
     if (!result) {
       throw new Error('No AI providers available')
@@ -116,7 +132,10 @@ export class ProviderManager {
   /**
    * Get data provider by name or select best available
    */
-  async getDataProvider(name?: string): Promise<IDataProvider> {
+  async getDataProvider(
+    name?: string,
+    criteria?: Partial<ProviderSelectionCriteria>
+  ): Promise<IDataProvider> {
     if (!this.initialized) {
       await this.initialize()
     }
@@ -129,11 +148,16 @@ export class ProviderManager {
       throw new Error(`Data provider '${name}' not found`)
     }
 
-    // Select best available data provider
-    const result = await this.registry.selectProvider<IDataProvider>({
+    // Use provided criteria or default to reliability
+    const selectionCriteria: ProviderSelectionCriteria = {
       type: 'data',
       priority: 'reliability',
-    })
+      ...criteria,
+    }
+
+    // Select best available data provider
+    const result =
+      await this.registry.selectProvider<IDataProvider>(selectionCriteria)
 
     if (!result) {
       throw new Error('No data providers available')
@@ -182,6 +206,48 @@ export class ProviderManager {
    */
   getDataProviders(): Map<string, IDataProvider> {
     return this.registry.getByType<IDataProvider>('data')
+  }
+
+  /**
+   * Select AI provider with specific criteria
+   */
+  async selectAIProvider(
+    criteria:
+      | keyof typeof PROVIDER_SELECTION_PRESETS
+      | Partial<ProviderSelectionCriteria>
+  ): Promise<IAIProvider> {
+    const selectionCriteria =
+      typeof criteria === 'string'
+        ? { ...PROVIDER_SELECTION_PRESETS[criteria], type: 'ai' as const }
+        : { type: 'ai' as const, ...criteria }
+
+    const result =
+      await this.registry.selectProvider<IAIProvider>(selectionCriteria)
+    if (!result) {
+      throw new Error('No AI providers available')
+    }
+    return result.provider
+  }
+
+  /**
+   * Select data provider with specific criteria
+   */
+  async selectDataProvider(
+    criteria:
+      | keyof typeof PROVIDER_SELECTION_PRESETS
+      | Partial<ProviderSelectionCriteria>
+  ): Promise<IDataProvider> {
+    const selectionCriteria =
+      typeof criteria === 'string'
+        ? { ...PROVIDER_SELECTION_PRESETS[criteria], type: 'data' as const }
+        : { type: 'data' as const, ...criteria }
+
+    const result =
+      await this.registry.selectProvider<IDataProvider>(selectionCriteria)
+    if (!result) {
+      throw new Error('No data providers available')
+    }
+    return result.provider
   }
 
   /**
@@ -295,78 +361,87 @@ export class ProviderManager {
    * Load configured providers
    */
   private async loadConfiguredProviders(): Promise<void> {
-    // Load default AI providers
-    try {
-      const mockAI = await this.factory.createAIProvider('mock', {
-        config: {
-          name: 'mock-ai',
-          enabled: true,
-          priority: 1,
-          timeout: 30000,
-          retries: 3,
-          model: 'mock-gpt-4',
-          temperature: 0.7,
-          maxTokens: 4000,
-          debugMode: true,
-        },
-      })
-      this.registry.register('mock-ai', mockAI, 'ai', 1)
-    } catch (error) {
-      if (import.meta.env.DEV) {
-        console.warn('Failed to load mock AI provider:', error)
-      }
-    }
+    const envConfig = getProviderConfig()
 
-    // Load default data providers
-    try {
-      const mockData = await this.factory.createDataProvider('mock', {
-        config: {
-          name: 'mock-data',
-          enabled: true,
-          priority: 1,
-        },
-      })
-      this.registry.register('mock-data', mockData, 'data', 1)
-    } catch (error) {
-      if (import.meta.env.DEV) {
-        console.warn('Failed to load mock data provider:', error)
-      }
-    }
+    // Load AI providers based on configuration
+    for (const [providerType, providerConfig] of Object.entries(
+      envConfig.ai.providers
+    )) {
+      if (!providerConfig?.enabled) continue
 
-    // Load OpenAI provider if API key is available
-    const openaiApiKey = this.getEnvironmentVariable('OPENAI_API_KEY')
-    if (openaiApiKey) {
       try {
-        const openai = await this.factory.createAIProvider('openai', {
-          config: {
-            name: 'openai',
-            enabled: true,
-            priority: 2,
-            apiKey: openaiApiKey,
-          },
-          apiKey: openaiApiKey,
-        })
-        this.registry.register('openai', openai, 'ai', 2)
+        const provider = await this.factory.createAIProvider(
+          providerType as AIProviderType,
+          {
+            config: {
+              name: providerConfig.config.name || providerType,
+              enabled: providerConfig.enabled,
+              priority: providerConfig.priority,
+              timeout: 30000,
+              retries: 3,
+              ...providerConfig.config,
+            },
+            apiKey: this.getEnvironmentVariable(
+              `${providerType.toUpperCase()}_API_KEY`
+            ),
+          }
+        )
+
+        this.registry.register(
+          providerConfig.config.name || providerType,
+          provider,
+          'ai',
+          providerConfig.priority
+        )
+
+        if (import.meta.env.DEV) {
+          console.debug(`Loaded AI provider: ${providerType}`)
+        }
       } catch (error) {
         if (import.meta.env.DEV) {
-          console.warn('Failed to load OpenAI provider:', error)
+          console.warn(`Failed to load AI provider ${providerType}:`, error)
         }
       }
     }
 
-    // Load ESPN provider
-    try {
-      const espn = await this.factory.createDataProvider('espn', {
-        config: {
-          name: 'espn',
-          enabled: true,
-          priority: 2,
-        },
-      })
-      this.registry.register('espn', espn, 'data', 2)
-    } catch (error) {
-      if (import.meta.env.DEV) {
-        console.warn('Failed to load ESPN provider:', error)
+    // Load data providers based on configuration
+    for (const [providerType, providerConfig] of Object.entries(
+      envConfig.data.providers
+    )) {
+      if (!providerConfig?.enabled) continue
+
+      try {
+        const provider = await this.factory.createDataProvider(
+          providerType as DataProviderType,
+          {
+            config: {
+              name: providerConfig.config.name || providerType,
+              enabled: providerConfig.enabled,
+              priority: providerConfig.priority,
+              timeout: 30000,
+              retries: 3,
+              ...providerConfig.config,
+            },
+            apiKey: this.getEnvironmentVariable(
+              `${providerType.toUpperCase()}_API_KEY`
+            ),
+          }
+        )
+
+        this.registry.register(
+          providerConfig.config.name || providerType,
+          provider,
+          'data',
+          providerConfig.priority
+        )
+
+        if (import.meta.env.DEV) {
+          console.debug(`Loaded data provider: ${providerType}`)
+        }
+      } catch (error) {
+        if (import.meta.env.DEV) {
+          console.warn(`Failed to load data provider ${providerType}:`, error)
+        }
       }
     }
   }

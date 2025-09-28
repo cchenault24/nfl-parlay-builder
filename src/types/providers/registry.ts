@@ -34,10 +34,15 @@ export interface ProviderRegistration<T extends IProvider> {
  */
 export interface ProviderSelectionCriteria {
   type: 'ai' | 'data'
-  priority?: 'cost' | 'performance' | 'reliability'
+  priority?: 'cost' | 'performance' | 'reliability' | 'balanced'
   exclude?: string[]
   require?: string[]
   fallback?: boolean
+  maxCost?: number
+  minSuccessRate?: number
+  maxResponseTime?: number
+  preferredModels?: string[]
+  capabilities?: string[]
 }
 
 /**

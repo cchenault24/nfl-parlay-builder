@@ -1,7 +1,11 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { ProviderManager } from '../services/providers/ProviderManager'
 import { useProviderStore } from '../store/providerStore'
-import { IAIProvider, IDataProvider } from '../types/providers'
+import {
+  IAIProvider,
+  IDataProvider,
+  ProviderSelectionCriteria,
+} from '../types/providers'
 
 interface ProviderContextValue {
   // Provider manager
@@ -16,8 +20,22 @@ interface ProviderContextValue {
   refreshProviderHealth: () => Promise<void>
 
   // Provider selection
-  selectBestAIProvider: () => Promise<IAIProvider>
-  selectBestDataProvider: () => Promise<IDataProvider>
+  selectBestAIProvider: (
+    criteria?:
+      | 'performance'
+      | 'reliability'
+      | 'cost'
+      | 'balanced'
+      | Partial<ProviderSelectionCriteria>
+  ) => Promise<IAIProvider>
+  selectBestDataProvider: (
+    criteria?:
+      | 'performance'
+      | 'reliability'
+      | 'cost'
+      | 'balanced'
+      | Partial<ProviderSelectionCriteria>
+  ) => Promise<IDataProvider>
 }
 
 const ProviderContext = createContext<ProviderContextValue | null>(null)
@@ -107,18 +125,32 @@ export const ProviderProvider: React.FC<ProviderProviderProps> = ({
     return await providerManager.getDataProvider(name)
   }
 
-  const selectBestAIProvider = async (): Promise<IAIProvider> => {
+  const selectBestAIProvider = async (
+    criteria?:
+      | 'performance'
+      | 'reliability'
+      | 'cost'
+      | 'balanced'
+      | Partial<ProviderSelectionCriteria>
+  ): Promise<IAIProvider> => {
     if (!providerManager) {
       throw new Error('Provider manager not initialized')
     }
-    return await providerManager.getAIProvider()
+    return await providerManager.selectAIProvider(criteria || 'performance')
   }
 
-  const selectBestDataProvider = async (): Promise<IDataProvider> => {
+  const selectBestDataProvider = async (
+    criteria?:
+      | 'performance'
+      | 'reliability'
+      | 'cost'
+      | 'balanced'
+      | Partial<ProviderSelectionCriteria>
+  ): Promise<IDataProvider> => {
     if (!providerManager) {
       throw new Error('Provider manager not initialized')
     }
-    return await providerManager.getDataProvider()
+    return await providerManager.selectDataProvider(criteria || 'reliability')
   }
 
   const value: ProviderContextValue = {

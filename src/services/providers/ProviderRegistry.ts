@@ -337,9 +337,29 @@ export class ProviderRegistry implements IProviderRegistry {
     candidates: ProviderRegistration<T>[],
     criteria: ProviderSelectionCriteria
   ): { provider: T; name: string; reason: string } {
-    // Sort by priority and health
-    const sorted = candidates.sort((a, b) => {
-      // First by health (healthy providers first)
+    // Filter candidates based on criteria
+    const filtered = this.filterCandidatesByCriteria(candidates, criteria)
+
+    if (filtered.length === 0) {
+      throw new ProviderSelectionError(
+        `No providers match the selection criteria`,
+        criteria
+      )
+    }
+
+    // Score and sort candidates
+    const scored = filtered.map(candidate => ({
+      ...candidate,
+      score: this.calculateProviderScore(candidate, criteria),
+    }))
+
+    const sorted = scored.sort((a, b) => {
+      // First by score (higher is better)
+      if (a.score !== b.score) {
+        return b.score - a.score
+      }
+
+      // Then by health (healthy providers first)
       if (a.health.healthy !== b.health.healthy) {
         return a.health.healthy ? -1 : 1
       }
@@ -349,7 +369,7 @@ export class ProviderRegistry implements IProviderRegistry {
         return b.priority - a.priority
       }
 
-      // Then by usage count (less used first for load balancing)
+      // Finally by usage count (less used first for load balancing)
       return a.usageCount - b.usageCount
     })
 
@@ -362,8 +382,211 @@ export class ProviderRegistry implements IProviderRegistry {
     return {
       provider: selected.provider,
       name: selected.name,
-      reason: `Selected based on ${criteria.priority || 'default'} criteria`,
+      reason: this.generateSelectionReason(selected, criteria),
     }
+  }
+
+  /**
+   * Filter candidates based on selection criteria
+   */
+  private filterCandidatesByCriteria<T extends IProvider>(
+    candidates: ProviderRegistration<T>[],
+    criteria: ProviderSelectionCriteria
+  ): ProviderRegistration<T>[] {
+    return candidates.filter(candidate => {
+      // Check exclusions
+      if (criteria.exclude?.includes(candidate.name)) return false
+
+      // Check requirements
+      if (
+        criteria.require?.length &&
+        !criteria.require.includes(candidate.name)
+      ) {
+        return false
+      }
+
+      // Check cost constraints
+      if (criteria.maxCost !== undefined) {
+        const cost = this.getProviderCost(candidate)
+        if (cost > criteria.maxCost) return false
+      }
+
+      // Check success rate constraints
+      if (criteria.minSuccessRate !== undefined) {
+        const successRate = this.getProviderSuccessRate(candidate)
+        if (successRate < criteria.minSuccessRate) return false
+      }
+
+      // Check response time constraints
+      if (criteria.maxResponseTime !== undefined) {
+        const avgResponseTime = this.getProviderAverageResponseTime(candidate)
+        if (avgResponseTime > criteria.maxResponseTime) return false
+      }
+
+      // Check model preferences (for AI providers)
+      if (
+        criteria.preferredModels?.length &&
+        'getAvailableModels' in candidate.provider
+      ) {
+        const availableModels = (candidate.provider as any).getAvailableModels()
+        const hasPreferredModel = criteria.preferredModels.some(model =>
+          availableModels.includes(model)
+        )
+        if (!hasPreferredModel) return false
+      }
+
+      // Check capabilities
+      if (criteria.capabilities?.length) {
+        const providerCapabilities = candidate.provider.metadata.capabilities
+        const hasRequiredCapabilities = criteria.capabilities.every(
+          capability => providerCapabilities.includes(capability)
+        )
+        if (!hasRequiredCapabilities) return false
+      }
+
+      return true
+    })
+  }
+
+  /**
+   * Calculate provider score based on criteria
+   */
+  private calculateProviderScore<T extends IProvider>(
+    candidate: ProviderRegistration<T>,
+    criteria: ProviderSelectionCriteria
+  ): number {
+    let score = 0
+
+    // Base health score (0-100)
+    score += candidate.health.healthy ? 100 : 0
+
+    // Priority score (0-50)
+    score += candidate.priority * 10
+
+    // Performance score based on response time
+    const avgResponseTime = this.getProviderAverageResponseTime(candidate)
+    if (avgResponseTime > 0) {
+      if (avgResponseTime < 1000)
+        score += 30 // Excellent
+      else if (avgResponseTime < 3000)
+        score += 20 // Good
+      else if (avgResponseTime < 10000) score += 10 // Acceptable
+    }
+
+    // Reliability score based on success rate
+    const successRate = this.getProviderSuccessRate(candidate)
+    score += successRate * 20 // 0-20 points
+
+    // Cost score (lower cost = higher score)
+    const cost = this.getProviderCost(candidate)
+    if (cost === 0)
+      score += 25 // Free providers get bonus
+    else if (cost < 0.01) score += 20
+    else if (cost < 0.05) score += 15
+    else if (cost < 0.1) score += 10
+
+    // Usage balancing (less used = higher score)
+    const maxUsage = Math.max(
+      ...Array.from(this.providers.values()).map(p => p.usageCount)
+    )
+    if (maxUsage > 0) {
+      score += (1 - candidate.usageCount / maxUsage) * 15
+    }
+
+    // Priority-based scoring
+    switch (criteria.priority) {
+      case 'performance':
+        // Emphasize response time and success rate
+        score =
+          score * 0.6 +
+          (avgResponseTime > 0 ? (10000 - avgResponseTime) / 100 : 0) * 0.4
+        break
+      case 'reliability':
+        // Emphasize health and success rate
+        score = score * 0.7 + successRate * 30 * 0.3
+        break
+      case 'cost':
+        // Emphasize cost efficiency
+        score =
+          score * 0.5 + (cost === 0 ? 50 : Math.max(0, 50 - cost * 1000)) * 0.5
+        break
+      case 'balanced':
+      default:
+        // Use the calculated score as-is
+        break
+    }
+
+    return Math.max(0, Math.min(100, score))
+  }
+
+  /**
+   * Get provider cost estimate
+   */
+  private getProviderCost<T extends IProvider>(
+    candidate: ProviderRegistration<T>
+  ): number {
+    return candidate.provider.metadata.costPerRequest || 0
+  }
+
+  /**
+   * Get provider success rate
+   */
+  private getProviderSuccessRate<T extends IProvider>(
+    candidate: ProviderRegistration<T>
+  ): number {
+    // This would be calculated from historical data
+    // For now, return a default value based on health
+    return candidate.health.healthy ? 0.95 : 0.5
+  }
+
+  /**
+   * Get provider average response time
+   */
+  private getProviderAverageResponseTime<T extends IProvider>(
+    candidate: ProviderRegistration<T>
+  ): number {
+    return candidate.health.responseTime || 0
+  }
+
+  /**
+   * Generate selection reason
+   */
+  private generateSelectionReason<T extends IProvider>(
+    candidate: ProviderRegistration<T>,
+    _criteria: ProviderSelectionCriteria
+  ): string {
+    const reasons = []
+
+    if (candidate.health.healthy) {
+      reasons.push('healthy')
+    }
+
+    if (candidate.priority > 1) {
+      reasons.push(`priority ${candidate.priority}`)
+    }
+
+    const avgResponseTime = this.getProviderAverageResponseTime(candidate)
+    if (avgResponseTime > 0 && avgResponseTime < 1000) {
+      reasons.push('fast response')
+    }
+
+    const cost = this.getProviderCost(candidate)
+    if (cost === 0) {
+      reasons.push('free')
+    } else if (cost < 0.01) {
+      reasons.push('low cost')
+    }
+
+    const successRate = this.getProviderSuccessRate(candidate)
+    if (successRate > 0.95) {
+      reasons.push('high reliability')
+    }
+
+    if (candidate.usageCount === 0) {
+      reasons.push('unused')
+    }
+
+    return `Selected ${candidate.name} (${reasons.join(', ')})`
   }
 
   /**
