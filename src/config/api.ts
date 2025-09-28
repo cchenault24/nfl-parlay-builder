@@ -49,7 +49,9 @@ const isLocalDevelopment = () => {
     const isFirebaseHosting =
       hostname.includes('.web.app') || hostname.includes('.firebaseapp.com')
     if (isFirebaseHosting) {
-      console.log('🔧 Firebase hosting detected, forcing production URLs')
+      if (import.meta.env.DEV) {
+        console.log('🔧 Firebase hosting detected, forcing production URLs')
+      }
       return false
     }
 

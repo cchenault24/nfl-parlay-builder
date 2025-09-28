@@ -38,7 +38,9 @@ export const useAgeVerification = () => {
         setIsVerified(false)
       }
     } catch (error) {
-      console.error('Error checking age verification:', error)
+      if (import.meta.env.DEV) {
+        console.error('Error checking age verification:', error)
+      }
       setIsVerified(false)
     }
     setIsLoading(false)

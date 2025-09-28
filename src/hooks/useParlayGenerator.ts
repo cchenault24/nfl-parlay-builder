@@ -72,7 +72,9 @@ export const useParlayGenerator = (options: UseParlayGeneratorOptions = {}) => {
         }
         return result
       } catch (error) {
-        console.error('❌ Parlay generation failed:', error)
+        if (import.meta.env.DEV) {
+          console.error('❌ Parlay generation failed:', error)
+        }
         throw error
       }
     },
@@ -182,21 +184,23 @@ export const useParlayGenerator = (options: UseParlayGeneratorOptions = {}) => {
       }
     },
     onError: (error: Error) => {
-      console.error('💥 Error generating parlay:', error.message)
+      if (import.meta.env.DEV) {
+        console.error('💥 Error generating parlay:', error.message)
 
-      // Enhanced error logging for debugging
-      if (error.message.includes('Network error')) {
-        console.error(
-          '🌐 Network issue detected. Check Firebase emulator status.'
-        )
-      } else if (error.message.includes('CORS')) {
-        console.error(
-          '🚫 CORS issue detected. Check Cloud Function CORS configuration.'
-        )
-      } else if (error.message.includes('400')) {
-        console.error('📝 Bad request. Check the request payload format.')
-      } else if (error.message.includes('500')) {
-        console.error('🔥 Server error. Check Cloud Function logs.')
+        // Enhanced error logging for debugging
+        if (error.message.includes('Network error')) {
+          console.error(
+            '🌐 Network issue detected. Check Firebase emulator status.'
+          )
+        } else if (error.message.includes('CORS')) {
+          console.error(
+            '🚫 CORS issue detected. Check Cloud Function CORS configuration.'
+          )
+        } else if (error.message.includes('400')) {
+          console.error('📝 Bad request. Check the request payload format.')
+        } else if (error.message.includes('500')) {
+          console.error('🔥 Server error. Check Cloud Function logs.')
+        }
       }
 
       // Call user-provided error callback

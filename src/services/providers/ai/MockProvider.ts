@@ -181,7 +181,7 @@ export class MockProvider implements IAIProvider {
 
       this.updateHealth(true, latency)
 
-      if (this.config.debugMode) {
+      if (this.config.debugMode && import.meta.env.DEV) {
         console.log(
           `Mock AI generated parlay for ${game.awayTeam.displayName} @ ${game.homeTeam.displayName}`
         )

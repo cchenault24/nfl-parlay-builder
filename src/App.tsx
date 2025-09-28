@@ -159,9 +159,7 @@ function AppContent() {
   }
 
   const handleAgeDeclined = () => {
-    alert(
-      'You must be 18 or older to use this service. You will be redirected away from this site.'
-    )
+    // Redirect to external site for age verification failure
     window.location.href = 'https://www.google.com'
   }
 

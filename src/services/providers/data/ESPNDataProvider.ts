@@ -106,7 +106,9 @@ export class ESPNDataProvider implements IDataProvider {
       await this.makeRequest('/scoreboard')
       return true
     } catch (error) {
-      console.warn('ESPN connection validation failed:', error)
+      if (import.meta.env.DEV) {
+        console.warn('ESPN connection validation failed:', error)
+      }
       return false
     }
   }

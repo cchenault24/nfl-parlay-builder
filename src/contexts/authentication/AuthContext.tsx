@@ -24,7 +24,9 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           const profile = await getUserProfile(user.uid)
           setUserProfile(profile)
         } catch (error) {
-          console.error('Error setting up user profile:', error)
+          if (import.meta.env.DEV) {
+            console.error('Error setting up user profile:', error)
+          }
         } finally {
           setProfileLoading(false)
         }

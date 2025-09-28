@@ -1,7 +1,7 @@
 // src/hooks/useLegalDialogConfig.ts
 import { useEffect, useState } from 'react'
 import { BaseLegalDialogProps } from '../features/legal/BaseLegalDialog'
-// import { legalDialogConfigs } from '../features/legal/legalDialogConfigs' // TODO: Use legal dialog configs
+// import { legalDialogConfigs } from '../features/legal/legalDialogConfigs'
 
 type ConfigKey =
   | 'termsOfServiceConfig'
@@ -27,7 +27,9 @@ export const useLegalDialogConfig = (isOpen: boolean, configKey: ConfigKey) => {
           setLoading(false)
         })
         .catch(err => {
-          console.error(`Failed to load ${configKey}:`, err)
+          if (import.meta.env.DEV) {
+            console.error(`Failed to load ${configKey}:`, err)
+          }
           setError('Failed to load legal content')
           setLoading(false)
         })

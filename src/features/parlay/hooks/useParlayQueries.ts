@@ -31,10 +31,12 @@ export const useParlayGeneration = () => {
     mutationFn: async (
       preferences: ParlayPreferences
     ): Promise<CloudFunctionResponse> => {
-      console.log(
-        '🚀 Starting parlay generation with preferences:',
-        preferences
-      )
+      if (import.meta.env.DEV) {
+        console.log(
+          '🚀 Starting parlay generation with preferences:',
+          preferences
+        )
+      }
 
       setGenerating(true)
       setGenerationError(null)
@@ -151,7 +153,9 @@ export const useParlayGeneration = () => {
         // Call AI provider (result not used in current implementation)
         await aiProvider.generateParlay(mockGame, mockRosters, mockContext)
 
-        console.log('✅ Parlay generated successfully')
+        if (import.meta.env.DEV) {
+          console.log('✅ Parlay generated successfully')
+        }
         // Transform AIProviderResponse to CloudFunctionResponse format
         // For now, return a mock parlay until we fix the data transformation
         const mockParlay = {
@@ -206,7 +210,9 @@ export const useParlayGeneration = () => {
           error: undefined,
         }
       } catch (error) {
-        console.error('❌ Parlay generation failed:', error)
+        if (import.meta.env.DEV) {
+          console.error('❌ Parlay generation failed:', error)
+        }
         const errorMessage =
           error instanceof Error ? error.message : 'Unknown error'
         setGenerationError(errorMessage)
@@ -218,7 +224,12 @@ export const useParlayGeneration = () => {
     onSuccess: (data: CloudFunctionResponse) => {
       // Store the parlay in the store
       if (data.success && data.data) {
-        console.log('📊 Using actual Cloud Function response data:', data.data)
+        if (import.meta.env.DEV) {
+          console.log(
+            '📊 Using actual Cloud Function response data:',
+            data.data
+          )
+        }
 
         const transformedParlay = {
           id: Date.now().toString(),
@@ -305,21 +316,23 @@ export const useParlayGeneration = () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.GAMES.ALL })
     },
     onError: (error: Error) => {
-      console.error('💥 Error generating parlay:', error.message)
+      if (import.meta.env.DEV) {
+        console.error('💥 Error generating parlay:', error.message)
 
-      // Enhanced error logging for debugging
-      if (error.message.includes('Network error')) {
-        console.error(
-          '🌐 Network issue detected. Check Firebase emulator status.'
-        )
-      } else if (error.message.includes('CORS')) {
-        console.error(
-          '🚫 CORS issue detected. Check Cloud Function CORS configuration.'
-        )
-      } else if (error.message.includes('400')) {
-        console.error('📝 Bad request. Check the request payload format.')
-      } else if (error.message.includes('500')) {
-        console.error('🔥 Server error. Check Cloud Function logs.')
+        // Enhanced error logging for debugging
+        if (error.message.includes('Network error')) {
+          console.error(
+            '🌐 Network issue detected. Check Firebase emulator status.'
+          )
+        } else if (error.message.includes('CORS')) {
+          console.error(
+            '🚫 CORS issue detected. Check Cloud Function CORS configuration.'
+          )
+        } else if (error.message.includes('400')) {
+          console.error('📝 Bad request. Check the request payload format.')
+        } else if (error.message.includes('500')) {
+          console.error('🔥 Server error. Check Cloud Function logs.')
+        }
       }
     },
     retry: (failureCount, error) => {

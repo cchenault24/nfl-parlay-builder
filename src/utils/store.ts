@@ -154,7 +154,9 @@ export function clearStoreFromStorage(storeName: string): void {
       console.debug(`Cleared store data for: ${storeName}`)
     }
   } catch (error) {
-    console.error(`Failed to clear store data for ${storeName}:`, error)
+    if (import.meta.env.DEV) {
+      console.error(`Failed to clear store data for ${storeName}:`, error)
+    }
   }
 }
 
@@ -174,7 +176,9 @@ export function clearAllStoreData(): void {
       console.debug(`Cleared ${storeKeys.length} store data entries`)
     }
   } catch (error) {
-    console.error('Failed to clear store data:', error)
+    if (import.meta.env.DEV) {
+      console.error('Failed to clear store data:', error)
+    }
   }
 }
 

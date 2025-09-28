@@ -27,7 +27,9 @@ export const useRateLimitQuery = () => {
       gcTime: 5 * 60 * 1000, // 5 minutes cache
     }),
     queryFn: async (): Promise<RateLimitInfo> => {
-      console.log('🔄 Fetching rate limit status from backend')
+      if (import.meta.env.DEV) {
+        console.log('🔄 Fetching rate limit status from backend')
+      }
 
       // Get auth token if user is authenticated
       const authToken = user ? await user.getIdToken() : null
@@ -58,10 +60,12 @@ export const useRateLimitQuery = () => {
       if (!result.success) {
         // If the API returned an error but included fallback data, use it
         if (result.data) {
-          console.warn(
-            'Rate limit API error, using fallback data:',
-            result.error
-          )
+          if (import.meta.env.DEV) {
+            console.warn(
+              'Rate limit API error, using fallback data:',
+              result.error
+            )
+          }
           return {
             remaining: result.data.remaining,
             total: result.data.total,

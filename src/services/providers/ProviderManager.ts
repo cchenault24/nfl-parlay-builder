@@ -49,7 +49,11 @@ export class ProviderManager {
     this.registry = new ProviderRegistry(this.config.registry)
 
     if (this.config.autoInitialize) {
-      this.initialize().catch(console.error)
+      this.initialize().catch(error => {
+        if (import.meta.env.DEV) {
+          console.error('Auto-initialization failed:', error)
+        }
+      })
     }
   }
 
@@ -73,7 +77,9 @@ export class ProviderManager {
         console.debug('Provider Manager initialized successfully')
       }
     } catch (error) {
-      console.error('Failed to initialize Provider Manager:', error)
+      if (import.meta.env.DEV) {
+        console.error('Failed to initialize Provider Manager:', error)
+      }
       throw error
     }
   }
@@ -306,7 +312,9 @@ export class ProviderManager {
       })
       this.registry.register('mock-ai', mockAI, 'ai', 1)
     } catch (error) {
-      console.warn('Failed to load mock AI provider:', error)
+      if (import.meta.env.DEV) {
+        console.warn('Failed to load mock AI provider:', error)
+      }
     }
 
     // Load default data providers
@@ -320,7 +328,9 @@ export class ProviderManager {
       })
       this.registry.register('mock-data', mockData, 'data', 1)
     } catch (error) {
-      console.warn('Failed to load mock data provider:', error)
+      if (import.meta.env.DEV) {
+        console.warn('Failed to load mock data provider:', error)
+      }
     }
 
     // Load OpenAI provider if API key is available
@@ -338,7 +348,9 @@ export class ProviderManager {
         })
         this.registry.register('openai', openai, 'ai', 2)
       } catch (error) {
-        console.warn('Failed to load OpenAI provider:', error)
+        if (import.meta.env.DEV) {
+          console.warn('Failed to load OpenAI provider:', error)
+        }
       }
     }
 
@@ -353,7 +365,9 @@ export class ProviderManager {
       })
       this.registry.register('espn', espn, 'data', 2)
     } catch (error) {
-      console.warn('Failed to load ESPN provider:', error)
+      if (import.meta.env.DEV) {
+        console.warn('Failed to load ESPN provider:', error)
+      }
     }
   }
 

@@ -41,7 +41,9 @@ export const UserMenu: React.FC<UserMenuProps> = ({ onViewHistory }) => {
       await logOut()
       handleMenuClose()
     } catch (error) {
-      console.error('Error signing out:', error)
+      if (import.meta.env.DEV) {
+        console.error('Error signing out:', error)
+      }
     }
   }
 

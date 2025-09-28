@@ -160,7 +160,9 @@ export class ParlayService {
 
         try {
           const errorText = await response.text()
-          console.error('🚨 Cloud Function Error Response:', errorText)
+          if (import.meta.env.DEV) {
+            console.error('🚨 Cloud Function Error Response:', errorText)
+          }
 
           // Try to parse as JSON for better error details
           try {
@@ -171,7 +173,9 @@ export class ParlayService {
             errorMessage = errorText || errorMessage
           }
         } catch (textError) {
-          console.error('Failed to read error response:', textError)
+          if (import.meta.env.DEV) {
+            console.error('Failed to read error response:', textError)
+          }
         }
 
         throw new Error(errorMessage)
@@ -183,7 +187,9 @@ export class ParlayService {
       }
       return result
     } catch (error) {
-      console.error('❌ Request failed:', error)
+      if (import.meta.env.DEV) {
+        console.error('❌ Request failed:', error)
+      }
       this.handleHttpError(error)
     }
   }
@@ -226,7 +232,9 @@ export class ParlayService {
       await this.makeCloudFunctionRequest('health', {})
       return true
     } catch (error) {
-      console.warn('Health check failed:', error)
+      if (import.meta.env.DEV) {
+        console.warn('Health check failed:', error)
+      }
       return false
     }
   }
@@ -234,7 +242,9 @@ export class ParlayService {
   // Method to update provider
   setProvider(provider: string): void {
     this.provider = provider
-    console.log('🔄 Provider updated to:', provider)
+    if (import.meta.env.DEV) {
+      console.log('🔄 Provider updated to:', provider)
+    }
   }
 
   // Method to get current configuration

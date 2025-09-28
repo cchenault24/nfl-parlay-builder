@@ -105,7 +105,9 @@ export class NFLDataService {
         awayRoster: this.transformRosterResponse(awayRosterResponse.data),
       }
     } catch (error) {
-      console.error('Error fetching game rosters:', error)
+      if (import.meta.env.DEV) {
+        console.error('Error fetching game rosters:', error)
+      }
       return { homeRoster: [], awayRoster: [] }
     }
   }

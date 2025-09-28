@@ -70,10 +70,12 @@ export const useParlayGeneratorWithProviders = () => {
         // Generate parlay with selected providers
         generateParlay(preferences)
       } catch (error) {
-        console.error(
-          'Failed to generate parlay with auto provider selection:',
-          error
-        )
+        if (import.meta.env.DEV) {
+          console.error(
+            'Failed to generate parlay with auto provider selection:',
+            error
+          )
+        }
         throw error
       }
     },
@@ -121,10 +123,12 @@ export const useParlayGeneratorWithProviders = () => {
 
         generateParlay(preferences)
       } catch (error) {
-        console.error(
-          'Failed to generate parlay with specific providers:',
-          error
-        )
+        if (import.meta.env.DEV) {
+          console.error(
+            'Failed to generate parlay with specific providers:',
+            error
+          )
+        }
         throw error
       }
     },
@@ -154,7 +158,9 @@ export const useParlayGeneratorWithProviders = () => {
           return await provider.validateConnection()
         }
       } catch (error) {
-        console.error(`Failed to test ${type} provider connection:`, error)
+        if (import.meta.env.DEV) {
+          console.error(`Failed to test ${type} provider connection:`, error)
+        }
         return false
       }
     },

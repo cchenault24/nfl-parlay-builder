@@ -43,7 +43,9 @@ const ParlayDisplayFooter: React.FC = () => {
       setTimeout(() => setSaveParlaySuccess(false), 3000)
     } catch (error) {
       setSaveParlayError('Failed to save parlay. Please try again.')
-      console.error('Error saving parlay:', error)
+      if (import.meta.env.DEV) {
+        console.error('Error saving parlay:', error)
+      }
     } finally {
       setSaving(false)
     }

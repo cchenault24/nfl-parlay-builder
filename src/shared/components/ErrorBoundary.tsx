@@ -1,6 +1,6 @@
-import { Component, ErrorInfo, ReactNode } from 'react'
-import { Box, Typography, Button, Card, CardContent } from '@mui/material'
 import { Error as ErrorIcon } from '@mui/icons-material'
+import { Box, Button, Card, CardContent, Typography } from '@mui/material'
+import { Component, ErrorInfo, ReactNode } from 'react'
 
 interface Props {
   children: ReactNode
@@ -21,7 +21,9 @@ class ErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('Uncaught error:', error, errorInfo)
+    if (import.meta.env.DEV) {
+      console.error('Uncaught error:', error, errorInfo)
+    }
   }
 
   private handleReset = () => {

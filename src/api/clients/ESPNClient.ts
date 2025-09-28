@@ -51,7 +51,9 @@ export class ESPNClient extends APIClient implements INFLClient {
     try {
       return await this.get<ESPNScoreboardResponse>('/scoreboard')
     } catch (error) {
-      console.error('Error fetching current week games:', error)
+      if (import.meta.env.DEV) {
+        console.error('Error fetching current week games:', error)
+      }
       throw new Error('Failed to fetch current week games')
     }
   }
@@ -69,7 +71,9 @@ export class ESPNClient extends APIClient implements INFLClient {
         },
       })
     } catch (error) {
-      console.error(`Error fetching games for week ${week}:`, error)
+      if (import.meta.env.DEV) {
+        console.error(`Error fetching games for week ${week}:`, error)
+      }
       throw new Error(`Failed to fetch games for week ${week}`)
     }
   }
@@ -81,7 +85,9 @@ export class ESPNClient extends APIClient implements INFLClient {
       const endpoint = `/teams/${teamId}/roster`
       return await this.get<ESPNRosterResponse>(endpoint)
     } catch (error) {
-      console.error(`Error fetching roster for team ${teamId}:`, error)
+      if (import.meta.env.DEV) {
+        console.error(`Error fetching roster for team ${teamId}:`, error)
+      }
       throw new Error(`Failed to fetch roster for team ${teamId}`)
     }
   }
@@ -90,7 +96,9 @@ export class ESPNClient extends APIClient implements INFLClient {
     try {
       return await this.get<ESPNScoreboardResponse>('/scoreboard')
     } catch (error) {
-      console.error('Error fetching current week:', error)
+      if (import.meta.env.DEV) {
+        console.error('Error fetching current week:', error)
+      }
       throw new Error('Failed to fetch current week')
     }
   }

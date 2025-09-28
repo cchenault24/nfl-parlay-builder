@@ -69,7 +69,9 @@ export const ProviderProvider: React.FC<ProviderProviderProps> = ({
 
         return () => clearInterval(healthCheckInterval)
       } catch (error) {
-        console.error('Failed to initialize provider manager:', error)
+        if (import.meta.env.DEV) {
+          console.error('Failed to initialize provider manager:', error)
+        }
         setIsInitialized(false)
       }
     }
@@ -85,7 +87,9 @@ export const ProviderProvider: React.FC<ProviderProviderProps> = ({
       const healthMap = mgr.getAllProviderHealth()
       setAllProviderHealth(healthMap)
     } catch (error) {
-      console.error('Failed to refresh provider health:', error)
+      if (import.meta.env.DEV) {
+        console.error('Failed to refresh provider health:', error)
+      }
     }
   }
 

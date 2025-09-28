@@ -326,7 +326,7 @@ export class MockDataProvider implements IDataProvider {
 
     this.updateHealth(true, responseTime)
 
-    if (this.config.debugMode) {
+    if (this.config.debugMode && import.meta.env.DEV) {
       console.log(
         `Mock Data Provider generated response for request #${this.requestCount}`
       )

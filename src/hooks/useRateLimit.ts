@@ -66,10 +66,12 @@ export const useRateLimit = () => {
       if (!result.success) {
         // If the API returned an error but included fallback data, use it
         if (result.data) {
-          console.warn(
-            'Rate limit API error, using fallback data:',
-            result.error
-          )
+          if (import.meta.env.DEV) {
+            console.warn(
+              'Rate limit API error, using fallback data:',
+              result.error
+            )
+          }
           return {
             remaining: result.data.remaining,
             total: result.data.total,

@@ -117,7 +117,9 @@ export const useTestProviderConnection = () => {
           return await provider.validateConnection()
         }
       } catch (error) {
-        console.error(`Failed to test ${type} provider connection:`, error)
+        if (import.meta.env.DEV) {
+          console.error(`Failed to test ${type} provider connection:`, error)
+        }
         return false
       }
     },
@@ -138,7 +140,7 @@ export const useHealthyProviders = (type: 'ai' | 'data') => {
  */
 export const useProviderStatsQuery = (providerName: string) => {
   const { providerManager } = useProviderContext()
-  // const { providerStats } = useProviderStore() // TODO: Use provider stats
+  // const { providerStats } = useProviderStore()
 
   return useQuery({
     ...createQueryOptions<any>({

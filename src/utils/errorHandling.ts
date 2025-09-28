@@ -276,7 +276,9 @@ export function createErrorBoundaryHandler(componentName: string) {
     })
 
     // Log the error
-    console.error(`Error in ${componentName}:`, processedError)
+    if (import.meta.env.DEV) {
+      console.error(`Error in ${componentName}:`, processedError)
+    }
 
     // You could also send to error tracking service here
     // errorTrackingService.captureError(processedError)

@@ -116,7 +116,9 @@ export class OpenAIProvider implements IAIProvider {
       })
       return true
     } catch (error) {
-      console.warn('OpenAI connection validation failed:', error)
+      if (import.meta.env.DEV) {
+        console.warn('OpenAI connection validation failed:', error)
+      }
       return false
     }
   }
@@ -324,10 +326,12 @@ export class OpenAIProvider implements IAIProvider {
         return await operation()
       } catch (error) {
         lastError = error
-        console.warn(
-          `${this.config.name} attempt ${attempt} failed${context ? ` (${context})` : ''}:`,
-          error
-        )
+        if (import.meta.env.DEV) {
+          console.warn(
+            `${this.config.name} attempt ${attempt} failed${context ? ` (${context})` : ''}:`,
+            error
+          )
+        }
 
         // Don't retry on certain errors
         if (this.shouldNotRetry(error)) {
@@ -593,7 +597,9 @@ Generate a strategic 3-leg parlay with detailed football analysis and comprehens
 
       return parlay
     } catch (error) {
-      console.error('Error parsing AI response:', error)
+      if (import.meta.env.DEV) {
+        console.error('Error parsing AI response:', error)
+      }
       throw new Error(
         `Failed to parse AI response: ${error instanceof Error ? error.message : 'Unknown error'}`
       )

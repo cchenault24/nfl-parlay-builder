@@ -89,7 +89,9 @@ export const createUserProfile = async (
         ...additionalData,
       })
     } catch (error) {
-      console.error('Error creating user profile:', error)
+      if (import.meta.env.DEV) {
+        console.error('Error creating user profile:', error)
+      }
       throw error
     }
   }
@@ -110,7 +112,9 @@ export const getUserProfile = async (
   const data = userSnap.data()
 
   if (!data.displayName || !data.email || !data.createdAt) {
-    console.warn('User profile missing required fields:', data)
+    if (import.meta.env.DEV) {
+      console.warn('User profile missing required fields:', data)
+    }
     return null
   }
 
@@ -137,7 +141,9 @@ export const saveParlayToUser = async (
     })
     return parlayRef.id
   } catch (error) {
-    console.error('Error saving parlay:', error)
+    if (import.meta.env.DEV) {
+      console.error('Error saving parlay:', error)
+    }
     throw error
   }
 }
@@ -170,7 +176,9 @@ export const getUserParlays = (
       callback(parlays)
     },
     error => {
-      console.error('Error fetching user parlays:', error)
+      if (import.meta.env.DEV) {
+        console.error('Error fetching user parlays:', error)
+      }
       callback([])
     }
   )
