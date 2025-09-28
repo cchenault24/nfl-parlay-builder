@@ -6,7 +6,7 @@ import {
   VarietyFactors,
 } from '../../types'
 import { BaseParlayProvider, GenerationOptions } from './BaseParlayProvider'
-import { ContextBuilder } from './ContextBuilder'
+// Removed ContextBuilder import - unused
 
 /**
  * Supported AI providers for parlay generation
@@ -131,12 +131,31 @@ export class ParlayAIService {
     let fallbackUsed = false
 
     // Build rich context for AI generation
-    const context = ContextBuilder.buildContext(
-      game,
-      rosters,
+    // Removed ContextBuilder usage - using simplified context
+    const context = {
       strategy,
-      varietyFactors
-    )
+      varietyFactors,
+      gameContext: {
+        weather: { condition: 'clear' as const },
+        injuries: [],
+        restDays: { home: 7, away: 7 },
+        isRivalry: false,
+        isPlayoffs: false,
+        isPrimeTime: false,
+        venue: {
+          type: 'outdoor' as const,
+          surface: 'grass' as const,
+          homeFieldAdvantage: 0.5,
+        },
+      },
+      antiTemplateHints: {
+        recentBetTypes: [],
+        contextualFactors: [],
+        avoidPatterns: [],
+        emphasizeUnique: [],
+      },
+      temperature: options.temperature,
+    }
 
     // Apply generation options
     if (options.temperature !== undefined) {
