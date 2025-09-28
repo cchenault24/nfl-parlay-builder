@@ -1,0 +1,10 @@
+// Legal feature exports
+export { AgeVerificationModal } from './AgeVerificationModal'
+export { BaseLegalDialog } from './BaseLegalDialog'
+export { legalDialogConfigs } from './legalDialogConfigs'
+export { LegalDisclaimer } from './LegalDisclaimer'
+export { LegalDisclaimerDialog } from './LegalDisclaimerDialog'
+export { LegalFooter } from './LegalFooter'
+export { PrivacyPolicyDialog } from './PrivacyPolicyDialog'
+export { ResponsibleGambling } from './ResponsibleGambling'
+export { TermsOfServiceDialog } from './TermsOfServiceDialog'
