@@ -11,6 +11,15 @@ export const getEnvVar = (name: string): string => {
   return import.meta.env[name] || ''
 }
 
+// Export store utilities
+export * from './store'
+
+// Export error handling utilities
+export * from './errorHandling'
+
+// Export utility functions for debugging
+export { clearAllStoreData, clearStoreFromStorage } from './store'
+
 /**
  * Get the color for a bet type (for MUI components)
  */

@@ -13,13 +13,7 @@ import {
   Typography,
 } from '@mui/material'
 import React, { useEffect, useState } from 'react'
-
-interface RateLimitInfo {
-  remaining: number
-  total: number
-  resetTime: Date
-  currentCount: number
-}
+import { RateLimitInfo } from '../../types'
 
 interface RateLimitIndicatorProps {
   rateLimitInfo: RateLimitInfo | null

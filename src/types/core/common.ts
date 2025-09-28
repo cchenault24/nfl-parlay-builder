@@ -10,20 +10,3 @@ export interface BaseEntity {
   createdAt: Timestamp
   updatedAt?: Timestamp
 }
-
-export interface PaginationParams {
-  page?: number
-  limit?: number
-  offset?: number
-}
-
-export interface PaginatedResponse<T> {
-  data: T[]
-  pagination: {
-    page: number
-    limit: number
-    total: number
-    hasNext: boolean
-    hasPrev: boolean
-  }
-}

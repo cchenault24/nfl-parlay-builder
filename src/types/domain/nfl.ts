@@ -57,34 +57,3 @@ export interface GameRosters {
   homeRoster: NFLPlayer[]
   awayRoster: NFLPlayer[]
 }
-
-export interface TeamStats {
-  teamId: string
-  passingYards: number
-  rushingYards: number
-  totalYards: number
-  pointsPerGame: number
-  pointsAllowed: number
-  turnovers: number
-  record: string
-}
-
-export interface PlayerStats {
-  playerId: string
-  name: string
-  position: string
-  teamId: string
-  passingYards?: number
-  rushingYards?: number
-  receivingYards?: number
-  touchdowns: number
-  receptions?: number
-}
-
-export interface NewsItem {
-  title: string
-  description: string
-  publishedDate: string
-  url: string
-  teamIds: string[]
-}

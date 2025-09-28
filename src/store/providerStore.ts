@@ -1,5 +1,5 @@
-import { create } from 'zustand'
 import { ProviderHealth } from '../types/providers'
+import { createResetAction, createSimpleStore } from '../utils'
 
 interface ProviderState {
   // Provider health monitoring
@@ -20,13 +20,19 @@ interface ProviderState {
       successRate?: number
     }
   >
+}
 
-  // Actions
+interface ProviderActions {
+  // Health monitoring actions
   setProviderHealth: (name: string, health: ProviderHealth) => void
   setAllProviderHealth: (health: Map<string, ProviderHealth>) => void
   setHealthMonitoring: (enabled: boolean) => void
+
+  // Provider selection actions
   setSelectedAIProvider: (provider: string | null) => void
   setSelectedDataProvider: (provider: string | null) => void
+
+  // Statistics actions
   updateProviderStats: (
     name: string,
     stats: Partial<{
@@ -36,20 +42,27 @@ interface ProviderState {
       successRate: number
     }>
   ) => void
+
+  // Getter actions
   getProviderHealth: (name: string) => ProviderHealth | undefined
   getHealthyProviders: (type: 'ai' | 'data') => string[]
+
+  // Reset actions
   clearProviderData: () => void
 }
 
-export const useProviderStore = create<ProviderState>()((set, get) => ({
-  // Initial state
+const initialState: ProviderState = {
   providerHealth: new Map(),
   isHealthMonitoring: false,
   selectedAIProvider: null,
   selectedDataProvider: null,
   providerStats: new Map(),
+}
 
-  // Actions
+export const useProviderStore = createSimpleStore<
+  ProviderState & ProviderActions
+>(initialState, (set, get) => ({
+  // Health monitoring actions
   setProviderHealth: (name, health) =>
     set(state => {
       const newHealth = new Map(state.providerHealth)
@@ -61,10 +74,12 @@ export const useProviderStore = create<ProviderState>()((set, get) => ({
 
   setHealthMonitoring: enabled => set({ isHealthMonitoring: enabled }),
 
+  // Provider selection actions
   setSelectedAIProvider: provider => set({ selectedAIProvider: provider }),
 
   setSelectedDataProvider: provider => set({ selectedDataProvider: provider }),
 
+  // Statistics actions
   updateProviderStats: (name, stats) =>
     set(state => {
       const newStats = new Map(state.providerStats)
@@ -78,6 +93,7 @@ export const useProviderStore = create<ProviderState>()((set, get) => ({
       return { providerStats: newStats }
     }),
 
+  // Getter actions
   getProviderHealth: (name: string): ProviderHealth | undefined => {
     const state = get()
     return state.providerHealth.get(name)
@@ -96,11 +112,11 @@ export const useProviderStore = create<ProviderState>()((set, get) => ({
     return healthy
   },
 
-  clearProviderData: () =>
-    set({
-      providerHealth: new Map(),
-      providerStats: new Map(),
-      selectedAIProvider: null,
-      selectedDataProvider: null,
-    }),
+  // Reset actions
+  clearProviderData: createResetAction({
+    providerHealth: new Map(),
+    providerStats: new Map(),
+    selectedAIProvider: null,
+    selectedDataProvider: null,
+  }),
 }))

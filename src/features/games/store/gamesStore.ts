@@ -1,5 +1,9 @@
-import { create } from 'zustand'
 import { NFLGame } from '../../../types'
+import {
+  createArrayActions,
+  createResetAction,
+  createSimpleStore,
+} from '../../../utils'
 
 interface GamesState {
   // Game data
@@ -15,21 +19,34 @@ interface GamesState {
   // Error states
   gamesError: string | null
   weekError: string | null
+}
 
-  // Actions
+interface GamesActions {
+  // Data actions
   setGames: (games: NFLGame[]) => void
   setSelectedWeek: (week: number) => void
   setCurrentWeek: (week: number) => void
   setAvailableWeeks: (weeks: number[]) => void
+
+  // Loading actions
   setLoadingGames: (loading: boolean) => void
   setLoadingWeek: (loading: boolean) => void
+
+  // Error actions
   setGamesError: (error: string | null) => void
   setWeekError: (error: string | null) => void
+
+  // Array actions for games
+  addGame: (game: NFLGame) => void
+  removeGame: (index: number) => void
+  updateGame: (index: number, game: NFLGame) => void
+  clearGames: () => void
+
+  // Reset actions
   clearGamesData: () => void
 }
 
-export const useGamesStore = create<GamesState>(set => ({
-  // Initial state
+const initialState: GamesState = {
   games: [],
   selectedWeek: null,
   currentWeek: null,
@@ -38,21 +55,42 @@ export const useGamesStore = create<GamesState>(set => ({
   isLoadingWeek: false,
   gamesError: null,
   weekError: null,
+}
 
-  // Actions
-  setGames: games => set({ games }),
-  setSelectedWeek: week => set({ selectedWeek: week }),
-  setCurrentWeek: week => set({ currentWeek: week }),
-  setAvailableWeeks: weeks => set({ availableWeeks: weeks }),
-  setLoadingGames: loading => set({ isLoadingGames: loading }),
-  setLoadingWeek: loading => set({ isLoadingWeek: loading }),
-  setGamesError: error => set({ gamesError: error }),
-  setWeekError: error => set({ weekError: error }),
-  clearGamesData: () =>
-    set({
+const arrayActions = createArrayActions<GamesState, 'games'>(
+  'games',
+  state => state.games
+)
+
+export const useGamesStore = createSimpleStore<GamesState & GamesActions>(
+  initialState,
+  set => ({
+    // Data actions
+    setGames: games => set({ games }),
+    setSelectedWeek: week => set({ selectedWeek: week }),
+    setCurrentWeek: week => set({ currentWeek: week }),
+    setAvailableWeeks: weeks => set({ availableWeeks: weeks }),
+
+    // Loading actions
+    setLoadingGames: loading => set({ isLoadingGames: loading }),
+    setLoadingWeek: loading => set({ isLoadingWeek: loading }),
+
+    // Error actions
+    setGamesError: error => set({ gamesError: error }),
+    setWeekError: error => set({ weekError: error }),
+
+    // Array actions for games
+    addGame: game => set(arrayActions.addGame(game)),
+    removeGame: index => set(arrayActions.removeGame(index)),
+    updateGame: (index, game) => set(arrayActions.updateItem(index, game)),
+    clearGames: () => set(arrayActions.clearArray()),
+
+    // Reset actions
+    clearGamesData: createResetAction({
       games: [],
       selectedWeek: null,
       gamesError: null,
       weekError: null,
     }),
-}))
+  })
+)

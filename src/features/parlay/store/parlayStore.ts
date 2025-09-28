@@ -1,6 +1,9 @@
-import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
 import { GeneratedParlay, NFLGame } from '../../../types'
+import {
+  createFeatureStore,
+  createResetAction,
+  createSafeMigration,
+} from '../../../utils'
 
 interface ParlayState {
   // Parlay data
@@ -18,57 +21,76 @@ interface ParlayState {
   // Provider selection
   selectedAIProvider: string | null
   selectedDataProvider: string | null
+}
 
-  // Actions
+interface ParlayActions {
+  // Data actions
   setParlay: (parlay: GeneratedParlay | null) => void
   setSelectedGame: (game: NFLGame | null) => void
+
+  // Generation state actions
   setGenerating: (isGenerating: boolean) => void
   setGenerationError: (error: string | null) => void
+
+  // Save state actions
   setSaveParlaySuccess: (success: boolean) => void
   setSaveParlayError: (error: string | null) => void
+
+  // Provider selection actions
   setSelectedAIProvider: (provider: string | null) => void
   setSelectedDataProvider: (provider: string | null) => void
+
+  // Reset actions
   resetParlay: () => void
 }
 
-export const useParlayStore = create<ParlayState>()(
-  persist(
-    set => ({
-      // Initial state
+const initialState: ParlayState = {
+  parlay: null,
+  selectedGame: null,
+  isGenerating: false,
+  generationError: null,
+  saveParlaySuccess: false,
+  saveParlayError: null,
+  selectedAIProvider: null,
+  selectedDataProvider: null,
+}
+
+export const useParlayStore = createFeatureStore<ParlayState, ParlayActions>(
+  initialState,
+  (set, get) => ({
+    // Data actions
+    setParlay: parlay => set({ parlay }),
+    setSelectedGame: game => set({ selectedGame: game }),
+
+    // Generation state actions
+    setGenerating: isGenerating => set({ isGenerating }),
+    setGenerationError: error => set({ generationError: error }),
+
+    // Save state actions
+    setSaveParlaySuccess: success => set({ saveParlaySuccess: success }),
+    setSaveParlayError: error => set({ saveParlayError: error }),
+
+    // Provider selection actions
+    setSelectedAIProvider: provider => set({ selectedAIProvider: provider }),
+    setSelectedDataProvider: provider =>
+      set({ selectedDataProvider: provider }),
+
+    // Reset actions
+    resetParlay: createResetAction({
       parlay: null,
-      selectedGame: null,
       isGenerating: false,
       generationError: null,
       saveParlaySuccess: false,
       saveParlayError: null,
-      selectedAIProvider: null,
-      selectedDataProvider: null,
-
-      // Actions
-      setParlay: parlay => set({ parlay }),
-      setSelectedGame: game => set({ selectedGame: game }),
-      setGenerating: isGenerating => set({ isGenerating }),
-      setGenerationError: error => set({ generationError: error }),
-      setSaveParlaySuccess: success => set({ saveParlaySuccess: success }),
-      setSaveParlayError: error => set({ saveParlayError: error }),
-      setSelectedAIProvider: provider => set({ selectedAIProvider: provider }),
-      setSelectedDataProvider: provider =>
-        set({ selectedDataProvider: provider }),
-      resetParlay: () =>
-        set({
-          parlay: null,
-          isGenerating: false,
-          generationError: null,
-          saveParlaySuccess: false,
-          saveParlayError: null,
-        }),
     }),
-    {
-      name: 'nfl-parlay-parlay-store',
-      partialize: state => ({
-        selectedAIProvider: state.selectedAIProvider,
-        selectedDataProvider: state.selectedDataProvider,
-      }),
-    }
-  )
+  }),
+  {
+    name: 'nfl-parlay-parlay-store',
+    version: 1,
+    partialize: state => ({
+      selectedAIProvider: state.selectedAIProvider,
+      selectedDataProvider: state.selectedDataProvider,
+    }),
+    migrate: createSafeMigration(initialState, 1),
+  }
 )

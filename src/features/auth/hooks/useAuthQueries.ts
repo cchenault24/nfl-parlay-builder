@@ -5,14 +5,8 @@ import {
   createQueryOptions,
   QUERY_KEYS,
 } from '../../../hooks/query/useQueryConfig'
+import { RateLimitInfo } from '../../../types'
 import { useAuthStore } from '../store/authStore'
-
-interface RateLimitInfo {
-  remaining: number
-  total: number
-  currentCount: number
-  resetTime: Date
-}
 
 interface RateLimitResponse {
   success: boolean

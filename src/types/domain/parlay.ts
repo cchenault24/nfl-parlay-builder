@@ -102,21 +102,10 @@ export interface SavedParlay extends GeneratedParlay {
   savedAt: Timestamp
 }
 
-export interface ParlayRequest {
-  gameId: string
-  legCount: 3
-}
-
-export interface ParlayGenerationResult {
-  parlay: GeneratedParlay
-  rateLimitInfo?: RateLimitInfo
-  metadata?: ParlayMetadata
-}
-
 export interface RateLimitInfo {
   remaining: number
   total: number
-  resetTime: string
+  resetTime: string | Date
   currentCount: number
 }
 
@@ -152,55 +141,4 @@ export interface ParlayGenerationOptions {
   varietyFactors?: VarietyFactors
   provider?: 'mock' | 'openai'
   debugMode?: boolean
-}
-
-// AI Provider types
-export interface GameContext {
-  weather?: {
-    condition: 'indoor' | 'clear' | 'rain' | 'snow' | 'wind'
-    temperature?: number
-    windSpeed?: number
-  }
-  injuries: PlayerInjury[]
-  restDays: {
-    home: number
-    away: number
-  }
-  isRivalry: boolean
-  isPlayoffs: boolean
-  isPrimeTime: boolean
-  venue: {
-    type: 'dome' | 'outdoor'
-    surface: 'grass' | 'turf'
-    homeFieldAdvantage: number
-  }
-  publicBetting?: {
-    spreadConsensus: number // % on favorite
-    totalConsensus: number // % on over
-  }
-}
-
-export interface AntiTemplateHints {
-  recentBetTypes: string[]
-  contextualFactors: string[]
-  avoidPatterns: string[]
-  emphasizeUnique: string[]
-}
-
-export interface ParlayGenerationContext {
-  strategy: StrategyConfig
-  varietyFactors: VarietyFactors
-  gameContext: GameContext
-  antiTemplateHints: AntiTemplateHints
-  temperature?: number
-}
-
-export interface PlayerInjury {
-  playerId: string
-  playerName: string
-  position: string
-  team: string
-  injuryType: string
-  status: 'out' | 'doubtful' | 'questionable' | 'probable'
-  bodyPart: string
 }

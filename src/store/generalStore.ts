@@ -1,32 +1,42 @@
-import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import {
+  createFeatureStore,
+  createResetAction,
+  createSafeMigration,
+  createToggleAction,
+} from '../utils'
 
-interface GeneralStore {
+interface GeneralState {
   // Development settings
   devMockOverride: boolean
+}
 
-  // Actions
+interface GeneralActions {
+  // Development actions
   setDevMockOverride: (useMock: boolean) => void
+  toggleDevMockOverride: () => void
   clearDevMockOverride: () => void
 }
 
-const useGeneralStore = create<GeneralStore>()(
-  persist(
-    set => ({
-      // Initial state
-      devMockOverride: import.meta.env.MODE === 'development',
+const initialState: GeneralState = {
+  devMockOverride: import.meta.env.MODE === 'development',
+}
 
-      // Actions
-      setDevMockOverride: useMock => set({ devMockOverride: useMock }),
-      clearDevMockOverride: () => set({ devMockOverride: false }),
+const useGeneralStore = createFeatureStore<GeneralState, GeneralActions>(
+  initialState,
+  (set, get) => ({
+    // Development actions
+    setDevMockOverride: useMock => set({ devMockOverride: useMock }),
+    toggleDevMockOverride: () => set(createToggleAction('devMockOverride')),
+    clearDevMockOverride: createResetAction({ devMockOverride: false }),
+  }),
+  {
+    name: 'nfl-parlay-general-store',
+    version: 1,
+    partialize: state => ({
+      devMockOverride: state.devMockOverride,
     }),
-    {
-      name: 'nfl-parlay-general-store', // localStorage key
-      partialize: state => ({
-        devMockOverride: state.devMockOverride,
-      }), // Only persist the dev override
-    }
-  )
+    migrate: createSafeMigration(initialState, 1),
+  }
 )
 
 export default useGeneralStore

@@ -3,13 +3,7 @@ import { useEffect, useState } from 'react'
 import { useAuthState } from 'react-firebase-hooks/auth'
 import { API_CONFIG } from '../config/api'
 import { auth } from '../config/firebase'
-
-interface RateLimitInfo {
-  remaining: number
-  total: number
-  resetTime: Date
-  currentCount: number
-}
+import { RateLimitInfo } from '../types'
 
 interface RateLimitResponse {
   success: boolean
