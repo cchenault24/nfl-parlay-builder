@@ -10,6 +10,7 @@ import {
 } from '@mui/material'
 import React from 'react'
 import type { BetType, ParlayLeg } from '../../types'
+import { getBetTypeColor, getConfidenceColor } from '../../utils'
 
 interface ParlayLegViewProps extends React.HTMLAttributes<HTMLDivElement> {
   leg: ParlayLeg
@@ -27,31 +28,6 @@ const ParlayLegView: React.FC<ParlayLegViewProps> = ({ leg, index }) => {
       default:
         return <SportsIcon />
     }
-  }
-
-  const getBetTypeColor = (betType: BetType) => {
-    switch (betType) {
-      case 'spread':
-        return 'primary'
-      case 'total':
-        return 'secondary'
-      case 'moneyline':
-        return 'success'
-      case 'player_prop':
-        return 'info'
-      default:
-        return 'default'
-    }
-  }
-
-  const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 8) {
-      return 'success'
-    }
-    if (confidence >= 6) {
-      return 'warning'
-    }
-    return 'error'
   }
 
   const formatBetTarget = (leg: ParlayLeg) => {

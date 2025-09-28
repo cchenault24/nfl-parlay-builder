@@ -20,6 +20,7 @@ import {
 } from '@mui/material'
 import React from 'react'
 import type { GameSummary } from '../../types'
+import { getConfidenceColor } from '../../utils'
 
 type MatchupAnalysisData = string | Record<string, unknown> | null | undefined
 type PredictionData = string | Record<string, unknown> | null | undefined
@@ -187,20 +188,6 @@ const GameSummaryView: React.FC<GameSummaryViewProps> = ({
     label: 'Unknown Game Flow',
     color: 'default' as const,
     icon: <FootballIcon fontSize="small" />,
-  }
-
-  // Get confidence color
-  const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 8) {
-      return 'success'
-    }
-    if (confidence >= 6) {
-      return 'info'
-    }
-    if (confidence >= 4) {
-      return 'warning'
-    }
-    return 'error'
   }
 
   // Process the data safely

@@ -1,4 +1,4 @@
-import { BetType, ParlayLeg } from '../types'
+import { BetType } from '../types'
 
 // Workaround for TypeScript env issue
 /**
@@ -59,32 +59,6 @@ export const getConfidenceColor = (
 }
 
 /**
- * Format player prop target with team name
- */
-export const formatPlayerProp = (leg: ParlayLeg): string => {
-  if (leg.betType === 'player_prop') {
-    // If the target already has the correct format, use it
-    if (leg.target.includes('(') && leg.target.includes(')')) {
-      return leg.target
-    }
-
-    // Otherwise, try to format it properly
-    const playerName = leg.selection
-    const target = leg.target
-
-    // Try to extract the bet details
-    const overUnderMatch = target.match(/(Over|Under)\s+([\d.]+)\s+(.+)/)
-
-    if (overUnderMatch && playerName && playerName !== target) {
-      const [, overUnder, value, statType] = overUnderMatch
-      return `${playerName} - ${overUnder} ${value} ${statType}`
-    }
-  }
-
-  return leg.target
-}
-
-/**
  * Calculate parlay odds from individual odds
  */
 export const calculateParlayOdds = (individualOdds: string[]): string => {
@@ -111,9 +85,9 @@ export const calculateParlayOdds = (individualOdds: string[]): string => {
 }
 
 /**
- * Format game date for display
+ * Format game date and time for display
  */
-export const formatGameDate = (dateString: string): string => {
+export const formatGameDateTime = (dateString: string): string => {
   const date = new Date(dateString)
   return date.toLocaleDateString('en-US', {
     weekday: 'short',
@@ -122,63 +96,4 @@ export const formatGameDate = (dateString: string): string => {
     hour: 'numeric',
     minute: '2-digit',
   })
-}
-
-/**
- * Check if two teams are rivals
- */
-export const isRivalryGame = (team1: string, team2: string): boolean => {
-  const rivalries = [
-    // --- NFC East ---
-    ['Cowboys', 'Eagles'],
-    ['Cowboys', 'Giants'],
-    ['Cowboys', 'Commanders'],
-    ['Eagles', 'Giants'],
-
-    // --- NFC North ---
-    ['Packers', 'Bears'],
-    ['Packers', 'Vikings'],
-    ['Bears', 'Vikings'],
-
-    // --- NFC South ---
-    ['Saints', 'Falcons'],
-    ['Panthers', 'Falcons'],
-
-    // --- NFC West ---
-    ['49ers', 'Seahawks'],
-    ['49ers', 'Rams'],
-    ['49ers', 'Cowboys'], // Historic/Playoff Rivalry
-
-    // --- AFC East ---
-    ['Patriots', 'Jets'],
-    ['Bills', 'Dolphins'],
-    ['Bills', 'Patriots'],
-    ['Colts', 'Patriots'], // Historic Rivalry
-
-    // --- AFC North ---
-    ['Ravens', 'Steelers'],
-    ['Steelers', 'Bengals'],
-    ['Steelers', 'Browns'],
-
-    // --- AFC South ---
-    ['Colts', 'Titans'],
-    ['Texans', 'Titans'],
-
-    // --- AFC West ---
-    ['Chiefs', 'Raiders'],
-    ['Chiefs', 'Broncos'],
-    ['Chiefs', 'Bills'], // Modern Playoff Rivalry
-    ['Raiders', 'Broncos'],
-  ]
-
-  return rivalries.some(
-    rivalry => rivalry.includes(team1) && rivalry.includes(team2)
-  )
-}
-
-/**
- * Sleep function for delays
- */
-export const sleep = (ms: number): Promise<void> => {
-  return new Promise(resolve => setTimeout(resolve, ms))
 }

@@ -15,6 +15,7 @@ import { SelectChangeEvent } from '@mui/material/Select'
 import React from 'react'
 import { useParlayGenerator } from '../../hooks/useParlayGenerator'
 import type { NFLGame } from '../../types'
+import { formatGameDateTime } from '../../utils'
 import { useParlayStore } from '../parlay/store/parlayStore'
 import WeekSelector from './WeekSelector'
 
@@ -55,17 +56,6 @@ const GameSelector: React.FC<GameSelectorProps> = ({
 
   const formatGameDisplay = (game: NFLGame) => {
     return `${game.awayTeam.displayName} @ ${game.homeTeam.displayName}`
-  }
-
-  const formatGameDateTime = (dateString: string) => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-    })
   }
 
   // Helper function to check if game is completed

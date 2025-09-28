@@ -24,6 +24,7 @@ import React, { useEffect, useState } from 'react'
 import { getUserParlays } from '../../config/firebase'
 import { useAuth } from '../../hooks/useAuth'
 import { SavedParlay } from '../../types' // Use SavedParlay instead of GeneratedParlay
+import { getBetTypeColor, getConfidenceColor } from '../../utils'
 
 interface ParlayHistoryProps {
   open: boolean
@@ -82,31 +83,6 @@ export const ParlayHistory: React.FC<ParlayHistoryProps> = ({
       hour: 'numeric',
       minute: '2-digit',
     })
-  }
-
-  const getBetTypeColor = (betType: string) => {
-    switch (betType) {
-      case 'spread':
-        return 'primary'
-      case 'total':
-        return 'secondary'
-      case 'moneyline':
-        return 'success'
-      case 'player_prop':
-        return 'info'
-      default:
-        return 'default'
-    }
-  }
-
-  const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 8) {
-      return 'success'
-    }
-    if (confidence >= 6) {
-      return 'warning'
-    }
-    return 'error'
   }
 
   return (
@@ -197,16 +173,14 @@ export const ParlayHistory: React.FC<ParlayHistoryProps> = ({
                           >
                             <Chip
                               label={leg.betType}
-                              color={getBetTypeColor(leg.betType) as any}
+                              color={getBetTypeColor(leg.betType)}
                               size="small"
                               sx={{ textTransform: 'capitalize' }}
                             />
                             <Box sx={{ display: 'flex', gap: 1 }}>
                               <Chip
                                 label={`${leg.confidence}/10`}
-                                color={
-                                  getConfidenceColor(leg.confidence) as any
-                                }
+                                color={getConfidenceColor(leg.confidence)}
                                 size="small"
                                 variant="outlined"
                               />
