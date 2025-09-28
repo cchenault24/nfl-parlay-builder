@@ -67,7 +67,7 @@ export const useProviderStore = createFeatureStore<
   (set, get) => ({
     // Health monitoring actions
     setProviderHealth: (name: string, health: ProviderHealth) => {
-      const currentState = useProviderStore.getState()
+      const currentState = get()
       const newHealth = new Map(currentState.providerHealth)
       newHealth.set(name, health)
       set({ providerHealth: newHealth })
@@ -96,7 +96,7 @@ export const useProviderStore = createFeatureStore<
         successRate: number
       }>
     ) => {
-      const currentState = useProviderStore.getState()
+      const currentState = get()
       const newStats = new Map(currentState.providerStats)
       const currentStats = newStats.get(name) || {
         usageCount: 0,
