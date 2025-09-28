@@ -1,6 +1,7 @@
-import cors from 'cors'
 import * as admin from 'firebase-admin'
-import * as functions from 'firebase-functions'
+import { defineSecret } from 'firebase-functions/params'
+import { setGlobalOptions } from 'firebase-functions/v2'
+import { onRequest } from 'firebase-functions/v2/https'
 import { ParlayAIService } from './service/ai/ParlayAIService'
 import { MockProvider } from './service/ai/providers/MockProvider'
 import { OpenAIProvider } from './service/ai/providers/OpenAIProvider'
@@ -8,6 +9,17 @@ import { GameRosters, NFLGame, StrategyConfig, VarietyFactors } from './types'
 
 // Initialize Firebase Admin
 admin.initializeApp()
+
+// Define secrets
+const openaiApiKey = defineSecret('OPENAI_API_KEY')
+
+// Set global options for gen 2 functions
+setGlobalOptions({
+  maxInstances: 20,
+  timeoutSeconds: 60,
+  memory: '1GiB',
+  cpu: 1,
+})
 
 // Initialize AI Service
 const aiService = new ParlayAIService({
@@ -37,13 +49,12 @@ const initializeOpenAIProvider = async (): Promise<OpenAIProvider | null> => {
   }
 
   try {
-    // Get OpenAI API key from Firebase config or environment
-    let apiKey =
-      process.env.OPENAI_API_KEY || functions.config().openai?.api_key
+    // Get OpenAI API key from Firebase secret
+    const apiKey = openaiApiKey.value()
 
     if (!apiKey) {
       console.warn(
-        '⚠️ OpenAI API key not found in Firebase config or environment, using mock provider only'
+        '⚠️ OpenAI API key not found in Firebase secret, using mock provider only'
       )
       return null
     }
@@ -65,28 +76,7 @@ const initializeOpenAIProvider = async (): Promise<OpenAIProvider | null> => {
   }
 }
 
-// Configure CORS to allow requests from your frontend
-const corsOptions = {
-  origin: [
-    'http://localhost:3000',
-    'http://localhost:3001',
-    'http://127.0.0.1:3000',
-    'http://127.0.0.1:3001',
-    'http://localhost:5173', // Vite default port
-    'http://127.0.0.1:5173',
-  ],
-  credentials: true,
-  optionsSuccessStatus: 200,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: [
-    'Content-Type',
-    'Authorization',
-    'x-request-id',
-    'x-start-time',
-  ],
-}
-
-const corsHandler = cors(corsOptions)
+// CORS is handled automatically by gen 2 functions
 
 // Types
 interface FrontendRequest {
@@ -279,8 +269,13 @@ const convertVarietyFactors = (frontendVariety: any): VarietyFactors => {
 }
 
 // Main parlay generation function
-export const generateParlay = functions.https.onRequest((req, res) => {
-  corsHandler(req, res, async () => {
+export const generateParlay = onRequest(
+  {
+    cors: true,
+    region: 'us-central1',
+    secrets: [openaiApiKey],
+  },
+  async (req, res) => {
     try {
       console.log('📥 Received request:', {
         method: req.method,
@@ -401,12 +396,16 @@ export const generateParlay = functions.https.onRequest((req, res) => {
         timestamp: new Date().toISOString(),
       })
     }
-  })
-})
+  }
+)
 
 // Health check endpoint
-export const health = functions.https.onRequest((req, res) => {
-  corsHandler(req, res, () => {
+export const health = onRequest(
+  {
+    cors: true,
+    region: 'us-central1',
+  },
+  async (req, res) => {
     res.status(200).json({
       status: 'healthy',
       timestamp: new Date().toISOString(),
@@ -416,12 +415,16 @@ export const health = functions.https.onRequest((req, res) => {
         // Add other service checks here
       },
     })
-  })
-})
+  }
+)
 
 // Get game data endpoint
-export const getGameData = functions.https.onRequest((req, res) => {
-  corsHandler(req, res, async () => {
+export const getGameData = onRequest(
+  {
+    cors: true,
+    region: 'us-central1',
+  },
+  async (req, res) => {
     try {
       if (req.method !== 'POST') {
         res.status(405).json({ error: 'Method not allowed' })
@@ -463,12 +466,16 @@ export const getGameData = functions.https.onRequest((req, res) => {
         message: error instanceof Error ? error.message : 'Unknown error',
       })
     }
-  })
-})
+  }
+)
 
 // Get player stats endpoint
-export const getPlayerStats = functions.https.onRequest((req, res) => {
-  corsHandler(req, res, async () => {
+export const getPlayerStats = onRequest(
+  {
+    cors: true,
+    region: 'us-central1',
+  },
+  async (req, res) => {
     try {
       if (req.method !== 'POST') {
         res.status(405).json({ error: 'Method not allowed' })
@@ -516,12 +523,16 @@ export const getPlayerStats = functions.https.onRequest((req, res) => {
         message: error instanceof Error ? error.message : 'Unknown error',
       })
     }
-  })
-})
+  }
+)
 
 // Get rate limit status endpoint
-export const getRateLimitStatus = functions.https.onRequest((req, res) => {
-  corsHandler(req, res, () => {
+export const getRateLimitStatus = onRequest(
+  {
+    cors: true,
+    region: 'us-central1',
+  },
+  async (req, res) => {
     try {
       if (req.method !== 'GET') {
         res.status(405).json({ error: 'Method not allowed' })
@@ -548,5 +559,5 @@ export const getRateLimitStatus = functions.https.onRequest((req, res) => {
         message: error instanceof Error ? error.message : 'Unknown error',
       })
     }
-  })
-})
+  }
+)

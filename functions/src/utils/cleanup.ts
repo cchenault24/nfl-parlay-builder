@@ -1,52 +1,43 @@
-import * as functions from 'firebase-functions'
+import { onSchedule } from 'firebase-functions/v2/scheduler'
+import { onRequest } from 'firebase-functions/v2/https'
 import { RateLimiter } from '../middleware/rateLimiter'
 
 /**
  * Scheduled function to clean up expired rate limit entries
  * Runs every 6 hours to prevent Firestore bloat
  */
-export const cleanupRateLimits = functions
-  .region('us-central1')
-  .pubsub.schedule('every 6 hours')
-  .timeZone('America/New_York') // Adjust to your timezone
-  .onRun(async context => {
-    try {
-      // Initialize rate limiter with same config as main function
-      const rateLimiter = new RateLimiter({
-        windowMinutes: 60, // 1 hour window
-        maxRequests: 10, // 10 requests per hour
-        cleanupAfterHours: 24, // Clean up entries older than 24 hours
-      })
+export const cleanupRateLimits = onSchedule({
+  schedule: 'every 6 hours',
+  timeZone: 'America/New_York',
+  region: 'us-central1',
+}, async (event) => {
+  try {
+    // Initialize rate limiter with same config as main function
+    const rateLimiter = new RateLimiter({
+      windowMinutes: 60, // 1 hour window
+      maxRequests: 10, // 10 requests per hour
+      cleanupAfterHours: 24, // Clean up entries older than 24 hours
+    })
 
-      const result = await rateLimiter.cleanupExpiredEntries()
-
-      return {
-        success: true,
-        deletedCount: result.deletedCount,
-        timestamp: new Date().toISOString(),
-      }
-    } catch (error) {
-      console.error('❌ Rate limit cleanup failed:', error)
-
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-        timestamp: new Date().toISOString(),
-      }
-    }
-  })
+    const result = await rateLimiter.cleanupExpiredEntries()
+    console.log('✅ Rate limit cleanup completed:', {
+      deletedCount: result.deletedCount,
+      timestamp: new Date().toISOString(),
+    })
+  } catch (error) {
+    console.error('❌ Rate limit cleanup failed:', error)
+  }
+})
 
 /**
  * Manual cleanup function that can be called via HTTP
  * Useful for testing or manual maintenance
  */
-export const manualCleanupRateLimits = functions
-  .region('us-central1')
-  .runWith({
-    timeoutSeconds: 120,
-    memory: '256MB',
-  })
-  .https.onRequest(async (request, response) => {
+export const manualCleanupRateLimits = onRequest({
+  region: 'us-central1',
+  timeoutSeconds: 120,
+  memory: '256MiB',
+}, async (request, response) => {
     // Simple authentication check
     const authHeader = request.headers.authorization
     const expectedToken = process.env.CLEANUP_TOKEN || 'cleanup-secret-token'
