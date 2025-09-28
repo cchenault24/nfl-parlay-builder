@@ -83,15 +83,17 @@ export const useParlayGeneration = () => {
 
         // Transform roster responses to proper format
         const homeRoster = transformRosterResponse(
-          homeRostersResponse.data as unknown as Record<string, unknown>
+          homeRostersResponse.data as unknown as Record<string, unknown>,
+          'home'
         )
         const awayRoster = transformRosterResponse(
-          awayRostersResponse.data as unknown as Record<string, unknown>
+          awayRostersResponse.data as unknown as Record<string, unknown>,
+          'away'
         )
 
         const rosters = {
           homeRoster: homeRoster.homeRoster,
-          awayRoster: awayRoster.homeRoster, // Both responses will have homeRoster, we'll use it for both teams
+          awayRoster: awayRoster.awayRoster,
         }
 
         // Create context from actual preferences

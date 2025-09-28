@@ -339,14 +339,21 @@ export function transformAthleteToNFLPlayer(
  * Transform ESPN roster response to GameRosters format
  */
 export function transformRosterResponse(
-  data: Record<string, unknown>
+  data: Record<string, unknown>,
+  side: 'home' | 'away' = 'home'
 ): GameRosters {
   const rosterData = data as ESPNRosterData
   const athletes = rosterData?.athletes?.[0]?.items || []
-  return {
-    homeRoster: athletes.map((athlete: ESPNAthlete) =>
-      transformAthleteToNFLPlayer(athlete)
-    ),
-    awayRoster: [], // Will be populated separately
-  }
+  const players = athletes.map((athlete: ESPNAthlete) =>
+    transformAthleteToNFLPlayer(athlete)
+  )
+  return side === 'home'
+    ? {
+        homeRoster: players,
+        awayRoster: [],
+      }
+    : {
+        homeRoster: [],
+        awayRoster: players,
+      }
 }
