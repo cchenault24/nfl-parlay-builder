@@ -505,19 +505,9 @@ export class ProviderManager {
       return process.env[name]
     }
 
-    if (
-      typeof window !== 'undefined' &&
-      (
-        window as unknown as {
-          import?: { meta?: { env?: Record<string, string> } }
-        }
-      ).import?.meta?.env
-    ) {
-      return (
-        window as unknown as {
-          import: { meta: { env: Record<string, string> } }
-        }
-      ).import.meta.env[`VITE_${name}`]
+    // Access import.meta.env directly (module-level construct)
+    if (typeof import.meta !== 'undefined' && import.meta.env) {
+      return import.meta.env[`VITE_${name}`]
     }
 
     return undefined
