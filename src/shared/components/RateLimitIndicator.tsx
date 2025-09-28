@@ -18,7 +18,6 @@ import { RateLimitInfo } from '../../types'
 interface RateLimitIndicatorProps {
   rateLimitInfo: RateLimitInfo | null
   isLoading?: boolean
-  error?: string | null
 }
 
 /**
@@ -28,7 +27,6 @@ interface RateLimitIndicatorProps {
 export const RateLimitIndicator: React.FC<RateLimitIndicatorProps> = ({
   rateLimitInfo,
   isLoading = false,
-  error = null,
 }) => {
   const [timeUntilReset, setTimeUntilReset] = useState<string>('')
 
@@ -63,18 +61,6 @@ export const RateLimitIndicator: React.FC<RateLimitIndicatorProps> = ({
 
     return () => clearInterval(interval)
   }, [rateLimitInfo?.resetTime])
-
-  if (error) {
-    return (
-      <Fade in>
-        <Alert severity="warning" sx={{ mb: 2 }}>
-          <Typography variant="body2">
-            Unable to check rate limit status. You may experience limitations.
-          </Typography>
-        </Alert>
-      </Fade>
-    )
-  }
 
   if (isLoading || !rateLimitInfo) {
     return (

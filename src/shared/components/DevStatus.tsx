@@ -16,8 +16,8 @@ import {
   Typography,
 } from '@mui/material'
 import React from 'react'
+import { useClientRateLimit } from '../../hooks/useClientRateLimit'
 import { useParlayGeneratorSelector } from '../../hooks/useParlayGeneratorSelector'
-import { useRateLimit } from '../../hooks/useRateLimit'
 import useGeneralStore from '../../store/generalStore'
 import RateLimitIndicator from './RateLimitIndicator'
 
@@ -28,11 +28,7 @@ import RateLimitIndicator from './RateLimitIndicator'
 const DevStatus: React.FC = () => {
   const [expanded, setExpanded] = React.useState(false)
   const { serviceStatus } = useParlayGeneratorSelector()
-  const {
-    rateLimitInfo,
-    isLoading: rateLimitLoading,
-    error: rateLimitError,
-  } = useRateLimit()
+  const { rateLimitInfo, isLoading: rateLimitLoading } = useClientRateLimit()
 
   // Mock toggle state from store
   const devMockOverride = useGeneralStore(state => state.devMockOverride)
@@ -178,7 +174,6 @@ const DevStatus: React.FC = () => {
                 <RateLimitIndicator
                   rateLimitInfo={rateLimitInfo}
                   isLoading={rateLimitLoading}
-                  error={rateLimitError}
                 />
               </Box>
             )}

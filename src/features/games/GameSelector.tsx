@@ -248,6 +248,13 @@ const GameSelector: React.FC<GameSelectorProps> = ({
                     py: 1.5,
                     minHeight: '48px',
                   }}
+                  title={
+                    !canGenerate
+                      ? 'Please select a game to generate a parlay'
+                      : loading
+                        ? 'Generating parlay...'
+                        : 'Create a 3-leg parlay for the selected game'
+                  }
                 >
                   {loading ? 'Loading...' : 'Create 3-Leg Parlay'}
                 </Button>

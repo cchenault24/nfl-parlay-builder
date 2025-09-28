@@ -21,11 +21,11 @@ import { useParlayStore } from './features/parlay/store/parlayStore'
 import { useAgeVerification } from './hooks/useAgeVerification'
 import { useAuth } from './hooks/useAuth'
 import { useAvailableWeeks } from './hooks/useAvailableWeek'
+import { useClientRateLimit } from './hooks/useClientRateLimit'
 import { useCurrentWeek } from './hooks/useCurrentWeek'
 import { useGameRosters } from './hooks/useGameRosters'
 import { useNFLGames } from './hooks/useNFLGames'
 import { useParlayGeneratorSelector } from './hooks/useParlayGeneratorSelector'
-import { useRateLimit } from './hooks/useRateLimit'
 import DevStatus from './shared/components/DevStatus'
 import { LoadingScreen } from './shared/components/LoadingScreen'
 import { theme } from './theme'
@@ -78,7 +78,8 @@ function AppContent() {
   const { rosters } = useGameRosters(selectedGame || undefined)
 
   // Get rate limit info to disable generation when limit reached
-  const { isAtLimit } = useRateLimit()
+  const { rateLimitInfo, isLoading: rateLimitLoading } = useClientRateLimit()
+  const isAtLimit = rateLimitInfo ? rateLimitInfo.remaining === 0 : false
 
   // Fixed destructuring to match the actual return type of useParlayGeneratorSelector
   const parlayGenerator = useParlayGeneratorSelector()
@@ -240,7 +241,12 @@ function AppContent() {
             games={games || []}
             loading={gamesLoading || weekLoading}
             onGenerateParlay={handleGenerateParlay}
-            canGenerate={!!selectedGame && !parlayLoading && !isAtLimit()}
+            canGenerate={
+              !!selectedGame &&
+              !parlayLoading &&
+              !isAtLimit &&
+              !rateLimitLoading
+            }
             currentWeek={selectedWeek}
             onWeekChange={handleWeekChange}
             availableWeeks={availableWeeks}

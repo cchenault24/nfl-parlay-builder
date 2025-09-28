@@ -274,42 +274,11 @@ export const generateParlay = onRequest(
 
       const request = req.body as FrontendRequest
 
-      // Check rate limiting
-      let userId = 'anonymous'
-      try {
-        const authHeader = req.headers.authorization
-        if (authHeader && authHeader.startsWith('Bearer ')) {
-          const token = authHeader.split(' ')[1]
-          userId = `user_${token.slice(0, 8)}` // Use first 8 chars as user ID
-        }
-      } catch (error) {
-        console.warn('Error parsing auth token:', error)
-        // Continue with anonymous user
-      }
-
-      // Check if user has exceeded rate limit
-      const rateLimitInfo = getRateLimitInfo(userId)
-      if (rateLimitInfo.remaining <= 0) {
-        res.status(429).json({
-          error: 'Rate limit exceeded',
-          message: `You have exceeded the rate limit of ${rateLimitInfo.total} requests per hour. Please try again after ${new Date(rateLimitInfo.resetTime).toLocaleString()}`,
-          rateLimitInfo: {
-            remaining: rateLimitInfo.remaining,
-            resetTime: rateLimitInfo.resetTime,
-            currentCount: rateLimitInfo.currentCount,
-            total: rateLimitInfo.total,
-          },
-        })
-        return
-      }
-
       console.log('🎯 Generating parlay with:', {
         gameId: request.gameId,
         provider: request.options.provider,
         riskLevel: request.options.strategy.riskLevel,
         targetOdds: request.options.strategy.targetOdds,
-        userId,
-        rateLimitRemaining: rateLimitInfo.remaining,
       })
 
       // Create game and roster data using actual data from request
@@ -357,11 +326,6 @@ export const generateParlay = onRequest(
         legsCount: result.parlay.legs.length,
       })
 
-      // Increment rate limit after successful generation
-      incrementRateLimit(userId)
-      const updatedRateLimitInfo = getRateLimitInfo(userId)
-      console.log('📊 Updated rate limit info:', updatedRateLimitInfo)
-
       // Set CORS headers explicitly
       res.set('Access-Control-Allow-Origin', '*')
       res.set('Access-Control-Allow-Methods', 'POST, OPTIONS')
@@ -389,12 +353,6 @@ export const generateParlay = onRequest(
           tokens: result.metadata.tokens,
           fallbackUsed: result.metadata.fallbackUsed,
           attemptCount: result.metadata.attemptCount,
-        },
-        rateLimitInfo: {
-          remaining: updatedRateLimitInfo.remaining,
-          resetTime: updatedRateLimitInfo.resetTime,
-          currentCount: updatedRateLimitInfo.currentCount,
-          total: updatedRateLimitInfo.total,
         },
       })
     } catch (error) {
@@ -440,142 +398,4 @@ export const health = onRequest(
   }
 )
 
-// Simple in-memory rate limiter
-interface RateLimitEntry {
-  count: number
-  resetTime: number
-}
-
-const rateLimitStore = new Map<string, RateLimitEntry>()
-
-// Rate limit configuration
-const RATE_LIMIT_CONFIG = {
-  maxRequests: 10, // Max requests per window
-  windowMs: 60 * 60 * 1000, // 1 hour window
-  cleanupInterval: 5 * 60 * 1000, // Clean up expired entries every 5 minutes
-}
-
-// Clean up expired rate limit entries
-setInterval(() => {
-  const now = Date.now()
-  for (const [key, entry] of rateLimitStore.entries()) {
-    if (entry.resetTime < now) {
-      rateLimitStore.delete(key)
-    }
-  }
-}, RATE_LIMIT_CONFIG.cleanupInterval)
-
-// Helper function to get rate limit info for a user
-const getRateLimitInfo = (userId: string) => {
-  const now = Date.now()
-  const entry = rateLimitStore.get(userId)
-
-  if (!entry || entry.resetTime < now) {
-    // Create new entry or reset expired entry
-    const newEntry: RateLimitEntry = {
-      count: 0,
-      resetTime: now + RATE_LIMIT_CONFIG.windowMs,
-    }
-    rateLimitStore.set(userId, newEntry)
-    return {
-      remaining: RATE_LIMIT_CONFIG.maxRequests,
-      resetTime: new Date(newEntry.resetTime).toISOString(),
-      currentCount: 0,
-      total: RATE_LIMIT_CONFIG.maxRequests,
-      windowMs: RATE_LIMIT_CONFIG.windowMs,
-    }
-  }
-
-  return {
-    remaining: Math.max(0, RATE_LIMIT_CONFIG.maxRequests - entry.count),
-    resetTime: new Date(entry.resetTime).toISOString(),
-    currentCount: entry.count,
-    total: RATE_LIMIT_CONFIG.maxRequests,
-    windowMs: RATE_LIMIT_CONFIG.windowMs,
-  }
-}
-
-// Helper function to increment rate limit for a user
-const incrementRateLimit = (userId: string) => {
-  const now = Date.now()
-  const entry = rateLimitStore.get(userId)
-
-  if (!entry || entry.resetTime < now) {
-    // Create new entry or reset expired entry
-    const newEntry: RateLimitEntry = {
-      count: 1,
-      resetTime: now + RATE_LIMIT_CONFIG.windowMs,
-    }
-    rateLimitStore.set(userId, newEntry)
-    return true
-  }
-
-  if (entry.count >= RATE_LIMIT_CONFIG.maxRequests) {
-    return false // Rate limit exceeded
-  }
-
-  entry.count++
-  return true
-}
-
-// Get rate limit status endpoint
-export const getRateLimitStatus = onRequest(
-  {
-    cors: true,
-    region: 'us-central1',
-    invoker: 'public',
-  },
-  async (req, res) => {
-    try {
-      // Handle preflight requests
-      if (req.method === 'OPTIONS') {
-        res.status(204).send('')
-        return
-      }
-
-      if (req.method !== 'GET') {
-        res.status(405).json({ error: 'Method not allowed' })
-        return
-      }
-
-      // Get user ID from auth token if available
-      let userId = 'anonymous'
-      try {
-        const authHeader = req.headers.authorization
-        if (authHeader && authHeader.startsWith('Bearer ')) {
-          const token = authHeader.split(' ')[1]
-          // In a real implementation, you would verify the token here
-          // For now, we'll use a simple approach
-          userId = `user_${token.slice(0, 8)}` // Use first 8 chars as user ID
-        }
-      } catch (error) {
-        console.warn('Error parsing auth token:', error)
-        // Continue with anonymous user
-      }
-
-      const rateLimitStatus = getRateLimitInfo(userId)
-
-      // Set CORS headers explicitly
-      res.set('Access-Control-Allow-Origin', '*')
-      res.set('Access-Control-Allow-Methods', 'GET, OPTIONS')
-      res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-
-      res.status(200).json({
-        success: true,
-        data: rateLimitStatus,
-      })
-    } catch (error) {
-      console.error('Error fetching rate limit status:', error)
-
-      // Set CORS headers for error response
-      res.set('Access-Control-Allow-Origin', '*')
-      res.set('Access-Control-Allow-Methods', 'GET, OPTIONS')
-      res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-
-      res.status(500).json({
-        error: 'Failed to fetch rate limit status',
-        message: error instanceof Error ? error.message : 'Unknown error',
-      })
-    }
-  }
-)
+// Rate limiting is now handled client-side for better performance and UX

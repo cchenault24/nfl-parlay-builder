@@ -1,9 +1,9 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useRefreshRateLimit } from '../features/auth/hooks/useAuthQueries'
 import { useParlayStore } from '../features/parlay/store/parlayStore'
 import { ParlayPreferences, ParlayService } from '../services/ParlayService'
 import useGeneralStore from '../store/generalStore'
 import { CloudFunctionResponse } from '../types/api/interfaces'
+import { useClientRateLimit } from './useClientRateLimit'
 
 // Create a singleton instance - will be updated based on mock toggle
 let parlayService = new ParlayService('openai')
@@ -17,7 +17,8 @@ interface UseParlayGeneratorOptions {
 export const useParlayGenerator = (options: UseParlayGeneratorOptions = {}) => {
   const queryClient = useQueryClient()
   const setParlay = useParlayStore(state => state.setParlay)
-  const { mutate: refreshRateLimit } = useRefreshRateLimit()
+  const { canMakeRequest, incrementRateLimit, rateLimitInfo } =
+    useClientRateLimit()
 
   // Get mock toggle state from store
   const devMockOverride = useGeneralStore(state => state.devMockOverride)
@@ -65,8 +66,19 @@ export const useParlayGenerator = (options: UseParlayGeneratorOptions = {}) => {
         throw new Error('Preferences are required to generate a parlay')
       }
 
+      // Check rate limit before making the request
+      if (!canMakeRequest()) {
+        throw new Error(
+          `Rate limit exceeded. You have ${rateLimitInfo?.remaining || 0} requests remaining. Please wait until ${rateLimitInfo?.resetTime?.toLocaleTimeString()} to try again.`
+        )
+      }
+
       try {
         const result = (await parlayService.generateParlay(preferences)) as any
+
+        // Increment rate limit after successful generation
+        incrementRateLimit()
+
         if (import.meta.env.DEV) {
           console.debug('✅ Parlay generated successfully')
         }
@@ -168,11 +180,7 @@ export const useParlayGenerator = (options: UseParlayGeneratorOptions = {}) => {
         setParlay(transformedParlay)
       }
 
-      // Refresh rate limit data after parlay generation
-      if (import.meta.env.DEV) {
-        console.debug('🔄 Refreshing rate limit data after parlay generation')
-      }
-      refreshRateLimit()
+      // Rate limit is now handled client-side, no need to refresh
 
       // Invalidate related queries to refresh any cached data
       queryClient.invalidateQueries({ queryKey: ['parlays'] })
@@ -238,6 +246,10 @@ export const useParlayGenerator = (options: UseParlayGeneratorOptions = {}) => {
     error: mutation.error,
     data: mutation.data,
     reset: mutation.reset,
+
+    // Rate limiting
+    canMakeRequest,
+    rateLimitInfo,
 
     // Additional utility methods
     canRetry:
