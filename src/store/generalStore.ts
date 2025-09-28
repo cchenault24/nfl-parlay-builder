@@ -18,12 +18,12 @@ const initialState: GeneralState = {
 
 const useGeneralStore = createFeatureStore<GeneralState, GeneralActions>(
   initialState,
-  set => ({
+  (set, get) => ({
     // Development actions
     setDevMockOverride: useMock => set({ devMockOverride: useMock }),
     toggleDevMockOverride: () => {
-      const currentState = useGeneralStore.getState()
-      set({ devMockOverride: !currentState.devMockOverride })
+      const current = get().devMockOverride
+      set({ devMockOverride: !current })
     },
     clearDevMockOverride: () => set({ devMockOverride: false }),
   }),
