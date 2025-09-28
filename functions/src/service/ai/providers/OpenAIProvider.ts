@@ -411,7 +411,9 @@ Generate a strategic 3-leg parlay with detailed football analysis and comprehens
     context: ParlayGenerationContext
   ): GeneratedParlay {
     try {
-      const parsed = JSON.parse(response)
+      // Clean the response text to handle special characters and formatting
+      const cleanedResponse = this.cleanAIResponse(response)
+      const parsed = JSON.parse(cleanedResponse)
 
       // Validate structure
       if (
@@ -436,9 +438,10 @@ Generate a strategic 3-leg parlay with detailed football analysis and comprehens
         id: this.generateParlayId(),
         legs: validatedLegs as [ParlayLeg, ParlayLeg, ParlayLeg],
         gameContext: `${game.awayTeam.displayName} @ ${game.homeTeam.displayName} - Week ${game.week}`,
-        aiReasoning:
+        aiReasoning: this.cleanText(
           parsed.aiReasoning ||
-          `Generated using ${context.strategy.name} approach`,
+            `Generated using ${context.strategy.name} approach`
+        ),
         overallConfidence: Math.min(
           Math.max(parsed.overallConfidence || 6, 1),
           10
@@ -481,15 +484,60 @@ Generate a strategic 3-leg parlay with detailed football analysis and comprehens
       return {
         id: leg.id || `leg-${index + 1}`,
         betType,
-        selection: String(leg.selection || 'Unknown Selection'),
-        target: String(leg.target || 'TBD'),
-        reasoning: String(
+        selection: this.cleanText(leg.selection || 'Unknown Selection'),
+        target: this.cleanText(leg.target || 'TBD'),
+        reasoning: this.cleanText(
           leg.reasoning || 'Strategic selection based on analysis'
         ),
         confidence: Math.min(Math.max(Number(leg.confidence) || 5, 1), 10),
-        odds: String(leg.odds || '-110'),
+        odds: this.cleanText(leg.odds || '-110'),
       }
     })
+  }
+
+  /**
+   * Clean AI response text to handle special characters and formatting
+   */
+  private cleanAIResponse(response: string): string {
+    return (
+      response
+        .trim()
+        // Remove any markdown code blocks
+        .replace(/```json\s*/g, '')
+        .replace(/```\s*/g, '')
+        // Remove any leading/trailing whitespace and newlines
+        .replace(/^\s+|\s+$/g, '')
+        // Replace any non-printable characters except newlines and tabs
+        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+        // Normalize quotes to standard quotes
+        .replace(/[""]/g, '"')
+        .replace(/['']/g, "'")
+        // Remove any BOM or other Unicode markers
+        .replace(/^\uFEFF/, '')
+    )
+  }
+
+  /**
+   * Clean text content to remove special characters and normalize formatting
+   */
+  private cleanText(text: string | number | null | undefined): string {
+    if (!text) return ''
+
+    return (
+      String(text)
+        .trim()
+        // Remove any non-printable characters except spaces, newlines, and tabs
+        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+        // Normalize quotes
+        .replace(/[""]/g, '"')
+        .replace(/['']/g, "'")
+        // Remove any BOM or other Unicode markers
+        .replace(/^\uFEFF/, '')
+        // Clean up multiple spaces
+        .replace(/\s+/g, ' ')
+        // Remove any remaining control characters
+        .replace(/[\u2000-\u200F\u2028-\u202F\u205F-\u206F]/g, ' ')
+    )
   }
 
   /**
@@ -511,7 +559,7 @@ Generate a strategic 3-leg parlay with detailed football analysis and comprehens
     ]
 
     return {
-      matchupAnalysis: String(
+      matchupAnalysis: this.cleanText(
         gameSummary.matchupAnalysis ||
           `${game.awayTeam.displayName} vs ${game.homeTeam.displayName} matchup analysis.`
       ),
@@ -519,9 +567,11 @@ Generate a strategic 3-leg parlay with detailed football analysis and comprehens
         ? gameSummary.gameFlow
         : 'balanced_tempo',
       keyFactors: Array.isArray(gameSummary.keyFactors)
-        ? gameSummary.keyFactors.map(String).slice(0, 5)
+        ? gameSummary.keyFactors
+            .map(factor => this.cleanText(factor))
+            .slice(0, 5)
         : ['Team matchups', 'Key player availability', 'Game conditions'],
-      prediction: String(
+      prediction: this.cleanText(
         gameSummary.prediction ||
           'Competitive game expected between these two teams.'
       ),

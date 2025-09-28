@@ -281,18 +281,22 @@ export class MockProvider extends BaseParlayProvider {
    * Personalize analysis text with actual team names
    */
   private personalizeAnalysis(analysis: string, game: NFLGame): string {
-    return analysis
-      .replace(/\{awayTeam\}/g, game.awayTeam.displayName)
-      .replace(/\{homeTeam\}/g, game.homeTeam.displayName)
+    return this.cleanText(
+      analysis
+        .replace(/\{awayTeam\}/g, game.awayTeam.displayName)
+        .replace(/\{homeTeam\}/g, game.homeTeam.displayName)
+    )
   }
 
   /**
    * Personalize prediction text with actual team names
    */
   private personalizePrediction(prediction: string, game: NFLGame): string {
-    return prediction
-      .replace(/\{awayTeam\}/g, game.awayTeam.displayName)
-      .replace(/\{homeTeam\}/g, game.homeTeam.displayName)
+    return this.cleanText(
+      prediction
+        .replace(/\{awayTeam\}/g, game.awayTeam.displayName)
+        .replace(/\{homeTeam\}/g, game.homeTeam.displayName)
+    )
   }
 
   /**
@@ -300,6 +304,29 @@ export class MockProvider extends BaseParlayProvider {
    */
   private getVarianceAdjustment(): number {
     return (Math.random() - 0.5) * 2 // -1 to +1
+  }
+
+  /**
+   * Clean text content to remove special characters and normalize formatting
+   */
+  private cleanText(text: string | number | null | undefined): string {
+    if (!text) return ''
+
+    return (
+      String(text)
+        .trim()
+        // Remove any non-printable characters except spaces, newlines, and tabs
+        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+        // Normalize quotes
+        .replace(/[""]/g, '"')
+        .replace(/['']/g, "'")
+        // Remove any BOM or other Unicode markers
+        .replace(/^\uFEFF/, '')
+        // Clean up multiple spaces
+        .replace(/\s+/g, ' ')
+        // Remove any remaining control characters
+        .replace(/[\u2000-\u200F\u2028-\u202F\u205F-\u206F]/g, ' ')
+    )
   }
 
   /**

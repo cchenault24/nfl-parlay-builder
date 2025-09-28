@@ -46,50 +46,86 @@ const GameSummaryView: React.FC<GameSummaryViewProps> = ({
 
   // Helper function to safely render matchup analysis
   const renderMatchupAnalysis = (analysis: MatchupAnalysisData): string => {
-    if (typeof analysis === 'string') {
-      return analysis
-    }
+    let text = ''
 
-    // If it's an object, try to extract meaningful text
-    if (typeof analysis === 'object' && analysis !== null) {
+    if (typeof analysis === 'string') {
+      text = analysis
+    } else if (typeof analysis === 'object' && analysis !== null) {
       // Try to combine object values into readable text
       const values = Object.values(analysis)
       if (values.length > 0 && values.every(val => typeof val === 'string')) {
-        return values.join(' ')
-      }
-
-      // Fallback: convert object to readable format
-      const keys = Object.keys(analysis)
-      if (keys.length > 0) {
-        return keys
-          .map(key => {
-            const value = analysis[key]
-            return typeof value === 'string'
-              ? value
-              : `${key}: ${String(value)}`
-          })
-          .join('. ')
+        text = values.join(' ')
+      } else {
+        // Fallback: convert object to readable format
+        const keys = Object.keys(analysis)
+        if (keys.length > 0) {
+          text = keys
+            .map(key => {
+              const value = analysis[key]
+              return typeof value === 'string'
+                ? value
+                : `${key}: ${String(value)}`
+            })
+            .join('. ')
+        }
       }
     }
 
-    // Final fallback
-    return 'Matchup analysis data is not in the expected format.'
+    if (!text) {
+      return 'Matchup analysis data is not in the expected format.'
+    }
+
+    // Clean the text to remove any special characters
+    return (
+      text
+        .trim()
+        // Remove any non-printable characters except spaces, newlines, and tabs
+        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+        // Normalize quotes
+        .replace(/[""]/g, '"')
+        .replace(/['']/g, "'")
+        // Remove any BOM or other Unicode markers
+        .replace(/^\uFEFF/, '')
+        // Clean up multiple spaces
+        .replace(/\s+/g, ' ')
+        // Remove any remaining control characters
+        .replace(/[\u2000-\u200F\u2028-\u202F\u205F-\u206F]/g, ' ')
+    )
   }
 
   // Helper function to safely render prediction
   const renderPrediction = (prediction: PredictionData): string => {
-    if (typeof prediction === 'string') {
-      return prediction
-    }
+    let text = ''
 
-    if (typeof prediction === 'object' && prediction !== null) {
+    if (typeof prediction === 'string') {
+      text = prediction
+    } else if (typeof prediction === 'object' && prediction !== null) {
       const values = Object.values(prediction)
       if (values.length > 0 && values.every(val => typeof val === 'string')) {
-        return values.join(' ')
+        text = values.join(' ')
       }
     }
 
-    return 'Game prediction is not in the expected format.'
+    if (!text) {
+      return 'Game prediction is not in the expected format.'
+    }
+
+    // Clean the text to remove any special characters
+    return (
+      text
+        .trim()
+        // Remove any non-printable characters except spaces, newlines, and tabs
+        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+        // Normalize quotes
+        .replace(/[""]/g, '"')
+        .replace(/['']/g, "'")
+        // Remove any BOM or other Unicode markers
+        .replace(/^\uFEFF/, '')
+        // Clean up multiple spaces
+        .replace(/\s+/g, ' ')
+        // Remove any remaining control characters
+        .replace(/[\u2000-\u200F\u2028-\u202F\u205F-\u206F]/g, ' ')
+    )
   }
 
   // Helper function to safely render key factors
