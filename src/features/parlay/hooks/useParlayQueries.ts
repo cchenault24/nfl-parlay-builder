@@ -7,7 +7,9 @@ import {
   QUERY_KEYS,
 } from '../../../hooks/query/useQueryConfig'
 import { useAuth } from '../../../hooks/useAuth'
-import { CloudFunctionResponse, ParlayPreferences } from '../../../types'
+import { ParlayPreferences } from '../../../types'
+import { CloudFunctionResponse } from '../../../types/api/interfaces'
+import { transformRosterResponse } from '../../../utils/dataTransformation'
 import { useParlayStore } from '../store/parlayStore'
 
 /**
@@ -47,55 +49,45 @@ export const useParlayGeneration = () => {
           ? await getAIProvider(selectedAIProvider)
           : await getAIProvider()
 
-        // Get data provider (not used in current implementation)
-        await (selectedDataProvider
-          ? getDataProvider(selectedDataProvider)
-          : getDataProvider())
+        // Get data provider to fetch actual game and roster data
+        const dataProvider = selectedDataProvider
+          ? await getDataProvider(selectedDataProvider)
+          : await getDataProvider()
 
-        // Generate parlay using the providers
-        // For now, create a mock game and rosters until we fix the data flow
-        const mockGame = {
-          id: 'mock-game',
-          week: 1,
-          date: new Date().toISOString(),
-          season: 2024,
-          status: {
-            type: {
-              name: 'scheduled',
-              state: 'pre',
-              completed: false,
-            },
-          },
-          createdAt: new Date().toISOString(),
-          homeTeam: {
-            id: '1',
-            name: 'Home Team',
-            displayName: 'Home Team',
-            abbreviation: 'HT',
-            color: '#000000',
-            alternateColor: '#ffffff',
-            logo: 'https://example.com/logo.png',
-          },
-          awayTeam: {
-            id: '2',
-            name: 'Away Team',
-            displayName: 'Away Team',
-            abbreviation: 'AT',
-            color: '#000000',
-            alternateColor: '#ffffff',
-            logo: 'https://example.com/logo.png',
-          },
+        // Get actual game data from the selected game
+        const { selectedGame } = useParlayStore.getState()
+        if (!selectedGame) {
+          throw new Error('No game selected for parlay generation')
         }
-        const mockRosters = {
-          homeRoster: [],
-          awayRoster: [],
+
+        // Fetch actual rosters for the selected game
+        const homeRostersResponse = await dataProvider.getTeamRoster(
+          selectedGame.homeTeam.id
+        )
+        const awayRostersResponse = await dataProvider.getTeamRoster(
+          selectedGame.awayTeam.id
+        )
+
+        // Transform roster responses to proper format
+        const homeRoster = transformRosterResponse(homeRostersResponse.data)
+        const awayRoster = transformRosterResponse(awayRostersResponse.data)
+
+        const rosters = {
+          homeRoster: homeRoster.homeRoster,
+          awayRoster: awayRoster.homeRoster, // Both responses will have homeRoster, we'll use it for both teams
         }
-        const mockContext = {
+
+        // Create context from actual preferences
+        const context = {
           strategy: {
-            name: 'Mock Strategy',
-            description: 'Mock strategy description',
+            name: 'Custom Strategy',
+            description: 'AI-generated parlay strategy',
             temperature: 0.7,
-            riskProfile: 'medium' as 'low' | 'medium' | 'high',
+            riskProfile: (preferences.strategy.riskLevel === 'conservative'
+              ? 'low'
+              : preferences.strategy.riskLevel === 'moderate'
+                ? 'medium'
+                : 'high') as 'low' | 'medium' | 'high',
             confidenceRange: [0.6, 0.9] as [number, number],
             riskLevel: preferences.strategy.riskLevel,
             targetOdds: preferences.strategy.targetOdds,
@@ -114,7 +106,7 @@ export const useParlayGeneration = () => {
               | 'role_player'
               | 'breakout_candidate'
               | 'veteran',
-            gameScript: 'balanced_tempo' as
+            gameScript: 'close_game' as
               | 'high_scoring'
               | 'defensive'
               | 'blowout'
@@ -131,82 +123,74 @@ export const useParlayGeneration = () => {
             diversifyPositions: preferences.varietyFactors.diversifyPositions,
           },
           gameContext: {
-            injuries: [],
-            restDays: { home: 7, away: 7 },
-            isRivalry: false,
-            isPlayoffs: false,
-            isPrimeTime: false,
+            injuries: [], // TODO: Fetch actual injury data
+            restDays: { home: 7, away: 7 }, // TODO: Calculate actual rest days
+            isRivalry: false, // TODO: Determine from historical data
+            isPlayoffs: false, // TODO: Determine from season context
+            isPrimeTime: false, // TODO: Determine from game time
             venue: {
-              type: 'outdoor' as 'dome' | 'outdoor',
+              type: 'outdoor' as 'dome' | 'outdoor', // TODO: Get actual venue data
               surface: 'grass' as 'grass' | 'turf',
               homeFieldAdvantage: 0.1,
             },
           },
           antiTemplateHints: {
-            recentBetTypes: [],
-            contextualFactors: [],
-            avoidPatterns: [],
-            emphasizeUnique: [],
+            recentBetTypes: [], // TODO: Get from user history
+            contextualFactors: [], // TODO: Analyze current context
+            avoidPatterns: [], // TODO: Get from user preferences
+            emphasizeUnique: [], // TODO: Get from user preferences
           },
         }
 
-        // Call AI provider (result not used in current implementation)
-        await aiProvider.generateParlay(mockGame, mockRosters, mockContext)
+        // Call AI provider with actual data
+        const aiResponse = await aiProvider.generateParlay(
+          selectedGame,
+          rosters,
+          context
+        )
 
         if (import.meta.env.DEV) {
-          console.log('✅ Parlay generated successfully')
+          console.log(
+            '✅ Parlay generated successfully with AI provider:',
+            aiResponse.metadata.provider
+          )
         }
+
         // Transform AIProviderResponse to CloudFunctionResponse format
-        // For now, return a mock parlay until we fix the data transformation
-        const mockParlay = {
-          legs: [
-            {
-              id: '1',
-              betType: 'player_prop',
-              selection: 'Player A',
-              target: 'Over 50 yards',
-              reasoning: 'Mock reasoning',
-              confidence: 0.8,
-              odds: '+150',
-            },
-            {
-              id: '2',
-              betType: 'total',
-              selection: 'Over',
-              target: '45.5',
-              reasoning: 'Mock reasoning',
-              confidence: 0.7,
-              odds: '-110',
-            },
-            {
-              id: '3',
-              betType: 'spread',
-              selection: 'Home Team',
-              target: '-3.5',
-              reasoning: 'Mock reasoning',
-              confidence: 0.6,
-              odds: '+100',
-            },
-          ],
-          totalOdds: '+750',
-          potentialPayout: 850,
-          confidence: 0.7,
-          reasoning: 'Mock parlay reasoning',
+        const transformedParlay = {
+          legs: aiResponse.parlay.legs.map((leg, index) => ({
+            id: leg.id || `leg-${index}`,
+            betType: leg.betType || 'spread',
+            selection: leg.selection || `Selection ${index + 1}`,
+            target: leg.target || `Target ${index + 1}`,
+            reasoning:
+              leg.reasoning || `AI-generated reasoning for ${leg.betType} bet`,
+            confidence: leg.confidence || 7,
+            odds: leg.odds?.toString() || '+100',
+          })),
+          totalOdds: aiResponse.parlay.estimatedOdds || '+100',
+          potentialPayout: 850, // TODO: Calculate based on odds
+          confidence: aiResponse.parlay.overallConfidence || 0.7,
+          reasoning:
+            aiResponse.parlay.aiReasoning || 'AI-generated parlay reasoning',
           generatedAt: new Date().toISOString(),
-          provider: 'mock',
-          gameContext: 'Mock game context',
-          gameSummary: {
-            matchupAnalysis: 'Mock analysis',
+          provider: aiResponse.metadata.provider,
+          model: aiResponse.metadata.model,
+          gameContext:
+            aiResponse.parlay.gameContext ||
+            `${selectedGame.awayTeam.displayName} @ ${selectedGame.homeTeam.displayName}`,
+          gameSummary: aiResponse.parlay.gameSummary || {
+            matchupAnalysis: 'AI-generated matchup analysis',
             gameFlow: 'balanced_tempo',
-            keyFactors: ['Mock factor 1', 'Mock factor 2'],
-            prediction: 'Mock prediction',
-            confidence: 0.7,
+            keyFactors: ['AI-generated factor 1', 'AI-generated factor 2'],
+            prediction: 'AI-generated prediction',
+            confidence: aiResponse.parlay.overallConfidence || 0.7,
           },
         }
 
         return {
           success: true,
-          data: mockParlay,
+          data: transformedParlay,
           error: undefined,
         }
       } catch (error) {
@@ -225,10 +209,7 @@ export const useParlayGeneration = () => {
       // Store the parlay in the store
       if (data.success && data.data) {
         if (import.meta.env.DEV) {
-          console.log(
-            '📊 Using actual Cloud Function response data:',
-            data.data
-          )
+          console.log('📊 Using actual AI provider response data:', data.data)
         }
 
         const transformedParlay = {
@@ -298,11 +279,11 @@ export const useParlayGeneration = () => {
                 confidence: 7,
               },
           metadata: {
-            provider: selectedAIProvider || 'openai',
-            model: 'gpt-4o-mini',
+            provider: data.data.provider || selectedAIProvider || 'openai',
+            model: 'gpt-4o-mini', // Default model since data.data.model might not exist
             generatedAt: new Date().toISOString(),
             latency: 0,
-            confidence: 0.75,
+            confidence: data.data.confidence || 0.75,
             fallbackUsed: false,
             attemptCount: 1,
           },

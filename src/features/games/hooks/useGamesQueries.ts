@@ -5,6 +5,11 @@ import {
   QUERY_KEYS,
 } from '../../../hooks/query/useQueryConfig'
 import { NFLGame } from '../../../types'
+import {
+  extractAvailableWeeks,
+  extractCurrentWeek,
+  transformGamesResponse,
+} from '../../../utils/dataTransformation'
 import { useGamesStore } from '../store/gamesStore'
 
 /**
@@ -26,9 +31,10 @@ export const useNFLGamesQuery = (week: number) => {
 
       try {
         const dataProvider = await getDataProvider()
-        await dataProvider.getGamesByWeek(week)
-        // For now, return empty array until we fix the transformation
-        const games: NFLGame[] = []
+        const response = await dataProvider.getGamesByWeek(week)
+
+        // Transform the provider response to NFLGame format
+        const games = transformGamesResponse(response.data)
 
         setGames(games)
         return games
@@ -65,9 +71,10 @@ export const useCurrentWeekQuery = () => {
 
       try {
         const dataProvider = await getDataProvider()
-        await dataProvider.getCurrentWeek()
-        // For now, return week 1 until we fix the transformation
-        const currentWeek = 1
+        const response = await dataProvider.getCurrentWeek()
+
+        // Extract current week from provider response
+        const currentWeek = extractCurrentWeek(response.data)
 
         setCurrentWeek(currentWeek)
         return currentWeek
@@ -100,9 +107,13 @@ export const useAvailableWeeksQuery = () => {
     }),
     queryFn: async (): Promise<number[]> => {
       const dataProvider = await getDataProvider()
-      await dataProvider.getAvailableWeeks()
-      // For now, return weeks 1-18 until we fix the transformation
-      const availableWeeks = Array.from({ length: 18 }, (_, i) => i + 1)
+      const response = await dataProvider.getAvailableWeeks()
+
+      // Extract available weeks from provider response
+      // Note: getAvailableWeeks might return a different format, so we handle both cases
+      const availableWeeks = Array.isArray(response.data)
+        ? response.data
+        : extractAvailableWeeks(response.data)
 
       setAvailableWeeks(availableWeeks)
       return availableWeeks
