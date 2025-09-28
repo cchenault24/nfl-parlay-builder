@@ -37,8 +37,10 @@ export const QUERY_CONFIG = {
  * Create a standardized query options object
  */
 export const createQueryOptions = <TData, TError = Error>(
-  options: Partial<UseQueryOptions<TData, TError>> = {}
-): UseQueryOptions<TData, TError> => ({
+  options: Partial<
+    UseQueryOptions<TData, TError, TData, readonly unknown[]>
+  > & { queryKey: readonly unknown[] } = { queryKey: [] }
+): UseQueryOptions<TData, TError, TData, readonly unknown[]> => ({
   staleTime: QUERY_CONFIG.STALE_TIME.MEDIUM,
   gcTime: QUERY_CONFIG.CACHE_TIME.MEDIUM,
   retry: QUERY_CONFIG.RETRY.DEFAULT,

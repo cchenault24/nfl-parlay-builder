@@ -41,7 +41,7 @@ interface ProviderState {
   clearProviderData: () => void
 }
 
-export const useProviderStore = create<ProviderState>(set => ({
+export const useProviderStore = create<ProviderState>()((set, get) => ({
   // Initial state
   providerHealth: new Map(),
   isHealthMonitoring: false,
@@ -78,13 +78,13 @@ export const useProviderStore = create<ProviderState>(set => ({
       return { providerStats: newStats }
     }),
 
-  getProviderHealth: name => {
-    const state = useProviderStore.getState()
+  getProviderHealth: (name: string): ProviderHealth | undefined => {
+    const state = get()
     return state.providerHealth.get(name)
   },
 
-  getHealthyProviders: type => {
-    const state = useProviderStore.getState()
+  getHealthyProviders: (type: 'ai' | 'data'): string[] => {
+    const state = get()
     const healthy: string[] = []
 
     for (const [name, health] of state.providerHealth) {

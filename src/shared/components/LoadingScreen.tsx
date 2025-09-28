@@ -1,7 +1,7 @@
-import React from 'react'
-import { Box, CircularProgress, Typography, Container } from '@mui/material'
 import { TrendingUp as TrendingUpIcon } from '@mui/icons-material'
-import ParlAIdLogo from './ParlAIdLogo'
+import { Box, CircularProgress, Container, Typography } from '@mui/material'
+import React from 'react'
+import ParlAIdLogo from '../../features/parlay/ParlAIdLogo'
 
 export const LoadingScreen: React.FC = () => {
   return (

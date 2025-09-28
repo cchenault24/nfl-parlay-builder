@@ -21,9 +21,9 @@ import {
 } from '@mui/material'
 import { Timestamp } from 'firebase/firestore'
 import React, { useEffect, useState } from 'react'
-import { getUserParlays } from '../config/firebase'
-import { useAuth } from '../hooks/useAuth'
-import { SavedParlay } from '../types' // Use SavedParlay instead of GeneratedParlay
+import { getUserParlays } from '../../config/firebase'
+import { useAuth } from '../../hooks/useAuth'
+import { SavedParlay } from '../../types' // Use SavedParlay instead of GeneratedParlay
 
 interface ParlayHistoryProps {
   open: boolean

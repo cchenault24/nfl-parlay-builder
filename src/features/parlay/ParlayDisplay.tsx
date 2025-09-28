@@ -9,16 +9,16 @@ import {
   Typography,
 } from '@mui/material'
 import React, { useEffect } from 'react'
-import useModalStore from '../../store/modalStore'
-import useParlayStore from '../../store/parlayStore'
 import type { GeneratedParlay } from '../../types'
 import { AuthModal } from '../auth/AuthModal'
+import { useAuthStore } from '../auth/store/authStore'
 import { LegalDisclaimer } from '../legal/LegalDisclaimer' // Add this import
 import GameSummaryView from './GameSummaryView'
 import ParlayDisplayFooter from './ParlayDisplayFooter'
 import ParlayLanding from './ParlayLanding'
 import ParlayLegView from './ParlayLegView'
 import ParlayLoading from './ParlayLoading'
+import { useParlayStore } from './store/parlayStore'
 
 interface ParlayDisplayProps {
   parlay?: GeneratedParlay
@@ -28,8 +28,8 @@ interface ParlayDisplayProps {
 const ParlayDisplay: React.FC<ParlayDisplayProps> = ({ parlay, loading }) => {
   // Store state and actions
   const setParlay = useParlayStore(state => state.setParlay)
-  const authModalOpen = useModalStore(state => state.authModalOpen)
-  const setAuthModalOpen = useModalStore(state => state.setAuthModalOpen)
+  const authModalOpen = useAuthStore(state => state.authModalOpen)
+  const setAuthModalOpen = useAuthStore(state => state.setAuthModalOpen)
 
   // Sync parlay prop with store whenever it changes
   useEffect(() => {

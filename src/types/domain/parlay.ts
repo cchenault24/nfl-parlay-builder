@@ -2,6 +2,39 @@ import { Timestamp } from 'firebase/firestore'
 import { BaseEntity } from '../core/common'
 import { NFLPlayer } from './nfl'
 
+// Re-export ParlayPreferences from services for convenience
+export interface ParlayPreferences {
+  game: {
+    homeTeam: string
+    awayTeam: string
+    gameTime: string
+    venue: string
+    week?: number
+  }
+  rosters: {
+    homeRoster: NFLPlayer[]
+    awayRoster: NFLPlayer[]
+  }
+  strategy: {
+    riskLevel: 'conservative' | 'moderate' | 'aggressive'
+    targetOdds: number
+    maxLegs: number
+    minLegs: number
+  }
+  varietyFactors: {
+    includePlayerProps: boolean
+    includeGameProps: boolean
+    includeTeamProps: boolean
+    diversifyPositions: boolean
+  }
+  options: {
+    budget: number
+    excludeInjuredPlayers: boolean
+    favoriteTeamBias?: string
+  }
+  gameId?: string
+}
+
 // ------------------------------------------------------------------------------------------------
 // Parlay domain types (consolidating all betting types)
 // ------------------------------------------------------------------------------------------------

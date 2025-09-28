@@ -1,5 +1,5 @@
 // Shared components exports
-export { DevStatus } from './DevStatus'
-export { ErrorBoundary } from './ErrorBoundary'
+export { default as DevStatus } from './DevStatus'
+export { default as ErrorBoundary } from './ErrorBoundary'
 export { LoadingScreen } from './LoadingScreen'
-export { RateLimitIndicator } from './RateLimitIndicator'
+export { default as RateLimitIndicator } from './RateLimitIndicator'

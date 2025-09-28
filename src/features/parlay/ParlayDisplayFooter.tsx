@@ -4,8 +4,8 @@ import React, { useState } from 'react'
 import { saveParlayToUser } from '../../config/firebase'
 
 import { useAuth } from '../../hooks/useAuth'
-import useModalStore from '../../store/modalStore'
-import useParlayStore from '../../store/parlayStore'
+import { useAuthStore } from '../auth/store/authStore'
+import { useParlayStore } from './store/parlayStore'
 
 const ParlayDisplayFooter: React.FC = () => {
   const { user } = useAuth()
@@ -17,7 +17,7 @@ const ParlayDisplayFooter: React.FC = () => {
   const saveParlayError = useParlayStore(state => state.saveParlayError)
 
   // Store actions
-  const setAuthModalOpen = useModalStore(state => state.setAuthModalOpen)
+  const setAuthModalOpen = useAuthStore(state => state.setAuthModalOpen)
   const setSaveParlaySuccess = useParlayStore(
     state => state.setSaveParlaySuccess
   )

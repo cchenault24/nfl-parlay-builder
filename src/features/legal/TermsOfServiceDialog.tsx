@@ -1,12 +1,12 @@
 import { CircularProgress, Dialog, DialogContent } from '@mui/material'
 import React from 'react'
 import { useLegalDialogConfig } from '../../hooks/useLegalDialogConfig'
-import useModalStore from '../../store/modalStore'
 import { BaseLegalDialog } from './BaseLegalDialog'
+import { useLegalStore } from './store/legalStore'
 
 export const TermsOfServiceDialog: React.FC = () => {
-  const termsModalOpen = useModalStore(state => state.termsModalOpen)
-  const setTermsModalOpen = useModalStore(state => state.setTermsModalOpen)
+  const termsModalOpen = useLegalStore(state => state.termsModalOpen)
+  const setTermsModalOpen = useLegalStore(state => state.setTermsModalOpen)
   const { config, loading, error } = useLegalDialogConfig(
     termsModalOpen,
     'termsOfServiceConfig'

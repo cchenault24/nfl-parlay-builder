@@ -1,3 +1,3 @@
 // Games feature exports
-export { GameSelector } from './GameSelector'
-export { WeekSelector } from './WeekSelector'
+export { default as GameSelector } from './GameSelector'
+export { default as WeekSelector } from './WeekSelector'

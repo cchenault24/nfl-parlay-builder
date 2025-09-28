@@ -16,9 +16,9 @@ import {
   Typography,
 } from '@mui/material'
 import React from 'react'
-import { useParlayGeneratorSelector } from '../hooks/useParlayGeneratorSelector'
-import { useRateLimit } from '../hooks/useRateLimit'
-import useGeneralStore from '../store/generalStore'
+import { useParlayGeneratorSelector } from '../../hooks/useParlayGeneratorSelector'
+import { useRateLimit } from '../../hooks/useRateLimit'
+import useGeneralStore from '../../store/generalStore'
 import RateLimitIndicator from './RateLimitIndicator'
 
 /**

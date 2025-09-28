@@ -1,26 +1,26 @@
-import React, { useState } from 'react'
 import {
-  Box,
-  Menu,
-  MenuItem,
-  Typography,
-  ListItemIcon,
-  ListItemText,
-  Paper,
-  Fade,
-  useTheme,
-  Chip,
-} from '@mui/material'
-import {
-  ExpandMore as ExpandMoreIcon,
   CalendarToday as CalendarIcon,
+  CheckCircle as CheckCircleIcon,
   Check as CheckIcon,
+  ExpandMore as ExpandMoreIcon,
   SportsFootball as FootballIcon,
   Lock as LockIcon,
   Schedule as ScheduleIcon,
-  CheckCircle as CheckCircleIcon,
 } from '@mui/icons-material'
-import { useCurrentWeek } from '../hooks/useCurrentWeek'
+import {
+  Box,
+  Chip,
+  Fade,
+  ListItemIcon,
+  ListItemText,
+  Menu,
+  MenuItem,
+  Paper,
+  Typography,
+  useTheme,
+} from '@mui/material'
+import React, { useState } from 'react'
+import { useCurrentWeek } from '../../hooks/useCurrentWeek'
 
 interface WeekSelectorProps {
   currentWeek: number

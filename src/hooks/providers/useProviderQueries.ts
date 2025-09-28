@@ -138,7 +138,7 @@ export const useHealthyProviders = (type: 'ai' | 'data') => {
  */
 export const useProviderStatsQuery = (providerName: string) => {
   const { providerManager } = useProviderContext()
-  const { providerStats } = useProviderStore()
+  // const { providerStats } = useProviderStore() // TODO: Use provider stats
 
   return useQuery({
     ...createQueryOptions<any>({

@@ -19,7 +19,7 @@ import {
   Typography,
 } from '@mui/material'
 import React, { useState } from 'react'
-import ParlAIdLogo from '../ParlAIdLogo'
+import ParlAIdLogo from '../parlay/ParlAIdLogo'
 import { AuthModal } from './AuthModal'
 
 export const AuthGate: React.FC = () => {

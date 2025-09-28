@@ -1,9 +1,9 @@
 import { Info as InfoIcon, Phone as PhoneIcon } from '@mui/icons-material'
 import { Box, Chip, Container, Grid, Link, Typography } from '@mui/material'
 import React from 'react'
-import useModalStore from '../../store/modalStore'
 import { LegalDisclaimerDialog } from './LegalDisclaimerDialog'
 import { PrivacyPolicyDialog } from './PrivacyPolicyDialog'
+import { useLegalStore } from './store/legalStore'
 import { TermsOfServiceDialog } from './TermsOfServiceDialog'
 
 interface LegalFooterProps {
@@ -14,9 +14,9 @@ export const LegalFooter: React.FC<LegalFooterProps> = ({
   onResponsibleGamblingClick,
 }) => {
   // Modal store actions
-  const setTermsModalOpen = useModalStore(state => state.setTermsModalOpen)
-  const setPrivacyModalOpen = useModalStore(state => state.setPrivacyModalOpen)
-  const setLegalDisclaimerModalOpen = useModalStore(
+  const setTermsModalOpen = useLegalStore(state => state.setTermsModalOpen)
+  const setPrivacyModalOpen = useLegalStore(state => state.setPrivacyModalOpen)
+  const setLegalDisclaimerModalOpen = useLegalStore(
     state => state.setLegalDisclaimerModalOpen
   )
 

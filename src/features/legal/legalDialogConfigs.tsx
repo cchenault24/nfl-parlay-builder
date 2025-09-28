@@ -201,3 +201,10 @@ export const legalDisclaimerConfig: Omit<
     titleColor: '#f44336',
   },
 }
+
+// Export all configurations
+export const legalDialogConfigs = {
+  termsOfServiceConfig,
+  privacyPolicyConfig,
+  legalDisclaimerConfig,
+}

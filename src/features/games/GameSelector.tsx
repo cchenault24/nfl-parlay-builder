@@ -13,9 +13,9 @@ import {
 } from '@mui/material'
 import { SelectChangeEvent } from '@mui/material/Select'
 import React from 'react'
-import { useParlayGenerator } from '../hooks/useParlayGenerator'
-import useParlayStore from '../store/parlayStore'
-import type { NFLGame } from '../types'
+import { useParlayGenerator } from '../../hooks/useParlayGenerator'
+import type { NFLGame } from '../../types'
+import { useParlayStore } from '../parlay/store/parlayStore'
 import WeekSelector from './WeekSelector'
 
 interface GameSelectorProps {
