@@ -26,10 +26,12 @@ export const useParlayGenerator = (options: UseParlayGeneratorOptions = {}) => {
   const mutation = useMutation({
     mutationKey: ['generateParlay'],
     mutationFn: async (preferences: ParlayPreferences) => {
-      console.log(
-        '🚀 Starting parlay generation with preferences:',
-        preferences
-      )
+      if (import.meta.env.DEV) {
+        console.debug(
+          '🚀 Starting parlay generation with preferences:',
+          preferences
+        )
+      }
 
       // Validate that we have the minimum required data
       if (!preferences) {
@@ -38,7 +40,9 @@ export const useParlayGenerator = (options: UseParlayGeneratorOptions = {}) => {
 
       try {
         const result = (await parlayService.generateParlay(preferences)) as any
-        console.log('✅ Parlay generated successfully')
+        if (import.meta.env.DEV) {
+          console.debug('✅ Parlay generated successfully')
+        }
         return result
       } catch (error) {
         console.error('❌ Parlay generation failed:', error)
@@ -48,7 +52,12 @@ export const useParlayGenerator = (options: UseParlayGeneratorOptions = {}) => {
     onSuccess: (data: CloudFunctionResponse) => {
       // Store the parlay in the store
       if (data.success && data.data) {
-        console.log('📊 Using actual Cloud Function response data:', data.data)
+        if (import.meta.env.DEV) {
+          console.debug(
+            '📊 Using actual Cloud Function response data:',
+            data.data
+          )
+        }
 
         const transformedParlay = {
           id: Date.now().toString(),
@@ -131,7 +140,9 @@ export const useParlayGenerator = (options: UseParlayGeneratorOptions = {}) => {
       }
 
       // Refresh rate limit data after parlay generation
-      console.log('🔄 Refreshing rate limit data after parlay generation')
+      if (import.meta.env.DEV) {
+        console.debug('🔄 Refreshing rate limit data after parlay generation')
+      }
       refreshRateLimit()
 
       // Invalidate related queries to refresh any cached data
@@ -217,13 +228,17 @@ export const useServiceHealth = () => {
       return parlayService.healthCheck()
     },
     onSuccess: isHealthy => {
-      console.log(
-        'Service health check:',
-        isHealthy ? '✅ Healthy' : '❌ Unhealthy'
-      )
+      if (import.meta.env.DEV) {
+        console.debug(
+          'Service health check:',
+          isHealthy ? '✅ Healthy' : '❌ Unhealthy'
+        )
+      }
     },
     onError: error => {
-      console.warn('Health check failed:', error)
+      if (import.meta.env.DEV) {
+        console.warn('Health check failed:', error)
+      }
     },
   })
 }

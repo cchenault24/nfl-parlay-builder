@@ -78,7 +78,9 @@ export class ParlayService {
   async generateParlay(
     preferences: ParlayPreferences & { gameId?: string }
   ): Promise<ParlayResult> {
-    console.log('🎯 Generating parlay with provider:', this.provider)
+    if (import.meta.env.DEV) {
+      console.debug('🎯 Generating parlay with provider:', this.provider)
+    }
 
     // Extract gameId from preferences first
     const { gameId, ...preferencesWithoutGameId } = preferences
@@ -125,12 +127,16 @@ export class ParlayService {
     endpoint: string,
     data: any
   ): Promise<any> {
-    console.log('🔍 Request endpoint:', endpoint)
-    console.log('🔍 Request payload:', JSON.stringify(data, null, 2))
+    if (import.meta.env.DEV) {
+      console.debug('🔍 Request endpoint:', endpoint)
+      console.debug('🔍 Request payload:', JSON.stringify(data, null, 2))
+    }
 
     try {
       const url = `${this.baseUrl}/${endpoint}`
-      console.log('🌐 Full URL:', url)
+      if (import.meta.env.DEV) {
+        console.debug('🌐 Full URL:', url)
+      }
 
       const response = await fetch(url, {
         method: 'POST',
@@ -141,11 +147,13 @@ export class ParlayService {
         body: JSON.stringify(data),
       })
 
-      console.log('📡 Response status:', response.status)
-      console.log(
-        '📡 Response headers:',
-        Object.fromEntries(response.headers.entries())
-      )
+      if (import.meta.env.DEV) {
+        console.debug('📡 Response status:', response.status)
+        console.debug(
+          '📡 Response headers:',
+          Object.fromEntries(response.headers.entries())
+        )
+      }
 
       if (!response.ok) {
         let errorMessage = `HTTP ${response.status}: ${response.statusText}`
@@ -170,7 +178,9 @@ export class ParlayService {
       }
 
       const result = await response.json()
-      console.log('✅ Response received:', result)
+      if (import.meta.env.DEV) {
+        console.debug('✅ Response received:', result)
+      }
       return result
     } catch (error) {
       console.error('❌ Request failed:', error)

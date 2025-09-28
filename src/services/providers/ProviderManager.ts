@@ -69,7 +69,9 @@ export class ProviderManager {
       await this.loadConfiguredProviders()
 
       this.initialized = true
-      console.log('Provider Manager initialized successfully')
+      if (import.meta.env.DEV) {
+        console.debug('Provider Manager initialized successfully')
+      }
     } catch (error) {
       console.error('Failed to initialize Provider Manager:', error)
       throw error

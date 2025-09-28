@@ -101,7 +101,9 @@ export class MockDataProvider implements IDataProvider {
     this.updateHealth(true)
 
     if (this.config.debugMode) {
-      console.log('Mock Data Provider initialized successfully')
+      if (import.meta.env.DEV) {
+        console.debug('Mock Data Provider initialized successfully')
+      }
     }
   }
 
@@ -144,7 +146,9 @@ export class MockDataProvider implements IDataProvider {
     this.updateHealth(false)
 
     if (this.config.debugMode) {
-      console.log('Mock Data Provider disposed')
+      if (import.meta.env.DEV) {
+        console.debug('Mock Data Provider disposed')
+      }
     }
   }
 

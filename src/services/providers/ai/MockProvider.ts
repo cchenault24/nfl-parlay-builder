@@ -93,7 +93,9 @@ export class MockProvider implements IAIProvider {
     this.updateHealth(true)
 
     if (this.config.debugMode) {
-      console.log('Mock AI Provider initialized successfully')
+      if (import.meta.env.DEV) {
+        console.debug('Mock AI Provider initialized successfully')
+      }
     }
   }
 
@@ -136,7 +138,9 @@ export class MockProvider implements IAIProvider {
     this.updateHealth(false)
 
     if (this.config.debugMode) {
-      console.log('Mock AI Provider disposed')
+      if (import.meta.env.DEV) {
+        console.debug('Mock AI Provider disposed')
+      }
     }
   }
 

@@ -17,6 +17,9 @@ export * from './store'
 // Export error handling utilities
 export * from './errorHandling'
 
+// Export logging utilities
+export * from './logger'
+
 // Export utility functions for debugging
 export { clearAllStoreData, clearStoreFromStorage } from './store'
 

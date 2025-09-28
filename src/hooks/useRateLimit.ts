@@ -34,7 +34,9 @@ export const useRateLimit = () => {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['rateLimitStatus', user?.uid],
     queryFn: async (): Promise<RateLimitInfo> => {
-      console.log('🔄 Fetching rate limit status from backend')
+      if (import.meta.env.DEV) {
+        console.debug('🔄 Fetching rate limit status from backend')
+      }
       // Get auth token if user is authenticated
       const authToken = user ? await user.getIdToken() : null
 
@@ -88,7 +90,9 @@ export const useRateLimit = () => {
         currentCount: result.data.currentCount,
         resetTime: new Date(result.data.resetTime),
       }
-      console.log('📊 Rate limit data received:', rateLimitData)
+      if (import.meta.env.DEV) {
+        console.debug('📊 Rate limit data received:', rateLimitData)
+      }
       return rateLimitData
     },
     enabled: !loading, // Don't run query until auth state is determined
