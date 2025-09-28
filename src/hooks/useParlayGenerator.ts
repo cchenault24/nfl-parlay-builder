@@ -2,10 +2,11 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRefreshRateLimit } from '../features/auth/hooks/useAuthQueries'
 import { useParlayStore } from '../features/parlay/store/parlayStore'
 import { ParlayPreferences, ParlayService } from '../services/ParlayService'
+import useGeneralStore from '../store/generalStore'
 import { CloudFunctionResponse } from '../types/api/interfaces'
 
-// Create a singleton instance
-const parlayService = new ParlayService('openai')
+// Create a singleton instance - will be updated based on mock toggle
+let parlayService = new ParlayService('openai')
 
 interface UseParlayGeneratorOptions {
   onSuccess?: (data: any) => void
@@ -18,7 +19,30 @@ export const useParlayGenerator = (options: UseParlayGeneratorOptions = {}) => {
   const setParlay = useParlayStore(state => state.setParlay)
   const { mutate: refreshRateLimit } = useRefreshRateLimit()
 
-  // Update provider if specified
+  // Get mock toggle state from store
+  const devMockOverride = useGeneralStore(state => state.devMockOverride)
+
+  // Determine which provider to use based on mock toggle
+  const getProvider = () => {
+    if (devMockOverride !== null) {
+      return devMockOverride ? 'mock' : 'openai'
+    }
+    // Default to mock in development, openai in production
+    return import.meta.env.MODE === 'development' ? 'mock' : 'openai'
+  }
+
+  // Update provider based on mock toggle state
+  const currentProvider = getProvider()
+  if (parlayService.getConfig().provider !== currentProvider) {
+    parlayService.setProvider(currentProvider)
+    if (import.meta.env.DEV) {
+      console.debug(
+        `🔄 Provider switched to: ${currentProvider} (mock override: ${devMockOverride})`
+      )
+    }
+  }
+
+  // Update provider if explicitly specified in options
   if (options.provider) {
     parlayService.setProvider(options.provider)
   }
@@ -30,6 +54,9 @@ export const useParlayGenerator = (options: UseParlayGeneratorOptions = {}) => {
         console.debug(
           '🚀 Starting parlay generation with preferences:',
           preferences
+        )
+        console.debug(
+          `🎯 Using provider: ${parlayService.getConfig().provider}`
         )
       }
 
