@@ -544,7 +544,7 @@ Generate a strategic 3-leg parlay with detailed football analysis and comprehens
    * Process game summary data
    */
   private processGameSummary(
-    gameSummary: any,
+    gameSummary: GameSummary,
     game: NFLGame
   ): GameSummary | undefined {
     if (!gameSummary || typeof gameSummary !== 'object') {
@@ -568,7 +568,7 @@ Generate a strategic 3-leg parlay with detailed football analysis and comprehens
         : 'balanced_tempo',
       keyFactors: Array.isArray(gameSummary.keyFactors)
         ? gameSummary.keyFactors
-            .map(factor => this.cleanText(factor))
+            .map((factor: string) => this.cleanText(factor))
             .slice(0, 5)
         : ['Team matchups', 'Key player availability', 'Game conditions'],
       prediction: this.cleanText(

@@ -237,6 +237,7 @@ export const generateParlay = onRequest(
     cors: true,
     region: 'us-central1',
     secrets: [openaiApiKey],
+    invoker: 'public',
   },
   async (req, res) => {
     try {
@@ -361,6 +362,11 @@ export const generateParlay = onRequest(
       const updatedRateLimitInfo = getRateLimitInfo(userId)
       console.log('📊 Updated rate limit info:', updatedRateLimitInfo)
 
+      // Set CORS headers explicitly
+      res.set('Access-Control-Allow-Origin', '*')
+      res.set('Access-Control-Allow-Methods', 'POST, OPTIONS')
+      res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+
       res.status(200).json({
         success: true,
         data: {
@@ -394,6 +400,11 @@ export const generateParlay = onRequest(
     } catch (error) {
       console.error('❌ Error generating parlay:', error)
 
+      // Set CORS headers for error response
+      res.set('Access-Control-Allow-Origin', '*')
+      res.set('Access-Control-Allow-Methods', 'POST, OPTIONS')
+      res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+
       res.status(500).json({
         error: 'Internal server error',
         message:
@@ -409,8 +420,14 @@ export const health = onRequest(
   {
     cors: true,
     region: 'us-central1',
+    invoker: 'public',
   },
   async (req, res) => {
+    // Set CORS headers explicitly
+    res.set('Access-Control-Allow-Origin', '*')
+    res.set('Access-Control-Allow-Methods', 'GET, OPTIONS')
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+
     res.status(200).json({
       status: 'healthy',
       timestamp: new Date().toISOString(),
@@ -506,9 +523,16 @@ export const getRateLimitStatus = onRequest(
   {
     cors: true,
     region: 'us-central1',
+    invoker: 'public',
   },
   async (req, res) => {
     try {
+      // Handle preflight requests
+      if (req.method === 'OPTIONS') {
+        res.status(204).send('')
+        return
+      }
+
       if (req.method !== 'GET') {
         res.status(405).json({ error: 'Method not allowed' })
         return
@@ -531,12 +555,23 @@ export const getRateLimitStatus = onRequest(
 
       const rateLimitStatus = getRateLimitInfo(userId)
 
+      // Set CORS headers explicitly
+      res.set('Access-Control-Allow-Origin', '*')
+      res.set('Access-Control-Allow-Methods', 'GET, OPTIONS')
+      res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+
       res.status(200).json({
         success: true,
         data: rateLimitStatus,
       })
     } catch (error) {
       console.error('Error fetching rate limit status:', error)
+
+      // Set CORS headers for error response
+      res.set('Access-Control-Allow-Origin', '*')
+      res.set('Access-Control-Allow-Methods', 'GET, OPTIONS')
+      res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+
       res.status(500).json({
         error: 'Failed to fetch rate limit status',
         message: error instanceof Error ? error.message : 'Unknown error',
