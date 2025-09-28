@@ -401,6 +401,43 @@ export class ProviderManager {
         }
       }
     )
+
+    this.factory.registerDataCreator(
+      'nfl',
+      async (config: DataProviderFactoryConfig) => {
+        const NFLDataProviderModule = await import('./data/NFLDataProvider')
+        const NFLDataProvider = NFLDataProviderModule.default
+        return new NFLDataProvider({
+          name: 'nfl',
+          baseURL: 'https://www.nfl.com/api',
+          enabled: true,
+          priority: 2,
+          timeout: 30000,
+          retries: 3,
+          ...config.config,
+        })
+      }
+    )
+
+    this.factory.registerDataCreator(
+      'sportradar',
+      async (config: DataProviderFactoryConfig) => {
+        const SportRadarDataProviderModule = await import(
+          './data/SportRadarDataProvider'
+        )
+        const SportRadarDataProvider = SportRadarDataProviderModule.default
+        return new SportRadarDataProvider({
+          name: 'sportradar',
+          baseURL: 'https://api.sportradar.us/nfl',
+          enabled: true,
+          priority: 3,
+          timeout: 30000,
+          retries: 3,
+          apiKey: config.apiKey,
+          ...config.config,
+        })
+      }
+    )
   }
 
   /**

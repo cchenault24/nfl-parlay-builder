@@ -6,6 +6,7 @@ import {
   NFLGame,
   NFLPlayer,
 } from '../types'
+import { BaseProviderData } from '../types/providers'
 
 // ESPN roster response structure
 interface ESPNRosterData {
@@ -14,10 +15,177 @@ interface ESPNRosterData {
   }>
 }
 
+// Generic provider data structures
+interface GenericCompetitor {
+  homeAway?: string
+  id?: string
+  teamId?: string
+  displayName?: string
+  name?: string
+  abbreviation?: string
+  alias?: string
+  city?: string
+  conference?: string
+  division?: string
+  color?: string
+  alternateColor?: string
+  logo?: string
+}
+
+interface GenericTeam {
+  id?: string
+  teamId?: string
+  displayName?: string
+  name?: string
+  abbreviation?: string
+  alias?: string
+  city?: string
+  conference?: string
+  division?: string
+  color?: string
+  alternateColor?: string
+  logo?: string
+}
+
+interface GenericEvent {
+  id?: string
+  week?: number
+  date?: string
+  status?:
+    | string
+    | {
+        type?: {
+          id?: string
+          name: string
+          state?: string
+          completed?: boolean
+        }
+      }
+  score?: {
+    home?: number
+    away?: number
+  }
+  competitions?: Array<{
+    competitors?: GenericCompetitor[]
+  }>
+  homeTeam?: GenericTeam
+  awayTeam?: GenericTeam
+}
+
+interface GenericProviderData extends BaseProviderData {
+  events?: GenericEvent[]
+  games?: GenericEvent[]
+  week?: {
+    number?: number
+  }
+}
+
 /**
- * Transform ESPN API response to NFLGame format
+ * Transform generic provider data to NFLGame format
  */
-export function transformGamesResponse(
+export function transformGamesResponse(data: BaseProviderData): NFLGame[] {
+  const genericData = data as GenericProviderData
+  // Try to access events array from the data
+  const events = genericData.events || genericData.games || []
+
+  if (!Array.isArray(events) || events.length === 0) {
+    return []
+  }
+
+  return events.map((event: GenericEvent) => {
+    // Handle different provider data structures
+    const competition = event.competitions?.[0]
+    const homeCompetitor =
+      competition?.competitors?.find(
+        (c: GenericCompetitor) => c.homeAway === 'home'
+      ) || event.homeTeam
+    const awayCompetitor =
+      competition?.competitors?.find(
+        (c: GenericCompetitor) => c.homeAway === 'away'
+      ) || event.awayTeam
+
+    if (!homeCompetitor || !awayCompetitor) {
+      throw new Error(`Missing team data for game ${event.id || 'unknown'}`)
+    }
+
+    return {
+      id: event.id || `${homeCompetitor.id}-${awayCompetitor.id}`,
+      week: event.week || 1,
+      season: new Date().getFullYear(),
+      date: event.date || new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      homeTeam: {
+        id: homeCompetitor.id || homeCompetitor.teamId || 'unknown-home',
+        name:
+          homeCompetitor.name || homeCompetitor.displayName || 'Unknown Team',
+        displayName:
+          homeCompetitor.displayName || homeCompetitor.name || 'Unknown Team',
+        abbreviation:
+          homeCompetitor.abbreviation || homeCompetitor.alias || 'UNK',
+        city: homeCompetitor.city || '',
+        conference: homeCompetitor.conference || 'NFC',
+        division: homeCompetitor.division || '',
+        color: homeCompetitor.color || '#000000',
+        alternateColor: homeCompetitor.alternateColor || '#ffffff',
+        logo: homeCompetitor.logo || '',
+      },
+      awayTeam: {
+        id: awayCompetitor.id || awayCompetitor.teamId || 'unknown-away',
+        name:
+          awayCompetitor.name || awayCompetitor.displayName || 'Unknown Team',
+        displayName:
+          awayCompetitor.displayName || awayCompetitor.name || 'Unknown Team',
+        abbreviation:
+          awayCompetitor.abbreviation || awayCompetitor.alias || 'UNK',
+        city: awayCompetitor.city || '',
+        conference: awayCompetitor.conference || 'AFC',
+        division: awayCompetitor.division || '',
+        color: awayCompetitor.color || '#000000',
+        alternateColor: awayCompetitor.alternateColor || '#ffffff',
+        logo: awayCompetitor.logo || '',
+      },
+      status: (() => {
+        if (typeof event.status === 'string') {
+          return {
+            type: {
+              name: event.status,
+              state: event.status === 'completed' ? 'post' : 'pre',
+              completed: event.status === 'completed',
+            },
+          } as const
+        }
+        if (event.status && event.status.type) {
+          return event.status as {
+            type: {
+              id?: string
+              name: string
+              state?: string
+              completed?: boolean
+            }
+          }
+        }
+        return {
+          type: {
+            name: 'scheduled',
+            state: 'pre',
+            completed: false,
+          },
+        } as const
+      })(),
+      score: event.score
+        ? {
+            home: event.score.home || 0,
+            away: event.score.away || 0,
+          }
+        : undefined,
+    }
+  })
+}
+
+/**
+ * Transform ESPN API response to NFLGame format (legacy)
+ */
+export function transformESPNGamesResponse(
   data: ESPNScoreboardResponse
 ): NFLGame[] {
   if (!data.events || data.events.length === 0) {
@@ -118,8 +286,10 @@ function isGameCompleted(status?: string): boolean {
 /**
  * Extract current week from ESPN response
  */
-export function extractCurrentWeek(data: ESPNScoreboardResponse): number {
-  return data.week?.number || 1
+export function extractCurrentWeek(data: BaseProviderData): number {
+  const genericData = data as GenericProviderData
+  // Try to extract week from different provider data structures
+  return genericData.week?.number || 1
 }
 
 /**

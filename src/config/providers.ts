@@ -65,7 +65,7 @@ export const PROVIDER_CONFIGS: Record<string, EnvironmentProviderConfig> = {
     },
     data: {
       primary: 'mock',
-      fallback: ['espn'],
+      fallback: ['espn', 'nfl'],
       providers: {
         mock: {
           enabled: true,
@@ -81,6 +81,24 @@ export const PROVIDER_CONFIGS: Record<string, EnvironmentProviderConfig> = {
           priority: 2,
           config: {
             name: 'espn-dev',
+            timeout: 30000,
+            retries: 3,
+          },
+        },
+        nfl: {
+          enabled: true,
+          priority: 3,
+          config: {
+            name: 'nfl-dev',
+            timeout: 30000,
+            retries: 3,
+          },
+        },
+        sportradar: {
+          enabled: false, // Requires API key
+          priority: 4,
+          config: {
+            name: 'sportradar-dev',
             timeout: 30000,
             retries: 3,
           },
@@ -119,7 +137,7 @@ export const PROVIDER_CONFIGS: Record<string, EnvironmentProviderConfig> = {
     },
     data: {
       primary: 'espn',
-      fallback: ['mock'],
+      fallback: ['nfl', 'sportradar', 'mock'],
       providers: {
         espn: {
           enabled: true,
@@ -134,9 +152,27 @@ export const PROVIDER_CONFIGS: Record<string, EnvironmentProviderConfig> = {
             },
           },
         },
-        mock: {
+        nfl: {
           enabled: true,
           priority: 2,
+          config: {
+            name: 'nfl-prod',
+            timeout: 30000,
+            retries: 3,
+          },
+        },
+        sportradar: {
+          enabled: true,
+          priority: 3,
+          config: {
+            name: 'sportradar-prod',
+            timeout: 30000,
+            retries: 3,
+          },
+        },
+        mock: {
+          enabled: true,
+          priority: 4,
           config: {
             name: 'mock-data-prod',
             debugMode: false,

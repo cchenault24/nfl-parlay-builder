@@ -1,5 +1,5 @@
 // ================================================================================================
-// ESPN DATA PROVIDER - ESPN implementation of IDataProvider interface
+// NFL.COM DATA PROVIDER - NFL.com implementation of IDataProvider interface
 // ================================================================================================
 
 import {
@@ -9,10 +9,6 @@ import {
   WeatherData,
 } from '../../../types/api/player'
 import { APIResponse } from '../../../types/core/api'
-import {
-  ESPNRosterResponse,
-  ESPNScoreboardResponse,
-} from '../../../types/external'
 import {
   BaseProviderData,
   DataProviderConfig,
@@ -24,9 +20,9 @@ import {
 } from '../../../types/providers'
 
 /**
- * ESPN data provider implementation
+ * NFL.com data provider implementation
  */
-export class ESPNDataProvider implements IDataProvider {
+export class NFLDataProvider implements IDataProvider {
   public readonly metadata: DataProviderMetadata
   public readonly config: DataProviderConfig
   private health: ProviderHealth
@@ -36,20 +32,18 @@ export class ESPNDataProvider implements IDataProvider {
   constructor(config: DataProviderConfig) {
     this.config = {
       ...config,
-      name: config.name || 'espn',
+      name: config.name || 'nfl',
       enabled: config.enabled !== undefined ? config.enabled : true,
       priority: config.priority || 1,
       timeout: config.timeout || 30000,
       retries: config.retries || 3,
-      baseURL:
-        config.baseURL ||
-        'https://site.api.espn.com/apis/site/v2/sports/football/nfl',
+      baseURL: config.baseURL || 'https://www.nfl.com/api',
     }
 
     this.baseURL = this.config.baseURL
 
     this.metadata = {
-      name: 'ESPN Data Provider',
+      name: 'NFL.com Data Provider',
       version: '1.0.0',
       type: 'data',
       capabilities: [
@@ -58,19 +52,23 @@ export class ESPNDataProvider implements IDataProvider {
         'player_stats',
         'injury_reports',
         'weather_data',
+        'team_stats',
+        'standings',
       ],
       supportedEndpoints: [
-        '/scoreboard',
+        '/scores',
         '/teams/{teamId}/roster',
         '/players/{playerId}/stats',
         '/teams/{teamId}/injuries',
+        '/teams/{teamId}/stats',
+        '/standings',
       ],
       dataQuality: 'high',
       updateFrequency: 'real-time',
       costPerRequest: 0, // Free API
       rateLimit: {
-        requestsPerMinute: 60,
-        requestsPerHour: 1000,
+        requestsPerMinute: 30,
+        requestsPerHour: 500,
       },
     }
 
@@ -92,7 +90,7 @@ export class ESPNDataProvider implements IDataProvider {
 
     try {
       // Test connection by making a simple request
-      await this.makeRequest('/scoreboard')
+      await this.makeRequest('/scores')
       this.initialized = true
       this.updateHealth(true)
     } catch (error) {
@@ -110,11 +108,11 @@ export class ESPNDataProvider implements IDataProvider {
    */
   async validateConnection(): Promise<boolean> {
     try {
-      await this.makeRequest('/scoreboard')
+      await this.makeRequest('/scores')
       return true
     } catch (error) {
       if (import.meta.env.DEV) {
-        console.warn('ESPN connection validation failed:', error)
+        console.warn('NFL.com connection validation failed:', error)
       }
       return false
     }
@@ -151,17 +149,11 @@ export class ESPNDataProvider implements IDataProvider {
   async getCurrentWeekGames(
     options: DataQueryOptions = {}
   ): Promise<DataProviderResponse<BaseProviderData>> {
-    const response = await this.makeRequest<ESPNScoreboardResponse>(
-      '/scoreboard',
+    const response = await this.makeRequest<BaseProviderData>(
+      '/scores',
       options
     )
-    return this.wrapResponse(
-      {
-        ...response,
-        data: response.data as unknown as BaseProviderData,
-      },
-      false
-    )
+    return this.wrapResponse(response, false)
   }
 
   /**
@@ -172,25 +164,15 @@ export class ESPNDataProvider implements IDataProvider {
     options: DataQueryOptions = {}
   ): Promise<DataProviderResponse<BaseProviderData>> {
     const currentYear = new Date().getFullYear()
-    const response = await this.makeRequest<ESPNScoreboardResponse>(
-      '/scoreboard',
-      {
-        ...options,
-        params: {
-          seasontype: 2, // Regular season
-          week,
-          year: currentYear,
-          ...options.params,
-        },
-      }
-    )
-    return this.wrapResponse(
-      {
-        ...response,
-        data: response.data as unknown as BaseProviderData,
+    const response = await this.makeRequest<BaseProviderData>('/scores', {
+      ...options,
+      params: {
+        season: currentYear,
+        week,
+        ...options.params,
       },
-      false
-    )
+    })
+    return this.wrapResponse(response, false)
   }
 
   /**
@@ -200,17 +182,11 @@ export class ESPNDataProvider implements IDataProvider {
     teamId: string,
     options: DataQueryOptions = {}
   ): Promise<DataProviderResponse<BaseProviderData>> {
-    const response = await this.makeRequest<ESPNRosterResponse>(
+    const response = await this.makeRequest<BaseProviderData>(
       `/teams/${teamId}/roster`,
       options
     )
-    return this.wrapResponse(
-      {
-        ...response,
-        data: response.data as unknown as BaseProviderData,
-      },
-      false
-    )
+    return this.wrapResponse(response, false)
   }
 
   /**
@@ -219,15 +195,8 @@ export class ESPNDataProvider implements IDataProvider {
   async getCurrentWeek(
     _options: DataQueryOptions = {}
   ): Promise<DataProviderResponse<BaseProviderData>> {
-    const response =
-      await this.makeRequest<ESPNScoreboardResponse>('/scoreboard')
-    return this.wrapResponse(
-      {
-        ...response,
-        data: response.data as unknown as BaseProviderData,
-      },
-      false
-    )
+    const response = await this.makeRequest<BaseProviderData>('/scores')
+    return this.wrapResponse(response, false)
   }
 
   /**
@@ -236,7 +205,7 @@ export class ESPNDataProvider implements IDataProvider {
   async getAvailableWeeks(
     _options: DataQueryOptions = {}
   ): Promise<DataProviderResponse<number[]>> {
-    // ESPN doesn't provide this endpoint, so we return static data
+    // NFL.com doesn't provide this endpoint, so we return static data
     const weeks = Array.from({ length: 18 }, (_, i) => i + 1)
 
     const response: APIResponse<number[]> = {
@@ -363,7 +332,7 @@ export class ESPNDataProvider implements IDataProvider {
   }
 
   /**
-   * Make HTTP request to ESPN API
+   * Make HTTP request to NFL.com API
    */
   private async makeRequest<T>(
     endpoint: string,
@@ -437,26 +406,13 @@ export class ESPNDataProvider implements IDataProvider {
   }
 
   /**
-   * Get default headers for ESPN API
+   * Get default headers for NFL.com API
    */
   private getDefaultHeaders(): Record<string, string> {
-    const headers: Record<string, string> = {
+    return {
       Accept: 'application/json',
+      'User-Agent': 'nfl-parlay-builder/1.0.0',
     }
-
-    // Don't add User-Agent on mobile devices (ESPN blocks it)
-    if (typeof navigator !== 'undefined') {
-      const isMobile =
-        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-          navigator.userAgent
-        )
-
-      if (!isMobile) {
-        headers['User-Agent'] = 'nfl-parlay-builder'
-      }
-    }
-
-    return headers
   }
 
   /**
@@ -471,9 +427,9 @@ export class ESPNDataProvider implements IDataProvider {
       provider: this.config.name,
       cached,
       timestamp: new Date(),
-      cost: 0, // ESPN API is free
+      cost: 0, // NFL.com API is free
     }
   }
 }
 
-export default ESPNDataProvider
+export default NFLDataProvider

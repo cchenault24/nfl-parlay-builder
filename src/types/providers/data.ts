@@ -2,10 +2,9 @@
 // DATA PROVIDER INTERFACES - Data source provider abstraction
 // ================================================================================================
 
+import { InjuryReport, PlayerStats, TeamStats, WeatherData } from '../api'
 import { APIResponse } from '../core/api'
-import { ESPNRosterResponse, ESPNScoreboardResponse } from '../external'
 import { IProvider, ProviderConfig, ProviderMetadata } from './base'
-import { PlayerStats, TeamStats, InjuryReport, WeatherData } from '../api'
 
 /**
  * Data provider query options
@@ -18,6 +17,13 @@ export interface DataQueryOptions {
   params?: Record<string, string | number | boolean | undefined | null>
   headers?: Record<string, string>
   signal?: AbortSignal
+}
+
+/**
+ * Base data structure for all provider responses
+ */
+export interface BaseProviderData {
+  [key: string]: string | number | boolean | object | null | undefined
 }
 
 /**
@@ -57,7 +63,7 @@ export interface DataProviderMetadata extends ProviderMetadata {
 }
 
 /**
- * NFL Data Provider interface for all data source providers
+ * Data Provider interface for all data source providers
  */
 export interface IDataProvider extends IProvider {
   readonly metadata: DataProviderMetadata
@@ -68,7 +74,7 @@ export interface IDataProvider extends IProvider {
    */
   getCurrentWeekGames(
     options?: DataQueryOptions
-  ): Promise<DataProviderResponse<ESPNScoreboardResponse>>
+  ): Promise<DataProviderResponse<BaseProviderData>>
 
   /**
    * Get games for a specific week
@@ -76,7 +82,7 @@ export interface IDataProvider extends IProvider {
   getGamesByWeek(
     week: number,
     options?: DataQueryOptions
-  ): Promise<DataProviderResponse<ESPNScoreboardResponse>>
+  ): Promise<DataProviderResponse<BaseProviderData>>
 
   /**
    * Get team roster
@@ -84,14 +90,14 @@ export interface IDataProvider extends IProvider {
   getTeamRoster(
     teamId: string,
     options?: DataQueryOptions
-  ): Promise<DataProviderResponse<ESPNRosterResponse>>
+  ): Promise<DataProviderResponse<BaseProviderData>>
 
   /**
    * Get current NFL week number
    */
   getCurrentWeek(
     options?: DataQueryOptions
-  ): Promise<DataProviderResponse<ESPNScoreboardResponse>>
+  ): Promise<DataProviderResponse<BaseProviderData>>
 
   /**
    * Get available weeks for current season

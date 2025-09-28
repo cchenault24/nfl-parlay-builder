@@ -15,6 +15,7 @@ import {
   ESPNScoreboardResponse,
 } from '../../../types/external'
 import {
+  BaseProviderData,
   DataProviderConfig,
   DataProviderMetadata,
   DataProviderResponse,
@@ -164,12 +165,18 @@ export class MockDataProvider implements IDataProvider {
    */
   async getCurrentWeekGames(
     options: DataQueryOptions = {}
-  ): Promise<DataProviderResponse<ESPNScoreboardResponse>> {
+  ): Promise<DataProviderResponse<BaseProviderData>> {
     const response = await this.simulateRequest<ESPNScoreboardResponse>(
       () => this.generateMockScoreboard(1),
       options
     )
-    return this.wrapResponse(response, false)
+    return this.wrapResponse(
+      {
+        ...response,
+        data: response.data as unknown as BaseProviderData,
+      },
+      false
+    )
   }
 
   /**
@@ -178,12 +185,18 @@ export class MockDataProvider implements IDataProvider {
   async getGamesByWeek(
     week: number,
     options: DataQueryOptions = {}
-  ): Promise<DataProviderResponse<ESPNScoreboardResponse>> {
+  ): Promise<DataProviderResponse<BaseProviderData>> {
     const response = await this.simulateRequest<ESPNScoreboardResponse>(
       () => this.generateMockScoreboard(week),
       options
     )
-    return this.wrapResponse(response, false)
+    return this.wrapResponse(
+      {
+        ...response,
+        data: response.data as unknown as BaseProviderData,
+      },
+      false
+    )
   }
 
   /**
@@ -192,12 +205,18 @@ export class MockDataProvider implements IDataProvider {
   async getTeamRoster(
     teamId: string,
     options: DataQueryOptions = {}
-  ): Promise<DataProviderResponse<ESPNRosterResponse>> {
+  ): Promise<DataProviderResponse<BaseProviderData>> {
     const response = await this.simulateRequest<ESPNRosterResponse>(
       () => this.generateMockRoster(teamId),
       options
     )
-    return this.wrapResponse(response, false)
+    return this.wrapResponse(
+      {
+        ...response,
+        data: response.data as unknown as BaseProviderData,
+      },
+      false
+    )
   }
 
   /**
@@ -205,12 +224,18 @@ export class MockDataProvider implements IDataProvider {
    */
   async getCurrentWeek(
     options: DataQueryOptions = {}
-  ): Promise<DataProviderResponse<ESPNScoreboardResponse>> {
+  ): Promise<DataProviderResponse<BaseProviderData>> {
     const response = await this.simulateRequest<ESPNScoreboardResponse>(
       () => this.generateMockScoreboard(1),
       options
     )
-    return this.wrapResponse(response, false)
+    return this.wrapResponse(
+      {
+        ...response,
+        data: response.data as unknown as BaseProviderData,
+      },
+      false
+    )
   }
 
   /**

@@ -1,5 +1,5 @@
 // ================================================================================================
-// ESPN DATA PROVIDER - ESPN implementation of IDataProvider interface
+// SPORTRADAR DATA PROVIDER - SportRadar implementation of IDataProvider interface
 // ================================================================================================
 
 import {
@@ -9,10 +9,6 @@ import {
   WeatherData,
 } from '../../../types/api/player'
 import { APIResponse } from '../../../types/core/api'
-import {
-  ESPNRosterResponse,
-  ESPNScoreboardResponse,
-} from '../../../types/external'
 import {
   BaseProviderData,
   DataProviderConfig,
@@ -24,32 +20,33 @@ import {
 } from '../../../types/providers'
 
 /**
- * ESPN data provider implementation
+ * SportRadar data provider implementation
  */
-export class ESPNDataProvider implements IDataProvider {
+export class SportRadarDataProvider implements IDataProvider {
   public readonly metadata: DataProviderMetadata
   public readonly config: DataProviderConfig
   private health: ProviderHealth
   private initialized: boolean = false
   private baseURL: string
+  private apiKey: string
 
-  constructor(config: DataProviderConfig) {
+  constructor(config: DataProviderConfig & { apiKey?: string }) {
+    this.apiKey = config.apiKey || ''
+
     this.config = {
       ...config,
-      name: config.name || 'espn',
+      name: config.name || 'sportradar',
       enabled: config.enabled !== undefined ? config.enabled : true,
       priority: config.priority || 1,
       timeout: config.timeout || 30000,
       retries: config.retries || 3,
-      baseURL:
-        config.baseURL ||
-        'https://site.api.espn.com/apis/site/v2/sports/football/nfl',
+      baseURL: config.baseURL || 'https://api.sportradar.us/nfl',
     }
 
     this.baseURL = this.config.baseURL
 
     this.metadata = {
-      name: 'ESPN Data Provider',
+      name: 'SportRadar Data Provider',
       version: '1.0.0',
       type: 'data',
       capabilities: [
@@ -58,18 +55,24 @@ export class ESPNDataProvider implements IDataProvider {
         'player_stats',
         'injury_reports',
         'weather_data',
+        'team_stats',
+        'standings',
+        'play_by_play',
+        'odds',
       ],
       supportedEndpoints: [
-        '/scoreboard',
-        '/teams/{teamId}/roster',
-        '/players/{playerId}/stats',
-        '/teams/{teamId}/injuries',
+        '/v7/en/games/{year}/{nfl_season}/schedule.json',
+        '/v7/en/teams/{team_id}/profile.json',
+        '/v7/en/players/{player_id}/profile.json',
+        '/v7/en/teams/{team_id}/injuries.json',
+        '/v7/en/games/{game_id}/boxscore.json',
+        '/v7/en/games/{game_id}/playbyplay.json',
       ],
       dataQuality: 'high',
       updateFrequency: 'real-time',
-      costPerRequest: 0, // Free API
+      costPerRequest: 0.001, // $0.001 per request
       rateLimit: {
-        requestsPerMinute: 60,
+        requestsPerMinute: 100,
         requestsPerHour: 1000,
       },
     }
@@ -90,9 +93,13 @@ export class ESPNDataProvider implements IDataProvider {
       return
     }
 
+    if (!this.apiKey) {
+      throw new Error('SportRadar API key is required')
+    }
+
     try {
       // Test connection by making a simple request
-      await this.makeRequest('/scoreboard')
+      await this.makeRequest('/v7/en/games/2024/REG/schedule.json')
       this.initialized = true
       this.updateHealth(true)
     } catch (error) {
@@ -110,11 +117,11 @@ export class ESPNDataProvider implements IDataProvider {
    */
   async validateConnection(): Promise<boolean> {
     try {
-      await this.makeRequest('/scoreboard')
+      await this.makeRequest('/v7/en/games/2024/REG/schedule.json')
       return true
     } catch (error) {
       if (import.meta.env.DEV) {
-        console.warn('ESPN connection validation failed:', error)
+        console.warn('SportRadar connection validation failed:', error)
       }
       return false
     }
@@ -151,17 +158,12 @@ export class ESPNDataProvider implements IDataProvider {
   async getCurrentWeekGames(
     options: DataQueryOptions = {}
   ): Promise<DataProviderResponse<BaseProviderData>> {
-    const response = await this.makeRequest<ESPNScoreboardResponse>(
-      '/scoreboard',
+    const currentYear = new Date().getFullYear()
+    const response = await this.makeRequest<BaseProviderData>(
+      `/v7/en/games/${currentYear}/REG/schedule.json`,
       options
     )
-    return this.wrapResponse(
-      {
-        ...response,
-        data: response.data as unknown as BaseProviderData,
-      },
-      false
-    )
+    return this.wrapResponse(response, false)
   }
 
   /**
@@ -172,25 +174,17 @@ export class ESPNDataProvider implements IDataProvider {
     options: DataQueryOptions = {}
   ): Promise<DataProviderResponse<BaseProviderData>> {
     const currentYear = new Date().getFullYear()
-    const response = await this.makeRequest<ESPNScoreboardResponse>(
-      '/scoreboard',
+    const response = await this.makeRequest<BaseProviderData>(
+      `/v7/en/games/${currentYear}/REG/schedule.json`,
       {
         ...options,
         params: {
-          seasontype: 2, // Regular season
           week,
-          year: currentYear,
           ...options.params,
         },
       }
     )
-    return this.wrapResponse(
-      {
-        ...response,
-        data: response.data as unknown as BaseProviderData,
-      },
-      false
-    )
+    return this.wrapResponse(response, false)
   }
 
   /**
@@ -200,17 +194,11 @@ export class ESPNDataProvider implements IDataProvider {
     teamId: string,
     options: DataQueryOptions = {}
   ): Promise<DataProviderResponse<BaseProviderData>> {
-    const response = await this.makeRequest<ESPNRosterResponse>(
-      `/teams/${teamId}/roster`,
+    const response = await this.makeRequest<BaseProviderData>(
+      `/v7/en/teams/${teamId}/profile.json`,
       options
     )
-    return this.wrapResponse(
-      {
-        ...response,
-        data: response.data as unknown as BaseProviderData,
-      },
-      false
-    )
+    return this.wrapResponse(response, false)
   }
 
   /**
@@ -219,15 +207,11 @@ export class ESPNDataProvider implements IDataProvider {
   async getCurrentWeek(
     _options: DataQueryOptions = {}
   ): Promise<DataProviderResponse<BaseProviderData>> {
-    const response =
-      await this.makeRequest<ESPNScoreboardResponse>('/scoreboard')
-    return this.wrapResponse(
-      {
-        ...response,
-        data: response.data as unknown as BaseProviderData,
-      },
-      false
+    const currentYear = new Date().getFullYear()
+    const response = await this.makeRequest<BaseProviderData>(
+      `/v7/en/games/${currentYear}/REG/schedule.json`
     )
+    return this.wrapResponse(response, false)
   }
 
   /**
@@ -236,7 +220,7 @@ export class ESPNDataProvider implements IDataProvider {
   async getAvailableWeeks(
     _options: DataQueryOptions = {}
   ): Promise<DataProviderResponse<number[]>> {
-    // ESPN doesn't provide this endpoint, so we return static data
+    // SportRadar doesn't provide this endpoint, so we return static data
     const weeks = Array.from({ length: 18 }, (_, i) => i + 1)
 
     const response: APIResponse<number[]> = {
@@ -256,7 +240,7 @@ export class ESPNDataProvider implements IDataProvider {
     season?: number,
     options: DataQueryOptions = {}
   ): Promise<DataProviderResponse<PlayerStats>> {
-    const endpoint = `/players/${playerId}/stats`
+    const endpoint = `/v7/en/players/${playerId}/profile.json`
     const params = season ? { season } : {}
 
     const response = await this.makeRequest<Record<string, unknown>>(endpoint, {
@@ -282,7 +266,7 @@ export class ESPNDataProvider implements IDataProvider {
     season?: number,
     options: DataQueryOptions = {}
   ): Promise<DataProviderResponse<TeamStats>> {
-    const endpoint = `/teams/${teamId}/stats`
+    const endpoint = `/v7/en/teams/${teamId}/profile.json`
     const params = season ? { season } : {}
 
     const response = await this.makeRequest<Record<string, unknown>>(endpoint, {
@@ -307,7 +291,9 @@ export class ESPNDataProvider implements IDataProvider {
     teamId?: string,
     options: DataQueryOptions = {}
   ): Promise<DataProviderResponse<InjuryReport[]>> {
-    const endpoint = teamId ? `/teams/${teamId}/injuries` : '/injuries'
+    const endpoint = teamId
+      ? `/v7/en/teams/${teamId}/injuries.json`
+      : '/injuries'
 
     const response = await this.makeRequest<Record<string, unknown>>(
       endpoint,
@@ -329,7 +315,7 @@ export class ESPNDataProvider implements IDataProvider {
     options: DataQueryOptions = {}
   ): Promise<DataProviderResponse<WeatherData>> {
     const response = await this.makeRequest<Record<string, unknown>>(
-      `/games/${gameId}/weather`,
+      `/v7/en/games/${gameId}/boxscore.json`,
       options
     )
 
@@ -363,13 +349,16 @@ export class ESPNDataProvider implements IDataProvider {
   }
 
   /**
-   * Make HTTP request to ESPN API
+   * Make HTTP request to SportRadar API
    */
   private async makeRequest<T>(
     endpoint: string,
     options: DataQueryOptions = {}
   ): Promise<APIResponse<T>> {
     const url = new URL(endpoint, this.baseURL)
+
+    // Add API key as query parameter
+    url.searchParams.append('api_key', this.apiKey)
 
     // Add query parameters
     if (options.params) {
@@ -437,26 +426,13 @@ export class ESPNDataProvider implements IDataProvider {
   }
 
   /**
-   * Get default headers for ESPN API
+   * Get default headers for SportRadar API
    */
   private getDefaultHeaders(): Record<string, string> {
-    const headers: Record<string, string> = {
+    return {
       Accept: 'application/json',
+      'User-Agent': 'nfl-parlay-builder/1.0.0',
     }
-
-    // Don't add User-Agent on mobile devices (ESPN blocks it)
-    if (typeof navigator !== 'undefined') {
-      const isMobile =
-        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-          navigator.userAgent
-        )
-
-      if (!isMobile) {
-        headers['User-Agent'] = 'nfl-parlay-builder'
-      }
-    }
-
-    return headers
   }
 
   /**
@@ -471,9 +447,9 @@ export class ESPNDataProvider implements IDataProvider {
       provider: this.config.name,
       cached,
       timestamp: new Date(),
-      cost: 0, // ESPN API is free
+      cost: this.metadata.costPerRequest || 0,
     }
   }
 }
 
-export default ESPNDataProvider
+export default SportRadarDataProvider
