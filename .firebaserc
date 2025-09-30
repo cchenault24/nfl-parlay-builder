@@ -1,5 +1,8 @@
 {
   "projects": {
-    "default": "nfl-parlay-builder"
-  }
+    "default": "nfl-parlay-builder",
+    "dev": "nfl-parlay-builder-dev"
+  },
+  "targets": {},
+  "etags": {}
 }

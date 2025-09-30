@@ -1,0 +1,54 @@
+name: Deploy functions_v2
+
+on:
+  push:
+    branches: [main, dev]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      DEV_PROJECT_ID: nfl-parlay-builder-dev
+      PROD_PROJECT_ID: nfl-parlay-builder
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Firebase CLI
+        run: npm i -g firebase-tools
+
+      - name: Configure GCP credentials
+        id: auth
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            echo "FIREBASE_SERVICE_ACCOUNT secret is required" && exit 1
+          fi
+          echo "$FIREBASE_SERVICE_ACCOUNT" > $GITHUB_WORKSPACE/gcp-key.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$GITHUB_WORKSPACE/gcp-key.json" >> $GITHUB_ENV
+
+      - name: Resolve project
+        id: project
+        run: |
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            echo "project=${{ env.PROD_PROJECT_ID }}" >> $GITHUB_OUTPUT
+          else
+            echo "project=${{ env.DEV_PROJECT_ID }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Install deps (functions_v2)
+        working-directory: functions_v2
+        run: |
+          npm ci || npm i
+
+      - name: Deploy functions_v2 (api)
+        env:
+          PROJECT_ID: ${{ steps.project.outputs.project }}
+        run: |
+          firebase deploy --only functions:api --project "$PROJECT_ID"
