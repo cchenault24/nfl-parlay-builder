@@ -19,6 +19,8 @@ const CORS_ALLOWLIST = new Set([
   'http://localhost:3001',
   'http://localhost:3000',
   'https://nfl-parlay-builder.web.app',
+  'https://nfl-parlay-builder-dev.web.app',
+  /^https:\/\/nfl-parlay-builder--[\w-]+\.web\.app\/?$/,
 ])
 
 // CORS
@@ -27,9 +29,20 @@ const corsMiddleware = cors({
     origin: string | undefined,
     callback: (err: Error | null, allow?: boolean) => void
   ) => {
-    if (!origin || CORS_ALLOWLIST.has(origin)) {
+    if (!origin) {
       return callback(null, true)
     }
+
+    // Check if origin matches any allowlist item (string or regex)
+    for (const allowedOrigin of CORS_ALLOWLIST) {
+      if (typeof allowedOrigin === 'string' && allowedOrigin === origin) {
+        return callback(null, true)
+      }
+      if (allowedOrigin instanceof RegExp && allowedOrigin.test(origin)) {
+        return callback(null, true)
+      }
+    }
+
     return callback(new Error('Not allowed by CORS'))
   },
   credentials: true,
