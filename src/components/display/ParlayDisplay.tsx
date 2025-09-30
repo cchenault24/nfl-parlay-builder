@@ -49,7 +49,7 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({ parlay, loading }) => {
       {parlay.gameSummary && (
         <GameSummaryView
           gameSummary={parlay.gameSummary}
-          gameContext={parlay.gameContext}
+          gameContext={`Game ${parlay.gameId}`}
         />
       )}
 
@@ -60,7 +60,7 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({ parlay, loading }) => {
             <Typography variant="h6">AI Generated Parlay</Typography>
             <Box sx={{ ml: 'auto' }}>
               <Chip
-                label={parlay.estimatedOdds}
+                label={`+${parlay.combinedOdds}`}
                 color="primary"
                 variant="outlined"
                 size="small"
@@ -70,7 +70,11 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({ parlay, loading }) => {
 
           <Grid container spacing={2} sx={{ mb: 3 }}>
             {parlay.legs.map((leg, index) => (
-              <ParlayLegView key={leg.id} leg={leg} index={index} />
+              <ParlayLegView
+                key={`${leg.betType}-${index}`}
+                leg={leg}
+                index={index}
+              />
             ))}
           </Grid>
 

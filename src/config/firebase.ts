@@ -160,13 +160,20 @@ export const getUserParlays = (
 
   // onSnapshot returns an unsubscribe function that you can call
   // to detach the listener when the component unmounts.
+  type FirestoreParlayDoc = GeneratedParlay & {
+    userId: string
+    savedAt: Timestamp
+  }
+
   const unsubscribe = onSnapshot(
     parlaysQuery,
     querySnapshot => {
-      const parlays = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as GeneratedParlay[]
+      const parlays: GeneratedParlay[] = querySnapshot.docs.map(doc => {
+        const data = doc.data() as FirestoreParlayDoc
+        // Strip fields not in v2 frontend model
+        const { userId: _userId, savedAt: _savedAt, ...rest } = data
+        return rest
+      })
       callback(parlays)
     },
     error => {

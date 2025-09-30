@@ -1,4 +1,4 @@
-import { BetType, ParlayLeg } from '../types'
+import { BetType } from '../types'
 
 // Workaround for TypeScript env issue
 /**
@@ -24,7 +24,23 @@ export const getBetTypeColor = (
       return 'secondary'
     case 'moneyline':
       return 'success'
-    case 'player_prop':
+    case 'player_receptions':
+    case 'player_receiving_yards':
+    case 'player_receiving_tds':
+    case 'player_longest_reception':
+    case 'player_rushing_yards':
+    case 'player_rushing_attempts':
+    case 'player_rushing_tds':
+    case 'player_longest_rush':
+    case 'player_passing_yards':
+    case 'player_passing_attempts':
+    case 'player_passing_completions':
+    case 'player_passing_tds':
+    case 'player_interceptions':
+    case 'player_longest_completion':
+    case 'player_anytime_td':
+    case 'player_first_td':
+    case 'player_last_td':
       return 'info'
     default:
       return 'primary'
@@ -44,32 +60,6 @@ export const getConfidenceColor = (
     return 'warning'
   }
   return 'error'
-}
-
-/**
- * Format player prop target with team name
- */
-export const formatPlayerProp = (leg: ParlayLeg): string => {
-  if (leg.betType === 'player_prop') {
-    // If the target already has the correct format, use it
-    if (leg.target.includes('(') && leg.target.includes(')')) {
-      return leg.target
-    }
-
-    // Otherwise, try to format it properly
-    const playerName = leg.selection
-    const target = leg.target
-
-    // Try to extract the bet details
-    const overUnderMatch = target.match(/(Over|Under)\s+([\d.]+)\s+(.+)/)
-
-    if (overUnderMatch && playerName && playerName !== target) {
-      const [, overUnder, value, statType] = overUnderMatch
-      return `${playerName} - ${overUnder} ${value} ${statType}`
-    }
-  }
-
-  return leg.target
 }
 
 /**

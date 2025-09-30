@@ -21,15 +21,6 @@ import {
 import React from 'react'
 import type { GameSummary } from '../../types'
 
-type MatchupAnalysisData = string | Record<string, unknown> | null | undefined
-type PredictionData = string | Record<string, unknown> | null | undefined
-type KeyFactorsData =
-  | string[]
-  | string
-  | Record<string, unknown>
-  | null
-  | undefined
-
 interface GameSummaryViewProps {
   gameSummary: GameSummary
   gameContext: string // e.g., "Chiefs @ Bills - Week 14"
@@ -43,147 +34,34 @@ const GameSummaryView: React.FC<GameSummaryViewProps> = ({
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const isSmall = useMediaQuery(theme.breakpoints.down('sm'))
 
-  // Helper function to safely render matchup analysis
-  const renderMatchupAnalysis = (analysis: MatchupAnalysisData): string => {
-    if (typeof analysis === 'string') {
-      return analysis
-    }
+  // Removed unused helper functions - v2 API provides clean data
 
-    // If it's an object, try to extract meaningful text
-    if (typeof analysis === 'object' && analysis !== null) {
-      // Try to combine object values into readable text
-      const values = Object.values(analysis)
-      if (values.length > 0 && values.every(val => typeof val === 'string')) {
-        return values.join(' ')
-      }
-
-      // Fallback: convert object to readable format
-      const keys = Object.keys(analysis)
-      if (keys.length > 0) {
-        return keys
-          .map(key => {
-            const value = analysis[key]
-            return typeof value === 'string'
-              ? value
-              : `${key}: ${String(value)}`
-          })
-          .join('. ')
-      }
-    }
-
-    // Final fallback
-    return 'Matchup analysis data is not in the expected format.'
-  }
-
-  // Helper function to safely render prediction
-  const renderPrediction = (prediction: PredictionData): string => {
-    if (typeof prediction === 'string') {
-      return prediction
-    }
-
-    if (typeof prediction === 'object' && prediction !== null) {
-      const values = Object.values(prediction)
-      if (values.length > 0 && values.every(val => typeof val === 'string')) {
-        return values.join(' ')
-      }
-    }
-
-    return 'Game prediction is not in the expected format.'
-  }
-
-  // Helper function to safely render key factors
-  const renderKeyFactors = (factors: KeyFactorsData): string[] => {
-    const cleanFactor = (factor: string): string => {
-      let cleaned = String(factor).trim()
-
-      // Remove quotes from start and end
-      cleaned = cleaned.replace(/^["']|["']$/g, '')
-
-      // Remove common symbols from the start
-      cleaned = cleaned.replace(/^(-|•|\*|\+|►|▶️|✓|✅|→|➤|◦|‣|⁃)\s*/, '')
-
-      // Remove numbered list prefixes (1., 2), etc.)
-      cleaned = cleaned.replace(/^\d+[.)\]]\s*/, '')
-
-      // Remove bullet point symbols
-      cleaned = cleaned.replace(/^[■□▪▫●○◆◇]\s*/, '')
-
-      // Trim again after cleaning
-      cleaned = cleaned.trim()
-
-      // Ensure first letter is capitalized
-      if (cleaned.length > 0) {
-        cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1)
-      }
-
-      // Ensure it doesn't end with a period (looks cleaner in lists)
-      if (cleaned.endsWith('.')) {
-        cleaned = cleaned.slice(0, -1)
-      }
-
-      return cleaned
-    }
-
-    if (Array.isArray(factors) && factors.every(f => typeof f === 'string')) {
-      return factors
-        .map(cleanFactor)
-        .filter(f => f.length > 0)
-        .slice(0, 5)
-    }
-
-    if (typeof factors === 'object' && factors !== null) {
-      const values = Object.values(factors)
-      if (values.length > 0) {
-        return values
-          .map(val => cleanFactor(String(val)))
-          .filter(f => f.length > 0)
-          .slice(0, 5)
-      }
-    }
-
-    if (typeof factors === 'string') {
-      // Handle case where it's a single string that might contain multiple factors
-      const splitFactors = factors
-        .split(/[,;]|\n/)
-        .map(cleanFactor)
-        .filter(f => f.length > 0)
-      if (splitFactors.length > 1) {
-        return splitFactors.slice(0, 5)
-      }
-      return [cleanFactor(factors)]
-    }
-
-    return ['Key factors data is not in the expected format']
-  }
-
-  // Map gameFlow to display properties
-  const getGameFlowDisplay = (gameFlow: GameSummary['gameFlow']) => {
-    const flowMap = {
-      high_scoring_shootout: {
-        label: 'High-Scoring Shootout',
-        color: 'error' as const,
-        icon: <TrendingUpIcon fontSize="small" />,
-      },
-      defensive_grind: {
-        label: 'Defensive Grind',
-        color: 'warning' as const,
-        icon: <FootballIcon fontSize="small" />,
-      },
-      balanced_tempo: {
-        label: 'Balanced Tempo',
-        color: 'info' as const,
-        icon: <AnalyticsIcon fontSize="small" />,
-      },
-      potential_blowout: {
+  // Use win probability to determine game flow
+  const getGameFlowDisplay = (winProbability: number) => {
+    if (winProbability > 0.7) {
+      return {
         label: 'Potential Blowout',
         color: 'secondary' as const,
         icon: <TrendingUpIcon fontSize="small" />,
-      },
+      }
+    } else if (winProbability < 0.3) {
+      return {
+        label: 'Upset Alert',
+        color: 'error' as const,
+        icon: <FootballIcon fontSize="small" />,
+      }
+    } else {
+      return {
+        label: 'Close Game',
+        color: 'info' as const,
+        icon: <AnalyticsIcon fontSize="small" />,
+      }
     }
-    return flowMap[gameFlow]
   }
 
-  const gameFlowDisplay = getGameFlowDisplay(gameSummary.gameFlow)
+  const gameFlowDisplay = getGameFlowDisplay(
+    gameSummary.gamePrediction.winProbability
+  )
 
   // Get confidence color
   const getConfidenceColor = (confidence: number) => {
@@ -200,9 +78,9 @@ const GameSummaryView: React.FC<GameSummaryViewProps> = ({
   }
 
   // Process the data safely
-  const matchupText = renderMatchupAnalysis(gameSummary.matchupAnalysis)
-  const predictionText = renderPrediction(gameSummary.prediction)
-  const keyFactorsList = renderKeyFactors(gameSummary.keyFactors)
+  const matchupText = gameSummary.matchupSummary
+  const predictionText = `${gameSummary.gamePrediction.winner} wins ${gameSummary.gamePrediction.projectedScore.home}-${gameSummary.gamePrediction.projectedScore.away} (${Math.round(gameSummary.gamePrediction.winProbability * 100)}% confidence)`
+  const keyFactorsList = gameSummary.keyFactors
 
   return (
     <Card
@@ -264,8 +142,10 @@ const GameSummaryView: React.FC<GameSummaryViewProps> = ({
                 }}
               />
               <Chip
-                label={`${gameSummary.confidence}/10 Confidence`}
-                color={getConfidenceColor(gameSummary.confidence)}
+                label={`${Math.round(gameSummary.gamePrediction.winProbability * 100)}% Confidence`}
+                color={getConfidenceColor(
+                  gameSummary.gamePrediction.winProbability * 10
+                )}
                 variant="filled"
                 size="small"
                 sx={{

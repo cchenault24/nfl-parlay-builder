@@ -1,9 +1,11 @@
 // src/services/ParlayService.ts - Complete fix for UI provider selection
 import { INFLClient } from '../api/clients/base/interfaces'
+import { API_CONFIG } from '../config/api'
 import { auth } from '../config/firebase'
 import {
   GameRosters,
   GeneratedParlay,
+  GenerateParlayRequest,
   NFLGame,
   ParlayGenerationResult,
 } from '../types'
@@ -24,37 +26,6 @@ export interface VarietyFactors {
   playerTier: string
   gameScript: string
   marketBias: string
-}
-
-interface CloudFunctionResponse {
-  success: boolean
-  data?: GeneratedParlay
-  error?: {
-    code?: string
-    message?: string
-    details?: {
-      remaining?: number
-      resetTime?: string
-      currentCount?: number
-    }
-  }
-  rateLimitInfo?: {
-    remaining: number
-    resetTime: string
-    currentCount: number
-    total: number
-  }
-  metadata?: {
-    provider: string
-    model: string
-    tokens?: number
-    latency: number
-    confidence: number
-    fallbackUsed: boolean
-    attemptCount: number
-    serviceMode?: 'mock' | 'openai'
-    environment?: string
-  }
 }
 
 export interface ParlayGenerationOptions {
@@ -79,21 +50,6 @@ export interface EnhancedParlayGenerationResult extends ParlayGenerationResult {
   }
 }
 
-interface CloudFunctionErrorResponse {
-  success: false
-  error: {
-    code: string
-    message: string
-    details?: {
-      remaining?: number
-      resetTime?: string
-      currentCount?: number
-      [key: string]: unknown // Allow for additional error details
-    }
-  }
-  [key: string]: unknown // Allow for additional properties
-}
-
 export class ParlayService {
   private readonly cloudFunctionUrl: string
   private readonly healthCheckUrl: string
@@ -110,15 +66,11 @@ export class ParlayService {
       )
     }
 
-    // Cloud function URLs
-    const baseUrl =
-      import.meta.env.VITE_CLOUD_FUNCTION_URL ||
-      (import.meta.env.DEV
-        ? `http://localhost:5001/${projectId}/us-central1`
-        : `https://us-central1-${projectId}.cloudfunctions.net`)
+    // Use API_CONFIG for consistent URL management
+    const baseUrl = API_CONFIG.CLOUD_FUNCTIONS.baseURL
 
-    this.cloudFunctionUrl = `${baseUrl}/generateParlay`
-    this.healthCheckUrl = `${baseUrl}/healthCheck`
+    this.cloudFunctionUrl = `${baseUrl}${API_CONFIG.CLOUD_FUNCTIONS.endpoints.v2.generateParlay}`
+    this.healthCheckUrl = `${baseUrl}${API_CONFIG.CLOUD_FUNCTIONS.endpoints.v2.health}`
   }
 
   /**
@@ -132,7 +84,7 @@ export class ParlayService {
       return await this.generateCloudParlay(game, options)
     } catch (error) {
       console.error('❌ Error generating parlay:', error)
-      throw this.enhanceError(error)
+      throw this.enhanceError(error as Error)
     }
   }
 
@@ -141,25 +93,16 @@ export class ParlayService {
    */
   private async generateCloudParlay(
     game: NFLGame,
-    options: { provider?: 'mock' | 'openai' }
+    _options: { provider?: 'mock' | 'openai' }
   ): Promise<EnhancedParlayGenerationResult> {
-    // Step 1: Get team rosters
-    const rosters = await this.getGameRosters(game)
+    // V2 API handles roster fetching internally
+    const parlayData = await this.callCloudFunction(game)
 
-    // Step 2: Validate rosters
-    this.validateRosters(rosters)
-
-    // Step 3: Call cloud function with provider option
-    const response = await this.callCloudFunction(game, rosters, options)
-
-    if (!response.success || !response.data) {
-      throw new Error(response.error?.message || 'Failed to generate parlay')
-    }
-
+    // V2 API returns the parlay data directly
     return {
-      parlay: response.data,
-      rateLimitInfo: response.rateLimitInfo,
-      metadata: response.metadata,
+      parlay: parlayData,
+      rateLimitInfo: undefined, // V2 doesn't return rate limit info yet
+      metadata: undefined, // V2 doesn't return metadata yet
     }
   }
 
@@ -237,40 +180,21 @@ export class ParlayService {
     }
   }
 
-  /**
-   * Validate that rosters have sufficient data
-   */
-  private validateRosters(rosters: GameRosters): void {
-    if (!rosters.homeRoster || rosters.homeRoster.length < 10) {
-      throw new Error(
-        'Insufficient home team roster data. Please try again later.'
-      )
-    }
-
-    if (!rosters.awayRoster || rosters.awayRoster.length < 10) {
-      throw new Error(
-        'Insufficient away team roster data. Please try again later.'
-      )
-    }
-  }
+  // Removed roster validation; v2 backend handles data readiness
 
   /**
-   * Call cloud function with provider selection
+   * Call v2 cloud function to generate parlay
    */
-  private async callCloudFunction(
-    game: NFLGame,
-    rosters: GameRosters,
-    options: { provider?: 'mock' | 'openai' }
-  ): Promise<CloudFunctionResponse> {
+  private async callCloudFunction(game: NFLGame): Promise<GeneratedParlay> {
     try {
       const authToken = await this.getAuthToken()
 
-      const requestBody = {
-        game,
-        rosters,
-        options: {
-          provider: options.provider || 'openai', // Default to real if not specified
-        },
+      const requestBody: GenerateParlayRequest = {
+        gameId: game.id,
+        numLegs: 3,
+        week: game.week,
+        riskLevel: 'conservative', // Default risk level
+        betTypes: 'all',
       }
 
       const response = await fetch(this.cloudFunctionUrl, {
@@ -283,6 +207,7 @@ export class ParlayService {
       })
 
       const responseData = await response.json()
+
       if (!response.ok) {
         console.error('[CF FAIL]', {
           status: response.status,
@@ -292,79 +217,29 @@ export class ParlayService {
           body: responseData,
         })
 
-        // Type assertion to ensure we have the right error structure
-        const errorResponse: CloudFunctionErrorResponse = {
-          success: false,
-          error: {
-            code: responseData.error?.code || 'UNKNOWN_ERROR',
-            message:
-              responseData.error?.message ||
-              `HTTP ${response.status}: ${response.statusText}`,
-            details: responseData.error?.details,
-          },
-          ...responseData, // Spread any additional properties
+        // Handle v2 error format
+        if (responseData.code && responseData.message) {
+          throw new Error(`${responseData.code}: ${responseData.message}`)
         }
 
-        return this.handleErrorResponse(response, errorResponse)
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }
 
       return responseData
     } catch (error) {
       console.error('❌ Cloud Function call failed:', error)
-      throw this.enhanceNetworkError(error)
+      throw this.enhanceNetworkError(error as Error)
     }
   }
 
-  private handleErrorResponse(
-    response: Response,
-    responseData: CloudFunctionErrorResponse
-  ): never {
-    if (response.status === 429) {
-      const resetTime = responseData.error?.details?.resetTime
-      const remaining = responseData.error?.details?.remaining || 0
-
-      throw new RateLimitError(
-        responseData.error?.message || 'Rate limit exceeded',
-        {
-          remaining,
-          resetTime: resetTime ? new Date(resetTime) : new Date(),
-          currentCount: responseData.error?.details?.currentCount || 0,
-        }
-      )
-    }
-
-    const errorMessage =
-      responseData.error?.message ||
-      `HTTP ${response.status}: ${response.statusText}`
-
-    switch (response.status) {
-      case 400:
-        throw new Error(`Invalid request: ${errorMessage}`)
-      case 401:
-        throw new Error(
-          'Authentication required. Please sign in and try again.'
-        )
-      case 403:
-        throw new Error(
-          'Access denied. You may not have permission to use this service.'
-        )
-      case 500:
-        throw new Error(
-          'Service temporarily unavailable. Please try again in a moment.'
-        )
-      case 503:
-        throw new Error(
-          'AI service is currently unavailable. Please try again later.'
-        )
-      default:
-        throw new Error(errorMessage)
-    }
-  }
+  // Removed unused error response handler; direct errors are thrown above
 
   /**
    * Enhance network errors
    */
-  private enhanceNetworkError(error: unknown): Error {
+  private enhanceNetworkError(
+    error: Error | TypeError | RateLimitError
+  ): Error {
     if (error instanceof RateLimitError) {
       return error
     }
@@ -390,7 +265,7 @@ export class ParlayService {
   /**
    * Enhance any error with context
    */
-  private enhanceError(error: unknown): Error {
+  private enhanceError(error: Error | RateLimitError): Error {
     if (error instanceof RateLimitError || error instanceof Error) {
       return error
     }

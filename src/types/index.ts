@@ -1,7 +1,58 @@
 import { Timestamp } from 'firebase/firestore'
 
 // ===== BET TYPES =====
-export type BetType = 'spread' | 'total' | 'moneyline' | 'player_prop'
+export type BetType =
+  | 'spread'
+  | 'moneyline'
+  | 'total'
+  | 'team_total_points'
+  | 'team_total_points_over'
+  | 'team_total_points_under'
+  | 'first_half_spread'
+  | 'first_half_total'
+  | 'second_half_spread'
+  | 'second_half_total'
+  | 'first_quarter_spread'
+  | 'first_quarter_total'
+  | 'player_passing_yards'
+  | 'player_passing_attempts'
+  | 'player_passing_completions'
+  | 'player_passing_tds'
+  | 'player_interceptions'
+  | 'player_longest_completion'
+  | 'player_rushing_yards'
+  | 'player_rushing_attempts'
+  | 'player_rushing_tds'
+  | 'player_longest_rush'
+  | 'player_receiving_yards'
+  | 'player_receptions'
+  | 'player_receiving_tds'
+  | 'player_longest_reception'
+  | 'player_rush_rec_yards'
+  | 'player_pass_rush_yards'
+  | 'player_pass_rec_yards'
+  | 'player_pass_rush_rec_yards'
+  | 'player_anytime_td'
+  | 'player_first_td'
+  | 'player_last_td'
+  | 'team_total_tds'
+  | 'field_goals_made'
+  | 'field_goals_attempted'
+  | 'longest_field_goal'
+  | 'kicking_points'
+  | 'extra_points_made'
+  | 'defensive_sacks'
+  | 'defensive_tackles'
+  | 'defensive_interceptions'
+  | 'defensive_forced_fumbles'
+  | 'defensive_touchdowns'
+  | 'special_teams_touchdowns'
+  | 'defensive_turnovers'
+  | 'alt_spread'
+  | 'alt_total'
+  | 'player_alt_rushing_yards'
+  | 'player_alt_receiving_yards'
+  | 'player_alt_passing_yards'
 
 // ===== NFL TYPES =====
 export interface NFLTeam {
@@ -72,13 +123,10 @@ export interface NewsItem {
 
 // ===== PARLAY TYPES =====
 export interface ParlayLeg {
-  id: string
   betType: BetType
   selection: string
-  target: string
-  reasoning: string
+  odds: number
   confidence: number
-  odds: string
 }
 
 export interface ParlayGenerationResult {
@@ -92,32 +140,48 @@ export interface ParlayGenerationResult {
 }
 
 export interface GameSummary {
-  matchupAnalysis: string // Offensive vs defensive matchups (e.g., "Chiefs explosive offense vs Bills top-ranked pass defense")
-  gameFlow:
-    | 'high_scoring_shootout'
-    | 'defensive_grind'
-    | 'balanced_tempo'
-    | 'potential_blowout'
-  keyFactors: string[] // 3-5 key factors shaping the game
-  prediction: string // Overall game prediction/expectation (2-3 sentences)
-  confidence: number // 1-10 confidence in the summary analysis
+  matchupSummary: string
+  keyFactors: string[]
+  gamePrediction: {
+    winner: string
+    projectedScore: { home: number; away: number }
+    winProbability: number
+  }
 }
 
 export interface GeneratedParlay {
-  id: string
-  legs: [ParlayLeg, ParlayLeg, ParlayLeg]
-  gameContext: string
-  aiReasoning: string
-  overallConfidence: number
-  estimatedOdds: string
-  createdAt: string
-  savedAt?: Timestamp
-  gameSummary?: GameSummary
+  parlayId: string
+  gameId: string
+  legs: ParlayLeg[]
+  combinedOdds: number
+  parlayConfidence: number
+  analysisSummary: {
+    matchupSummary: string
+    keyFactors: string[]
+    gamePrediction: {
+      winner: string
+      projectedScore: { home: number; away: number }
+      winProbability: number
+    }
+  }
+  gameSummary: GameSummary
+  rosterDataUsed: {
+    home: Array<{ playerId: string; name: string }>
+    away: Array<{ playerId: string; name: string }>
+  }
 }
 
 export interface ParlayRequest {
   gameId: string
   legCount: 3
+}
+
+export interface GenerateParlayRequest {
+  gameId: string
+  numLegs: 3
+  week: number
+  riskLevel?: 'conservative' | 'moderate' | 'aggressive'
+  betTypes?: 'all' | string[]
 }
 
 // ===== AUTH TYPES =====
