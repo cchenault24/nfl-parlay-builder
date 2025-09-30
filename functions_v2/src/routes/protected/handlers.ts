@@ -5,7 +5,7 @@ import {
   fetchTeamRoster,
   type GameItem,
 } from '../../providers/espn'
-import { generateParlayWithAI } from '../../service/ai/generateParlay'
+import { generateParlayWithAI } from '../../service/ai'
 import {
   getIdempotentResponse,
   saveIdempotentResponse,
@@ -67,7 +67,7 @@ export const generateParlayHandler = async (
     // Fetch real game data from ESPN with caching
     // Use provided week if available; otherwise use current week
     let targetWeek = week ?? (await fetchCurrentWeek())
-    
+
     // Try to find the game in the current week first
     let cacheKey = `games_week_${targetWeek}`
     let games = await getCached<GameItem[]>(cacheKey, 10 * 60 * 1000) // 10 minute TTL
@@ -75,11 +75,13 @@ export const generateParlayHandler = async (
       games = await fetchGamesForWeek(targetWeek)
       await setCached(cacheKey, games)
     }
-    
+
     // If game not found in current week, try other recent weeks
     if (!games.find(g => g.gameId === gameId)) {
-      console.log(`Game ${gameId} not found in week ${targetWeek}, searching other weeks...`)
-      
+      console.log(
+        `Game ${gameId} not found in week ${targetWeek}, searching other weeks...`
+      )
+
       // Try neighbor weeks first, then scan remaining
       const neighborWeeks = [targetWeek - 1, targetWeek + 1].filter(
         w => w >= 1 && w <= 18
@@ -90,14 +92,17 @@ export const generateParlayHandler = async (
       const candidateWeeks = [...neighborWeeks, ...remainingWeeks]
       for (const w of candidateWeeks) {
         if (w === targetWeek) continue
-        
+
         const weekCacheKey = `games_week_${w}`
-        let weekGames = await getCached<GameItem[]>(weekCacheKey, 10 * 60 * 1000)
+        let weekGames = await getCached<GameItem[]>(
+          weekCacheKey,
+          10 * 60 * 1000
+        )
         if (!weekGames) {
           weekGames = await fetchGamesForWeek(w)
           await setCached(weekCacheKey, weekGames)
         }
-        
+
         if (weekGames.find(g => g.gameId === gameId)) {
           console.log(`Found game ${gameId} in week ${w}`)
           games = weekGames

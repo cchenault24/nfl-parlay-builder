@@ -79,6 +79,7 @@ export type GenerateParlayResponse = {
     selection: string
     odds: number
     confidence: number
+    reasoning: string
   }>
   combinedOdds: number
   parlayConfidence: number

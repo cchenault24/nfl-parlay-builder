@@ -127,6 +127,7 @@ export interface ParlayLeg {
   selection: string
   odds: number
   confidence: number
+  reasoning: string
 }
 
 export interface ParlayGenerationResult {

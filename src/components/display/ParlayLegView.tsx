@@ -110,9 +110,12 @@ const ParlayLegView: React.FC<ParlayLegViewProps> = ({ leg, index }) => {
               sx={{ mr: 1 }}
             />
           </Box>
-
           <Typography variant="body1" fontWeight="bold" sx={{ mb: 1 }}>
             {leg.selection}
+          </Typography>
+
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {leg.reasoning}
           </Typography>
 
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
