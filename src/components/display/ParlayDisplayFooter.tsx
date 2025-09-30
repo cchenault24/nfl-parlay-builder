@@ -73,7 +73,7 @@ const ParlayDisplayFooter: React.FC = () => {
           AI Analysis:
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          {parlay.analysisSummary.matchupSummary}
+          {parlay.gameSummary.matchupSummary}
         </Typography>
 
         <Box

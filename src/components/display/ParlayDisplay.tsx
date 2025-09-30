@@ -49,7 +49,7 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({ parlay, loading }) => {
       {parlay.gameSummary && (
         <GameSummaryView
           gameSummary={parlay.gameSummary}
-          gameContext={`Game ${parlay.gameId}`}
+          gameContext={parlay.gameContext}
         />
       )}
 

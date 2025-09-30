@@ -168,6 +168,7 @@ export const generateParlayHandler = async (
     const response: GenerateParlayResponse = {
       parlayId: `pl_${Math.random().toString(36).slice(2, 10)}`,
       gameId,
+      gameContext: `${game.away.name} @ ${game.home.name} - Week ${game.week}`,
       legs: ai.legs,
       combinedOdds: ai.legs.reduce((acc, leg) => {
         // Convert American odds to decimal, multiply, convert back
@@ -176,7 +177,6 @@ export const generateParlayHandler = async (
         return acc * decimal
       }, 1),
       parlayConfidence: Math.max(...ai.legs.map(l => l.confidence)),
-      analysisSummary: ai.analysisSummary,
       gameSummary: ai.analysisSummary,
       rosterDataUsed: {
         home: homeRoster.slice(0, 30),

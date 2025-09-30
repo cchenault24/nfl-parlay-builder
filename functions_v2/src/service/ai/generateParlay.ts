@@ -128,17 +128,26 @@ export async function generateParlayWithAI(params: {
                   : 'Not available'
               }` +
               `\n\nRisk level: ${params.riskLevel}. ` +
-              `\n\nAnalyze the matchup considering team records, venue factors, weather conditions, and recent performance trends. ` +
-              `Generate realistic betting lines and selections based on the actual teams and game context. ` +
+              `\n\nProvide a comprehensive matchup analysis considering:` +
+              `\n- Team records, recent form, and head-to-head history` +
+              `\n- Venue factors (home field advantage, weather impact)` +
+              `\n- Key player matchups and injury reports` +
+              `\n- Offensive/defensive strengths and weaknesses` +
+              `\n- Coaching strategies and game plan tendencies` +
+              `\n- Weather conditions and their impact on gameplay` +
+              `\n- Recent performance trends and momentum` +
+              `\n- Statistical advantages and situational factors` +
+              `\n\nGenerate realistic betting lines and selections based on this deep analysis. ` +
               `\n\nOutput JSON with fields: ` +
-              `"legs" (array of 3) with objects {betType,selection,odds,confidence(0..1)} and ` +
-              `"analysisSummary" {matchupSummary,keyFactors[],gamePrediction{winner,projectedScore{home,away},winProbability}}. ` +
+              `"legs" (array of 3) with objects {betType,selection,odds(AS NUMBER),confidence(0..1)} and ` +
+              `"analysisSummary" {matchupSummary(detailed 5-7 sentences with comprehensive analysis),keyFactors[](3-5 specific factors),gamePrediction{winner,projectedScore{home,away},winProbability}}. ` +
               `\n\nUse these bet types: spread, moneyline, total, player_passing_yards, player_rushing_yards, player_receiving_yards, player_anytime_td, team_total_tds, defensive_sacks, etc. ` +
+              `\n\nIMPORTANT: odds must be numbers (e.g., -110, not "-110"). ` +
               `Return ONLY JSON, no prose.`,
           },
         ],
         temperature,
-        max_tokens: 600,
+        max_tokens: 1500,
         response_format: { type: 'json_object' },
       }),
       15_000

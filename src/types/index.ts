@@ -152,18 +152,10 @@ export interface GameSummary {
 export interface GeneratedParlay {
   parlayId: string
   gameId: string
+  gameContext: string
   legs: ParlayLeg[]
   combinedOdds: number
   parlayConfidence: number
-  analysisSummary: {
-    matchupSummary: string
-    keyFactors: string[]
-    gamePrediction: {
-      winner: string
-      projectedScore: { home: number; away: number }
-      winProbability: number
-    }
-  }
   gameSummary: GameSummary
   rosterDataUsed: {
     home: Array<{ playerId: string; name: string }>

@@ -73,6 +73,7 @@ export const GenerateParlayRequestSchema = z.object({
 export type GenerateParlayResponse = {
   parlayId: string
   gameId: string
+  gameContext: string
   legs: Array<{
     betType: string
     selection: string
@@ -81,15 +82,6 @@ export type GenerateParlayResponse = {
   }>
   combinedOdds: number
   parlayConfidence: number
-  analysisSummary: {
-    matchupSummary: string
-    keyFactors: string[]
-    gamePrediction: {
-      winner: string
-      projectedScore: { home: number; away: number }
-      winProbability: number
-    }
-  }
   gameSummary: {
     matchupSummary: string
     keyFactors: string[]
