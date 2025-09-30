@@ -50,12 +50,11 @@ const GameSummaryView: React.FC<GameSummaryViewProps> = ({
         color: 'error' as const,
         icon: <FootballIcon fontSize="small" />,
       }
-    } else {
-      return {
-        label: 'Close Game',
-        color: 'info' as const,
-        icon: <AnalyticsIcon fontSize="small" />,
-      }
+    }
+    return {
+      label: 'Close Game',
+      color: 'info' as const,
+      icon: <AnalyticsIcon fontSize="small" />,
     }
   }
 

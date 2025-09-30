@@ -1,17 +1,18 @@
 import { useQuery } from '@tanstack/react-query'
-import { getNFLDataService } from '../services/container'
 import { NFLPlayer } from '../types'
 
 export const useTeamRoster = (teamId?: string) => {
-  const nflDataService = getNFLDataService()
-
   const query = useQuery({
-    queryKey: ['team-roster', teamId],
+    queryKey: ['team-roster-v2', teamId],
     queryFn: async (): Promise<NFLPlayer[]> => {
       if (!teamId) {
         return []
       }
-      return await nflDataService.getTeamRoster(teamId)
+
+      // TODO: Implement v2 roster endpoint when available
+      // For now, return empty array as roster data is handled by the backend
+      // during parlay generation
+      return []
     },
     enabled: !!teamId, // Only run query if teamId is provided
     staleTime: 24 * 60 * 60 * 1000, // 24 hours (rosters change infrequently)

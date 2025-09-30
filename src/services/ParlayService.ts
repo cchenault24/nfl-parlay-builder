@@ -1,16 +1,13 @@
-// src/services/ParlayService.ts - Complete fix for UI provider selection
-import { INFLClient } from '../api/clients/base/interfaces'
+// src/services/ParlayService.ts - V2 API implementation
 import { API_CONFIG } from '../config/api'
 import { auth } from '../config/firebase'
 import {
-  GameRosters,
   GeneratedParlay,
   GenerateParlayRequest,
   NFLGame,
   ParlayGenerationResult,
 } from '../types'
 import { RateLimitError } from '../types/errors'
-import { NFLDataService } from './NFLDataService'
 
 export interface StrategyConfig {
   name: string
@@ -54,10 +51,7 @@ export class ParlayService {
   private readonly cloudFunctionUrl: string
   private readonly healthCheckUrl: string
 
-  constructor(
-    private nflClient: INFLClient,
-    private nflDataService: NFLDataService
-  ) {
+  constructor() {
     const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID
 
     if (!projectId) {
@@ -156,29 +150,7 @@ export class ParlayService {
     }
   }
 
-  /**
-   * Get rosters for both teams
-   */
-  async getGameRosters(game: NFLGame): Promise<GameRosters> {
-    try {
-      const [homeRosterResponse, awayRosterResponse] = await Promise.all([
-        this.nflClient.getTeamRoster(game.homeTeam.id),
-        this.nflClient.getTeamRoster(game.awayTeam.id),
-      ])
-
-      return {
-        homeRoster: this.nflDataService.transformRosterResponse(
-          homeRosterResponse.data
-        ),
-        awayRoster: this.nflDataService.transformRosterResponse(
-          awayRosterResponse.data
-        ),
-      }
-    } catch (error) {
-      console.error('Error fetching game rosters:', error)
-      throw new Error('Failed to fetch team rosters. Please try again.')
-    }
-  }
+  // Note: getGameRosters method removed - v2 API handles roster data internally
 
   // Removed roster validation; v2 backend handles data readiness
 

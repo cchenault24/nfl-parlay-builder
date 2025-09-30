@@ -62,17 +62,6 @@ const isLocalDevelopment = () => {
  * API Configuration with environment-based settings
  */
 export const API_CONFIG = {
-  ESPN: {
-    baseURL: 'https://site.api.espn.com/apis/site/v2/sports/football/nfl',
-    timeout: isLocalDevelopment() ? 15000 : 10000,
-    retryAttempts: isLocalDevelopment() ? 2 : 3,
-    retryDelay: 1000,
-    endpoints: {
-      scoreboard: '/scoreboard',
-      games: '/scoreboard',
-      roster: '/teams/{teamId}/roster',
-    },
-  },
   CLOUD_FUNCTIONS: {
     baseURL:
       ENV.CLOUD_FUNCTION_URL ||
