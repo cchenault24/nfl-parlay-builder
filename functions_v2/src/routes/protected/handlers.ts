@@ -172,13 +172,22 @@ export const generateParlayHandler = async (
       gameId,
       gameContext: `${game.away.name} @ ${game.home.name} - Week ${game.week}`,
       legs: ai.legs,
-      combinedOdds: ai.legs.reduce((acc, leg) => {
-        // Convert American odds to decimal, multiply, convert back
-        const decimal =
-          leg.odds > 0 ? leg.odds / 100 + 1 : 100 / Math.abs(leg.odds) + 1
-        return acc * decimal
-      }, 1),
-      parlayConfidence: Math.max(...ai.legs.map(l => l.confidence)),
+      combinedOdds: (() => {
+        // Convert American odds to decimal, multiply, then convert back to American
+        const decimalOdds = ai.legs.reduce((acc, leg) => {
+          const decimal =
+            leg.odds > 0 ? leg.odds / 100 + 1 : 100 / Math.abs(leg.odds) + 1
+          return acc * decimal
+        }, 1)
+
+        // Convert decimal odds back to American format
+        if (decimalOdds >= 2) {
+          return Math.round((decimalOdds - 1) * 100)
+        } else {
+          return Math.round(-100 / (decimalOdds - 1))
+        }
+      })(),
+      parlayConfidence: Math.min(...ai.legs.map(l => l.confidence)),
       gameSummary: ai.analysisSummary,
       rosterDataUsed: {
         home: homeRoster.slice(0, 30),

@@ -60,7 +60,7 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({ parlay, loading }) => {
             <Typography variant="h6">AI Generated Parlay</Typography>
             <Box sx={{ ml: 'auto' }}>
               <Chip
-                label={`+${parlay.combinedOdds}`}
+                label={`${parlay.combinedOdds > 0 ? '+' : ''}${parlay.combinedOdds}`}
                 color="primary"
                 variant="outlined"
                 size="small"
