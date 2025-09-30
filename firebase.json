@@ -16,22 +16,6 @@
   "functions": [
     {
       "codebase": "default",
-      "source": "functions",
-      "runtime": "nodejs20",
-      "ignore": [
-        "node_modules",
-        ".git",
-        "firebase-debug.log",
-        "firebase-debug.*.log",
-        "*.local"
-      ],
-      "predeploy": [
-        "npm --prefix \"$RESOURCE_DIR\" run lint",
-        "npm --prefix \"$RESOURCE_DIR\" run build"
-      ]
-    },
-    {
-      "codebase": "functions_v2",
       "source": "functions_v2",
       "runtime": "nodejs20",
       "ignore": [
