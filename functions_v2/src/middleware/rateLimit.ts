@@ -1,12 +1,13 @@
 import { createHash } from 'crypto'
 import express from 'express'
 import * as admin from 'firebase-admin'
+import type { AuthedRequest } from './auth'
 import { errorResponse } from '../utils/errors'
 
 // Ensure Firebase Admin is initialized before using Firestore.
 try {
   admin.app()
-} catch (_) {
+} catch {
   admin.initializeApp()
 }
 
@@ -50,11 +51,6 @@ async function checkAndIncrementRateLimit(
     tx.update(ref, { count: record.count + 1 })
     return true
   })
-}
-
-export type AuthedRequest = express.Request & {
-  correlationId: string
-  user?: admin.auth.DecodedIdToken
 }
 
 export function rateLimitByIp(limit: number, windowMs: number) {

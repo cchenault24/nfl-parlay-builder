@@ -30,7 +30,7 @@ function transformV2Games(v2Games: V2Game[]): NFLGame[] {
     // Add safety checks for team data
     const homeTeam = game.home || {}
     const awayTeam = game.away || {}
-    
+
     return {
       id: game.gameId,
       date: game.startTime,

@@ -82,33 +82,6 @@ export const API_CONFIG = {
   },
 } as const
 
-/**
- * Feature flags and configuration
- */
-export const FEATURES = {
-  // Enable detailed logging in development
-  DETAILED_LOGGING: isLocalDevelopment(),
-
-  // Enable request/response logging
-  API_LOGGING: isLocalDevelopment(),
-
-  // Rate limiting settings
-  RATE_LIMITING: {
-    enabled: !isLocalDevelopment(),
-    requestsPerMinute: 60,
-  },
-  USE_CLOUD_FUNCTIONS: true,
-} as const
-
-/**
- * Logging configuration
- */
-export const LOGGING = {
-  level: isLocalDevelopment() ? 'debug' : 'info',
-  enableConsole: true,
-  enableRemote: !isLocalDevelopment(),
-} as const
-
 // Initialize environment validation in non-test environments
 if (ENV.NODE_ENV !== 'test') {
   validateEnvironment()

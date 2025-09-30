@@ -76,12 +76,22 @@ export type GameItem = {
 function mapStatus(
   name: string | undefined
 ): 'scheduled' | 'in_progress' | 'final' | 'postponed' {
-  if (!name) return 'scheduled'
+  if (!name) {
+    return 'scheduled'
+  }
   const n = name.toLowerCase()
-  if (n.includes('pre') || n.includes('scheduled')) return 'scheduled'
-  if (n.includes('in') || n.includes('live')) return 'in_progress'
-  if (n.includes('final') || n.includes('post')) return 'final'
-  if (n.includes('postponed') || n.includes('delayed')) return 'postponed'
+  if (n.includes('pre') || n.includes('scheduled')) {
+    return 'scheduled'
+  }
+  if (n.includes('in') || n.includes('live')) {
+    return 'in_progress'
+  }
+  if (n.includes('final') || n.includes('post')) {
+    return 'final'
+  }
+  if (n.includes('postponed') || n.includes('delayed')) {
+    return 'postponed'
+  }
   return 'scheduled'
 }
 
@@ -271,7 +281,9 @@ export async function fetchTeamRoster(teamId: string): Promise<RosterPlayer[]> {
           item?.fullName ||
           item?.name ||
           ''
-        if (!playerId || !name) return null
+        if (!playerId || !name) {
+          return null
+        }
         return { playerId, name }
       })
       .filter(Boolean) as RosterPlayer[]

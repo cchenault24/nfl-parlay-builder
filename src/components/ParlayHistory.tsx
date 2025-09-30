@@ -131,8 +131,14 @@ export const ParlayHistory: React.FC<ParlayHistoryProps> = ({
           </Box>
         ) : (
           <Box sx={{ maxHeight: '60vh', overflowY: 'auto' }}>
-            {parlays.map((parlay, index) => (
-              <Card key={parlay.parlayId || `parlay-${index}`} sx={{ mb: 2 }}>
+            {parlays.map(parlay => (
+              <Card
+                key={
+                  parlay.parlayId ||
+                  `parlay-${parlay.gameId}-${parlay.combinedOdds}`
+                }
+                sx={{ mb: 2 }}
+              >
                 <CardContent>
                   <Box
                     sx={{
@@ -156,11 +162,11 @@ export const ParlayHistory: React.FC<ParlayHistoryProps> = ({
                   {/* savedAt removed in v2 */}
 
                   <Grid container spacing={2}>
-                    {parlay.legs?.map((leg, index) => (
+                    {parlay.legs?.map(leg => (
                       <Grid
                         item
                         xs={12}
-                        key={`${parlay.parlayId}-leg-${index}`}
+                        key={`${parlay.parlayId}-${leg.betType}-${leg.selection}`}
                       >
                         <Box
                           sx={{

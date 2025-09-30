@@ -85,42 +85,6 @@ export interface NFLPlayer {
   college?: string
 }
 
-export interface GameRosters {
-  homeRoster: NFLPlayer[]
-  awayRoster: NFLPlayer[]
-}
-
-export interface TeamStats {
-  teamId: string
-  passingYards: number
-  rushingYards: number
-  totalYards: number
-  pointsPerGame: number
-  pointsAllowed: number
-  turnovers: number
-  record: string
-}
-
-export interface PlayerStats {
-  playerId: string
-  name: string
-  position: string
-  teamId: string
-  passingYards?: number
-  rushingYards?: number
-  receivingYards?: number
-  touchdowns: number
-  receptions?: number
-}
-
-export interface NewsItem {
-  title: string
-  description: string
-  publishedDate: string
-  url: string
-  teamIds: string[]
-}
-
 // ===== PARLAY TYPES =====
 export interface ParlayLeg {
   betType: BetType
@@ -164,11 +128,6 @@ export interface GeneratedParlay {
   }
 }
 
-export interface ParlayRequest {
-  gameId: string
-  legCount: 3
-}
-
 export interface GenerateParlayRequest {
   gameId: string
   numLegs: 3
@@ -185,9 +144,4 @@ export interface UserProfile {
   photoURL?: string
   createdAt: Timestamp
   savedParlays?: string[] // Array of parlay IDs
-}
-
-export interface SavedParlay extends GeneratedParlay {
-  userId: string
-  savedAt: Timestamp
 }

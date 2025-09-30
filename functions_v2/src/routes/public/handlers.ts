@@ -5,7 +5,7 @@ import {
 } from '../../providers/espn'
 import { getCached, setCached } from '../../utils/cache'
 import { errorResponse } from '../../utils/errors'
-import { CurrentWeekResponse, GamesResponse } from './schema'
+import { GamesResponse } from './schema'
 
 const CACHE_TTL_MS = 10 * 60 * 1000
 
@@ -17,7 +17,9 @@ export const getCurrentWeekHandler = async (
   try {
     const cacheKey = 'espn:weeks:current'
     const cached = await getCached<number>(cacheKey, CACHE_TTL_MS)
-    if (cached !== null) return res.json({ week: cached })
+    if (cached !== null) {
+      return res.json({ week: cached })
+    }
     const week = await espnCurrentWeek()
     await setCached(cacheKey, week)
     res.json({ week })
@@ -38,7 +40,7 @@ export const getGamesHandler = async (
 ) => {
   const correlationId = (req as any).correlationId as string
   const weekStr = req.query.week as string | undefined
-  if (!weekStr)
+  if (!weekStr) {
     return errorResponse(
       res,
       400,
@@ -46,8 +48,9 @@ export const getGamesHandler = async (
       'Missing query param: week',
       correlationId
     )
+  }
   const week = Number(weekStr)
-  if (!Number.isInteger(week) || week <= 0)
+  if (!Number.isInteger(week) || week <= 0) {
     return errorResponse(
       res,
       400,
@@ -55,10 +58,13 @@ export const getGamesHandler = async (
       'Invalid week',
       correlationId
     )
+  }
   try {
     const cacheKey = `espn:games:week:${week}`
     const cached = await getCached<GamesResponse[]>(cacheKey, CACHE_TTL_MS)
-    if (cached) return res.json(cached)
+    if (cached) {
+      return res.json(cached)
+    }
     const games = await fetchGamesForWeek(week)
     await setCached(cacheKey, games)
     res.json(games)

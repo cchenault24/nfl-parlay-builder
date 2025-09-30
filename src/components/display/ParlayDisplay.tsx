@@ -71,7 +71,7 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({ parlay, loading }) => {
           <Grid container spacing={2} sx={{ mb: 3 }}>
             {parlay.legs.map((leg, index) => (
               <ParlayLegView
-                key={`${leg.betType}-${index}`}
+                key={`${leg.betType}-${leg.selection}-${leg.odds}`}
                 leg={leg}
                 index={index}
               />

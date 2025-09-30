@@ -2,7 +2,7 @@ import * as admin from 'firebase-admin'
 
 const db = admin.firestore()
 
-export type IdempotencyRecord<T> = {
+type IdempotencyRecord<T> = {
   userId: string
   key: string
   createdAt: number
@@ -21,7 +21,7 @@ function idempotencyDocRef<T>(docId: string) {
 }
 
 function buildIdemDocId(userId: string, key: string): string {
-  const safeKey = key.replace(/[\/?#%]/g, '_')
+  const safeKey = key.replace(/[/?#%]/g, '_')
   return `${userId}:${safeKey}`
 }
 
@@ -32,9 +32,13 @@ export async function getIdempotentResponse<T>(
 ): Promise<T | null> {
   const docId = buildIdemDocId(userId, key)
   const snap = await idempotencyDocRef<T>(docId).get()
-  if (!snap.exists) return null
+  if (!snap.exists) {
+    return null
+  }
   const record = snap.data() as IdempotencyRecord<T>
-  if (Date.now() - record.createdAt > maxAgeMs) return null
+  if (Date.now() - record.createdAt > maxAgeMs) {
+    return null
+  }
   return record.response
 }
 

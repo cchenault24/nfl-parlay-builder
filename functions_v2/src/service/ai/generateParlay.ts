@@ -18,14 +18,9 @@ export async function generateParlayWithAI(params: {
   try {
     const client = getOpenAI()
     if (!client) {
-      console.error('❌ OpenAI client is null - OPENAI_API_KEY may be missing')
+      console.error('OpenAI client is null - OPENAI_API_KEY may be missing')
       return null
     }
-
-    console.log(
-      '🤖 Calling OpenAI with model: gpt-4o-mini, temperature:',
-      temperature
-    )
 
     const completion = await withTimeout(
       client.chat.completions.create({
@@ -52,16 +47,15 @@ export async function generateParlayWithAI(params: {
     )
 
     const content = completion.choices[0]?.message?.content ?? ''
-    console.log('📝 OpenAI response length:', content.length)
 
     if (!content) {
-      console.error('❌ OpenAI returned empty content')
+      console.error('OpenAI returned empty content')
       return null
     }
 
     const parsed = AIGenerateResponseSchema.safeParse(JSON.parse(content))
     if (!parsed.success) {
-      console.error('❌ JSON parsing failed:', {
+      console.error('JSON parsing failed:', {
         error: parsed.error,
         content:
           content.substring(0, 500) + (content.length > 500 ? '...' : ''),
@@ -69,10 +63,9 @@ export async function generateParlayWithAI(params: {
       return null
     }
 
-    console.log('✅ Successfully generated parlay with AI')
     return parsed.data
   } catch (error) {
-    console.error('❌ OpenAI API call failed:', {
+    console.error('OpenAI API call failed:', {
       error: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
     })

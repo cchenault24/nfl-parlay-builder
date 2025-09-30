@@ -4,7 +4,7 @@ import { BetTypeEnum } from './schemas'
 // All available bet types - will be filtered by gameData.betType in the future
 const ALL_BET_TYPES = BetTypeEnum.options
 
-function getAvailableBetTypes(gameData: GameItem): string {
+function getAvailableBetTypes(_gameData: GameItem): string {
   // TODO: When betTypes is passed from the request, filter ALL_BET_TYPES based on gameData.betType
   // For now, return all bet types as a joined string
   return ALL_BET_TYPES.join(', ')
@@ -103,30 +103,11 @@ function buildOutputFormat(gameData: GameItem): string {
   )
 }
 
-// Export helper functions for potential reuse
-export {
-  buildAnalysisGuidance,
-  buildGameContext,
-  buildLegGenerationRequirements,
-  buildOutputFormat,
-}
-
 export function buildParlayPrompt(params: {
   gameData: GameItem
   riskLevel: 'conservative' | 'moderate' | 'aggressive'
 }): string {
   const { gameData, riskLevel } = params
 
-  return (
-    `Generate a 3-leg NFL parlay for this game: ` +
-    `${gameData.away.name} @ ${gameData.home.name} ` +
-    `(Week ${gameData.week}, ${new Date(gameData.startTime).toLocaleDateString()}) ` +
-    `at ${gameData.venue.name} in ${gameData.venue.city}, ${gameData.venue.state}.` +
-    buildGameContext(gameData) +
-    `\n\nRisk level: ${riskLevel}.` +
-    buildAnalysisGuidance() +
-    `\n\nGenerate realistic betting lines and selections based on this deep analysis.` +
-    buildLegGenerationRequirements(riskLevel) +
-    buildOutputFormat(gameData)
-  )
+  return `Generate a 3-leg NFL parlay for this game: ${gameData.away.name} @ ${gameData.home.name} (Week ${gameData.week}, ${new Date(gameData.startTime).toLocaleDateString()}) at ${gameData.venue.name} in ${gameData.venue.city}, ${gameData.venue.state}.${buildGameContext(gameData)}\n\nRisk level: ${riskLevel}.${buildAnalysisGuidance()}\n\nGenerate realistic betting lines and selections based on this deep analysis.${buildLegGenerationRequirements(riskLevel)}${buildOutputFormat(gameData)}`
 }

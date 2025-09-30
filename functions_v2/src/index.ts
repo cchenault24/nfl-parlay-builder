@@ -9,7 +9,7 @@ import { protectedRouter, publicRouter } from './routes'
 // Initialize Firebase Admin once
 try {
   admin.app()
-} catch (_) {
+} catch {
   admin.initializeApp()
 }
 
@@ -27,7 +27,9 @@ const corsMiddleware = cors({
     origin: string | undefined,
     callback: (err: Error | null, allow?: boolean) => void
   ) => {
-    if (!origin || CORS_ALLOWLIST.has(origin)) return callback(null, true)
+    if (!origin || CORS_ALLOWLIST.has(origin)) {
+      return callback(null, true)
+    }
     return callback(new Error('Not allowed by CORS'))
   },
   credentials: true,

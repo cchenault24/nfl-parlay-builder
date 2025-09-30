@@ -69,7 +69,7 @@ export const generateParlayHandler = async (
     let targetWeek = week ?? (await fetchCurrentWeek())
 
     // Try to find the game in the current week first
-    let cacheKey = `games_week_${targetWeek}`
+    const cacheKey = `games_week_${targetWeek}`
     let games = await getCached<GameItem[]>(cacheKey, 10 * 60 * 1000) // 10 minute TTL
     if (!games) {
       games = await fetchGamesForWeek(targetWeek)
@@ -78,10 +78,6 @@ export const generateParlayHandler = async (
 
     // If game not found in current week, try other recent weeks
     if (!games.find(g => g.gameId === gameId)) {
-      console.log(
-        `Game ${gameId} not found in week ${targetWeek}, searching other weeks...`
-      )
-
       // Try neighbor weeks first, then scan remaining
       const neighborWeeks = [targetWeek - 1, targetWeek + 1].filter(
         w => w >= 1 && w <= 18
@@ -91,7 +87,9 @@ export const generateParlayHandler = async (
       )
       const candidateWeeks = [...neighborWeeks, ...remainingWeeks]
       for (const w of candidateWeeks) {
-        if (w === targetWeek) continue
+        if (w === targetWeek) {
+          continue
+        }
 
         const weekCacheKey = `games_week_${w}`
         let weekGames = await getCached<GameItem[]>(
@@ -104,7 +102,6 @@ export const generateParlayHandler = async (
         }
 
         if (weekGames.find(g => g.gameId === gameId)) {
-          console.log(`Found game ${gameId} in week ${w}`)
           games = weekGames
           targetWeek = w
           break
