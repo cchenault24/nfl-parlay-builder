@@ -40,4 +40,3 @@ jobs:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_NFL_PARLAY_BUILDER }}
           projectId: nfl-parlay-builder
           channelId: pr-${{ github.event.number }}
-          target: production
