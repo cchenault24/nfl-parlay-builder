@@ -42,6 +42,25 @@ export async function verifyAuth(
         correlationId
       )
     }
+    // Best-effort decode of token claims for diagnostics (no secrets required)
+    try {
+      const parts = token.split('.')
+      if (parts.length === 3) {
+        const payloadJson = Buffer.from(parts[1], 'base64').toString('utf8')
+        const payload = JSON.parse(payloadJson)
+        const claimSummary = {
+          iss: payload.iss,
+          aud: payload.aud,
+          sub: payload.sub,
+          provider: payload.firebase?.sign_in_provider,
+        }
+        console.info('[AUTH] Token claim summary', {
+          correlationId,
+          claimSummary,
+        })
+      }
+    } catch {}
+
     const decoded = await admin.auth().verifyIdToken(token)
     ;(req as AuthedRequest).user = decoded
     return next()
