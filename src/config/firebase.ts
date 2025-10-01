@@ -152,6 +152,117 @@ export const getUserParlays = (
   userId: string,
   callback: (parlays: GeneratedParlay[]) => void
 ) => {
+  const migrateParlay = (data: any, docId: string): GeneratedParlay => {
+    const migrated: any = { ...data }
+
+    // Ensure required identifier
+    if (!migrated.parlayId) {
+      migrated.parlayId = docId
+    }
+
+    // Migrate odds field from older schema
+    if (migrated.estimatedOdds != null && migrated.combinedOdds == null) {
+      const numericOdds =
+        typeof migrated.estimatedOdds === 'number'
+          ? migrated.estimatedOdds
+          : Number(migrated.estimatedOdds)
+      migrated.combinedOdds = Number.isFinite(numericOdds) ? numericOdds : 0
+    }
+
+    // Normalize legs
+    if (Array.isArray(migrated.legs)) {
+      migrated.legs = migrated.legs.map((leg: any) => {
+        const oddsValue =
+          typeof leg?.odds === 'number' ? leg.odds : Number(leg?.odds ?? 0)
+        const confidenceValueRaw =
+          typeof leg?.confidence === 'number'
+            ? leg.confidence
+            : (leg?.confidencePct ?? leg?.confidencePercent ?? 0)
+        const confidenceValue =
+          typeof confidenceValueRaw === 'number'
+            ? confidenceValueRaw
+            : Number(confidenceValueRaw)
+
+        return {
+          betType: leg?.betType ?? leg?.type ?? 'moneyline',
+          selection: leg?.selection ?? leg?.pick ?? '',
+          odds: Number.isFinite(oddsValue) ? oddsValue : 0,
+          confidence: Number.isFinite(confidenceValue) ? confidenceValue : 0,
+          reasoning: leg?.reasoning ?? leg?.analysis ?? '',
+        }
+      })
+    } else {
+      migrated.legs = []
+    }
+
+    // Ensure gameSummary exists
+    if (!migrated.gameSummary) {
+      migrated.gameSummary = {
+        matchupSummary: '',
+        keyFactors: [],
+        gamePrediction: {
+          winner: '',
+          projectedScore: { home: 0, away: 0 },
+          winProbability: 0,
+        },
+      }
+    } else {
+      // Fill any missing nested fields defensively
+      migrated.gameSummary.matchupSummary =
+        migrated.gameSummary.matchupSummary ?? ''
+      migrated.gameSummary.keyFactors = migrated.gameSummary.keyFactors ?? []
+      migrated.gameSummary.gamePrediction = migrated.gameSummary
+        .gamePrediction ?? {
+        winner: '',
+        projectedScore: { home: 0, away: 0 },
+        winProbability: 0,
+      }
+      migrated.gameSummary.gamePrediction.winner =
+        migrated.gameSummary.gamePrediction.winner ?? ''
+      migrated.gameSummary.gamePrediction.projectedScore = migrated.gameSummary
+        .gamePrediction.projectedScore ?? {
+        home: 0,
+        away: 0,
+      }
+      migrated.gameSummary.gamePrediction.projectedScore.home =
+        migrated.gameSummary.gamePrediction.projectedScore.home ?? 0
+      migrated.gameSummary.gamePrediction.projectedScore.away =
+        migrated.gameSummary.gamePrediction.projectedScore.away ?? 0
+      migrated.gameSummary.gamePrediction.winProbability =
+        migrated.gameSummary.gamePrediction.winProbability ?? 0
+    }
+
+    // Ensure rosterDataUsed exists
+    if (!migrated.rosterDataUsed) {
+      migrated.rosterDataUsed = { home: [], away: [] }
+    } else {
+      migrated.rosterDataUsed.home = migrated.rosterDataUsed.home ?? []
+      migrated.rosterDataUsed.away = migrated.rosterDataUsed.away ?? []
+    }
+
+    // Ensure combinedOdds exists
+    if (migrated.combinedOdds == null) {
+      migrated.combinedOdds = 0
+    }
+
+    // Ensure parlayConfidence exists
+    if (migrated.parlayConfidence == null) {
+      migrated.parlayConfidence = 0
+    }
+
+    // Ensure gameContext exists
+    if (migrated.gameContext == null) {
+      migrated.gameContext = ''
+    }
+
+    // Ensure gameId exists (best-effort)
+    if (migrated.gameId == null) {
+      migrated.gameId = ''
+    }
+
+    return migrated as GeneratedParlay
+  }
+
   const parlaysQuery = query(
     collection(db, 'parlays'),
     where('userId', '==', userId),
@@ -168,11 +279,12 @@ export const getUserParlays = (
   const unsubscribe = onSnapshot(
     parlaysQuery,
     querySnapshot => {
-      const parlays: GeneratedParlay[] = querySnapshot.docs.map(doc => {
-        const data = doc.data() as FirestoreParlayDoc
-        // Strip fields not in v2 frontend model
-        const { userId: _userId, savedAt: _savedAt, ...rest } = data
-        return rest
+      const parlays: GeneratedParlay[] = querySnapshot.docs.map(docSnap => {
+        const raw = docSnap.data() as FirestoreParlayDoc
+        // Remove backend-only fields before migration
+        const { userId: _userId, savedAt: _savedAt, ...rest } = raw
+        // Migrate to current frontend schema and include Firestore doc ID
+        return migrateParlay(rest, docSnap.id)
       })
       callback(parlays)
     },

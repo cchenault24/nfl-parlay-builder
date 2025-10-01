@@ -14,6 +14,11 @@ export const useCurrentWeek = () => {
       const response = await fetch(
         `${base}${API_CONFIG.CLOUD_FUNCTIONS.endpoints.v2.currentWeek}`
       )
+      if (!response.ok) {
+        throw new Error(
+          `Failed to fetch current week: ${response.status} ${response.statusText}`
+        )
+      }
       const data: V2CurrentWeekResponse = await response.json()
       return data.week
     },

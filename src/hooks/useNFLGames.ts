@@ -65,17 +65,36 @@ export const useNFLGames = (week?: number) => {
     queryFn: async (): Promise<NFLGame[]> => {
       const base = API_CONFIG.CLOUD_FUNCTIONS.baseURL
       if (!week) {
-        const w: V2CurrentWeekResponse = await fetch(
+        const currentWeekResponse = await fetch(
           `${base}${API_CONFIG.CLOUD_FUNCTIONS.endpoints.v2.currentWeek}`
-        ).then(r => r.json())
-        const games: V2Game[] = await fetch(
+        )
+        if (!currentWeekResponse.ok) {
+          throw new Error(
+            `Failed to fetch current week: ${currentWeekResponse.status} ${currentWeekResponse.statusText}`
+          )
+        }
+        const w: V2CurrentWeekResponse = await currentWeekResponse.json()
+
+        const gamesResponse = await fetch(
           `${base}${API_CONFIG.CLOUD_FUNCTIONS.endpoints.v2.games(w.week)}`
-        ).then(r => r.json())
+        )
+        if (!gamesResponse.ok) {
+          throw new Error(
+            `Failed to fetch games for week ${w.week}: ${gamesResponse.status} ${gamesResponse.statusText}`
+          )
+        }
+        const games: V2Game[] = await gamesResponse.json()
         return transformV2Games(games)
       }
-      const games: V2Game[] = await fetch(
+      const gamesResponse = await fetch(
         `${base}${API_CONFIG.CLOUD_FUNCTIONS.endpoints.v2.games(week)}`
-      ).then(r => r.json())
+      )
+      if (!gamesResponse.ok) {
+        throw new Error(
+          `Failed to fetch games for week ${week}: ${gamesResponse.status} ${gamesResponse.statusText}`
+        )
+      }
+      const games: V2Game[] = await gamesResponse.json()
       return transformV2Games(games)
     },
     staleTime: 10 * 60 * 1000, // 10 minutes
