@@ -81,15 +81,29 @@ jobs:
               description: sections['Description'] || '',
               requirements: sections['Requirements'] || '',
               acceptanceCriteria: sections['Acceptance Criteria'] || '',
-              filesToCreate: sections['Files to Create'] || ''
+              filesToCreate: sections['Files to Create'] || '',
+              currentStateAnalysis: sections['Current State Analysis'] || '',
+              testingChecklist: sections['Testing Checklist'] || '',
+              implementationOrder: sections['Implementation Order'] || '',
+              filesToModify: sections['Files to Modify'] || '',
+              notes: sections['Notes'] || ''
             };
 
-            // Format the new issue body with your exact layout
-            const formattedBody = "**Priority:** " + data.priority + " **Estimated Time:** " + data.estimatedTime + " **Difficulty:** " + data.difficulty + " **Prerequisites:** " + data.prerequisites + "\n\n" +
-              "**Description**\n" + data.description + "\n\n" +
-              "**Requirements**\n" + data.requirements + "\n\n" +
-              "**Acceptance Criteria**\n" + data.acceptanceCriteria + "\n\n" +
-              "**Files to Create**\n" + data.filesToCreate;
+            // Format the new issue body with the standard ticket format
+            const formattedBody = '# ' + title.replace('NPB-' + issue.number + ': ', '') + '\n\n' +
+              '**Priority:** ' + data.priority + '  \n' +
+              '**Estimated Time:** ' + data.estimatedTime + '  \n' +
+              '**Difficulty:** ' + data.difficulty + '  \n' +
+              '**Prerequisites:** ' + data.prerequisites + '\n\n' +
+              '## Description\n' + data.description + '\n\n' +
+              '## Current State Analysis\n' + (data.currentStateAnalysis || 'To be analyzed during implementation') + '\n\n' +
+              '## Requirements\n\n' + data.requirements + '\n\n' +
+              '## Acceptance Criteria\n' + data.acceptanceCriteria + '\n\n' +
+              '## Testing Checklist\n' + (data.testingChecklist || 'To be defined during implementation') + '\n\n' +
+              '## Implementation Order\n' + (data.implementationOrder || 'To be determined during planning') + '\n\n' +
+              '## Files to Modify\n' + (data.filesToModify || 'To be determined during implementation') + '\n\n' +
+              '## Files to Create\n' + (data.filesToCreate || 'None') + '\n\n' +
+              '## Notes\n' + (data.notes || 'Additional implementation notes will be added as needed');
 
             // Update the issue with the formatted body
             try {
