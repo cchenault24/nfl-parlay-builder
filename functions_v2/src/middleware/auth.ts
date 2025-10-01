@@ -20,6 +20,20 @@ export async function verifyAuth(
     const authHeader = req.headers.authorization || ''
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
     if (!token) {
+      // Diagnostics for missing token
+      try {
+        const origin = req.headers.origin
+        const hasAuthHeader = Boolean(req.headers.authorization)
+        const adminProjectId = (admin.app().options as any)?.projectId
+        const functionProjectId = process.env.GOOGLE_CLOUD_PROJECT
+        console.warn('[AUTH] Missing token', {
+          correlationId,
+          origin,
+          hasAuthHeader,
+          adminProjectId,
+          functionProjectId,
+        })
+      } catch {}
       return errorResponse(
         res,
         401,
@@ -31,7 +45,29 @@ export async function verifyAuth(
     const decoded = await admin.auth().verifyIdToken(token)
     ;(req as AuthedRequest).user = decoded
     return next()
-  } catch {
+  } catch (err) {
+    // Diagnostics for invalid/expired token
+    try {
+      const origin = req.headers.origin
+      const hasAuthHeader = Boolean(req.headers.authorization)
+      const tokenLength = (req.headers.authorization || '').startsWith(
+        'Bearer '
+      )
+        ? (req.headers.authorization as string).length - 7
+        : 0
+      const adminProjectId = (admin.app().options as any)?.projectId
+      const functionProjectId = process.env.GOOGLE_CLOUD_PROJECT
+      console.warn('[AUTH] Token verification failed', {
+        correlationId,
+        origin,
+        hasAuthHeader,
+        tokenLength,
+        adminProjectId,
+        functionProjectId,
+        errorName: (err as Error)?.name,
+        errorMessage: (err as Error)?.message,
+      })
+    } catch {}
     return errorResponse(
       res,
       401,

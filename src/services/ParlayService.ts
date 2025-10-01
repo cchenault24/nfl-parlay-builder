@@ -75,6 +75,20 @@ export class ParlayService {
     options: { provider?: 'mock' | 'openai' } = {}
   ): Promise<EnhancedParlayGenerationResult> {
     try {
+      // Check authentication before proceeding
+      const currentUser = auth.currentUser
+      if (!currentUser) {
+        throw new Error(
+          'User not authenticated. Please log in to generate parlays.'
+        )
+      }
+
+      console.log('🔐 User authenticated:', {
+        uid: currentUser.uid,
+        email: currentUser.email,
+        emailVerified: currentUser.emailVerified,
+      })
+
       return await this.generateCloudParlay(game, options)
     } catch (error) {
       console.error('❌ Error generating parlay:', error)
@@ -161,6 +175,12 @@ export class ParlayService {
     try {
       const authToken = await this.getAuthToken()
 
+      if (!authToken) {
+        throw new Error(
+          'No authentication token available. Please log in again.'
+        )
+      }
+
       const requestBody: GenerateParlayRequest = {
         gameId: game.id,
         numLegs: 3,
@@ -169,11 +189,18 @@ export class ParlayService {
         betTypes: 'all',
       }
 
+      console.log('🚀 Making parlay generation request:', {
+        url: this.cloudFunctionUrl,
+        gameId: game.id,
+        hasAuthToken: !!authToken,
+        tokenLength: authToken.length,
+      })
+
       const response = await fetch(this.cloudFunctionUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+          Authorization: `Bearer ${authToken}`,
         },
         body: JSON.stringify(requestBody),
       })
@@ -184,8 +211,8 @@ export class ParlayService {
         console.error('[CF FAIL]', {
           status: response.status,
           statusText: response.statusText,
-          trace: null,
-          execId: null,
+          url: this.cloudFunctionUrl,
+          hasAuthToken: !!authToken,
           body: responseData,
         })
 
@@ -197,6 +224,7 @@ export class ParlayService {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }
 
+      console.log('✅ Parlay generation successful')
       return responseData
     } catch (error) {
       console.error('❌ Cloud Function call failed:', error)
@@ -246,17 +274,40 @@ export class ParlayService {
   }
 
   /**
-   * Get Firebase auth token
+   * Get Firebase auth token with refresh handling
    */
   private async getAuthToken(): Promise<string | null> {
     try {
       const currentUser = auth.currentUser
-      if (currentUser) {
-        return await currentUser.getIdToken()
+      if (!currentUser) {
+        console.warn('No authenticated user found')
+        return null
       }
-      return null
+
+      // Check if user is still valid
+      if (!currentUser.emailVerified && currentUser.providerData.length === 0) {
+        console.warn('User account may be invalid')
+        return null
+      }
+
+      // Force refresh the token to ensure it's valid
+      const token = await currentUser.getIdToken(true)
+      console.log('✅ Auth token obtained successfully', {
+        uid: currentUser.uid,
+        email: currentUser.email,
+        tokenLength: token.length,
+        tokenPreview: token.substring(0, 20) + '...',
+      })
+      return token
     } catch (error) {
-      console.warn('Failed to get auth token:', error)
+      console.error('❌ Failed to get auth token:', error)
+      // If token refresh fails, the user might need to re-authenticate
+      if (
+        error instanceof Error &&
+        error.message.includes('auth/user-token-expired')
+      ) {
+        console.error('Token expired - user needs to re-authenticate')
+      }
       return null
     }
   }
