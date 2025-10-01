@@ -3,6 +3,17 @@
     "default": "nfl-parlay-builder",
     "dev": "nfl-parlay-builder-dev"
   },
-  "targets": {},
+  "targets": {
+    "nfl-parlay-builder-dev": {
+      "hosting": {
+        "production": [
+          "nfl-parlay-builder"
+        ],
+        "dev": [
+          "nfl-parlay-builder-dev"
+        ]
+      }
+    }
+  },
   "etags": {}
 }
