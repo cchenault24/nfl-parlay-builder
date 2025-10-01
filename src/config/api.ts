@@ -11,7 +11,6 @@ export const ENV = {
   FIREBASE_MESSAGING_SENDER_ID: getEnvVar('VITE_FIREBASE_MESSAGING_SENDER_ID'),
   FIREBASE_APP_ID: getEnvVar('VITE_FIREBASE_APP_ID'),
   NODE_ENV: getEnvVar('NODE_ENV') || 'development',
-  CLOUD_FUNCTION_URL: getEnvVar('VITE_CLOUD_FUNCTION_URL'),
 } as const
 
 /**
@@ -63,11 +62,9 @@ const isLocalDevelopment = () => {
  */
 export const API_CONFIG = {
   CLOUD_FUNCTIONS: {
-    baseURL:
-      ENV.CLOUD_FUNCTION_URL ||
-      (isLocalDevelopment()
-        ? `http://localhost:5001/nfl-parlay-builder-dev/us-central1`
-        : `https://us-central1-nfl-parlay-builder-dev.cloudfunctions.net`),
+    baseURL: isLocalDevelopment()
+      ? `http://localhost:5001/nfl-parlay-builder-dev/us-central1`
+      : `https://us-central1-nfl-parlay-builder-dev.cloudfunctions.net`,
     timeout: isLocalDevelopment() ? 60000 : 45000,
     retryAttempts: 2,
     retryDelay: 2000,
