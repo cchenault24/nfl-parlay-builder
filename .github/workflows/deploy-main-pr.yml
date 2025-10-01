@@ -1,0 +1,43 @@
+# Deploy PR previews for main branch (from dev)
+name: Deploy Main PR Preview
+'on':
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  checks: write
+  contents: read
+  pull-requests: write
+
+jobs:
+  build_and_preview:
+    if: '${{ !github.event.pull_request.head.repo.fork }}'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'yarn'
+      - run: yarn install --frozen-lockfile
+      - run: yarn build
+        env:
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+          VITE_MINIMUM_AGE: ${{ secrets.VITE_MINIMUM_AGE }}
+          VITE_LEGAL_COMPANY_NAME: ${{ secrets.VITE_LEGAL_COMPANY_NAME }}
+          VITE_LEGAL_CONTACT_EMAIL: ${{ secrets.VITE_LEGAL_CONTACT_EMAIL }}
+          VITE_RESPONSIBLE_GAMBLING_HELPLINE: ${{ secrets.VITE_RESPONSIBLE_GAMBLING_HELPLINE }}
+      - uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_NFL_PARLAY_BUILDER }}
+          projectId: nfl-parlay-builder
+          channelId: pr-${{ github.event.number }}
+          target: production
