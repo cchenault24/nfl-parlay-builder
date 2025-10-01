@@ -19,8 +19,8 @@ const CORS_ALLOWLIST = new Set([
   'http://localhost:3001',
   'http://localhost:3000',
   'https://nfl-parlay-builder.web.app',
-  'https://nfl-parlay-builder-dev.web.app',
-  /^https:\/\/nfl-parlay-builder-dev--[\w-]+\.web\.app\/?$/,
+  // Allow dev Hosting site and preview channels under the dev project only
+  /^https:\/\/nfl-parlay-builder-dev(?:--[\w-]+)?\.web\.app\/?$/,
 ])
 
 // CORS
@@ -63,6 +63,8 @@ app.use(
   }
 )
 app.use(corsMiddleware)
+// Handle preflight requests explicitly
+app.options('*', corsMiddleware)
 app.use(express.json({ limit: '1mb' }))
 
 // Health
