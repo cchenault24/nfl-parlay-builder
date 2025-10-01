@@ -6,7 +6,7 @@ type LegSelectorProps = {
   disabled: boolean
 }
 
-export const LegSelector: React.FC<LegSelectorProps> = ({disabled}) => {
+export const LegSelector: React.FC<LegSelectorProps> = ({ disabled }) => {
   const legCount = useParlayStore(state => state.legCount)
   const setLegCount = useParlayStore(state => state.setLegCount)
   return (
@@ -18,9 +18,7 @@ export const LegSelector: React.FC<LegSelectorProps> = ({disabled}) => {
         justifyContent: 'center',
       }}
     >
-      <Typography>
-        Select number of legs
-      </Typography>
+      <Typography>Select number of legs</Typography>
       <Box
         id="legSelectorDescription"
         sx={{

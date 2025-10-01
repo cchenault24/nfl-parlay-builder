@@ -56,7 +56,7 @@ function AppContent() {
   const [ageVerificationOpen, setAgeVerificationOpen] = useState(false)
 
   // Get current week from API
-  const { currentWeek, isLoading: weekLoading } = useCurrentWeek()
+  const { currentWeek } = useCurrentWeek()
   const { availableWeeks } = useAvailableWeeks()
 
   // Initialize selectedWeek with currentWeek
@@ -71,7 +71,7 @@ function AppContent() {
 
   // Always use selectedWeek (which defaults to currentWeek)
   const weekToFetch = selectedWeek
-  const { data: games, isLoading: gamesLoading } = useNFLGames(weekToFetch)
+  const { data: games } = useNFLGames(weekToFetch)
 
   const {
     mutate: generateParlay,

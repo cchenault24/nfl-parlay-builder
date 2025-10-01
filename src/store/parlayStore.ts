@@ -30,7 +30,7 @@ const useParlayStore = create<ParlayStore>(set => ({
   setSelectedGame: game => set({ selectedGame: game }),
   setSaveParlaySuccess: success => set({ saveParlaySuccess: success }),
   setSaveParlayError: error => set({ saveParlayError: error }),
-  setLegCount: legCount => set({legCount})
+  setLegCount: legCount => set({ legCount }),
 }))
 
 export default useParlayStore

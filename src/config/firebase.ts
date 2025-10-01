@@ -152,8 +152,11 @@ export const getUserParlays = (
   userId: string,
   callback: (parlays: GeneratedParlay[]) => void
 ) => {
-  const migrateParlay = (data: any, docId: string): GeneratedParlay => {
-    const migrated: any = { ...data }
+  const migrateParlay = (
+    data: Record<string, unknown>,
+    docId: string
+  ): GeneratedParlay => {
+    const migrated: Record<string, unknown> = { ...data }
 
     // Ensure required identifier
     if (!migrated.parlayId) {
@@ -171,7 +174,7 @@ export const getUserParlays = (
 
     // Normalize legs
     if (Array.isArray(migrated.legs)) {
-      migrated.legs = migrated.legs.map((leg: any) => {
+      migrated.legs = migrated.legs.map((leg: Record<string, unknown>) => {
         const oddsValue =
           typeof leg?.odds === 'number' ? leg.odds : Number(leg?.odds ?? 0)
         const confidenceValueRaw =
