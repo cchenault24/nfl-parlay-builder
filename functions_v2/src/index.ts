@@ -20,7 +20,7 @@ const CORS_ALLOWLIST = new Set([
   'http://localhost:3000',
   'https://nfl-parlay-builder.web.app',
   'https://nfl-parlay-builder-dev.web.app',
-  /^https:\/\/nfl-parlay-builder--[\w-]+\.web\.app\/?$/,
+  /^https:\/\/nfl-parlay-builder-dev--[\w-]+\.web\.app\/?$/,
 ])
 
 // CORS
