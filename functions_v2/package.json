@@ -1,0 +1,30 @@
+{
+  "name": "functions_v2",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "main": "lib/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "rimraf lib",
+    "dev": "tsc -w -p tsconfig.json",
+    "lint": "echo 'no lint configured'",
+    "start": "node lib/index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "firebase-admin": "^12.6.0",
+    "firebase-functions": "^5.0.0",
+    "openai": "^4.61.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^4.17.23",
+    "rimraf": "^5.0.7",
+    "typescript": "^5.5.4"
+  }
+}

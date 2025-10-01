@@ -4,7 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"firebase emulators:start --only functions\" \"vite --host\"",
+    "dev": "npm run dev:functions:secure & wait-on http://localhost:5001/nfl-parlay-builder-dev/us-central1/api/v2/health -t 30000 && npm run dev:frontend",
+    "dev:functions": "firebase emulators:start --only functions",
+    "dev:functions:secure": "./start-emulator.sh",
+    "dev:frontend": "vite --host",
     "build": "tsc && vite build",
     "lint": "eslint src --ext .ts,.tsx --report-unused-disable-directives --max-warnings 0",
     "lint:fix": "eslint src --ext .ts,.tsx --fix --report-unused-disable-directives --max-warnings 0",
@@ -45,6 +48,7 @@
     "prettier": "^3.6.2",
     "typescript": "^5.2.2",
     "typescript-eslint": "^8.43.0",
-    "vite": "^5.1.0"
+    "vite": "^5.1.0",
+    "wait-on": "^9.0.1"
   }
 }

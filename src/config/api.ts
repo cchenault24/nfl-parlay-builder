@@ -11,7 +11,6 @@ export const ENV = {
   FIREBASE_MESSAGING_SENDER_ID: getEnvVar('VITE_FIREBASE_MESSAGING_SENDER_ID'),
   FIREBASE_APP_ID: getEnvVar('VITE_FIREBASE_APP_ID'),
   NODE_ENV: getEnvVar('NODE_ENV') || 'development',
-  CLOUD_FUNCTION_URL: getEnvVar('VITE_CLOUD_FUNCTION_URL'),
 } as const
 
 /**
@@ -49,11 +48,10 @@ const isLocalDevelopment = () => {
     const isFirebaseHosting =
       hostname.includes('.web.app') || hostname.includes('.firebaseapp.com')
     if (isFirebaseHosting) {
-      console.log('🔧 Firebase hosting detected, forcing production URLs')
       return false
     }
 
-    console.log('🔧 Hostname check:', { hostname, isLocal })
+    // console.log('🔧 Hostname check:', { hostname, isLocal })
     return isLocal
   }
   return ENV.NODE_ENV === 'development'
@@ -63,72 +61,35 @@ const isLocalDevelopment = () => {
  * API Configuration with environment-based settings
  */
 export const API_CONFIG = {
-  ESPN: {
-    baseURL: 'https://site.api.espn.com/apis/site/v2/sports/football/nfl',
-    timeout: isLocalDevelopment() ? 15000 : 10000,
-    retryAttempts: isLocalDevelopment() ? 2 : 3,
-    retryDelay: 1000,
-    endpoints: {
-      scoreboard: '/scoreboard',
-      games: '/scoreboard',
-      roster: '/teams/{teamId}/roster',
-    },
-  },
   CLOUD_FUNCTIONS: {
-    baseURL:
-      ENV.CLOUD_FUNCTION_URL ||
-      (isLocalDevelopment()
-        ? `http://localhost:5001/${ENV.FIREBASE_PROJECT_ID}/us-central1`
-        : `https://us-central1-${ENV.FIREBASE_PROJECT_ID}.cloudfunctions.net`),
+    baseURL: (() => {
+      const projectId = ENV.FIREBASE_PROJECT_ID
+      // Default to dev-like behavior if projectId somehow missing
+      const resolvedProjectId = projectId || 'nfl-parlay-builder-dev'
+
+      if (isLocalDevelopment()) {
+        // Emulator URL requires the projectId segment
+        return `http://localhost:5001/${resolvedProjectId}/us-central1`
+      }
+
+      // Cloud Functions production URL includes the projectId in the subdomain
+      return `https://us-central1-${resolvedProjectId}.cloudfunctions.net`
+    })(),
     timeout: isLocalDevelopment() ? 60000 : 45000,
     retryAttempts: 2,
     retryDelay: 2000,
     endpoints: {
-      generateParlay: '/generateParlay',
-      healthCheck: '/healthCheck',
-      getRateLimitStatus: '/getRateLimitStatus',
+      v2: {
+        health: '/api/v2/health',
+        currentWeek: '/api/v2/weeks/current',
+        games: (week: number) => `/api/v2/games?week=${week}`,
+        generateParlay: '/api/v2/parlays/generate',
+      },
     },
   },
-} as const
-
-/**
- * Feature flags and configuration
- */
-export const FEATURES = {
-  // Enable detailed logging in development
-  DETAILED_LOGGING: isLocalDevelopment(),
-
-  // Enable request/response logging
-  API_LOGGING: isLocalDevelopment(),
-
-  // Rate limiting settings
-  RATE_LIMITING: {
-    enabled: !isLocalDevelopment(),
-    requestsPerMinute: 60,
-  },
-  USE_CLOUD_FUNCTIONS: true,
-} as const
-
-/**
- * Logging configuration
- */
-export const LOGGING = {
-  level: isLocalDevelopment() ? 'debug' : 'info',
-  enableConsole: true,
-  enableRemote: !isLocalDevelopment(),
 } as const
 
 // Initialize environment validation in non-test environments
 if (ENV.NODE_ENV !== 'test') {
   validateEnvironment()
 }
-
-// Debug logging for troubleshooting
-console.log('🔧 API CONFIG DEBUG:', {
-  hostname: typeof window !== 'undefined' ? window.location.hostname : 'server',
-  href: typeof window !== 'undefined' ? window.location.href : 'server',
-  isLocalDevelopment: isLocalDevelopment(),
-  NODE_ENV: ENV.NODE_ENV,
-  cloudFunctionURL: API_CONFIG.CLOUD_FUNCTIONS.baseURL,
-  projectId: ENV.FIREBASE_PROJECT_ID,
-})

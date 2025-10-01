@@ -1,25 +1,25 @@
-import React from 'react'
+import { Casino as CasinoIcon } from '@mui/icons-material'
 import {
+  Box,
+  Button,
   Card,
   CardContent,
-  Typography,
+  CircularProgress,
   FormControl,
   InputLabel,
-  Select,
   MenuItem,
-  Button,
-  Box,
-  CircularProgress,
+  Select,
+  Typography,
 } from '@mui/material'
 import { SelectChangeEvent } from '@mui/material/Select'
-import { Casino as CasinoIcon } from '@mui/icons-material'
-import WeekSelector from './WeekSelector'
-import type { NFLGame } from '../types'
-import useParlayStore from '../store/parlayStore'
-import { useParlayGenerator } from '../hooks/useParlayGenerator'
-import { LegSelector } from './LegSelector'
+import React from 'react'
 import { useCurrentWeek } from '../hooks/useCurrentWeek'
 import { useNFLGames } from '../hooks/useNFLGames'
+import { useParlayGenerator } from '../hooks/useParlayGenerator'
+import useParlayStore from '../store/parlayStore'
+import type { NFLGame } from '../types'
+import { LegSelector } from './LegSelector'
+import WeekSelector from './WeekSelector'
 
 interface GameSelectorProps {
   games: NFLGame[]
@@ -39,8 +39,7 @@ const GameSelector: React.FC<GameSelectorProps> = ({
   currentWeek,
   onWeekChange,
   availableWeeks,
-  weekToFetch
-
+  weekToFetch,
 }) => {
   const selectedGame = useParlayStore(state => state.selectedGame)
   const setSelectedGame = useParlayStore(state => state.setSelectedGame)
@@ -59,7 +58,9 @@ const GameSelector: React.FC<GameSelectorProps> = ({
   }
 
   const formatGameDisplay = (game: NFLGame) => {
-    return `${game.awayTeam.displayName} @ ${game.homeTeam.displayName}`
+    const awayTeam = game.awayTeam || { displayName: 'Unknown Team' }
+    const homeTeam = game.homeTeam || { displayName: 'Unknown Team' }
+    return `${awayTeam.displayName || 'Unknown Team'} @ ${homeTeam.displayName || 'Unknown Team'}`
   }
 
   const formatGameDateTime = (dateString: string) => {
@@ -231,8 +232,6 @@ const GameSelector: React.FC<GameSelectorProps> = ({
                   flexDirection: 'column',
                 }}
               >
-                
-
                 <LegSelector disabled={loading} />
 
                 <Button

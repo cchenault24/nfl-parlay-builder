@@ -1,7 +1,58 @@
 import { Timestamp } from 'firebase/firestore'
 
 // ===== BET TYPES =====
-export type BetType = 'spread' | 'total' | 'moneyline' | 'player_prop'
+export type BetType =
+  | 'spread'
+  | 'moneyline'
+  | 'total'
+  | 'team_total_points'
+  | 'team_total_points_over'
+  | 'team_total_points_under'
+  | 'first_half_spread'
+  | 'first_half_total'
+  | 'second_half_spread'
+  | 'second_half_total'
+  | 'first_quarter_spread'
+  | 'first_quarter_total'
+  | 'player_passing_yards'
+  | 'player_passing_attempts'
+  | 'player_passing_completions'
+  | 'player_passing_tds'
+  | 'player_interceptions'
+  | 'player_longest_completion'
+  | 'player_rushing_yards'
+  | 'player_rushing_attempts'
+  | 'player_rushing_tds'
+  | 'player_longest_rush'
+  | 'player_receiving_yards'
+  | 'player_receptions'
+  | 'player_receiving_tds'
+  | 'player_longest_reception'
+  | 'player_rush_rec_yards'
+  | 'player_pass_rush_yards'
+  | 'player_pass_rec_yards'
+  | 'player_pass_rush_rec_yards'
+  | 'player_anytime_td'
+  | 'player_first_td'
+  | 'player_last_td'
+  | 'team_total_tds'
+  | 'field_goals_made'
+  | 'field_goals_attempted'
+  | 'longest_field_goal'
+  | 'kicking_points'
+  | 'extra_points_made'
+  | 'defensive_sacks'
+  | 'defensive_tackles'
+  | 'defensive_interceptions'
+  | 'defensive_forced_fumbles'
+  | 'defensive_touchdowns'
+  | 'special_teams_touchdowns'
+  | 'defensive_turnovers'
+  | 'alt_spread'
+  | 'alt_total'
+  | 'player_alt_rushing_yards'
+  | 'player_alt_receiving_yards'
+  | 'player_alt_passing_yards'
 
 // ===== NFL TYPES =====
 export interface NFLTeam {
@@ -34,51 +85,13 @@ export interface NFLPlayer {
   college?: string
 }
 
-export interface GameRosters {
-  homeRoster: NFLPlayer[]
-  awayRoster: NFLPlayer[]
-}
-
-export interface TeamStats {
-  teamId: string
-  passingYards: number
-  rushingYards: number
-  totalYards: number
-  pointsPerGame: number
-  pointsAllowed: number
-  turnovers: number
-  record: string
-}
-
-export interface PlayerStats {
-  playerId: string
-  name: string
-  position: string
-  teamId: string
-  passingYards?: number
-  rushingYards?: number
-  receivingYards?: number
-  touchdowns: number
-  receptions?: number
-}
-
-export interface NewsItem {
-  title: string
-  description: string
-  publishedDate: string
-  url: string
-  teamIds: string[]
-}
-
 // ===== PARLAY TYPES =====
 export interface ParlayLeg {
-  id: string
   betType: BetType
   selection: string
-  target: string
-  reasoning: string
+  odds: number
   confidence: number
-  odds: string
+  reasoning: string
 }
 
 export interface ParlayGenerationResult {
@@ -92,32 +105,35 @@ export interface ParlayGenerationResult {
 }
 
 export interface GameSummary {
-  matchupAnalysis: string // Offensive vs defensive matchups (e.g., "Chiefs explosive offense vs Bills top-ranked pass defense")
-  gameFlow:
-    | 'high_scoring_shootout'
-    | 'defensive_grind'
-    | 'balanced_tempo'
-    | 'potential_blowout'
-  keyFactors: string[] // 3-5 key factors shaping the game
-  prediction: string // Overall game prediction/expectation (2-3 sentences)
-  confidence: number // 1-10 confidence in the summary analysis
+  matchupSummary: string
+  keyFactors: string[]
+  gamePrediction: {
+    winner: string
+    projectedScore: { home: number; away: number }
+    winProbability: number
+  }
 }
 
 export interface GeneratedParlay {
-  id: string
-  legs: [ParlayLeg, ParlayLeg, ParlayLeg]
+  parlayId: string
+  gameId: string
   gameContext: string
-  aiReasoning: string
-  overallConfidence: number
-  estimatedOdds: string
-  createdAt: string
-  savedAt?: Timestamp
-  gameSummary?: GameSummary
+  legs: ParlayLeg[]
+  combinedOdds: number
+  parlayConfidence: number
+  gameSummary: GameSummary
+  rosterDataUsed: {
+    home: Array<{ playerId: string; name: string }>
+    away: Array<{ playerId: string; name: string }>
+  }
 }
 
-export interface ParlayRequest {
+export interface GenerateParlayRequest {
   gameId: string
-  legCount: 3
+  numLegs: 3
+  week: number
+  riskLevel?: 'conservative' | 'moderate' | 'aggressive'
+  betTypes?: 'all' | string[]
 }
 
 // ===== AUTH TYPES =====
@@ -128,9 +144,4 @@ export interface UserProfile {
   photoURL?: string
   createdAt: Timestamp
   savedParlays?: string[] // Array of parlay IDs
-}
-
-export interface SavedParlay extends GeneratedParlay {
-  userId: string
-  savedAt: Timestamp
 }

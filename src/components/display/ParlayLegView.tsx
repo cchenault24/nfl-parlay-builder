@@ -19,7 +19,24 @@ interface ParlayLegViewProps extends React.HTMLAttributes<HTMLDivElement> {
 const ParlayLegView: React.FC<ParlayLegViewProps> = ({ leg, index }) => {
   const getBetTypeIcon = (betType: BetType) => {
     switch (betType) {
-      case 'player_prop':
+      // Map any player prop-like bet types to person icon
+      case 'player_receptions':
+      case 'player_receiving_yards':
+      case 'player_receiving_tds':
+      case 'player_longest_reception':
+      case 'player_rushing_yards':
+      case 'player_rushing_attempts':
+      case 'player_rushing_tds':
+      case 'player_longest_rush':
+      case 'player_passing_yards':
+      case 'player_passing_attempts':
+      case 'player_passing_completions':
+      case 'player_passing_tds':
+      case 'player_interceptions':
+      case 'player_longest_completion':
+      case 'player_anytime_td':
+      case 'player_first_td':
+      case 'player_last_td':
         return <PersonIcon />
       case 'spread':
       case 'total':
@@ -37,7 +54,23 @@ const ParlayLegView: React.FC<ParlayLegViewProps> = ({ leg, index }) => {
         return 'secondary'
       case 'moneyline':
         return 'success'
-      case 'player_prop':
+      case 'player_receptions':
+      case 'player_receiving_yards':
+      case 'player_receiving_tds':
+      case 'player_longest_reception':
+      case 'player_rushing_yards':
+      case 'player_rushing_attempts':
+      case 'player_rushing_tds':
+      case 'player_longest_rush':
+      case 'player_passing_yards':
+      case 'player_passing_attempts':
+      case 'player_passing_completions':
+      case 'player_passing_tds':
+      case 'player_interceptions':
+      case 'player_longest_completion':
+      case 'player_anytime_td':
+      case 'player_first_td':
+      case 'player_last_td':
         return 'info'
       default:
         return 'default'
@@ -54,35 +87,8 @@ const ParlayLegView: React.FC<ParlayLegViewProps> = ({ leg, index }) => {
     return 'error'
   }
 
-  const formatBetTarget = (leg: ParlayLeg) => {
-    if (leg.betType === 'player_prop') {
-      // If the target already has the correct format, use it
-      if (leg.target.includes('(') && leg.target.includes(')')) {
-        return leg.target
-      }
-
-      // Otherwise, try to format it properly
-      const playerName = leg.selection
-      const target = leg.target
-
-      // Try to extract the bet details
-      const overUnderMatch = target.match(/(Over|Under)\s+([\d.]+)\s+(.+)/)
-
-      if (overUnderMatch && playerName && playerName !== target) {
-        const [, overUnder, value, statType] = overUnderMatch
-        // We don't have easy access to team name here, so we'll show player name prominently
-        return `${playerName} - ${overUnder} ${value} ${statType}`
-      }
-
-      // Fallback if parsing fails
-      return target
-    }
-
-    return leg.target
-  }
-
   return (
-    <Grid item xs={12} key={leg.id}>
+    <Grid item xs={12} key={`${leg.betType}-${leg.selection}-${leg.odds}`}>
       <Card variant="outlined">
         <CardContent>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
@@ -90,7 +96,7 @@ const ParlayLegView: React.FC<ParlayLegViewProps> = ({ leg, index }) => {
             <Typography variant="h6" sx={{ ml: 1, flex: 1 }}>
               Leg {index + 1}
               <Chip
-                label={leg.odds}
+                label={leg.odds > 0 ? `+${leg.odds}` : leg.odds.toString()}
                 variant="outlined"
                 size="small"
                 color="primary"
@@ -104,9 +110,8 @@ const ParlayLegView: React.FC<ParlayLegViewProps> = ({ leg, index }) => {
               sx={{ mr: 1 }}
             />
           </Box>
-
           <Typography variant="body1" fontWeight="bold" sx={{ mb: 1 }}>
-            {formatBetTarget(leg)}
+            {leg.selection}
           </Typography>
 
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -119,12 +124,12 @@ const ParlayLegView: React.FC<ParlayLegViewProps> = ({ leg, index }) => {
             </Typography>
             <LinearProgress
               variant="determinate"
-              value={leg.confidence * 10}
-              color={getConfidenceColor(leg.confidence)}
+              value={leg.confidence * 100}
+              color={getConfidenceColor(leg.confidence * 10)}
               sx={{ flex: 1, mr: 1 }}
             />
             <Typography variant="caption" fontWeight="bold">
-              {leg.confidence}/10
+              {Math.round(leg.confidence * 100)}%
             </Typography>
           </Box>
         </CardContent>
