@@ -152,11 +152,10 @@ export const getUserParlays = (
   userId: string,
   callback: (parlays: GeneratedParlay[]) => void
 ) => {
-  const migrateParlay = (
-    data: Record<string, unknown>,
-    docId: string
-  ): GeneratedParlay => {
-    const migrated: Record<string, unknown> = { ...data }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const migrateParlay = (data: any, docId: string): GeneratedParlay => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const migrated: any = { ...data }
 
     // Ensure required identifier
     if (!migrated.parlayId) {
@@ -174,7 +173,8 @@ export const getUserParlays = (
 
     // Normalize legs
     if (Array.isArray(migrated.legs)) {
-      migrated.legs = migrated.legs.map((leg: Record<string, unknown>) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      migrated.legs = migrated.legs.map((leg: any) => {
         const oddsValue =
           typeof leg?.odds === 'number' ? leg.odds : Number(leg?.odds ?? 0)
         const confidenceValueRaw =
