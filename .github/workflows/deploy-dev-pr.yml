@@ -38,6 +38,5 @@ jobs:
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_NFL_PARLAY_BUILDER }}
-          projectId: nfl-parlay-builder
+          projectId: nfl-parlay-builder-dev
           channelId: pr-${{ github.event.number }}
-          target: dev
