@@ -62,9 +62,19 @@ const isLocalDevelopment = () => {
  */
 export const API_CONFIG = {
   CLOUD_FUNCTIONS: {
-    baseURL: isLocalDevelopment()
-      ? `http://localhost:5001/nfl-parlay-builder-dev/us-central1`
-      : `https://us-central1-nfl-parlay-builder-dev.cloudfunctions.net`,
+    baseURL: (() => {
+      const projectId = ENV.FIREBASE_PROJECT_ID
+      // Default to dev-like behavior if projectId somehow missing
+      const resolvedProjectId = projectId || 'nfl-parlay-builder-dev'
+
+      if (isLocalDevelopment()) {
+        // Emulator URL requires the projectId segment
+        return `http://localhost:5001/${resolvedProjectId}/us-central1`
+      }
+
+      // Cloud Functions production URL includes the projectId in the subdomain
+      return `https://us-central1-${resolvedProjectId}.cloudfunctions.net`
+    })(),
     timeout: isLocalDevelopment() ? 60000 : 45000,
     retryAttempts: 2,
     retryDelay: 2000,
