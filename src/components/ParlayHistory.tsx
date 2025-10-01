@@ -19,7 +19,6 @@ import {
   IconButton,
   Typography,
 } from '@mui/material'
-import { Timestamp } from 'firebase/firestore'
 import React, { useEffect, useState } from 'react'
 import { getUserParlays } from '../config/firebase'
 import { useAuth } from '../hooks/useAuth'
@@ -67,21 +66,6 @@ export const ParlayHistory: React.FC<ParlayHistoryProps> = ({
       setError('')
     }
   }, [open])
-
-  const formatDate = (timestamp: Timestamp | undefined): string => {
-    if (!timestamp) {
-      return 'Unknown date'
-    }
-
-    const date = timestamp.toDate()
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-    })
-  }
 
   const getBetTypeColor = (betType: string) => {
     switch (betType) {
@@ -147,8 +131,14 @@ export const ParlayHistory: React.FC<ParlayHistoryProps> = ({
           </Box>
         ) : (
           <Box sx={{ maxHeight: '60vh', overflowY: 'auto' }}>
-            {parlays.map((parlay, index) => (
-              <Card key={parlay.id || `parlay-${index}`} sx={{ mb: 2 }}>
+            {parlays.map(parlay => (
+              <Card
+                key={
+                  parlay.parlayId ||
+                  `parlay-${parlay.gameId}-${parlay.combinedOdds}`
+                }
+                sx={{ mb: 2 }}
+              >
                 <CardContent>
                   <Box
                     sx={{
@@ -159,27 +149,25 @@ export const ParlayHistory: React.FC<ParlayHistoryProps> = ({
                     }}
                   >
                     <Typography variant="h6" gutterBottom>
-                      {parlay.gameContext || 'NFL Parlay'}
+                      NFL Parlay
                     </Typography>
                     <Chip
-                      label={parlay.estimatedOdds || 'N/A'}
+                      label={`+${parlay.combinedOdds}`}
                       color="primary"
                       variant="outlined"
                       size="small"
                     />
                   </Box>
 
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ mb: 2 }}
-                  >
-                    Saved: {formatDate(parlay.savedAt)}
-                  </Typography>
+                  {/* savedAt removed in v2 */}
 
                   <Grid container spacing={2}>
                     {parlay.legs?.map(leg => (
-                      <Grid item xs={12} key={`${parlay.id}-leg-${leg.id}`}>
+                      <Grid
+                        item
+                        xs={12}
+                        key={`${parlay.parlayId}-${leg.betType}-${leg.selection}`}
+                      >
                         <Box
                           sx={{
                             p: 2,
@@ -228,14 +216,8 @@ export const ParlayHistory: React.FC<ParlayHistoryProps> = ({
                             variant="body1"
                             sx={{ fontWeight: 'medium', mb: 1 }}
                           >
-                            {leg.target}
+                            {leg.selection}
                           </Typography>
-
-                          {leg.reasoning && (
-                            <Typography variant="body2" color="text.secondary">
-                              {leg.reasoning}
-                            </Typography>
-                          )}
                         </Box>
                       </Grid>
                     ))}

@@ -25,6 +25,15 @@ export const useParlayGenerator = () => {
     onError: error => {
       console.error('Error generating parlay:', error)
 
+      // Handle authentication errors specifically
+      if (
+        error instanceof Error &&
+        error.message.includes('not authenticated')
+      ) {
+        console.error('Authentication required - user needs to log in')
+        // You could trigger a re-authentication flow here if needed
+      }
+
       if (error instanceof RateLimitError) {
         console.warn('Rate limit exceeded:', error.rateLimitInfo)
         updateFromResponse({ rateLimitInfo: error.rateLimitInfo })
