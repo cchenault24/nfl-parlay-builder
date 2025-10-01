@@ -28,9 +28,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'yarn'
 
-      - name: Install root deps
-        run: npm ci
+      - name: Enable Corepack (Yarn)
+        run: corepack enable
+
+      - name: Install root deps (yarn)
+        run: yarn install --frozen-lockfile
 
       - name: Install functions deps
         working-directory: functions_v2
@@ -70,9 +74,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'yarn'
 
-      - name: Install root deps
-        run: npm ci
+      - name: Enable Corepack (Yarn)
+        run: corepack enable
+
+      - name: Install root deps (yarn)
+        run: yarn install --frozen-lockfile
 
       - name: Install functions deps
         working-directory: functions_v2
@@ -112,9 +120,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'yarn'
 
-      - name: Install root deps
-        run: npm ci
+      - name: Enable Corepack (Yarn)
+        run: corepack enable
+
+      - name: Install root deps (yarn)
+        run: yarn install --frozen-lockfile
 
       - name: Install functions deps
         working-directory: functions_v2
