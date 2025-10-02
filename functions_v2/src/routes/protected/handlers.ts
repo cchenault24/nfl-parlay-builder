@@ -1,6 +1,7 @@
 import express from 'express'
 import { fetchPFRSeasonSchedule } from '../../providers/pfr'
 import { fetchPFRTeamDataForGame } from '../../providers/pfr/teamStatsScraper'
+import { PFRTeamStats } from '../../providers/pfr/types'
 import { generateParlayWithAI } from '../../service/ai'
 import {
   getIdempotentResponse,
@@ -87,6 +88,40 @@ interface AIGameItem {
     receiving?: { name: string; stats: string; value: number }
   }
   dateTime?: string
+}
+
+function convertTeamStatsToPFR(
+  stats: PFRTeamStats | null
+): PFRTeamStats | null {
+  if (!stats) {
+    return null
+  }
+
+  return {
+    teamId: stats.teamId || '',
+    teamName: stats.teamName || '',
+    season: stats.season || 0,
+    week: stats.week || 0,
+    record: stats.record || '0-0',
+    overallRecord: stats.overallRecord || '0-0',
+    homeRecord: stats.homeRecord || '0-0',
+    roadRecord: stats.roadRecord || '0-0',
+    offenseRankings: stats.offenseRankings || {
+      totalYardsRank: 0,
+      passingYardsRank: 0,
+      rushingYardsRank: 0,
+      pointsScoredRank: 0,
+    },
+    defenseRankings: stats.defenseRankings || {
+      totalYardsAllowedRank: 0,
+      pointsAllowedRank: 0,
+      turnoversRank: 0,
+    },
+    overallOffenseRank: stats.overallOffenseRank || 0,
+    overallDefenseRank: stats.overallDefenseRank || 0,
+    overallTeamRank: stats.overallTeamRank || 0,
+    specialTeamsRank: stats.specialTeamsRank || undefined,
+  }
 }
 
 // Convert GamesResponse to GameItem for AI service
@@ -380,29 +415,55 @@ export const generateParlayHandler = async (
     const awayRoster = null
 
     const response: GenerateParlayResponse = {
-      parlayId: `pl_${Math.random().toString(36).slice(2, 10)}`,
-      gameId,
-      gameContext: `${game.away.name} @ ${game.home.name} - Week ${game.week}`,
-      legs: ai.legs,
-      combinedOdds: (() => {
-        // Convert American odds to decimal, multiply, then convert back to American
-        const decimalOdds = ai.legs.reduce((acc, leg) => {
-          const decimal =
-            leg.odds > 0 ? leg.odds / 100 + 1 : 100 / Math.abs(leg.odds) + 1
-          return acc * decimal
-        }, 1)
-
-        // Convert decimal odds back to American format
-        if (decimalOdds >= 2) {
-          return Math.round((decimalOdds - 1) * 100)
-        }
-        return Math.round(-100 / (decimalOdds - 1))
-      })(),
-      parlayConfidence: Math.min(...ai.legs.map(l => l.confidence)),
-      gameSummary: ai.analysisSummary,
-      rosterDataUsed: {
-        home: (homeRoster || []).slice(0, 30),
-        away: (awayRoster || []).slice(0, 30),
+      parlay: {
+        parlayId: `pl_${Math.random().toString(36).slice(2, 10)}`,
+        gameId,
+        gameContext: `${game.away.name} @ ${game.home.name} - Week ${game.week}`,
+        legs: ai.legs,
+        combinedOdds: (() => {
+          // Convert American odds to decimal, multiply, then convert back to American
+          const decimalOdds = ai.legs.reduce((acc, leg) => {
+            const decimal =
+              leg.odds > 0 ? leg.odds / 100 + 1 : 100 / Math.abs(leg.odds) + 1
+            return acc * decimal
+          }, 1)
+          if (decimalOdds >= 2) {
+            return Math.round((decimalOdds - 1) * 100)
+          }
+          return Math.round(-100 / (decimalOdds - 1))
+        })(),
+        parlayConfidence: Math.min(...ai.legs.map(l => l.confidence)),
+        gameSummary: ai.analysisSummary,
+      },
+      gameData: {
+        gameId: game.gameId,
+        week: game.week,
+        dateTime: game.dateTime,
+        status: game.status,
+        home: {
+          teamId: game.home.teamId,
+          name: game.home.name,
+          abbrev: game.home.abbrev,
+          record: game.home.record,
+          overallRecord: game.home.overallRecord,
+          homeRecord: game.home.homeRecord,
+          roadRecord: game.home.roadRecord,
+          stats: convertTeamStatsToPFR(game.home.stats),
+          roster: (homeRoster || []).slice(0, 30),
+        },
+        away: {
+          teamId: game.away.teamId,
+          name: game.away.name,
+          abbrev: game.away.abbrev,
+          record: game.away.record,
+          overallRecord: game.away.overallRecord,
+          homeRecord: game.away.homeRecord,
+          roadRecord: game.away.roadRecord,
+          stats: convertTeamStatsToPFR(game.away.stats),
+          roster: (awayRoster || []).slice(0, 30),
+        },
+        venue: game.venue,
+        leaders: game.leaders,
       },
     }
 

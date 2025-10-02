@@ -22,7 +22,6 @@ import AuthProvider from './contexts/authentication/AuthContext'
 import { useAgeVerification } from './hooks/useAgeVerification'
 import { useAuth } from './hooks/useAuth'
 import { useDerivedCurrentWeek } from './hooks/useDerivedCurrentWeek'
-import { useNFLGameWeekWithStats } from './hooks/useNFLGameWeekWithStats'
 import { useParlayGeneratorSelector } from './hooks/useParlayGeneratorSelector'
 import { usePFRSchedule } from './hooks/usePFRSchedule'
 import useGeneralStore from './store/generalStore'
@@ -77,7 +76,7 @@ function AppContent() {
     }
   }, [currentWeek])
 
-  const { data: gamesWithStats } = useNFLGameWeekWithStats(selectedWeek)
+  // No longer need separate gamesWithStats hook - gameData comes with parlay response
 
   const {
     mutate: generateParlay,
@@ -204,25 +203,21 @@ function AppContent() {
 
           {/* Stats panel for selected game */}
           {selectedGame &&
-            gamesWithStats &&
             parlay &&
+            parlay.gameData &&
             (() => {
-              const full = gamesWithStats.find(
-                g => g.gameId === selectedGame.gameId
-              )
-              if (!full) {
-                return null
-              }
+              // Use gameData from parlay response
+              const gameData = parlay.gameData
               return (
                 <GameStatsPanel
-                  home={full.home}
-                  away={full.away}
-                  leaders={full.leaders}
+                  home={gameData.home}
+                  away={gameData.away}
+                  leaders={gameData.leaders}
                   context={parlay.gameContext}
-                  status={full.status}
-                  venue={full.venue}
-                  rosterHome={parlay.rosterDataUsed?.home}
-                  rosterAway={parlay.rosterDataUsed?.away}
+                  status={gameData.status}
+                  venue={gameData.venue}
+                  rosterHome={gameData.home.roster}
+                  rosterAway={gameData.away.roster}
                 />
               )
             })()}

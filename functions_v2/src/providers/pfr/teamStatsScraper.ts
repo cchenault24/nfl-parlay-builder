@@ -216,11 +216,11 @@ async function scrapeTeamStatsFromPFR(
 
       // Update home/road records
       if (isHomeGame) {
-        if (isWin) homeWins++
-        if (isLoss) homeLosses++
+        if (isWin) {homeWins++}
+        if (isLoss) {homeLosses++}
       } else {
-        if (isWin) roadWins++
-        if (isLoss) roadLosses++
+        if (isWin) {roadWins++}
+        if (isLoss) {roadLosses++}
       }
     })
 
@@ -236,9 +236,9 @@ async function scrapeTeamStatsFromPFR(
     season,
     week,
     record: teamRecord,
-    overallRecord: overallRecord,
-    homeRecord: homeRecord,
-    roadRecord: roadRecord,
+    overallRecord,
+    homeRecord,
+    roadRecord,
     // Core offensive rankings - only what's needed for AI
     offenseRankings: {
       totalYardsRank: getRankValue(offenseRankRow, 1), // Total yards rank (Cell 1)

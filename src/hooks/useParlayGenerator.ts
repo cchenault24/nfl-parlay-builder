@@ -2,8 +2,8 @@
 import { useMutation } from '@tanstack/react-query'
 import { ServiceContainer } from '../services/container'
 import useParlayStore from '../store/parlayStore'
-import { V2Game } from './useNFLGameWeekWithStats'
 import { RateLimitError } from '../types/errors'
+import { V2Game } from './useNFLGameWeekWithStats'
 import { useRateLimit } from './useRateLimit'
 
 export const useParlayGenerator = () => {
@@ -56,7 +56,13 @@ export const useParlayGenerator = () => {
         })
       }
 
-      setParlay(data.parlay)
+      // Store the parlay data with gameData attached for UI consumption
+      const parlayWithGameData = {
+        ...data.parlay,
+        gameData: data.gameData,
+      }
+
+      setParlay(parlayWithGameData)
     },
   })
 
