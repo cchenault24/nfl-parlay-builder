@@ -114,7 +114,7 @@ export async function fetchPFRSeasonSchedule(): Promise<PFRGameItem[]> {
       awayTeam = createNFLTeamFromPFRName(loserName)
     }
 
-    const gameId = `${awayTeam.id}-${homeTeam.id}-2025-${currentWeek}`
+    const gameId = `${homeTeam.id}-${awayTeam.id}-2025-${currentWeek}`
     const gameDateTime = formatPFRDateTime(date, time)
     const gameDate = new Date(gameDateTime)
     const now = new Date()

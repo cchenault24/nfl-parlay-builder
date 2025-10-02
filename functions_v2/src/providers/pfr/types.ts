@@ -29,6 +29,10 @@ export interface PFRTeamStats {
   teamName: string
   season: number
   week: number
+  record: string
+  overallRecord: string
+  homeRecord: string
+  roadRecord: string
   offenseRankings: {
     totalYardsRank: number
     passingYardsRank: number

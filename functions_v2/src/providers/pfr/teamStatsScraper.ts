@@ -170,11 +170,75 @@ async function scrapeTeamStatsFromPFR(
     defenseRankRow = teamRow
   }
 
+  // Extract team record from the games table
+  const gamesTable = $('table#games').first()
+  let teamRecord = '0-0'
+  let overallRecord = '0-0'
+  let homeRecord = '0-0'
+  let roadRecord = '0-0'
+
+  if (gamesTable.length > 0) {
+    const gameRows = gamesTable.find('tbody tr')
+    let latestRecord = '0-0'
+    let homeWins = 0
+    let homeLosses = 0
+    let roadWins = 0
+    let roadLosses = 0
+
+    gameRows.each((i, row) => {
+      const $row = $(row)
+
+      // Get the team record for this game
+      const recordCell = $row.find('td[data-stat="team_record"]')
+      if (recordCell.length > 0) {
+        const record = recordCell.text().trim()
+        if (record && record !== '') {
+          latestRecord = record
+        }
+      }
+
+      // Determine if this was a home or away game
+      const gameLocation = $row
+        .find('td[data-stat="game_location"]')
+        .text()
+        .trim()
+      const isHomeGame = gameLocation === '' || (gameLocation === '@') === false
+
+      // Determine if this was a win or loss
+      const result = $row.find('td[data-stat="game_result"]').text().trim()
+      const isWin = result === 'W'
+      const isLoss = result === 'L'
+
+      // Skip if it's not a completed game (no result)
+      if (!isWin && !isLoss) {
+        return
+      }
+
+      // Update home/road records
+      if (isHomeGame) {
+        if (isWin) homeWins++
+        if (isLoss) homeLosses++
+      } else {
+        if (isWin) roadWins++
+        if (isLoss) roadLosses++
+      }
+    })
+
+    teamRecord = latestRecord
+    overallRecord = latestRecord
+    homeRecord = `${homeWins}-${homeLosses}`
+    roadRecord = `${roadWins}-${roadLosses}`
+  }
+
   const teamStatsData: PFRTeamStats = {
     teamId: teamCode, // Use PFR code as team ID
     teamName,
     season,
     week,
+    record: teamRecord,
+    overallRecord: overallRecord,
+    homeRecord: homeRecord,
+    roadRecord: roadRecord,
     // Core offensive rankings - only what's needed for AI
     offenseRankings: {
       totalYardsRank: getRankValue(offenseRankRow, 1), // Total yards rank (Cell 1)

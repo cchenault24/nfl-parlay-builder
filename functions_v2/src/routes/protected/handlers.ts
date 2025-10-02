@@ -1,4 +1,6 @@
 import express from 'express'
+import { fetchPFRSeasonSchedule } from '../../providers/pfr'
+import { fetchPFRTeamDataForGame } from '../../providers/pfr/teamStatsScraper'
 import { generateParlayWithAI } from '../../service/ai'
 import {
   getIdempotentResponse,
@@ -270,7 +272,77 @@ export const generateParlayHandler = async (
       }
     }
 
-    const game = games.find(g => g.gameId === gameId)
+    let game = games.find(g => g.gameId === gameId)
+
+    // If game still not found, fetch it directly from PFR using the gameId
+    if (!game) {
+      // Parse gameId to extract team codes and week
+      // Format: homeTeam-awayTeam-season-week (e.g., "ram-sfo-2025-5")
+      const gameIdParts = gameId.split('-')
+      if (gameIdParts.length >= 4) {
+        const homeTeamCode = gameIdParts[0]
+        const awayTeamCode = gameIdParts[1]
+        const season = parseInt(gameIdParts[2])
+        const gameWeek = parseInt(gameIdParts[3])
+
+        if (!isNaN(season) && !isNaN(gameWeek)) {
+          try {
+            // Fetch PFR stats for this specific game
+            const teamData = await fetchPFRTeamDataForGame(
+              homeTeamCode,
+              awayTeamCode,
+              season,
+              gameWeek
+            )
+
+            // Fetch the PFR schedule to get actual game date/time and status
+            const scheduleGames = await fetchPFRSeasonSchedule()
+            const scheduleGame = scheduleGames.find(g => g.id === gameId)
+
+            // Get team names from PFR data or use team codes as fallback
+            const homeTeamName = teamData.home?.teamName || homeTeamCode
+            const awayTeamName = teamData.away?.teamName || awayTeamCode
+
+            // Use actual game data from schedule if available
+            const actualDateTime =
+              scheduleGame?.dateTime || new Date().toISOString()
+            const actualStatus = scheduleGame?.status || 'scheduled'
+
+            // Create a GamesResponse object with real PFR data
+            game = {
+              gameId,
+              week: gameWeek,
+              dateTime: actualDateTime,
+              status: actualStatus,
+              home: {
+                teamId: homeTeamCode,
+                name: homeTeamName,
+                abbrev: homeTeamCode,
+                record: teamData.home?.record || '0-0',
+                overallRecord: teamData.home?.overallRecord || '0-0',
+                homeRecord: teamData.home?.homeRecord || '0-0',
+                roadRecord: teamData.home?.roadRecord || '0-0',
+                stats: teamData.home,
+              },
+              away: {
+                teamId: awayTeamCode,
+                name: awayTeamName,
+                abbrev: awayTeamCode,
+                record: teamData.away?.record || '0-0',
+                overallRecord: teamData.away?.overallRecord || '0-0',
+                homeRecord: teamData.away?.homeRecord || '0-0',
+                roadRecord: teamData.away?.roadRecord || '0-0',
+                stats: teamData.away,
+              },
+              venue: { name: 'TBD', city: 'TBD', state: 'TBD' }, // PFR doesn't provide venue info
+              leaders: {}, // PFR doesn't provide player leaders in team stats
+            }
+          } catch (error) {
+            console.error('Error fetching PFR data for game:', gameId, error)
+          }
+        }
+      }
+    }
 
     if (!game) {
       return errorResponse(
