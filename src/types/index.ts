@@ -123,8 +123,8 @@ export interface GeneratedParlay {
   parlayConfidence: number
   gameSummary: GameSummary
   rosterDataUsed: {
-    home: Array<{ playerId: string; name: string }>
-    away: Array<{ playerId: string; name: string }>
+    home: { playerId: string; name: string }[]
+    away: { playerId: string; name: string }[]
   }
 }
 

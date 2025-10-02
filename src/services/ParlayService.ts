@@ -83,12 +83,6 @@ export class ParlayService {
         )
       }
 
-      console.log('🔐 User authenticated:', {
-        uid: currentUser.uid,
-        email: currentUser.email,
-        emailVerified: currentUser.emailVerified,
-      })
-
       return await this.generateCloudParlay(game, options)
     } catch (error) {
       console.error('❌ Error generating parlay:', error)
@@ -189,13 +183,6 @@ export class ParlayService {
         betTypes: 'all',
       }
 
-      console.log('🚀 Making parlay generation request:', {
-        url: this.cloudFunctionUrl,
-        gameId: game.id,
-        hasAuthToken: !!authToken,
-        tokenLength: authToken.length,
-      })
-
       const response = await fetch(this.cloudFunctionUrl, {
         method: 'POST',
         headers: {
@@ -224,7 +211,6 @@ export class ParlayService {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }
 
-      console.log('✅ Parlay generation successful')
       return responseData
     } catch (error) {
       console.error('❌ Cloud Function call failed:', error)
@@ -292,12 +278,6 @@ export class ParlayService {
 
       // Force refresh the token to ensure it's valid
       const token = await currentUser.getIdToken(true)
-      console.log('✅ Auth token obtained successfully', {
-        uid: currentUser.uid,
-        email: currentUser.email,
-        tokenLength: token.length,
-        tokenPreview: token.substring(0, 20) + '...',
-      })
       return token
     } catch (error) {
       console.error('❌ Failed to get auth token:', error)

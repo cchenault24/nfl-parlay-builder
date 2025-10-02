@@ -22,7 +22,7 @@ import {
   Timestamp,
   where,
 } from 'firebase/firestore'
-import { GeneratedParlay } from '../types'
+import { BetType, GeneratedParlay } from '../types'
 
 export interface UserProfile {
   displayName: string
@@ -152,8 +152,45 @@ export const getUserParlays = (
   userId: string,
   callback: (parlays: GeneratedParlay[]) => void
 ) => {
-  const migrateParlay = (data: any, docId: string): GeneratedParlay => {
-    const migrated: any = { ...data }
+  type LegacyLeg = {
+    betType?: BetType
+    type?: BetType
+    selection?: string
+    pick?: string
+    odds?: number | string
+    confidence?: number | string
+    confidencePct?: number | string
+    confidencePercent?: number | string
+    reasoning?: string
+    analysis?: string
+  }
+
+  type LegacyParlay = Partial<GeneratedParlay> & {
+    parlayId?: string
+    estimatedOdds?: number | string
+    combinedOdds?: number
+    legs?: LegacyLeg[] | unknown
+    gameSummary?: {
+      matchupSummary?: string
+      keyFactors?: string[]
+      gamePrediction?: {
+        winner?: string
+        projectedScore?: { home?: number; away?: number }
+        winProbability?: number
+      }
+    }
+    rosterDataUsed?: {
+      home?: { playerId: string; name: string }[]
+      away?: { playerId: string; name: string }[]
+    }
+    gameId?: string
+  }
+
+  const migrateParlay = (
+    data: LegacyParlay,
+    docId: string
+  ): GeneratedParlay => {
+    const migrated: LegacyParlay = { ...data }
 
     // Ensure required identifier
     if (!migrated.parlayId) {
@@ -171,7 +208,7 @@ export const getUserParlays = (
 
     // Normalize legs
     if (Array.isArray(migrated.legs)) {
-      migrated.legs = migrated.legs.map((leg: any) => {
+      migrated.legs = (migrated.legs as LegacyLeg[]).map((leg: LegacyLeg) => {
         const oddsValue =
           typeof leg?.odds === 'number' ? leg.odds : Number(leg?.odds ?? 0)
         const confidenceValueRaw =

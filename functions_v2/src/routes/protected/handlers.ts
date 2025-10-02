@@ -17,13 +17,20 @@ import {
   type GenerateParlayResponse,
 } from './schema'
 
+// Extended request type with authentication data
+interface AuthenticatedRequest extends express.Request {
+  correlationId: string
+  user?: { uid: string }
+}
+
 export const generateParlayHandler = async (
   req: express.Request,
   res: express.Response
 ) => {
-  const correlationId = (req as any).correlationId as string
+  const authReq = req as AuthenticatedRequest
+  const correlationId = authReq.correlationId
   try {
-    const user = (req as any).user as { uid: string } | undefined
+    const user = authReq.user
     const idemKeyHeader = req.header('Idempotency-Key')
     if (
       user &&
@@ -64,15 +71,15 @@ export const generateParlayHandler = async (
       )
     }
 
-    // Fetch real game data from ESPN with caching
+    // Fetch real game data from ESPN with caching and statistics
     // Use provided week if available; otherwise use current week
     let targetWeek = week ?? (await fetchCurrentWeek())
 
     // Try to find the game in the current week first
-    const cacheKey = `games_week_${targetWeek}`
+    const cacheKey = `games_week_${targetWeek}_with_stats`
     let games = await getCached<GameItem[]>(cacheKey, 10 * 60 * 1000) // 10 minute TTL
     if (!games) {
-      games = await fetchGamesForWeek(targetWeek)
+      games = await fetchGamesForWeek(targetWeek, true) // Include statistics
       await setCached(cacheKey, games)
     }
 
@@ -91,13 +98,13 @@ export const generateParlayHandler = async (
           continue
         }
 
-        const weekCacheKey = `games_week_${w}`
+        const weekCacheKey = `games_week_${w}_with_stats`
         let weekGames = await getCached<GameItem[]>(
           weekCacheKey,
           10 * 60 * 1000
         )
         if (!weekGames) {
-          weekGames = await fetchGamesForWeek(w)
+          weekGames = await fetchGamesForWeek(w, true) // Include statistics
           await setCached(weekCacheKey, weekGames)
         }
 
@@ -127,7 +134,7 @@ export const generateParlayHandler = async (
       )
     }
 
-    // Generate parlay with AI using real game data
+    // Generate parlay with AI using real game data and statistics
     const ai = process.env.OPENAI_API_KEY
       ? await generateParlayWithAI({
           gameId,
@@ -183,9 +190,8 @@ export const generateParlayHandler = async (
         // Convert decimal odds back to American format
         if (decimalOdds >= 2) {
           return Math.round((decimalOdds - 1) * 100)
-        } else {
-          return Math.round(-100 / (decimalOdds - 1))
         }
+        return Math.round(-100 / (decimalOdds - 1))
       })(),
       parlayConfidence: Math.min(...ai.legs.map(l => l.confidence)),
       gameSummary: ai.analysisSummary,

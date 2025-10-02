@@ -26,7 +26,7 @@ function getRiskLevelGuidance(
 }
 
 function buildGameContext(gameData: GameItem): string {
-  return (
+  let context =
     `\nGame Context:` +
     `\n- Away Team: ${gameData.away.name} (${gameData.away.abbrev}) - Record: ${gameData.away.overallRecord} (Home: ${gameData.away.homeRecord}, Road: ${gameData.away.roadRecord})` +
     `\n- Home Team: ${gameData.home.name} (${gameData.home.abbrev}) - Record: ${gameData.home.overallRecord} (Home: ${gameData.home.homeRecord}, Road: ${gameData.home.roadRecord})` +
@@ -41,7 +41,33 @@ function buildGameContext(gameData: GameItem): string {
           `Receiving: ${gameData.leaders.receiving?.name || 'N/A'} (${gameData.leaders.receiving?.stats || 'N/A'})`
         : 'Not available'
     }`
-  )
+
+  // Add detailed team statistics if available
+  if (gameData.home.stats && gameData.away.stats) {
+    const homeStats = gameData.home.stats
+    const awayStats = gameData.away.stats
+
+    context +=
+      `\n\nDetailed Team Statistics:` +
+      `\n\nHome Team (${gameData.home.name}) Season Performance:` +
+      `\n- Offensive Rankings: Total Yards #${homeStats.offensiveRankings.totalYards.rank} (${homeStats.offensiveRankings.totalYards.yardsPerGame.toFixed(1)} YPG), ` +
+      `Passing #${homeStats.offensiveRankings.passingYards.rank} (${homeStats.offensiveRankings.passingYards.yardsPerGame.toFixed(1)} YPG), ` +
+      `Rushing #${homeStats.offensiveRankings.rushingYards.rank} (${homeStats.offensiveRankings.rushingYards.yardsPerGame.toFixed(1)} YPG), ` +
+      `Points #${homeStats.offensiveRankings.pointsScored.rank} (${homeStats.offensiveRankings.pointsScored.pointsPerGame.toFixed(1)} PPG)` +
+      `\n- Defensive Rankings: Points Allowed #${homeStats.defensiveRankings.pointsAllowed.rank} (${homeStats.defensiveRankings.pointsAllowed.pointsPerGame.toFixed(1)} PPG), ` +
+      `Total Yards Allowed #${homeStats.defensiveRankings.totalYardsAllowed.rank} (${homeStats.defensiveRankings.totalYardsAllowed.yardsPerGame.toFixed(1)} YPG), ` +
+      `Turnovers #${homeStats.defensiveRankings.turnovers.rank} (${homeStats.defensiveRankings.turnovers.total} total)` +
+      `\n\nAway Team (${gameData.away.name}) Season Performance:` +
+      `\n- Offensive Rankings: Total Yards #${awayStats.offensiveRankings.totalYards.rank} (${awayStats.offensiveRankings.totalYards.yardsPerGame.toFixed(1)} YPG), ` +
+      `Passing #${awayStats.offensiveRankings.passingYards.rank} (${awayStats.offensiveRankings.passingYards.yardsPerGame.toFixed(1)} YPG), ` +
+      `Rushing #${awayStats.offensiveRankings.rushingYards.rank} (${awayStats.offensiveRankings.rushingYards.yardsPerGame.toFixed(1)} YPG), ` +
+      `Points #${awayStats.offensiveRankings.pointsScored.rank} (${awayStats.offensiveRankings.pointsScored.pointsPerGame.toFixed(1)} PPG)` +
+      `\n- Defensive Rankings: Points Allowed #${awayStats.defensiveRankings.pointsAllowed.rank} (${awayStats.defensiveRankings.pointsAllowed.pointsPerGame.toFixed(1)} PPG), ` +
+      `Total Yards Allowed #${awayStats.defensiveRankings.totalYardsAllowed.rank} (${awayStats.defensiveRankings.totalYardsAllowed.yardsPerGame.toFixed(1)} YPG), ` +
+      `Turnovers #${awayStats.defensiveRankings.turnovers.rank} (${awayStats.defensiveRankings.turnovers.total} total)`
+  }
+
+  return context
 }
 
 function buildAnalysisGuidance(): string {

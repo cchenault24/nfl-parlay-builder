@@ -7,13 +7,19 @@ import { getCached, setCached } from '../../utils/cache'
 import { errorResponse } from '../../utils/errors'
 import { GamesResponse } from './schema'
 
+// Extended request type with correlation ID
+interface CorrelatedRequest extends express.Request {
+  correlationId: string
+}
+
 const CACHE_TTL_MS = 10 * 60 * 1000
 
 export const getCurrentWeekHandler = async (
   req: express.Request,
   res: express.Response
 ) => {
-  const correlationId = (req as any).correlationId as string
+  const correlatedReq = req as CorrelatedRequest
+  const correlationId = correlatedReq.correlationId
   try {
     const cacheKey = 'espn:weeks:current'
     const cached = await getCached<number>(cacheKey, CACHE_TTL_MS)
@@ -38,7 +44,8 @@ export const getGamesHandler = async (
   req: express.Request,
   res: express.Response
 ) => {
-  const correlationId = (req as any).correlationId as string
+  const correlatedReq = req as CorrelatedRequest
+  const correlationId = correlatedReq.correlationId
   const weekStr = req.query.week as string | undefined
   if (!weekStr) {
     return errorResponse(
