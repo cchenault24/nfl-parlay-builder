@@ -43,8 +43,7 @@ const GameStatsPanel: React.FC<GameStatsPanelProps> = ({
   context,
   weather,
 }) => {
-  const { home, away, leaders, status, venue, gameId, week, dateTime } =
-    gameData
+  const { home, away, leaders, status, venue, week, dateTime } = gameData
   const offHome = home.stats?.offenseRankings
   const offAway = away.stats?.offenseRankings
   const defHome = home.stats?.defenseRankings
