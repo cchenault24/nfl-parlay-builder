@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react'
 import { AuthGate } from './components/auth/AuthGate'
 import { UserMenu } from './components/auth/UserMenu'
 import DevStatus from './components/DevStatus'
+import GameStatsPanel from './components/display/GameStatsPanel'
 import ParlayDisplay from './components/display/ParlayDisplay'
 import GameSelector from './components/GameSelector'
 import { AgeVerificationModal } from './components/legal/AgeVerificationModal'
@@ -23,6 +24,7 @@ import { useAuth } from './hooks/useAuth'
 import { useAvailableWeeks } from './hooks/useAvailableWeek'
 import { useCurrentWeek } from './hooks/useCurrentWeek'
 import { useNFLGames } from './hooks/useNFLGames'
+import { useNFLGameWeekWithStats } from './hooks/useNFLGameWeekWithStats'
 import { useParlayGeneratorSelector } from './hooks/useParlayGeneratorSelector'
 import useGeneralStore from './store/generalStore'
 import useParlayStore from './store/parlayStore'
@@ -72,6 +74,7 @@ function AppContent() {
   // Always use selectedWeek (which defaults to currentWeek)
   const weekToFetch = selectedWeek
   const { data: games, isLoading: gamesLoading } = useNFLGames(weekToFetch)
+  const { data: gamesWithStats } = useNFLGameWeekWithStats(weekToFetch)
 
   const {
     mutate: generateParlay,
@@ -197,6 +200,29 @@ function AppContent() {
             availableWeeks={availableWeeks}
             weekLoading={weekLoading}
           />
+
+          {/* Stats panel for selected game */}
+          {selectedGame &&
+            gamesWithStats &&
+            parlay &&
+            (() => {
+              const full = gamesWithStats.find(
+                g => g.gameId === selectedGame.id
+              )
+              if (!full) return null
+              return (
+                <GameStatsPanel
+                  home={full.home}
+                  away={full.away}
+                  leaders={full.leaders}
+                  context={parlay.gameContext}
+                  status={full.status}
+                  venue={full.venue}
+                  rosterHome={parlay.rosterDataUsed?.home}
+                  rosterAway={parlay.rosterDataUsed?.away}
+                />
+              )
+            })()}
 
           {/* Show any parlay errors */}
           {parlayError && (
