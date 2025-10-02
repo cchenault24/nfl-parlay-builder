@@ -9,35 +9,12 @@ import {
   Typography,
 } from '@mui/material'
 import React from 'react'
-import { PFRTeamStats } from '../../types'
-
-type Leaders = {
-  passing?: { name: string; stats: string; value: number }
-  rushing?: { name: string; stats: string; value: number }
-  receiving?: { name: string; stats: string; value: number }
-}
-
-type TeamSide = {
-  teamId: string
-  name: string
-  abbrev: string
-  record: string
-  overallRecord: string
-  homeRecord: string
-  roadRecord: string
-  stats: PFRTeamStats | null
-}
+import { GameData } from '../../types'
 
 export interface GameStatsPanelProps {
-  home: TeamSide
-  away: TeamSide
-  leaders?: Leaders
+  gameData: GameData
   context?: string
-  status: 'scheduled' | 'in_progress' | 'final' | 'postponed'
-  venue: { name: string; city: string; state: string }
   weather?: { condition: string; temperatureF: number; windMph: number }
-  rosterHome?: Array<{ playerId: string; name: string; position?: string }>
-  rosterAway?: Array<{ playerId: string; name: string; position?: string }>
 }
 
 const StatRow: React.FC<{
@@ -62,16 +39,12 @@ const StatRow: React.FC<{
 }
 
 const GameStatsPanel: React.FC<GameStatsPanelProps> = ({
-  home,
-  away,
-  leaders,
+  gameData,
   context,
-  status,
-  venue,
   weather,
-  rosterHome,
-  rosterAway,
 }) => {
+  const { home, away, leaders, status, venue, gameId, week, dateTime } =
+    gameData
   const offHome = home.stats?.offenseRankings
   const offAway = away.stats?.offenseRankings
   const defHome = home.stats?.defenseRankings
@@ -108,22 +81,30 @@ const GameStatsPanel: React.FC<GameStatsPanelProps> = ({
           </Typography>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             <Typography variant="body2" color="text.secondary">
+              Week: {week}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Date/Time: {new Date(dateTime).toLocaleString()}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
               Status: {status}
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Venue: {venue.name}, {venue.city}, {venue.state}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Weather:{' '}
-              {weather
-                ? `${weather.condition}, ${weather.temperatureF}°F, ${weather.windMph} mph winds`
-                : 'Not available'}
-            </Typography>
+            {weather ? (
+              <Typography variant="body2" color="text.secondary">
+                Weather:{' '}
+                {weather
+                  ? `${weather.condition}, ${weather.temperatureF}°F, ${weather.windMph} mph winds`
+                  : 'Not available'}
+              </Typography>
+            ) : null}
           </Box>
         </Box>
         <Divider sx={{ my: 2 }} />
 
-        {(rosterHome?.length || rosterAway?.length) && (
+        {(home.roster?.length || away.roster?.length) && (
           <Grid container spacing={2} sx={{ mb: 2 }}>
             <Grid item xs={12} md={6}>
               <Typography
@@ -133,7 +114,7 @@ const GameStatsPanel: React.FC<GameStatsPanelProps> = ({
               >
                 Roster (Home)
               </Typography>
-              {(rosterHome || [])
+              {(home.roster || [])
                 .slice()
                 .sort((a, b) =>
                   (a.position || '').localeCompare(b.position || '')
@@ -158,7 +139,7 @@ const GameStatsPanel: React.FC<GameStatsPanelProps> = ({
               >
                 Roster (Away)
               </Typography>
-              {(rosterAway || [])
+              {(away.roster || [])
                 .slice()
                 .sort((a, b) =>
                   (a.position || '').localeCompare(b.position || '')

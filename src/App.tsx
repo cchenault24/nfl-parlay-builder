@@ -210,14 +210,8 @@ function AppContent() {
               const gameData = parlay.gameData
               return (
                 <GameStatsPanel
-                  home={gameData.home}
-                  away={gameData.away}
-                  leaders={gameData.leaders}
+                  gameData={gameData}
                   context={parlay.gameContext}
-                  status={gameData.status}
-                  venue={gameData.venue}
-                  rosterHome={gameData.home.roster}
-                  rosterAway={gameData.away.roster}
                 />
               )
             })()}
