@@ -1,26 +1,26 @@
-import React, { useState } from 'react'
 import {
-  Box,
-  Menu,
-  MenuItem,
-  Typography,
-  ListItemIcon,
-  ListItemText,
-  Paper,
-  Fade,
-  useTheme,
-  Chip,
-} from '@mui/material'
-import {
-  ExpandMore as ExpandMoreIcon,
   CalendarToday as CalendarIcon,
+  CheckCircle as CheckCircleIcon,
   Check as CheckIcon,
+  ExpandMore as ExpandMoreIcon,
   SportsFootball as FootballIcon,
   Lock as LockIcon,
   Schedule as ScheduleIcon,
-  CheckCircle as CheckCircleIcon,
 } from '@mui/icons-material'
-import { useCurrentWeek } from '../hooks/useCurrentWeek'
+import {
+  Box,
+  Chip,
+  Fade,
+  ListItemIcon,
+  ListItemText,
+  Menu,
+  MenuItem,
+  Paper,
+  Typography,
+  useTheme,
+} from '@mui/material'
+import React, { useState } from 'react'
+import { useDerivedCurrentWeek } from '../hooks/useDerivedCurrentWeek'
 
 interface WeekSelectorProps {
   currentWeek: number
@@ -40,7 +40,7 @@ const WeekSelector: React.FC<WeekSelectorProps> = ({
   const theme = useTheme()
 
   // Get the actual current NFL week to determine what's in the past
-  const { currentWeek: actualCurrentWeek } = useCurrentWeek()
+  const { currentWeek: actualCurrentWeek } = useDerivedCurrentWeek()
 
   const handleClick = (event: React.MouseEvent<HTMLElement>) => {
     if (!loading) {

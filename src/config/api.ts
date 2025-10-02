@@ -84,6 +84,7 @@ export const API_CONFIG = {
         currentWeek: '/api/v2/weeks/current',
         games: (week: number) => `/api/v2/games?week=${week}`,
         generateParlay: '/api/v2/parlays/generate',
+        pfrSchedule: '/api/v2/pfr-schedule',
       },
     },
   },

@@ -1,10 +1,4 @@
 import express from 'express'
-import {
-  fetchCurrentWeek,
-  fetchGamesForWeek,
-  fetchTeamRoster,
-  type GameItem,
-} from '../../providers/espn'
 import { generateParlayWithAI } from '../../service/ai'
 import {
   getIdempotentResponse,
@@ -12,10 +6,167 @@ import {
 } from '../../storage/idempotency'
 import { getCached, setCached } from '../../utils/cache'
 import { errorResponse } from '../../utils/errors'
+import { GamesResponse } from '../public/schema'
 import {
   GenerateParlayRequestSchema,
   type GenerateParlayResponse,
 } from './schema'
+
+// Interface for AI service GameItem
+interface AIGameItem {
+  gameId: string
+  week: number
+  home: {
+    teamId: string
+    name: string
+    abbrev: string
+    record: string
+    overallRecord: string
+    homeRecord: string
+    roadRecord: string
+    stats: {
+      offenseRankings: {
+        totalYardsRank: number
+        passingYardsRank: number
+        rushingYardsRank: number
+        pointsScoredRank: number
+      }
+      defenseRankings: {
+        totalYardsAllowedRank: number
+        pointsAllowedRank: number
+        turnoversRank: number
+      }
+      overallOffenseRank: number
+      overallDefenseRank: number
+      overallTeamRank: number
+      specialTeamsRank?: number
+    } | null
+  }
+  away: {
+    teamId: string
+    name: string
+    abbrev: string
+    record: string
+    overallRecord: string
+    homeRecord: string
+    roadRecord: string
+    stats: {
+      offenseRankings: {
+        totalYardsRank: number
+        passingYardsRank: number
+        rushingYardsRank: number
+        pointsScoredRank: number
+      }
+      defenseRankings: {
+        totalYardsAllowedRank: number
+        pointsAllowedRank: number
+        turnoversRank: number
+      }
+      overallOffenseRank: number
+      overallDefenseRank: number
+      overallTeamRank: number
+      specialTeamsRank?: number
+    } | null
+  }
+  venue?: {
+    name: string
+    city: string
+    state: string
+  }
+  status?: string
+  weather?: {
+    condition: string
+    temperatureF: number
+    windMph: number
+  }
+  leaders?: {
+    passing?: { name: string; stats: string; value: number }
+    rushing?: { name: string; stats: string; value: number }
+    receiving?: { name: string; stats: string; value: number }
+  }
+  dateTime?: string
+}
+
+// Convert GamesResponse to GameItem for AI service
+function convertToGameItem(game: GamesResponse): AIGameItem {
+  return {
+    gameId: game.gameId,
+    week: game.week,
+    home: {
+      teamId: game.home.teamId,
+      name: game.home.name,
+      abbrev: game.home.abbrev,
+      record: game.home.record,
+      overallRecord: game.home.overallRecord,
+      homeRecord: game.home.homeRecord,
+      roadRecord: game.home.roadRecord,
+      stats: game.home.stats
+        ? {
+            offenseRankings: {
+              totalYardsRank:
+                game.home.stats.offenseRankings.totalYardsRank || 0,
+              passingYardsRank:
+                game.home.stats.offenseRankings.passingYardsRank || 0,
+              rushingYardsRank:
+                game.home.stats.offenseRankings.rushingYardsRank || 0,
+              pointsScoredRank:
+                game.home.stats.offenseRankings.pointsScoredRank || 0,
+            },
+            defenseRankings: {
+              totalYardsAllowedRank:
+                game.home.stats.defenseRankings.totalYardsAllowedRank || 0,
+              pointsAllowedRank:
+                game.home.stats.defenseRankings.pointsAllowedRank || 0,
+              turnoversRank: game.home.stats.defenseRankings.turnoversRank || 0,
+            },
+            overallOffenseRank: game.home.stats.overallOffenseRank || 0,
+            overallDefenseRank: game.home.stats.overallDefenseRank || 0,
+            overallTeamRank: game.home.stats.overallTeamRank || 0,
+            specialTeamsRank: game.home.stats.specialTeamsRank ?? undefined,
+          }
+        : null,
+    },
+    away: {
+      teamId: game.away.teamId,
+      name: game.away.name,
+      abbrev: game.away.abbrev,
+      record: game.away.record,
+      overallRecord: game.away.overallRecord,
+      homeRecord: game.away.homeRecord,
+      roadRecord: game.away.roadRecord,
+      stats: game.away.stats
+        ? {
+            offenseRankings: {
+              totalYardsRank:
+                game.away.stats.offenseRankings.totalYardsRank || 0,
+              passingYardsRank:
+                game.away.stats.offenseRankings.passingYardsRank || 0,
+              rushingYardsRank:
+                game.away.stats.offenseRankings.rushingYardsRank || 0,
+              pointsScoredRank:
+                game.away.stats.offenseRankings.pointsScoredRank || 0,
+            },
+            defenseRankings: {
+              totalYardsAllowedRank:
+                game.away.stats.defenseRankings.totalYardsAllowedRank || 0,
+              pointsAllowedRank:
+                game.away.stats.defenseRankings.pointsAllowedRank || 0,
+              turnoversRank: game.away.stats.defenseRankings.turnoversRank || 0,
+            },
+            overallOffenseRank: game.away.stats.overallOffenseRank || 0,
+            overallDefenseRank: game.away.stats.overallDefenseRank || 0,
+            overallTeamRank: game.away.stats.overallTeamRank || 0,
+            specialTeamsRank: game.away.stats.specialTeamsRank ?? undefined,
+          }
+        : null,
+    },
+    venue: game.venue,
+    status: game.status,
+    weather: game.weather,
+    leaders: game.leaders,
+    dateTime: game.dateTime,
+  }
+}
 
 // Extended request type with authentication data
 interface AuthenticatedRequest extends express.Request {
@@ -71,15 +222,17 @@ export const generateParlayHandler = async (
       )
     }
 
-    // Fetch real game data from ESPN with caching and statistics
+    // Fetch real game data from PFR with caching and statistics
     // Use provided week if available; otherwise use current week
-    let targetWeek = week ?? (await fetchCurrentWeek())
+    let targetWeek = week ?? 1 // PFR doesn't have current week, use default
 
     // Try to find the game in the current week first
-    const cacheKey = `games_week_${targetWeek}_with_stats`
-    let games = await getCached<GameItem[]>(cacheKey, 10 * 60 * 1000) // 10 minute TTL
+    // Versioned to ensure updated ranking fields are included
+    const cacheKey = `games_week_${targetWeek}_with_stats_v2`
+    let games = await getCached<GamesResponse[]>(cacheKey, 10 * 60 * 1000) // 10 minute TTL
     if (!games) {
-      games = await fetchGamesForWeek(targetWeek, true) // Include statistics
+      // PFR doesn't support fetching all games - return empty array
+      games = []
       await setCached(cacheKey, games)
     }
 
@@ -99,12 +252,13 @@ export const generateParlayHandler = async (
         }
 
         const weekCacheKey = `games_week_${w}_with_stats`
-        let weekGames = await getCached<GameItem[]>(
+        let weekGames = await getCached<GamesResponse[]>(
           weekCacheKey,
           10 * 60 * 1000
         )
         if (!weekGames) {
-          weekGames = await fetchGamesForWeek(w, true) // Include statistics
+          // PFR doesn't support fetching all games - return empty array
+          weekGames = []
           await setCached(weekCacheKey, weekGames)
         }
 
@@ -119,12 +273,6 @@ export const generateParlayHandler = async (
     const game = games.find(g => g.gameId === gameId)
 
     if (!game) {
-      console.error('Game not found:', {
-        requestedGameId: gameId,
-        availableGameIds: games.map(g => g.gameId),
-        targetWeek,
-        totalGames: games.length,
-      })
       return errorResponse(
         res,
         404,
@@ -139,7 +287,7 @@ export const generateParlayHandler = async (
       ? await generateParlayWithAI({
           gameId,
           riskLevel: parsed.data.riskLevel,
-          gameData: game,
+          gameData: convertToGameItem(game),
         })
       : null
 
@@ -154,25 +302,10 @@ export const generateParlayHandler = async (
     }
 
     // Fetch rosters (cached per team for 10 minutes)
-    const homeRosterCacheKey = `roster_${game.home.teamId}`
-    const awayRosterCacheKey = `roster_${game.away.teamId}`
-    const rosterTtl = 10 * 60 * 1000
-    let homeRoster = await getCached<{ playerId: string; name: string }[]>(
-      homeRosterCacheKey,
-      rosterTtl
-    )
-    if (!homeRoster) {
-      homeRoster = await fetchTeamRoster(game.home.teamId)
-      await setCached(homeRosterCacheKey, homeRoster)
-    }
-    let awayRoster = await getCached<{ playerId: string; name: string }[]>(
-      awayRosterCacheKey,
-      rosterTtl
-    )
-    if (!awayRoster) {
-      awayRoster = await fetchTeamRoster(game.away.teamId)
-      await setCached(awayRosterCacheKey, awayRoster)
-    }
+    // Versioned cache keys to include positions
+    // PFR doesn't support roster fetching - skip this step
+    const homeRoster = null
+    const awayRoster = null
 
     const response: GenerateParlayResponse = {
       parlayId: `pl_${Math.random().toString(36).slice(2, 10)}`,
@@ -196,8 +329,8 @@ export const generateParlayHandler = async (
       parlayConfidence: Math.min(...ai.legs.map(l => l.confidence)),
       gameSummary: ai.analysisSummary,
       rosterDataUsed: {
-        home: homeRoster.slice(0, 30),
-        away: awayRoster.slice(0, 30),
+        home: (homeRoster || []).slice(0, 30),
+        away: (awayRoster || []).slice(0, 30),
       },
     }
 

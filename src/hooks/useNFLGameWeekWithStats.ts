@@ -52,7 +52,7 @@ export interface V2Leaders {
 export interface V2Game {
   gameId: string
   week: number
-  startTime: string
+  dateTime: string
   status: 'scheduled' | 'in_progress' | 'final' | 'postponed'
   home: V2Team
   away: V2Team

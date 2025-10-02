@@ -1,12 +1,83 @@
-import type { GameItem } from '../../providers/espn'
+// Define a basic game item type for PFR
+interface GameItem {
+  gameId: string
+  week: number
+  home: {
+    teamId: string
+    name: string
+    abbrev: string
+    record: string
+    overallRecord: string
+    homeRecord: string
+    roadRecord: string
+    stats: {
+      offenseRankings: {
+        totalYardsRank: number
+        passingYardsRank: number
+        rushingYardsRank: number
+        pointsScoredRank: number
+      }
+      defenseRankings: {
+        totalYardsAllowedRank: number
+        pointsAllowedRank: number
+        turnoversRank: number
+      }
+      overallOffenseRank: number
+      overallDefenseRank: number
+      overallTeamRank: number
+      specialTeamsRank?: number
+    } | null
+  }
+  away: {
+    teamId: string
+    name: string
+    abbrev: string
+    record: string
+    overallRecord: string
+    homeRecord: string
+    roadRecord: string
+    stats: {
+      offenseRankings: {
+        totalYardsRank: number
+        passingYardsRank: number
+        rushingYardsRank: number
+        pointsScoredRank: number
+      }
+      defenseRankings: {
+        totalYardsAllowedRank: number
+        pointsAllowedRank: number
+        turnoversRank: number
+      }
+      overallOffenseRank: number
+      overallDefenseRank: number
+      overallTeamRank: number
+      specialTeamsRank?: number
+    } | null
+  }
+  venue?: {
+    name: string
+    city: string
+    state: string
+  }
+  status?: string
+  weather?: {
+    condition: string
+    temperatureF: number
+    windMph: number
+  }
+  leaders?: {
+    passing?: { name: string; stats: string; value: number }
+    rushing?: { name: string; stats: string; value: number }
+    receiving?: { name: string; stats: string; value: number }
+  }
+  dateTime?: string
+}
 import { BetTypeEnum } from './schemas'
 
 // All available bet types - will be filtered by gameData.betType in the future
 const ALL_BET_TYPES = BetTypeEnum.options
 
 function getAvailableBetTypes(_gameData: GameItem): string {
-  // TODO: When betTypes is passed from the request, filter ALL_BET_TYPES based on gameData.betType
-  // For now, return all bet types as a joined string
   return ALL_BET_TYPES.join(', ')
 }
 
@@ -30,7 +101,7 @@ function buildGameContext(gameData: GameItem): string {
     `\nGame Context:` +
     `\n- Away Team: ${gameData.away.name} (${gameData.away.abbrev}) - Record: ${gameData.away.overallRecord} (Home: ${gameData.away.homeRecord}, Road: ${gameData.away.roadRecord})` +
     `\n- Home Team: ${gameData.home.name} (${gameData.home.abbrev}) - Record: ${gameData.home.overallRecord} (Home: ${gameData.home.homeRecord}, Road: ${gameData.home.roadRecord})` +
-    `\n- Venue: ${gameData.venue.name}, ${gameData.venue.city}, ${gameData.venue.state}` +
+    `\n- Venue: ${gameData.venue ? `${gameData.venue.name}, ${gameData.venue.city}, ${gameData.venue.state}` : 'Not available'}` +
     `\n- Week: ${gameData.week}` +
     `\n- Game Status: ${gameData.status}` +
     `\n- Weather: ${gameData.weather ? `${gameData.weather.condition}, ${gameData.weather.temperatureF}°F, ${gameData.weather.windMph} mph winds` : 'Not available'}` +
@@ -47,24 +118,61 @@ function buildGameContext(gameData: GameItem): string {
     const homeStats = gameData.home.stats
     const awayStats = gameData.away.stats
 
+    // PFR format - simplified to only ranks
+    const getOffenseStats = (stats: GameItem['home']['stats']) => ({
+      totalYards: {
+        rank: stats?.offenseRankings.totalYardsRank || 0,
+        yardsPerGame: 0,
+      },
+      passingYards: {
+        rank: stats?.offenseRankings.passingYardsRank || 0,
+        yardsPerGame: 0,
+      },
+      rushingYards: {
+        rank: stats?.offenseRankings.rushingYardsRank || 0,
+        yardsPerGame: 0,
+      },
+      pointsScored: {
+        rank: stats?.offenseRankings.pointsScoredRank || 0,
+        yardsPerGame: 0,
+      },
+    })
+
+    const getDefenseStats = (stats: GameItem['home']['stats']) => ({
+      pointsAllowed: {
+        rank: stats?.defenseRankings.pointsAllowedRank || 0,
+        yardsPerGame: 0,
+      },
+      totalYardsAllowed: {
+        rank: stats?.defenseRankings.totalYardsAllowedRank || 0,
+        yardsPerGame: 0,
+      },
+      turnovers: { rank: stats?.defenseRankings.turnoversRank || 0, total: 0 },
+    })
+
+    const homeOffense = getOffenseStats(homeStats)
+    const homeDefense = getDefenseStats(homeStats)
+    const awayOffense = getOffenseStats(awayStats)
+    const awayDefense = getDefenseStats(awayStats)
+
     context +=
       `\n\nDetailed Team Statistics:` +
       `\n\nHome Team (${gameData.home.name}) Season Performance:` +
-      `\n- Offensive Rankings: Total Yards #${homeStats.offensiveRankings.totalYards.rank} (${homeStats.offensiveRankings.totalYards.yardsPerGame.toFixed(1)} YPG), ` +
-      `Passing #${homeStats.offensiveRankings.passingYards.rank} (${homeStats.offensiveRankings.passingYards.yardsPerGame.toFixed(1)} YPG), ` +
-      `Rushing #${homeStats.offensiveRankings.rushingYards.rank} (${homeStats.offensiveRankings.rushingYards.yardsPerGame.toFixed(1)} YPG), ` +
-      `Points #${homeStats.offensiveRankings.pointsScored.rank} (${homeStats.offensiveRankings.pointsScored.pointsPerGame.toFixed(1)} PPG)` +
-      `\n- Defensive Rankings: Points Allowed #${homeStats.defensiveRankings.pointsAllowed.rank} (${homeStats.defensiveRankings.pointsAllowed.pointsPerGame.toFixed(1)} PPG), ` +
-      `Total Yards Allowed #${homeStats.defensiveRankings.totalYardsAllowed.rank} (${homeStats.defensiveRankings.totalYardsAllowed.yardsPerGame.toFixed(1)} YPG), ` +
-      `Turnovers #${homeStats.defensiveRankings.turnovers.rank} (${homeStats.defensiveRankings.turnovers.total} total)` +
+      `\n- Offensive Rankings: Total Yards #${homeOffense.totalYards.rank} (${homeOffense.totalYards.yardsPerGame.toFixed(1)} YPG), ` +
+      `Passing #${homeOffense.passingYards.rank} (${homeOffense.passingYards.yardsPerGame.toFixed(1)} YPG), ` +
+      `Rushing #${homeOffense.rushingYards.rank} (${homeOffense.rushingYards.yardsPerGame.toFixed(1)} YPG), ` +
+      `Points #${homeOffense.pointsScored.rank} (${homeOffense.pointsScored.yardsPerGame.toFixed(1)} PPG)` +
+      `\n- Defensive Rankings: Points Allowed #${homeDefense.pointsAllowed.rank} (${homeDefense.pointsAllowed.yardsPerGame.toFixed(1)} PPG), ` +
+      `Total Yards Allowed #${homeDefense.totalYardsAllowed.rank} (${homeDefense.totalYardsAllowed.yardsPerGame.toFixed(1)} YPG), ` +
+      `Turnovers #${homeDefense.turnovers.rank} (${homeDefense.turnovers.total} total)` +
       `\n\nAway Team (${gameData.away.name}) Season Performance:` +
-      `\n- Offensive Rankings: Total Yards #${awayStats.offensiveRankings.totalYards.rank} (${awayStats.offensiveRankings.totalYards.yardsPerGame.toFixed(1)} YPG), ` +
-      `Passing #${awayStats.offensiveRankings.passingYards.rank} (${awayStats.offensiveRankings.passingYards.yardsPerGame.toFixed(1)} YPG), ` +
-      `Rushing #${awayStats.offensiveRankings.rushingYards.rank} (${awayStats.offensiveRankings.rushingYards.yardsPerGame.toFixed(1)} YPG), ` +
-      `Points #${awayStats.offensiveRankings.pointsScored.rank} (${awayStats.offensiveRankings.pointsScored.pointsPerGame.toFixed(1)} PPG)` +
-      `\n- Defensive Rankings: Points Allowed #${awayStats.defensiveRankings.pointsAllowed.rank} (${awayStats.defensiveRankings.pointsAllowed.pointsPerGame.toFixed(1)} PPG), ` +
-      `Total Yards Allowed #${awayStats.defensiveRankings.totalYardsAllowed.rank} (${awayStats.defensiveRankings.totalYardsAllowed.yardsPerGame.toFixed(1)} YPG), ` +
-      `Turnovers #${awayStats.defensiveRankings.turnovers.rank} (${awayStats.defensiveRankings.turnovers.total} total)`
+      `\n- Offensive Rankings: Total Yards #${awayOffense.totalYards.rank} (${awayOffense.totalYards.yardsPerGame.toFixed(1)} YPG), ` +
+      `Passing #${awayOffense.passingYards.rank} (${awayOffense.passingYards.yardsPerGame.toFixed(1)} YPG), ` +
+      `Rushing #${awayOffense.rushingYards.rank} (${awayOffense.rushingYards.yardsPerGame.toFixed(1)} YPG), ` +
+      `Points #${awayOffense.pointsScored.rank} (${awayOffense.pointsScored.yardsPerGame.toFixed(1)} PPG)` +
+      `\n- Defensive Rankings: Points Allowed #${awayDefense.pointsAllowed.rank} (${awayDefense.pointsAllowed.yardsPerGame.toFixed(1)} PPG), ` +
+      `Total Yards Allowed #${awayDefense.totalYardsAllowed.rank} (${awayDefense.totalYardsAllowed.yardsPerGame.toFixed(1)} YPG), ` +
+      `Turnovers #${awayDefense.turnovers.rank} (${awayDefense.turnovers.total} total)`
   }
 
   return context
@@ -135,5 +243,12 @@ export function buildParlayPrompt(params: {
 }): string {
   const { gameData, riskLevel } = params
 
-  return `Generate a 3-leg NFL parlay for this game: ${gameData.away.name} @ ${gameData.home.name} (Week ${gameData.week}, ${new Date(gameData.startTime).toLocaleDateString()}) at ${gameData.venue.name} in ${gameData.venue.city}, ${gameData.venue.state}.${buildGameContext(gameData)}\n\nRisk level: ${riskLevel}.${buildAnalysisGuidance()}\n\nGenerate realistic betting lines and selections based on this deep analysis.${buildLegGenerationRequirements(riskLevel)}${buildOutputFormat(gameData)}`
+  const startTime = gameData.dateTime
+    ? new Date(gameData.dateTime).toLocaleDateString()
+    : 'TBD'
+  const venueName = gameData.venue?.name || 'TBD'
+  const venueCity = gameData.venue?.city || 'TBD'
+  const venueState = gameData.venue?.state || 'TBD'
+
+  return `Generate a 3-leg NFL parlay for this game: ${gameData.away.name} @ ${gameData.home.name} (Week ${gameData.week}, ${startTime}) at ${venueName} in ${venueCity}, ${venueState}.${buildGameContext(gameData)}\n\nRisk level: ${riskLevel}.${buildAnalysisGuidance()}\n\nGenerate realistic betting lines and selections based on this deep analysis.${buildLegGenerationRequirements(riskLevel)}${buildOutputFormat(gameData)}`
 }

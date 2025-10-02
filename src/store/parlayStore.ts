@@ -1,16 +1,17 @@
 import { create } from 'zustand'
-import { GeneratedParlay, NFLGame } from '../types'
+import { V2Game } from '../hooks/useNFLGameWeekWithStats'
+import { GeneratedParlay } from '../types'
 
 interface ParlayStore {
   // State
   parlay: GeneratedParlay | null
-  selectedGame: NFLGame | null
+  selectedGame: V2Game | null
   saveParlaySuccess: boolean
   saveParlayError: string
 
   // Actions
   setParlay: (parlay: GeneratedParlay | null) => void
-  setSelectedGame: (game: NFLGame | null) => void
+  setSelectedGame: (game: V2Game | null) => void
   setSaveParlaySuccess: (success: boolean) => void
   setSaveParlayError: (error: string) => void
 }

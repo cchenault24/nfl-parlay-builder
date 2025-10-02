@@ -21,11 +21,10 @@ import { ParlayHistory } from './components/ParlayHistory'
 import AuthProvider from './contexts/authentication/AuthContext'
 import { useAgeVerification } from './hooks/useAgeVerification'
 import { useAuth } from './hooks/useAuth'
-import { useAvailableWeeks } from './hooks/useAvailableWeek'
-import { useCurrentWeek } from './hooks/useCurrentWeek'
-import { useNFLGames } from './hooks/useNFLGames'
+import { useDerivedCurrentWeek } from './hooks/useDerivedCurrentWeek'
 import { useNFLGameWeekWithStats } from './hooks/useNFLGameWeekWithStats'
 import { useParlayGeneratorSelector } from './hooks/useParlayGeneratorSelector'
+import { usePFRSchedule } from './hooks/usePFRSchedule'
 import useGeneralStore from './store/generalStore'
 import useParlayStore from './store/parlayStore'
 import { theme } from './theme'
@@ -57,9 +56,16 @@ function AppContent() {
   const [showResponsibleGambling, setShowResponsibleGambling] = useState(false)
   const [ageVerificationOpen, setAgeVerificationOpen] = useState(false)
 
-  // Get current week from API
-  const { currentWeek, isLoading: weekLoading } = useCurrentWeek()
-  const { availableWeeks } = useAvailableWeeks()
+  // Get current week derived from PFR game data
+  const { currentWeek, isLoading: weekLoading } = useDerivedCurrentWeek()
+
+  // Use PFR schedule for all games
+  const { data: allGames, isLoading: gamesLoading } = usePFRSchedule()
+
+  // Derive available weeks from PFR schedule
+  const availableWeeks = allGames
+    ? Array.from(new Set(allGames.map(game => game.week))).sort((a, b) => a - b)
+    : []
 
   // Initialize selectedWeek with currentWeek
   const [selectedWeek, setSelectedWeek] = useState<number>(currentWeek || 1)
@@ -71,10 +77,7 @@ function AppContent() {
     }
   }, [currentWeek])
 
-  // Always use selectedWeek (which defaults to currentWeek)
-  const weekToFetch = selectedWeek
-  const { data: games, isLoading: gamesLoading } = useNFLGames(weekToFetch)
-  const { data: gamesWithStats } = useNFLGameWeekWithStats(weekToFetch)
+  const { data: gamesWithStats } = useNFLGameWeekWithStats(selectedWeek)
 
   const {
     mutate: generateParlay,
@@ -191,14 +194,12 @@ function AppContent() {
           </Typography>
 
           <GameSelector
-            games={games || []}
-            loading={gamesLoading || weekLoading}
             onGenerateParlay={handleGenerateParlay}
             canGenerate={!!selectedGame && !parlayLoading}
             currentWeek={selectedWeek}
             onWeekChange={handleWeekChange}
             availableWeeks={availableWeeks}
-            weekLoading={weekLoading}
+            weekLoading={weekLoading || gamesLoading}
           />
 
           {/* Stats panel for selected game */}
@@ -207,9 +208,11 @@ function AppContent() {
             parlay &&
             (() => {
               const full = gamesWithStats.find(
-                g => g.gameId === selectedGame.id
+                g => g.gameId === selectedGame.gameId
               )
-              if (!full) return null
+              if (!full) {
+                return null
+              }
               return (
                 <GameStatsPanel
                   home={full.home}

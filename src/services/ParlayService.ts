@@ -1,10 +1,10 @@
 // src/services/ParlayService.ts - V2 API implementation
 import { API_CONFIG } from '../config/api'
 import { auth } from '../config/firebase'
+import { V2Game } from '../hooks/useNFLGameWeekWithStats'
 import {
   GeneratedParlay,
   GenerateParlayRequest,
-  NFLGame,
   ParlayGenerationResult,
 } from '../types'
 import { RateLimitError } from '../types/errors'
@@ -71,7 +71,7 @@ export class ParlayService {
    * Generate a parlay with provider options
    */
   async generateParlay(
-    game: NFLGame,
+    game: V2Game,
     options: { provider?: 'mock' | 'openai' } = {}
   ): Promise<EnhancedParlayGenerationResult> {
     try {
@@ -94,7 +94,7 @@ export class ParlayService {
    * Generate parlay using cloud functions
    */
   private async generateCloudParlay(
-    game: NFLGame,
+    game: V2Game,
     _options: { provider?: 'mock' | 'openai' }
   ): Promise<EnhancedParlayGenerationResult> {
     // V2 API handles roster fetching internally
@@ -165,7 +165,7 @@ export class ParlayService {
   /**
    * Call v2 cloud function to generate parlay
    */
-  private async callCloudFunction(game: NFLGame): Promise<GeneratedParlay> {
+  private async callCloudFunction(game: V2Game): Promise<GeneratedParlay> {
     try {
       const authToken = await this.getAuthToken()
 
@@ -176,7 +176,7 @@ export class ParlayService {
       }
 
       const requestBody: GenerateParlayRequest = {
-        gameId: game.id,
+        gameId: game.gameId,
         numLegs: 3,
         week: game.week,
         riskLevel: 'conservative', // Default risk level

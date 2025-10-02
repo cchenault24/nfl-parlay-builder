@@ -93,7 +93,7 @@ export type GenerateParlayResponse = {
     }
   }
   rosterDataUsed: {
-    home: Array<{ playerId: string; name: string }>
-    away: Array<{ playerId: string; name: string }>
+    home: Array<{ playerId: string; name: string; position?: string }>
+    away: Array<{ playerId: string; name: string; position?: string }>
   }
 }

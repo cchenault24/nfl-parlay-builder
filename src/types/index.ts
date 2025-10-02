@@ -67,7 +67,7 @@ export interface NFLTeam {
 
 export interface NFLGame {
   id: string
-  date: string
+  dateTime: string
   homeTeam: NFLTeam
   awayTeam: NFLTeam
   week: number

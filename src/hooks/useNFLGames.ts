@@ -13,7 +13,7 @@ interface V2Team {
 interface V2Game {
   gameId: string
   week: number
-  startTime: string
+  dateTime: string
   status: 'scheduled' | 'in_progress' | 'final' | 'postponed'
   home: V2Team
   away: V2Team
@@ -33,9 +33,9 @@ function transformV2Games(v2Games: V2Game[]): NFLGame[] {
 
     return {
       id: game.gameId,
-      date: game.startTime,
+      dateTime: game.dateTime,
       week: game.week,
-      season: new Date(game.startTime).getFullYear(),
+      season: new Date(game.dateTime).getFullYear(),
       status: game.status,
       homeTeam: {
         id: homeTeam.teamId || '',

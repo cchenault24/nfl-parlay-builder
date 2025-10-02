@@ -100,7 +100,7 @@ const GameStatsPanel: React.FC<GameStatsPanelProps> = ({
   const defHome = home.stats?.defensiveRankings
   const defAway = away.stats?.defensiveRankings
   const ordinal = (n?: number) => {
-    if (!n || n <= 0) return 'N/A'
+    if (!n || n <= 0) {return 'N/A'}
     const s = ['th', 'st', 'nd', 'rd']
     const v = n % 100
     return n + (s[(v - 20) % 10] || s[v] || s[0])

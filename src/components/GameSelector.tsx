@@ -13,14 +13,13 @@ import {
 } from '@mui/material'
 import { SelectChangeEvent } from '@mui/material/Select'
 import React from 'react'
+import { V2Game } from '../hooks/useNFLGameWeekWithStats'
 import { useParlayGenerator } from '../hooks/useParlayGenerator'
+import { usePFRSchedule } from '../hooks/usePFRSchedule'
 import useParlayStore from '../store/parlayStore'
-import type { NFLGame } from '../types'
 import WeekSelector from './WeekSelector'
 
 interface GameSelectorProps {
-  games: NFLGame[]
-  loading: boolean
   onGenerateParlay: () => void
   canGenerate: boolean
   // Week selector props
@@ -31,8 +30,6 @@ interface GameSelectorProps {
 }
 
 const GameSelector: React.FC<GameSelectorProps> = ({
-  games,
-  loading,
   onGenerateParlay,
   canGenerate,
   currentWeek,
@@ -40,26 +37,27 @@ const GameSelector: React.FC<GameSelectorProps> = ({
   availableWeeks,
   weekLoading = false,
 }) => {
+  // Use PFR schedule hook and filter by current week
+  const { data: allGames, isLoading: loading, error } = usePFRSchedule()
+
+  const games = allGames?.filter(game => game.week === currentWeek) || []
   const selectedGame = useParlayStore(state => state.selectedGame)
   const setSelectedGame = useParlayStore(state => state.setSelectedGame)
   const { reset: resetParlay } = useParlayGenerator()
 
   const handleGameChange = (event: SelectChangeEvent<string>) => {
     const gameId = event.target.value
-    const game = games.find(g => g.id === gameId)
+    const game = games?.find(g => g.gameId === gameId)
     if (game) {
       setSelectedGame(game)
       resetParlay()
     }
   }
 
-  const formatGameDisplay = (game: NFLGame) => {
-    const awayTeam = game.awayTeam || { displayName: 'Unknown Team' }
-    const homeTeam = game.homeTeam || { displayName: 'Unknown Team' }
-    return `${awayTeam.displayName || 'Unknown Team'} @ ${homeTeam.displayName || 'Unknown Team'}`
-  }
+  const formatGameDisplay = (game: V2Game) =>
+    `${game.away.name} @ ${game.home.name}`
 
-  const formatGameDateTime = (dateString: string) => {
+  const formatGameDate = (dateString: string) => {
     const date = new Date(dateString)
     return date.toLocaleDateString('en-US', {
       weekday: 'short',
@@ -70,12 +68,28 @@ const GameSelector: React.FC<GameSelectorProps> = ({
     })
   }
 
-  if (loading && !games.length) {
+  if (loading && !games?.length) {
     return (
       <Card sx={{ mb: 3 }}>
         <CardContent sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
           <CircularProgress />
-          <Typography sx={{ ml: 2 }}>Loading NFL games...</Typography>
+          <Typography sx={{ ml: 2 }}>Loading NFL games from PFR...</Typography>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (error) {
+    return (
+      <Card sx={{ mb: 3 }}>
+        <CardContent sx={{ textAlign: 'center', py: 4 }}>
+          <Typography variant="body1" color="error" sx={{ mb: 2 }}>
+            Error loading games:{' '}
+            {error instanceof Error ? error.message : String(error)}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Please try again or select a different week
+          </Typography>
         </CardContent>
       </Card>
     )
@@ -96,14 +110,14 @@ const GameSelector: React.FC<GameSelectorProps> = ({
             loading={weekLoading || loading}
           />
 
-          {games.length > 0 && (
+          {games && games.length > 0 && (
             <Typography variant="body2" color="text.secondary">
               {games.length} game{games.length !== 1 ? 's' : ''} available
             </Typography>
           )}
         </Box>
 
-        {games.length === 0 && !loading ? (
+        {(!games || games.length === 0) && !loading ? (
           <Box sx={{ textAlign: 'center', py: 3 }}>
             <Typography variant="body1" color="text.secondary">
               No games found for Week {currentWeek}
@@ -119,7 +133,7 @@ const GameSelector: React.FC<GameSelectorProps> = ({
               <Select
                 labelId="game-select-label"
                 id="game-select"
-                value={selectedGame?.id || ''}
+                value={selectedGame?.gameId || ''}
                 label="Choose NFL Game"
                 onChange={handleGameChange}
                 native={false}
@@ -169,11 +183,11 @@ const GameSelector: React.FC<GameSelectorProps> = ({
                   },
                 }}
               >
-                {games.map(game => {
+                {games?.map(game => {
                   return (
                     <MenuItem
-                      key={game.id}
-                      value={game.id}
+                      key={game.gameId}
+                      value={game.gameId}
                       disabled={game.status === 'final'} // Disable completed games
                       sx={{
                         padding: '12px 16px',
@@ -212,7 +226,7 @@ const GameSelector: React.FC<GameSelectorProps> = ({
                         </Typography>
                       </Box>
                       <Typography variant="caption" color="text.secondary">
-                        {formatGameDateTime(game.date)}
+                        {formatGameDate(game.dateTime)}
                       </Typography>
                     </MenuItem>
                   )
