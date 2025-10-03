@@ -1,10 +1,12 @@
 // src/services/ParlayService.ts - V2 API implementation
 import { API_CONFIG } from '../config/api'
 import { auth } from '../config/firebase'
+import { V2Game } from '../hooks/useNFLGameWeekWithStats'
 import {
-  GeneratedParlay,
+  BetType,
+  GameData,
   GenerateParlayRequest,
-  NFLGame,
+  GenerateParlayResponse,
   ParlayGenerationResult,
 } from '../types'
 import { RateLimitError } from '../types/errors'
@@ -34,6 +36,7 @@ export interface ParlayGenerationOptions {
 }
 
 export interface EnhancedParlayGenerationResult extends ParlayGenerationResult {
+  gameData?: GameData
   metadata?: {
     provider: string
     model: string
@@ -71,7 +74,7 @@ export class ParlayService {
    * Generate a parlay with provider options
    */
   async generateParlay(
-    game: NFLGame,
+    game: V2Game,
     options: { provider?: 'mock' | 'openai' } = {}
   ): Promise<EnhancedParlayGenerationResult> {
     try {
@@ -82,12 +85,6 @@ export class ParlayService {
           'User not authenticated. Please log in to generate parlays.'
         )
       }
-
-      console.log('🔐 User authenticated:', {
-        uid: currentUser.uid,
-        email: currentUser.email,
-        emailVerified: currentUser.emailVerified,
-      })
 
       return await this.generateCloudParlay(game, options)
     } catch (error) {
@@ -100,17 +97,24 @@ export class ParlayService {
    * Generate parlay using cloud functions
    */
   private async generateCloudParlay(
-    game: NFLGame,
+    game: V2Game,
     _options: { provider?: 'mock' | 'openai' }
   ): Promise<EnhancedParlayGenerationResult> {
     // V2 API handles roster fetching internally
-    const parlayData = await this.callCloudFunction(game)
+    const result = await this.callCloudFunction(game)
 
-    // V2 API returns the parlay data directly
+    // V2 API now returns { parlay, gameData }
     return {
-      parlay: parlayData,
-      rateLimitInfo: undefined, // V2 doesn't return rate limit info yet
-      metadata: undefined, // V2 doesn't return metadata yet
+      parlay: {
+        ...result.parlay,
+        legs: result.parlay.legs.map(leg => ({
+          ...leg,
+          betType: leg.betType as BetType, // Cast to BetType
+        })),
+      },
+      gameData: result.gameData,
+      rateLimitInfo: undefined,
+      metadata: undefined,
     }
   }
 
@@ -171,7 +175,9 @@ export class ParlayService {
   /**
    * Call v2 cloud function to generate parlay
    */
-  private async callCloudFunction(game: NFLGame): Promise<GeneratedParlay> {
+  private async callCloudFunction(
+    game: V2Game
+  ): Promise<GenerateParlayResponse> {
     try {
       const authToken = await this.getAuthToken()
 
@@ -182,19 +188,12 @@ export class ParlayService {
       }
 
       const requestBody: GenerateParlayRequest = {
-        gameId: game.id,
+        gameId: game.gameId,
         numLegs: 3,
         week: game.week,
         riskLevel: 'conservative', // Default risk level
         betTypes: 'all',
       }
-
-      console.log('🚀 Making parlay generation request:', {
-        url: this.cloudFunctionUrl,
-        gameId: game.id,
-        hasAuthToken: !!authToken,
-        tokenLength: authToken.length,
-      })
 
       const response = await fetch(this.cloudFunctionUrl, {
         method: 'POST',
@@ -224,8 +223,7 @@ export class ParlayService {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }
 
-      console.log('✅ Parlay generation successful')
-      return responseData
+      return responseData as GenerateParlayResponse
     } catch (error) {
       console.error('❌ Cloud Function call failed:', error)
       throw this.enhanceNetworkError(error as Error)
@@ -292,12 +290,6 @@ export class ParlayService {
 
       // Force refresh the token to ensure it's valid
       const token = await currentUser.getIdToken(true)
-      console.log('✅ Auth token obtained successfully', {
-        uid: currentUser.uid,
-        email: currentUser.email,
-        tokenLength: token.length,
-        tokenPreview: token.substring(0, 20) + '...',
-      })
       return token
     } catch (error) {
       console.error('❌ Failed to get auth token:', error)

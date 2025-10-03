@@ -1,3 +1,5 @@
+import { PFRTeamStats } from '../../providers/pfr'
+
 export interface CurrentWeekResponse {
   week: number
 }
@@ -5,7 +7,7 @@ export interface CurrentWeekResponse {
 export interface GamesResponse {
   gameId: string
   week: number
-  startTime: string
+  dateTime: string
   status: 'scheduled' | 'in_progress' | 'final' | 'postponed'
   home: {
     teamId: string
@@ -15,6 +17,7 @@ export interface GamesResponse {
     overallRecord: string
     homeRecord: string
     roadRecord: string
+    stats: PFRTeamStats | null
   }
   away: {
     teamId: string
@@ -24,6 +27,7 @@ export interface GamesResponse {
     overallRecord: string
     homeRecord: string
     roadRecord: string
+    stats: PFRTeamStats | null
   }
   venue: { name: string; city: string; state: string }
   weather?: { condition: string; temperatureF: number; windMph: number }
