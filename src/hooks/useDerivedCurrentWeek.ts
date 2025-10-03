@@ -26,7 +26,9 @@ export const useDerivedCurrentWeek = () => {
     for (const week of weeks) {
       const weekGames = allGames.filter(game => game.week === week)
 
-      if (weekGames.length === 0) {continue}
+      if (weekGames.length === 0) {
+        continue
+      }
 
       // Get the date range for this week
       const gameDates = weekGames

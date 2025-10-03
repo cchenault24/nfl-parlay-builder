@@ -6,10 +6,13 @@ import {
   Box,
   Divider,
   Grid,
+  Paper,
   Typography,
 } from '@mui/material'
 import React from 'react'
 import { GameData } from '../../types'
+import MatchupRow from './MatchupRow'
+import TeamCard from './TeamCard'
 
 export interface GameStatsPanelProps {
   gameData: GameData
@@ -17,48 +20,70 @@ export interface GameStatsPanelProps {
   weather?: { condition: string; temperatureF: number; windMph: number }
 }
 
-const StatRow: React.FC<{
-  label: string
-  home: string | number
-  away: string | number
-}> = ({ label, home, away }) => {
-  return (
-    <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
-      <Typography variant="body2" color="text.secondary" sx={{ minWidth: 160 }}>
-        {label}
-      </Typography>
-      <Box sx={{ display: 'flex', gap: 2 }}>
-        <Typography variant="body2">{away}</Typography>
-        <Typography variant="body2" color="text.disabled">
-          @
-        </Typography>
-        <Typography variant="body2">{home}</Typography>
-      </Box>
-    </Box>
-  )
-}
-
 const GameStatsPanel: React.FC<GameStatsPanelProps> = ({
   gameData,
   context,
   weather,
 }) => {
-  const { home, away, leaders, status, venue, week, dateTime } = gameData
+  const { home, away, status, venue, week, dateTime } = gameData
   const offHome = home.stats?.offenseRankings
   const offAway = away.stats?.offenseRankings
   const defHome = home.stats?.defenseRankings
   const defAway = away.stats?.defenseRankings
-  const ordinal = (n?: number) => {
-    if (!n || n <= 0) {
-      return 'N/A'
+
+  const matchupRows: Array<{
+    label: string
+    home: number | null | undefined
+    away: number | null | undefined
+  }> = React.useMemo(() => {
+    const offenseKeys: Array<keyof NonNullable<typeof offHome>> = [
+      'passingYardsRank',
+      'pointsScoredRank',
+    ]
+    const defenseKeys: Array<keyof NonNullable<typeof defHome>> = [
+      'totalYardsAllowedRank',
+      'pointsAllowedRank',
+      'turnoversRank',
+    ]
+    const map: Record<string, string> = {
+      totalYardsRank: 'Total Yards',
+      passingYardsRank: 'Passing Yards',
+      rushingYardsRank: 'Rushing Yards',
+      pointsScoredRank: 'Points Scored',
+      totalYardsAllowedRank: 'Yards Allowed',
+      pointsAllowedRank: 'Points Allowed',
+      turnoversRank: 'Turnovers',
     }
-    const s = ['th', 'st', 'nd', 'rd']
-    const v = n % 100
-    return n + (s[(v - 20) % 10] || s[v] || s[0])
-  }
+    const toLabel = (key: string) => map[key] || key
+
+    return [
+      {
+        label: 'Team Rank',
+        home: home.stats?.overallTeamRank,
+        away: away.stats?.overallTeamRank,
+      },
+      ...offenseKeys.map(k => ({
+        label: toLabel(k),
+        home: offHome?.[k],
+        away: offAway?.[k],
+      })),
+      ...defenseKeys.map(k => ({
+        label: toLabel(k),
+        home: defHome?.[k],
+        away: defAway?.[k],
+      })),
+    ]
+  }, [
+    home.stats?.overallTeamRank,
+    away.stats?.overallTeamRank,
+    offHome,
+    offAway,
+    defHome,
+    defAway,
+  ])
 
   return (
-    <Accordion sx={{ mb: 3 }}>
+    <Accordion sx={{ mb: 2 }}>
       <AccordionSummary expandIcon={<ExpandMoreIcon />}>
         <Typography variant="h6">Game Statistics</Typography>
       </AccordionSummary>
@@ -74,7 +99,7 @@ const GameStatsPanel: React.FC<GameStatsPanelProps> = ({
         )}
 
         {/* Game info used by AI */}
-        <Box sx={{ mb: 2 }}>
+        <Box sx={{ mb: 1.5 }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 600 }} gutterBottom>
             Game Info
           </Typography>
@@ -101,208 +126,94 @@ const GameStatsPanel: React.FC<GameStatsPanelProps> = ({
             ) : null}
           </Box>
         </Box>
-        <Divider sx={{ my: 2 }} />
+        <Divider sx={{ my: 1.25 }} />
 
-        {(home.roster?.length || away.roster?.length) && (
-          <Grid container spacing={2} sx={{ mb: 2 }}>
-            <Grid item xs={12} md={6}>
+        {/* Three-card layout: Matchup, Home, Away */}
+        <Grid container spacing={1.5}>
+          {/* Matchup Card */}
+          <Grid item xs={12}>
+            <Paper variant="outlined" sx={{ p: 1.5 }}>
               <Typography
-                variant="subtitle1"
-                sx={{ fontWeight: 600 }}
+                variant="h6"
+                align="center"
                 gutterBottom
-              >
-                Roster (Home)
-              </Typography>
-              {(home.roster || [])
-                .slice()
-                .sort((a, b) =>
-                  (a.position || '').localeCompare(b.position || '')
-                )
-                .slice(0, 16)
-                .map(p => (
-                  <Typography
-                    key={`${p.playerId}-${p.name}`}
-                    variant="body2"
-                    color="text.secondary"
-                  >
-                    • {p.name}
-                    {p.position ? ` (${p.position})` : ''}
-                  </Typography>
-                ))}
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <Typography
-                variant="subtitle1"
-                sx={{ fontWeight: 600 }}
-                gutterBottom
-              >
-                Roster (Away)
-              </Typography>
-              {(away.roster || [])
-                .slice()
-                .sort((a, b) =>
-                  (a.position || '').localeCompare(b.position || '')
-                )
-                .slice(0, 16)
-                .map(p => (
-                  <Typography
-                    key={`${p.playerId}-${p.name}`}
-                    variant="body2"
-                    color="text.secondary"
-                  >
-                    • {p.name}
-                    {p.position ? ` (${p.position})` : ''}
-                  </Typography>
-                ))}
-            </Grid>
-          </Grid>
-        )}
-        <Grid container spacing={2}>
-          <Grid item xs={12} md={6}>
-            <Typography
-              variant="subtitle1"
-              sx={{ fontWeight: 600 }}
-              gutterBottom
-            >
-              Team Records
-            </Typography>
-            <StatRow
-              label="Overall"
-              home={home.overallRecord}
-              away={away.overallRecord}
-            />
-            <StatRow
-              label="Home/Away"
-              home={home.homeRecord}
-              away={away.roadRecord}
-            />
-          </Grid>
-
-          <Grid item xs={12} md={6}>
-            <Typography
-              variant="subtitle1"
-              sx={{ fontWeight: 600 }}
-              gutterBottom
-            >
-              Leaders
-            </Typography>
-            {leaders?.passing && (
-              <StatRow
-                label="Passing"
-                home={leaders.passing.name}
-                away={leaders.passing.stats}
-              />
-            )}
-            {leaders?.rushing && (
-              <StatRow
-                label="Rushing"
-                home={leaders.rushing.name}
-                away={leaders.rushing.stats}
-              />
-            )}
-            {leaders?.receiving && (
-              <StatRow
-                label="Receiving"
-                home={leaders.receiving.name}
-                away={leaders.receiving.stats}
-              />
-            )}
-          </Grid>
-        </Grid>
-
-        <Divider sx={{ my: 2 }} />
-
-        {offHome && offAway && (
-          <Grid container spacing={2}>
-            <Grid item xs={12}>
-              <Typography
-                variant="subtitle1"
-                sx={{ fontWeight: 600 }}
-                gutterBottom
+                sx={{ fontWeight: 700 }}
               >
                 Matchup Rankings
               </Typography>
-              <StatRow
-                label={`Home Offense (${ordinal(home.stats?.overallOffenseRank)}) vs Away Defense (${ordinal(away.stats?.overallDefenseRank)})`}
-                home={ordinal(home.stats?.overallOffenseRank)}
-                away={ordinal(away.stats?.overallDefenseRank)}
-              />
-              <StatRow
-                label={`Away Offense (${ordinal(away.stats?.overallOffenseRank)}) vs Home Defense (${ordinal(home.stats?.overallDefenseRank)})`}
-                home={ordinal(away.stats?.overallOffenseRank)}
-                away={ordinal(home.stats?.overallDefenseRank)}
-              />
-              <StatRow
-                label={`Overall Team Rank: Home (${ordinal(home.stats?.overallTeamRank)}) vs Away (${ordinal(away.stats?.overallTeamRank)})`}
-                home={ordinal(home.stats?.overallTeamRank)}
-                away={ordinal(away.stats?.overallTeamRank)}
-              />
-              <Divider sx={{ my: 2 }} />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <Typography
-                variant="subtitle1"
-                sx={{ fontWeight: 600 }}
-                gutterBottom
+              {/* Header with team names */}
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr auto 1fr',
+                  alignItems: 'center',
+                  mb: 0.5,
+                }}
               >
-                Offensive Rankings
-              </Typography>
-              {offHome && offAway && (
-                <>
-                  <StatRow
-                    label={`Total Yards (Rank #${offHome?.totalYardsRank || 'N/A'} vs #${offAway?.totalYardsRank || 'N/A'})`}
-                    home={`#${offHome?.totalYardsRank || 'N/A'}`}
-                    away={`#${offAway?.totalYardsRank || 'N/A'}`}
-                  />
-                  <StatRow
-                    label={`Passing Yards (Rank #${offHome?.passingYardsRank || 'N/A'} vs #${offAway?.passingYardsRank || 'N/A'})`}
-                    home={`#${offHome?.passingYardsRank || 'N/A'}`}
-                    away={`#${offAway?.passingYardsRank || 'N/A'}`}
-                  />
-                  <StatRow
-                    label={`Rushing Yards (Rank #${offHome?.rushingYardsRank || 'N/A'} vs #${offAway?.rushingYardsRank || 'N/A'})`}
-                    home={`#${offHome?.rushingYardsRank || 'N/A'}`}
-                    away={`#${offAway?.rushingYardsRank || 'N/A'}`}
-                  />
-                  <StatRow
-                    label={`Points Scored (Rank #${offHome?.pointsScoredRank || 'N/A'} vs #${offAway?.pointsScoredRank || 'N/A'})`}
-                    home={`#${offHome?.pointsScoredRank || 'N/A'}`}
-                    away={`#${offAway?.pointsScoredRank || 'N/A'}`}
-                  />
-                </>
-              )}
+                <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                  {away.name}
+                </Typography>
+                <Box />
+                <Typography
+                  variant="subtitle1"
+                  sx={{ fontWeight: 700, textAlign: 'right' }}
+                >
+                  {home.name}
+                </Typography>
+              </Box>
+              {matchupRows.map((r, i) => (
+                <MatchupRow
+                  key={`${r.label}-matchup-row`}
+                  label={r.label}
+                  homeRank={r.home}
+                  awayRank={r.away}
+                  index={i}
+                />
+              ))}
+            </Paper>
+          </Grid>
+
+          {/* Away/Home with compact @ separator */}
+          <Grid container item spacing={1} columns={{ xs: 12, md: 11 }}>
+            {/* Away Team Card */}
+            <Grid item xs={12} md={5}>
+              <TeamCard
+                name={away.name}
+                record={away.record}
+                stats={away.stats || undefined}
+              />
             </Grid>
 
-            <Grid item xs={12} md={6}>
-              <Typography
-                variant="subtitle1"
-                sx={{ fontWeight: 600 }}
-                gutterBottom
+            {/* Center @ separator */}
+            <Grid item xs={12} md={1}>
+              <Box
+                sx={{
+                  height: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
               >
-                Defensive Rankings
-              </Typography>
-              {defHome && defAway && (
-                <>
-                  <StatRow
-                    label={`Yards Allowed (Rank #${defHome?.totalYardsAllowedRank || 'N/A'} vs #${defAway?.totalYardsAllowedRank || 'N/A'})`}
-                    home={`#${defHome?.totalYardsAllowedRank || 'N/A'}`}
-                    away={`#${defAway?.totalYardsAllowedRank || 'N/A'}`}
-                  />
-                  <StatRow
-                    label={`Points Allowed (Rank #${defHome?.pointsAllowedRank || 'N/A'} vs #${defAway?.pointsAllowedRank || 'N/A'})`}
-                    home={`#${defHome?.pointsAllowedRank || 'N/A'}`}
-                    away={`#${defAway?.pointsAllowedRank || 'N/A'}`}
-                  />
-                  <StatRow
-                    label={`Turnovers (Rank #${defHome?.turnoversRank || 'N/A'} vs #${defAway?.turnoversRank || 'N/A'})`}
-                    home={`#${defHome?.turnoversRank || 'N/A'}`}
-                    away={`#${defAway?.turnoversRank || 'N/A'}`}
-                  />
-                </>
-              )}
+                <Typography
+                  variant="h4"
+                  color="text.disabled"
+                  sx={{ lineHeight: 1 }}
+                >
+                  @
+                </Typography>
+              </Box>
+            </Grid>
+
+            {/* Home Team Card */}
+            <Grid item xs={12} md={5}>
+              <TeamCard
+                name={home.name}
+                record={home.record}
+                stats={home.stats || undefined}
+              />
             </Grid>
           </Grid>
-        )}
+        </Grid>
       </AccordionDetails>
     </Accordion>
   )
