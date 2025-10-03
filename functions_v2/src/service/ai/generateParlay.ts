@@ -1,5 +1,10 @@
+import { PFRTeamStats } from '../../providers/pfr/types'
+import { getOpenAI, withTimeout } from './openai'
+import { buildParlayPrompt } from './promptBuilder'
+import { AIGenerateResponseSchema, type AIGenerateResponse } from './schemas'
+
 // Define a basic game item type for PFR
-interface GameItem {
+export interface GameItem {
   gameId: string
   week: number
   home: {
@@ -10,23 +15,7 @@ interface GameItem {
     overallRecord: string
     homeRecord: string
     roadRecord: string
-    stats: {
-      offenseRankings: {
-        totalYardsRank: number
-        passingYardsRank: number
-        rushingYardsRank: number
-        pointsScoredRank: number
-      }
-      defenseRankings: {
-        totalYardsAllowedRank: number
-        pointsAllowedRank: number
-        turnoversRank: number
-      }
-      overallOffenseRank: number
-      overallDefenseRank: number
-      overallTeamRank: number
-      specialTeamsRank?: number
-    } | null
+    stats: PFRTeamStats | null
   }
   away: {
     teamId: string
@@ -36,23 +25,7 @@ interface GameItem {
     overallRecord: string
     homeRecord: string
     roadRecord: string
-    stats: {
-      offenseRankings: {
-        totalYardsRank: number
-        passingYardsRank: number
-        rushingYardsRank: number
-        pointsScoredRank: number
-      }
-      defenseRankings: {
-        totalYardsAllowedRank: number
-        pointsAllowedRank: number
-        turnoversRank: number
-      }
-      overallOffenseRank: number
-      overallDefenseRank: number
-      overallTeamRank: number
-      specialTeamsRank?: number
-    } | null
+    stats: PFRTeamStats | null
   }
   venue?: {
     name: string
@@ -72,9 +45,6 @@ interface GameItem {
   }
   dateTime?: string
 }
-import { getOpenAI, withTimeout } from './openai'
-import { buildParlayPrompt } from './promptBuilder'
-import { AIGenerateResponseSchema, type AIGenerateResponse } from './schemas'
 
 export async function generateParlayWithAI(params: {
   gameId: string

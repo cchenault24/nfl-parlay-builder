@@ -162,6 +162,20 @@ async function scrapeTeamStatsFromPFR(
     return isNaN(rank) ? 0 : rank
   }
 
+  // Helper to parse numeric cell value (can include commas)
+  const getNumberValue = (
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    row: cheerio.Cheerio<any>,
+    cellIndex: number
+  ): number | undefined => {
+    if (row.length === 0) {return undefined}
+    const cells = row.find('td')
+    if (cells.length <= cellIndex) {return undefined}
+    const raw = $(cells[cellIndex]).text().trim().replace(/,/g, '')
+    const num = parseFloat(raw)
+    return isNaN(num) ? undefined : num
+  }
+
   // If we found ranking rows, use them; otherwise use the team row
   if (offenseRankRow.length === 0) {
     offenseRankRow = teamRow
@@ -216,11 +230,19 @@ async function scrapeTeamStatsFromPFR(
 
       // Update home/road records
       if (isHomeGame) {
-        if (isWin) {homeWins++}
-        if (isLoss) {homeLosses++}
+        if (isWin) {
+          homeWins++
+        }
+        if (isLoss) {
+          homeLosses++
+        }
       } else {
-        if (isWin) {roadWins++}
-        if (isLoss) {roadLosses++}
+        if (isWin) {
+          roadWins++
+        }
+        if (isLoss) {
+          roadLosses++
+        }
       }
     })
 
@@ -239,18 +261,33 @@ async function scrapeTeamStatsFromPFR(
     overallRecord,
     homeRecord,
     roadRecord,
-    // Core offensive rankings - only what's needed for AI
-    offenseRankings: {
-      totalYardsRank: getRankValue(offenseRankRow, 1), // Total yards rank (Cell 1)
-      passingYardsRank: getRankValue(offenseRankRow, 9), // Passing yards rank (Cell 9)
-      rushingYardsRank: getRankValue(offenseRankRow, 15), // Rushing yards rank (Cell 15)
-      pointsScoredRank: getRankValue(offenseRankRow, 0), // Points rank (Cell 0)
+    offense: {
+      rankings: {
+        totalYardsRank: getRankValue(offenseRankRow, 1),
+        passingYardsRank: getRankValue(offenseRankRow, 9),
+        rushingYardsRank: getRankValue(offenseRankRow, 15),
+        pointsScoredRank: getRankValue(offenseRankRow, 0),
+        overallRank: 0,
+      },
+      values: {
+        totalYards: getNumberValue(offenseRankRow, 2),
+        passingYards: getNumberValue(offenseRankRow, 10),
+        rushingYards: getNumberValue(offenseRankRow, 16),
+        pointsPerGame: getNumberValue(offenseRankRow, 3),
+      },
     },
-    // Core defensive rankings - only what's needed for AI
-    defenseRankings: {
-      totalYardsAllowedRank: getRankValue(defenseRankRow, 1), // Total yards allowed rank (Cell 1)
-      pointsAllowedRank: getRankValue(defenseRankRow, 0), // Points allowed rank (Cell 0)
-      turnoversRank: getRankValue(defenseRankRow, 4), // Turnovers rank (Cell 4)
+    defense: {
+      rankings: {
+        totalYardsAllowedRank: getRankValue(defenseRankRow, 1),
+        pointsAllowedRank: getRankValue(defenseRankRow, 0),
+        turnoversRank: getRankValue(defenseRankRow, 4),
+        overallRank: 0,
+      },
+      values: {
+        totalYardsAllowed: getNumberValue(defenseRankRow, 2),
+        pointsAllowed: getNumberValue(defenseRankRow, 3),
+        takeaways: getNumberValue(defenseRankRow, 5),
+      },
     },
     // Overall ranks will be calculated below
     overallOffenseRank: 0,
@@ -261,16 +298,16 @@ async function scrapeTeamStatsFromPFR(
 
   // Calculate overall rankings from individual stat rankings
   const offensiveRanks = [
-    teamStatsData.offenseRankings.totalYardsRank,
-    teamStatsData.offenseRankings.passingYardsRank,
-    teamStatsData.offenseRankings.rushingYardsRank,
-    teamStatsData.offenseRankings.pointsScoredRank,
+    teamStatsData.offense.rankings.totalYardsRank,
+    teamStatsData.offense.rankings.passingYardsRank,
+    teamStatsData.offense.rankings.rushingYardsRank,
+    teamStatsData.offense.rankings.pointsScoredRank,
   ].filter(rank => rank > 0) // Only include valid ranks
 
   const defensiveRanks = [
-    teamStatsData.defenseRankings.totalYardsAllowedRank,
-    teamStatsData.defenseRankings.pointsAllowedRank,
-    teamStatsData.defenseRankings.turnoversRank,
+    teamStatsData.defense.rankings.totalYardsAllowedRank,
+    teamStatsData.defense.rankings.pointsAllowedRank,
+    teamStatsData.defense.rankings.turnoversRank,
   ].filter(rank => rank > 0) // Only include valid ranks
 
   // Calculate overall ranks
@@ -293,6 +330,10 @@ async function scrapeTeamStatsFromPFR(
   teamStatsData.overallTeamRank = Math.round(
     (teamStatsData.overallOffenseRank + teamStatsData.overallDefenseRank) / 2
   )
+
+  // Save overall into nested groups for convenience
+  teamStatsData.offense.rankings.overallRank = teamStatsData.overallOffenseRank
+  teamStatsData.defense.rankings.overallRank = teamStatsData.overallDefenseRank
 
   return teamStatsData
 }

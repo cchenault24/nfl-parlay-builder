@@ -1,3 +1,6 @@
+import { PFRTeamStats } from '../../providers/pfr/types'
+import { BetTypeEnum } from './schemas'
+
 // Define a basic game item type for PFR
 interface GameItem {
   gameId: string
@@ -10,23 +13,7 @@ interface GameItem {
     overallRecord: string
     homeRecord: string
     roadRecord: string
-    stats: {
-      offenseRankings: {
-        totalYardsRank: number
-        passingYardsRank: number
-        rushingYardsRank: number
-        pointsScoredRank: number
-      }
-      defenseRankings: {
-        totalYardsAllowedRank: number
-        pointsAllowedRank: number
-        turnoversRank: number
-      }
-      overallOffenseRank: number
-      overallDefenseRank: number
-      overallTeamRank: number
-      specialTeamsRank?: number
-    } | null
+    stats: PFRTeamStats | null
   }
   away: {
     teamId: string
@@ -36,23 +23,7 @@ interface GameItem {
     overallRecord: string
     homeRecord: string
     roadRecord: string
-    stats: {
-      offenseRankings: {
-        totalYardsRank: number
-        passingYardsRank: number
-        rushingYardsRank: number
-        pointsScoredRank: number
-      }
-      defenseRankings: {
-        totalYardsAllowedRank: number
-        pointsAllowedRank: number
-        turnoversRank: number
-      }
-      overallOffenseRank: number
-      overallDefenseRank: number
-      overallTeamRank: number
-      specialTeamsRank?: number
-    } | null
+    stats: PFRTeamStats | null
   }
   venue?: {
     name: string
@@ -72,7 +43,6 @@ interface GameItem {
   }
   dateTime?: string
 }
-import { BetTypeEnum } from './schemas'
 
 // All available bet types - will be filtered by gameData.betType in the future
 const ALL_BET_TYPES = BetTypeEnum.options
@@ -118,36 +88,39 @@ function buildGameContext(gameData: GameItem): string {
     const homeStats = gameData.home.stats
     const awayStats = gameData.away.stats
 
-    // PFR format - simplified to only ranks
+    // PFR format - use ranks and include numeric values when available
     const getOffenseStats = (stats: GameItem['home']['stats']) => ({
       totalYards: {
-        rank: stats?.offenseRankings.totalYardsRank || 0,
-        yardsPerGame: 0,
+        rank: stats?.offense?.rankings.totalYardsRank || 0,
+        yardsPerGame: stats?.offense?.values?.totalYards || 0,
       },
       passingYards: {
-        rank: stats?.offenseRankings.passingYardsRank || 0,
-        yardsPerGame: 0,
+        rank: stats?.offense?.rankings.passingYardsRank || 0,
+        yardsPerGame: stats?.offense?.values?.passingYards || 0,
       },
       rushingYards: {
-        rank: stats?.offenseRankings.rushingYardsRank || 0,
-        yardsPerGame: 0,
+        rank: stats?.offense?.rankings.rushingYardsRank || 0,
+        yardsPerGame: stats?.offense?.values?.rushingYards || 0,
       },
       pointsScored: {
-        rank: stats?.offenseRankings.pointsScoredRank || 0,
-        yardsPerGame: 0,
+        rank: stats?.offense?.rankings.pointsScoredRank || 0,
+        yardsPerGame: stats?.offense?.values?.pointsPerGame || 0,
       },
     })
 
     const getDefenseStats = (stats: GameItem['home']['stats']) => ({
       pointsAllowed: {
-        rank: stats?.defenseRankings.pointsAllowedRank || 0,
-        yardsPerGame: 0,
+        rank: stats?.defense?.rankings.pointsAllowedRank || 0,
+        yardsPerGame: stats?.defense?.values?.pointsAllowed || 0,
       },
       totalYardsAllowed: {
-        rank: stats?.defenseRankings.totalYardsAllowedRank || 0,
-        yardsPerGame: 0,
+        rank: stats?.defense?.rankings.totalYardsAllowedRank || 0,
+        yardsPerGame: stats?.defense?.values?.totalYardsAllowed || 0,
       },
-      turnovers: { rank: stats?.defenseRankings.turnoversRank || 0, total: 0 },
+      turnovers: {
+        rank: stats?.defense?.rankings.turnoversRank || 0,
+        total: stats?.defense?.values?.takeaways || 0,
+      },
     })
 
     const homeOffense = getOffenseStats(homeStats)

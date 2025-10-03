@@ -1,8 +1,8 @@
 import express from 'express'
 import { fetchPFRSeasonSchedule } from '../../providers/pfr'
 import { fetchPFRTeamDataForGame } from '../../providers/pfr/teamStatsScraper'
-import { PFRTeamStats } from '../../providers/pfr/types'
 import { generateParlayWithAI } from '../../service/ai'
+import { GameItem } from '../../service/ai/generateParlay'
 import {
   getIdempotentResponse,
   saveIdempotentResponse,
@@ -15,117 +15,8 @@ import {
   type GenerateParlayResponse,
 } from './schema'
 
-// Interface for AI service GameItem
-interface AIGameItem {
-  gameId: string
-  week: number
-  home: {
-    teamId: string
-    name: string
-    abbrev: string
-    record: string
-    overallRecord: string
-    homeRecord: string
-    roadRecord: string
-    stats: {
-      offenseRankings: {
-        totalYardsRank: number
-        passingYardsRank: number
-        rushingYardsRank: number
-        pointsScoredRank: number
-      }
-      defenseRankings: {
-        totalYardsAllowedRank: number
-        pointsAllowedRank: number
-        turnoversRank: number
-      }
-      overallOffenseRank: number
-      overallDefenseRank: number
-      overallTeamRank: number
-      specialTeamsRank?: number
-    } | null
-  }
-  away: {
-    teamId: string
-    name: string
-    abbrev: string
-    record: string
-    overallRecord: string
-    homeRecord: string
-    roadRecord: string
-    stats: {
-      offenseRankings: {
-        totalYardsRank: number
-        passingYardsRank: number
-        rushingYardsRank: number
-        pointsScoredRank: number
-      }
-      defenseRankings: {
-        totalYardsAllowedRank: number
-        pointsAllowedRank: number
-        turnoversRank: number
-      }
-      overallOffenseRank: number
-      overallDefenseRank: number
-      overallTeamRank: number
-      specialTeamsRank?: number
-    } | null
-  }
-  venue?: {
-    name: string
-    city: string
-    state: string
-  }
-  status?: string
-  weather?: {
-    condition: string
-    temperatureF: number
-    windMph: number
-  }
-  leaders?: {
-    passing?: { name: string; stats: string; value: number }
-    rushing?: { name: string; stats: string; value: number }
-    receiving?: { name: string; stats: string; value: number }
-  }
-  dateTime?: string
-}
-
-function convertTeamStatsToPFR(
-  stats: PFRTeamStats | null
-): PFRTeamStats | null {
-  if (!stats) {
-    return null
-  }
-
-  return {
-    teamId: stats.teamId || '',
-    teamName: stats.teamName || '',
-    season: stats.season || 0,
-    week: stats.week || 0,
-    record: stats.record || '0-0',
-    overallRecord: stats.overallRecord || '0-0',
-    homeRecord: stats.homeRecord || '0-0',
-    roadRecord: stats.roadRecord || '0-0',
-    offenseRankings: stats.offenseRankings || {
-      totalYardsRank: 0,
-      passingYardsRank: 0,
-      rushingYardsRank: 0,
-      pointsScoredRank: 0,
-    },
-    defenseRankings: stats.defenseRankings || {
-      totalYardsAllowedRank: 0,
-      pointsAllowedRank: 0,
-      turnoversRank: 0,
-    },
-    overallOffenseRank: stats.overallOffenseRank || 0,
-    overallDefenseRank: stats.overallDefenseRank || 0,
-    overallTeamRank: stats.overallTeamRank || 0,
-    specialTeamsRank: stats.specialTeamsRank || undefined,
-  }
-}
-
 // Convert GamesResponse to GameItem for AI service
-function convertToGameItem(game: GamesResponse): AIGameItem {
+function convertToGameItem(game: GamesResponse): GameItem {
   return {
     gameId: game.gameId,
     week: game.week,
@@ -137,31 +28,7 @@ function convertToGameItem(game: GamesResponse): AIGameItem {
       overallRecord: game.home.overallRecord,
       homeRecord: game.home.homeRecord,
       roadRecord: game.home.roadRecord,
-      stats: game.home.stats
-        ? {
-            offenseRankings: {
-              totalYardsRank:
-                game.home.stats.offenseRankings.totalYardsRank || 0,
-              passingYardsRank:
-                game.home.stats.offenseRankings.passingYardsRank || 0,
-              rushingYardsRank:
-                game.home.stats.offenseRankings.rushingYardsRank || 0,
-              pointsScoredRank:
-                game.home.stats.offenseRankings.pointsScoredRank || 0,
-            },
-            defenseRankings: {
-              totalYardsAllowedRank:
-                game.home.stats.defenseRankings.totalYardsAllowedRank || 0,
-              pointsAllowedRank:
-                game.home.stats.defenseRankings.pointsAllowedRank || 0,
-              turnoversRank: game.home.stats.defenseRankings.turnoversRank || 0,
-            },
-            overallOffenseRank: game.home.stats.overallOffenseRank || 0,
-            overallDefenseRank: game.home.stats.overallDefenseRank || 0,
-            overallTeamRank: game.home.stats.overallTeamRank || 0,
-            specialTeamsRank: game.home.stats.specialTeamsRank ?? undefined,
-          }
-        : null,
+      stats: game.home.stats ?? null,
     },
     away: {
       teamId: game.away.teamId,
@@ -171,31 +38,7 @@ function convertToGameItem(game: GamesResponse): AIGameItem {
       overallRecord: game.away.overallRecord,
       homeRecord: game.away.homeRecord,
       roadRecord: game.away.roadRecord,
-      stats: game.away.stats
-        ? {
-            offenseRankings: {
-              totalYardsRank:
-                game.away.stats.offenseRankings.totalYardsRank || 0,
-              passingYardsRank:
-                game.away.stats.offenseRankings.passingYardsRank || 0,
-              rushingYardsRank:
-                game.away.stats.offenseRankings.rushingYardsRank || 0,
-              pointsScoredRank:
-                game.away.stats.offenseRankings.pointsScoredRank || 0,
-            },
-            defenseRankings: {
-              totalYardsAllowedRank:
-                game.away.stats.defenseRankings.totalYardsAllowedRank || 0,
-              pointsAllowedRank:
-                game.away.stats.defenseRankings.pointsAllowedRank || 0,
-              turnoversRank: game.away.stats.defenseRankings.turnoversRank || 0,
-            },
-            overallOffenseRank: game.away.stats.overallOffenseRank || 0,
-            overallDefenseRank: game.away.stats.overallDefenseRank || 0,
-            overallTeamRank: game.away.stats.overallTeamRank || 0,
-            specialTeamsRank: game.away.stats.specialTeamsRank ?? undefined,
-          }
-        : null,
+      stats: game.away.stats ? game.away.stats : null,
     },
     venue: game.venue,
     status: game.status,
@@ -448,7 +291,7 @@ export const generateParlayHandler = async (
           overallRecord: game.home.overallRecord,
           homeRecord: game.home.homeRecord,
           roadRecord: game.home.roadRecord,
-          stats: convertTeamStatsToPFR(game.home.stats),
+          stats: game.home.stats,
           roster: (homeRoster || []).slice(0, 30),
         },
         away: {
@@ -459,7 +302,7 @@ export const generateParlayHandler = async (
           overallRecord: game.away.overallRecord,
           homeRecord: game.away.homeRecord,
           roadRecord: game.away.roadRecord,
-          stats: convertTeamStatsToPFR(game.away.stats),
+          stats: game.away.stats,
           roster: (awayRoster || []).slice(0, 30),
         },
         venue: game.venue,

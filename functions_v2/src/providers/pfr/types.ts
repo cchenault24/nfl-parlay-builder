@@ -33,16 +33,33 @@ export interface PFRTeamStats {
   overallRecord: string
   homeRecord: string
   roadRecord: string
-  offenseRankings: {
-    totalYardsRank: number
-    passingYardsRank: number
-    rushingYardsRank: number
-    pointsScoredRank: number
+  offense: {
+    rankings: {
+      totalYardsRank: number
+      passingYardsRank: number
+      rushingYardsRank: number
+      pointsScoredRank: number
+      overallRank: number
+    }
+    values?: {
+      totalYards?: number
+      passingYards?: number
+      rushingYards?: number
+      pointsPerGame?: number
+    }
   }
-  defenseRankings: {
-    totalYardsAllowedRank: number
-    pointsAllowedRank: number
-    turnoversRank: number
+  defense: {
+    rankings: {
+      totalYardsAllowedRank: number
+      pointsAllowedRank: number
+      turnoversRank: number
+      overallRank: number
+    }
+    values?: {
+      totalYardsAllowed?: number
+      pointsAllowed?: number
+      takeaways?: number
+    }
   }
   overallOffenseRank: number
   overallDefenseRank: number

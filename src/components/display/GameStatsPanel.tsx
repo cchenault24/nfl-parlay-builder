@@ -26,10 +26,10 @@ const GameStatsPanel: React.FC<GameStatsPanelProps> = ({
   weather,
 }) => {
   const { home, away, status, venue, week, dateTime } = gameData
-  const offHome = home.stats?.offenseRankings
-  const offAway = away.stats?.offenseRankings
-  const defHome = home.stats?.defenseRankings
-  const defAway = away.stats?.defenseRankings
+  const offHome = home.stats?.offense?.rankings
+  const offAway = away.stats?.offense?.rankings
+  const defHome = home.stats?.defense?.rankings
+  const defAway = away.stats?.defense?.rankings
 
   const matchupRows: Array<{
     label: string

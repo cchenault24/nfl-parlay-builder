@@ -1,29 +1,6 @@
-import { Box, Chip, Typography } from '@mui/material'
+import { Box, Typography } from '@mui/material'
 import React from 'react'
-
-const RankChip: React.FC<{ rank?: number | null }> = ({ rank }) => {
-  const getColor = (r?: number | null) => {
-    if (!r || r <= 0) {
-      return 'default'
-    }
-    if (r <= 10) {
-      return 'success'
-    }
-    if (r <= 22) {
-      return 'warning'
-    }
-    return 'error'
-  }
-  const label = rank && rank > 0 ? `${rank}` : 'N/A'
-  return (
-    <Chip
-      label={label}
-      color={getColor(rank)}
-      size="small"
-      sx={{ fontWeight: 700 }}
-    />
-  )
-}
+import RankChip from './RankChip'
 
 export interface MatchupRowProps {
   label: string
