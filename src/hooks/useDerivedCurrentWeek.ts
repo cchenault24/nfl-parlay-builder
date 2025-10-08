@@ -66,19 +66,28 @@ export const useDerivedCurrentWeek = () => {
     }
 
     // If we don't find a week that contains the current date,
-    // return the week with the most recent games that are not final
-    for (let i = weeks.length - 1; i >= 0; i--) {
-      const week = weeks[i]
+    // look for the current week (the week with games that are not all completed)
+    // NFL weeks change on Tuesday at 3am EST
+    for (const week of weeks) {
       const weekGames = allGames.filter(game => game.week === week)
 
-      // If any game in this week is not final, this is likely the current week
-      if (weekGames.some(game => game.status !== 'final')) {
+      if (weekGames.length === 0) continue
+
+      // Check if this week has any completed games (final status)
+      const completedCount = weekGames.filter(
+        game => game.status === 'final'
+      ).length
+
+      // If this week has games but not all are completed, it's the current week
+      if (weekGames.length > 0 && completedCount < weekGames.length) {
         return week
       }
     }
 
-    // Fallback: return the highest week
-    return weeks[weeks.length - 1] || 1
+    // If all weeks are completed, we're likely after the season
+    // Return the highest week number
+    const highestWeek = Math.max(...weeks)
+    return highestWeek
   }, [allGames])
 
   return {

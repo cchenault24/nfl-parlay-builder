@@ -1,4 +1,4 @@
-import { Box, Paper, Typography } from '@mui/material'
+import { Box, Divider, Paper, Typography } from '@mui/material'
 import React from 'react'
 import { PFRTeamStats } from '../../types'
 import TeamLogo from './TeamLogo'
@@ -57,7 +57,7 @@ const TeamCard: React.FC<TeamCardProps> = ({ name, record, stats }) => {
         value={
           typeof stats?.offense?.values?.passingYards === 'number' ? (
             <Typography variant="body2">
-              {stats.offense.values.passingYards} ypg
+              {stats.offense.values.passingYards} yards
             </Typography>
           ) : (
             <Typography variant="body2" color="text.disabled">
@@ -71,7 +71,7 @@ const TeamCard: React.FC<TeamCardProps> = ({ name, record, stats }) => {
         value={
           typeof stats?.offense?.values?.rushingYards === 'number' ? (
             <Typography variant="body2">
-              {stats.offense.values.rushingYards} ypg
+              {stats.offense.values.rushingYards} yards
             </Typography>
           ) : (
             <Typography variant="body2" color="text.disabled">
@@ -81,11 +81,14 @@ const TeamCard: React.FC<TeamCardProps> = ({ name, record, stats }) => {
         }
       />
       <ValueRow
-        label="Points Per Game"
+        label="Points Scored"
         value={
           typeof stats?.offense?.values?.pointsPerGame === 'number' ? (
             <Typography variant="body2">
-              {stats.offense.values.pointsPerGame} ppg
+              {Math.round(
+                stats.offense.values.pointsPerGame / Math.max(1, stats.week)
+              )}{' '}
+              points
             </Typography>
           ) : (
             <Typography variant="body2" color="text.disabled">
@@ -108,7 +111,11 @@ const TeamCard: React.FC<TeamCardProps> = ({ name, record, stats }) => {
           value={
             typeof stats?.defense?.values?.totalYardsAllowed === 'number' ? (
               <Typography variant="body2">
-                {stats.defense.values.totalYardsAllowed} ypg
+                {Math.round(
+                  stats.defense.values.totalYardsAllowed /
+                    Math.max(1, stats.week)
+                )}{' '}
+                yards
               </Typography>
             ) : (
               <Typography variant="body2" color="text.disabled">
@@ -122,7 +129,10 @@ const TeamCard: React.FC<TeamCardProps> = ({ name, record, stats }) => {
           value={
             typeof stats?.defense?.values?.pointsAllowed === 'number' ? (
               <Typography variant="body2">
-                {stats.defense.values.pointsAllowed} ppg
+                {Math.round(
+                  stats.defense.values.pointsAllowed / Math.max(1, stats.week)
+                )}{' '}
+                points
               </Typography>
             ) : (
               <Typography variant="body2" color="text.disabled">
@@ -136,7 +146,11 @@ const TeamCard: React.FC<TeamCardProps> = ({ name, record, stats }) => {
           value={
             typeof stats?.defense?.values?.takeaways === 'number' ? (
               <Typography variant="body2">
-                {stats.defense.values.takeaways}
+                {(() => {
+                  const avg =
+                    stats.defense.values.takeaways / Math.max(1, stats.week)
+                  return avg < 1 ? '< 1' : `${avg.toFixed(1)}`
+                })()}
               </Typography>
             ) : (
               <Typography variant="body2" color="text.disabled">
@@ -145,6 +159,10 @@ const TeamCard: React.FC<TeamCardProps> = ({ name, record, stats }) => {
             )
           }
         />
+        <Divider sx={{ my: 1 }} />
+        <Typography variant="subtitle2" color="text.secondary" align="center">
+          Averages per game
+        </Typography>
       </Box>
     </Paper>
   )
