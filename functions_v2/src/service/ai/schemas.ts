@@ -60,6 +60,7 @@ export const AILegSchema = z.object({
   odds: z.number().int(),
   confidence: z.number().min(0).max(1),
   reasoning: z.string().min(1),
+  team: z.string().min(1),
 })
 
 export const AIAnalysisSchema = z.object({

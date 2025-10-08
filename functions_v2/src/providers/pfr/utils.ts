@@ -43,6 +43,56 @@ export function getPFRCodeFromTeamName(teamName: string): string | null {
 }
 
 /**
+ * Get team abbreviation from team name for logo URLs
+ */
+function getTeamAbbreviation(teamName: string): string {
+  const teamNameToAbbreviation: { [key: string]: string } = {
+    'Dallas Cowboys': 'DAL',
+    'San Francisco 49ers': 'SF',
+    'Kansas City Chiefs': 'KC',
+    'Buffalo Bills': 'BUF',
+    'Miami Dolphins': 'MIA',
+    'New England Patriots': 'NE',
+    'New York Jets': 'NYJ',
+    'Baltimore Ravens': 'BAL',
+    'Cincinnati Bengals': 'CIN',
+    'Cleveland Browns': 'CLE',
+    'Pittsburgh Steelers': 'PIT',
+    'Houston Texans': 'HOU',
+    'Indianapolis Colts': 'IND',
+    'Jacksonville Jaguars': 'JAX',
+    'Tennessee Titans': 'TEN',
+    'Denver Broncos': 'DEN',
+    'Las Vegas Raiders': 'LV',
+    'Los Angeles Chargers': 'LAC',
+    'Arizona Cardinals': 'ARI',
+    'Los Angeles Rams': 'LAR',
+    'Seattle Seahawks': 'SEA',
+    'Atlanta Falcons': 'ATL',
+    'Carolina Panthers': 'CAR',
+    'New Orleans Saints': 'NO',
+    'Tampa Bay Buccaneers': 'TB',
+    'Chicago Bears': 'CHI',
+    'Detroit Lions': 'DET',
+    'Green Bay Packers': 'GB',
+    'Minnesota Vikings': 'MIN',
+    'New York Giants': 'NYG',
+    'Philadelphia Eagles': 'PHI',
+    'Washington Commanders': 'WAS',
+  }
+
+  return teamNameToAbbreviation[teamName] || teamName.toUpperCase().slice(0, 3)
+}
+
+/**
+ * Generate logo URL using Fantasy Nerds API
+ */
+function getTeamLogoUrl(teamName: string): string {
+  const abbreviation = getTeamAbbreviation(teamName)
+  return `https://www.fantasynerds.com/images/nfl/teams/${abbreviation}.gif`
+}
+
+/**
  * Convert PFR team name to NFL team object format
  */
 export function createNFLTeamFromPFRName(teamName: string): {
@@ -54,16 +104,19 @@ export function createNFLTeamFromPFRName(teamName: string): {
   alternateColor: string
   logo: string
 } {
-  const pfrCode = getPFRCodeFromTeamName(teamName) || teamName.toLowerCase().replace(/\s+/g, '')
-  
+  const pfrCode =
+    getPFRCodeFromTeamName(teamName) ||
+    teamName.toLowerCase().replace(/\s+/g, '')
+  const abbreviation = getTeamAbbreviation(teamName)
+
   return {
     id: pfrCode,
     name: teamName,
     displayName: teamName,
-    abbreviation: pfrCode,
+    abbreviation: abbreviation,
     color: '000000', // Default color - could be enhanced with actual team colors
     alternateColor: '000000',
-    logo: '' // Could be enhanced with actual team logos
+    logo: getTeamLogoUrl(teamName),
   }
 }
 

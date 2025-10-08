@@ -172,6 +172,7 @@ export interface ParlayLeg {
   odds: number
   confidence: number
   reasoning: string
+  team: string
 }
 
 export interface ParlayGenerationResult {
@@ -216,6 +217,7 @@ export interface GenerateParlayResponse {
       odds: number
       confidence: number
       reasoning: string
+      team: string
     }>
     combinedOdds: number
     parlayConfidence: number

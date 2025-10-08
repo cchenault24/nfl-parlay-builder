@@ -1,6 +1,7 @@
 import { Box, Paper, Typography } from '@mui/material'
 import React from 'react'
 import { PFRTeamStats } from '../../types'
+import TeamLogo from './TeamLogo'
 
 const ValueRow: React.FC<{ label: string; value: React.ReactNode }> = ({
   label,
@@ -25,10 +26,20 @@ export interface TeamCardProps {
 const TeamCard: React.FC<TeamCardProps> = ({ name, record, stats }) => {
   return (
     <Paper variant="outlined" sx={{ p: 1.5, height: '100%' }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.75 }}>
-        <Typography variant="h6" sx={{ fontWeight: 700 }}>
-          {name}
-        </Typography>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          mb: 0.75,
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <TeamLogo teamName={name} size="small" />
+          <Typography variant="h6" sx={{ fontWeight: 700 }}>
+            {name}
+          </Typography>
+        </Box>
         <Typography variant="subtitle1" color="text.secondary">
           {record}
         </Typography>

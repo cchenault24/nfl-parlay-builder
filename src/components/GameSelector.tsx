@@ -13,10 +13,10 @@ import {
 } from '@mui/material'
 import { SelectChangeEvent } from '@mui/material/Select'
 import React from 'react'
-import { V2Game } from '../hooks/useNFLGameWeekWithStats'
 import { useParlayGenerator } from '../hooks/useParlayGenerator'
 import { usePFRSchedule } from '../hooks/usePFRSchedule'
 import useParlayStore from '../store/parlayStore'
+import TeamLogo from './display/TeamLogo'
 import WeekSelector from './WeekSelector'
 
 interface GameSelectorProps {
@@ -45,6 +45,17 @@ const GameSelector: React.FC<GameSelectorProps> = ({
   const setSelectedGame = useParlayStore(state => state.setSelectedGame)
   const { reset: resetParlay } = useParlayGenerator()
 
+  // Reset selected game if it's not in the current week's games
+  React.useEffect(() => {
+    if (selectedGame && games.length > 0) {
+      const gameExists = games.some(game => game.gameId === selectedGame.gameId)
+      if (!gameExists) {
+        setSelectedGame(null)
+        resetParlay()
+      }
+    }
+  }, [selectedGame, games, setSelectedGame, resetParlay])
+
   const handleGameChange = (event: SelectChangeEvent<string>) => {
     const gameId = event.target.value
     const game = games?.find(g => g.gameId === gameId)
@@ -53,9 +64,6 @@ const GameSelector: React.FC<GameSelectorProps> = ({
       resetParlay()
     }
   }
-
-  const formatGameDisplay = (game: V2Game) =>
-    `${game.away.name} @ ${game.home.name}`
 
   const formatGameDate = (dateString: string) => {
     const date = new Date(dateString)
@@ -133,7 +141,12 @@ const GameSelector: React.FC<GameSelectorProps> = ({
               <Select
                 labelId="game-select-label"
                 id="game-select"
-                value={selectedGame?.gameId || ''}
+                value={
+                  selectedGame &&
+                  games.some(game => game.gameId === selectedGame.gameId)
+                    ? selectedGame.gameId
+                    : ''
+                }
                 label="Choose NFL Game"
                 onChange={handleGameChange}
                 native={false}
@@ -213,17 +226,47 @@ const GameSelector: React.FC<GameSelectorProps> = ({
                       <Box
                         sx={{
                           display: 'flex',
-                          alignItems: 'center',
                           gap: 1,
                           width: '100%',
+                          justifyContent: 'flex-start',
+                          flexDirection: { xs: 'column', sm: 'row' },
+                          alignItems: { xs: 'flex-start', sm: 'center' },
                         }}
                       >
-                        <Typography
-                          variant="body1"
-                          sx={{ fontWeight: 500, flex: 1 }}
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 1,
+                            flexDirection: { xs: 'row', sm: 'row' },
+                          }}
                         >
-                          {formatGameDisplay(game)}
-                        </Typography>
+                          <TeamLogo teamName={game.away.name} size="small" />
+                          <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                            {game.away.name}
+                          </Typography>
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{
+                              flexShrink: 0,
+                            }}
+                          >
+                            @
+                          </Typography>
+                        </Box>
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 1,
+                          }}
+                        >
+                          <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                            {game.home.name}
+                          </Typography>
+                          <TeamLogo teamName={game.home.name} size="small" />
+                        </Box>
                       </Box>
                       <Typography variant="caption" color="text.secondary">
                         {formatGameDate(game.dateTime)}
@@ -236,13 +279,27 @@ const GameSelector: React.FC<GameSelectorProps> = ({
 
             {selectedGame && (
               <Box sx={{ textAlign: 'center' }}>
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ mb: 2 }}
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 1,
+                    mb: 2,
+                    flexDirection: { xs: 'column', sm: 'row' },
+                  }}
                 >
-                  Selected: <strong>{formatGameDisplay(selectedGame)}</strong>
-                </Typography>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ mr: { xs: 0, sm: 1 } }}
+                  >
+                    Selected:
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                    {selectedGame.away.name} @ {selectedGame.home.name}
+                  </Typography>
+                </Box>
 
                 <Button
                   variant="contained"

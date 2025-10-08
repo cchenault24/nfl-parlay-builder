@@ -163,6 +163,7 @@ export const getUserParlays = (
     confidencePercent?: number | string
     reasoning?: string
     analysis?: string
+    team?: string
   }
 
   type LegacyParlay = Partial<GeneratedParlay> & {
@@ -226,6 +227,7 @@ export const getUserParlays = (
           odds: Number.isFinite(oddsValue) ? oddsValue : 0,
           confidence: Number.isFinite(confidenceValue) ? confidenceValue : 0,
           reasoning: leg?.reasoning ?? leg?.analysis ?? '',
+          team: leg?.team ?? '',
         }
       })
     } else {

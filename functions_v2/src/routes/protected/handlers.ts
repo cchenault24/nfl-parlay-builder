@@ -269,7 +269,7 @@ export const generateParlayHandler = async (
         legs: ai.legs,
         combinedOdds: (() => {
           // Convert American odds to decimal, multiply, then convert back to American
-          const decimalOdds = ai.legs.reduce((acc, leg) => {
+          const decimalOdds = ai.legs.reduce((acc: number, leg: any) => {
             const decimal =
               leg.odds > 0 ? leg.odds / 100 + 1 : 100 / Math.abs(leg.odds) + 1
             return acc * decimal
@@ -279,7 +279,7 @@ export const generateParlayHandler = async (
           }
           return Math.round(-100 / (decimalOdds - 1))
         })(),
-        parlayConfidence: Math.min(...ai.legs.map(l => l.confidence)),
+        parlayConfidence: Math.min(...ai.legs.map((l: any) => l.confidence)),
         gameSummary: ai.analysisSummary,
       },
       gameData: {

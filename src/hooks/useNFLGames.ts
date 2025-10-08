@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { API_CONFIG } from '../config/api'
 import { NFLGame } from '../types'
+import { getTeamLogoUrl } from '../utils/teamLogos'
 
 // V2 API response types (inline since they're specific to this hook)
 interface V2Team {
@@ -44,7 +45,7 @@ function transformV2Games(v2Games: V2Game[]): NFLGame[] {
         abbreviation: homeTeam.abbrev || 'UNK',
         color: '000000',
         alternateColor: '000000',
-        logo: '', // v2 doesn't include logos yet
+        logo: homeTeam.name ? getTeamLogoUrl(homeTeam.name) : '',
       },
       awayTeam: {
         id: awayTeam.teamId || '',
@@ -53,7 +54,7 @@ function transformV2Games(v2Games: V2Game[]): NFLGame[] {
         abbreviation: awayTeam.abbrev || 'UNK',
         color: '000000',
         alternateColor: '000000',
-        logo: '', // v2 doesn't include logos yet
+        logo: awayTeam.name ? getTeamLogoUrl(awayTeam.name) : '',
       },
     }
   })

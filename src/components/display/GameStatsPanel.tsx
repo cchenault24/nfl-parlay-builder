@@ -17,6 +17,7 @@ import React from 'react'
 import { GameData } from '../../types'
 import MatchupRow from './MatchupRow'
 import TeamCard from './TeamCard'
+import TeamLogo from './TeamLogo'
 
 export interface GameStatsPanelProps {
   gameData: GameData
@@ -224,7 +225,7 @@ const GameStatsPanel: React.FC<GameStatsPanelProps> = ({
                 Matchup Rankings
               </Typography>
 
-              {/* Header with team names - desktop only */}
+              {/* Header with team names and logos - desktop only */}
               <Box
                 sx={{
                   display: { xs: 'none', sm: 'grid' },
@@ -234,16 +235,25 @@ const GameStatsPanel: React.FC<GameStatsPanelProps> = ({
                   px: 1,
                 }}
               >
-                <Typography
-                  variant="subtitle1"
+                <Box
                   sx={{
-                    fontWeight: 700,
-                    fontSize: '0.9rem',
-                    textAlign: 'left',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    justifyContent: 'flex-start',
                   }}
                 >
-                  {away.name}
-                </Typography>
+                  <TeamLogo teamName={away.name} size="small" />
+                  <Typography
+                    variant="subtitle1"
+                    sx={{
+                      fontWeight: 700,
+                      fontSize: '0.9rem',
+                    }}
+                  >
+                    {away.name}
+                  </Typography>
+                </Box>
                 <Typography
                   variant="caption"
                   color="text.secondary"
@@ -251,16 +261,25 @@ const GameStatsPanel: React.FC<GameStatsPanelProps> = ({
                 >
                   VS
                 </Typography>
-                <Typography
-                  variant="subtitle1"
+                <Box
                   sx={{
-                    fontWeight: 700,
-                    fontSize: '0.9rem',
-                    textAlign: 'right',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    justifyContent: 'flex-end',
                   }}
                 >
-                  {home.name}
-                </Typography>
+                  <Typography
+                    variant="subtitle1"
+                    sx={{
+                      fontWeight: 700,
+                      fontSize: '0.9rem',
+                    }}
+                  >
+                    {home.name}
+                  </Typography>
+                  <TeamLogo teamName={home.name} size="small" />
+                </Box>
               </Box>
 
               {/* Team abbreviations row - mobile only */}

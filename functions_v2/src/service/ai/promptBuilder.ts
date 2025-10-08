@@ -199,12 +199,13 @@ function buildLegGenerationRequirements(
 function buildOutputFormat(gameData: GameItem): string {
   return (
     `\n\nOutput JSON with fields: ` +
-    `"legs" (array of 3) with objects {betType,selection(STRING describing the bet),odds(AS NUMBER),confidence(0..1),reasoning(2-3 sentences explaining why this bet was chosen, citing specific stats, records, or data points from the game context)} and ` +
+    `"legs" (array of 3) with objects {betType,selection(STRING describing the bet),odds(AS NUMBER),confidence(0..1),reasoning(2-3 sentences explaining why this bet was chosen, citing specific stats, records, or data points from the game context),team(STRING with the team name for this bet - use either "${gameData.home.name}" or "${gameData.away.name}")} and ` +
     `"analysisSummary" {matchupSummary(detailed 5-7 sentences with comprehensive analysis),keyFactors[](3-5 specific factors),gamePrediction{winner,projectedScore{home,away},winProbability}}. ` +
     `\n\nUse these bet types: ${getAvailableBetTypes(gameData)} ` +
     `\n\nIMPORTANT: ` +
     `- odds must be numbers (e.g., -110, not "-110")` +
     `- selection must be a STRING describing the bet (e.g., "Seahawks Over 24.5 Points", "Josh Allen Over 250 Passing Yards", "Bills -3.5")` +
+    `- team must be a STRING with the exact team name: "${gameData.home.name}" or "${gameData.away.name}"` +
     `- Do NOT use objects or numbers for selection field` +
     `\n\nReturn ONLY JSON, no prose.`
   )

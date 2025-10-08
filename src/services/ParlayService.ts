@@ -3,7 +3,6 @@ import { API_CONFIG } from '../config/api'
 import { auth } from '../config/firebase'
 import { V2Game } from '../hooks/useNFLGameWeekWithStats'
 import {
-  BetType,
   GameData,
   GenerateParlayRequest,
   GenerateParlayResponse,
@@ -105,13 +104,7 @@ export class ParlayService {
 
     // V2 API now returns { parlay, gameData }
     return {
-      parlay: {
-        ...result.parlay,
-        legs: result.parlay.legs.map(leg => ({
-          ...leg,
-          betType: leg.betType as BetType, // Cast to BetType
-        })),
-      },
+      parlay: result.parlay,
       gameData: result.gameData,
       rateLimitInfo: undefined,
       metadata: undefined,
