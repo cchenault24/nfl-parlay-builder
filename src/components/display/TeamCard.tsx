@@ -173,10 +173,6 @@ const TeamCard: React.FC<TeamCardProps> = ({ name, record, stats }) => {
             </>
           }
         />
-        <ValueRow
-          label="Turnover Diff"
-          value={<Typography variant="body2">N/A</Typography>}
-        />
       </Box>
     </Paper>
   )
