@@ -1,7 +1,6 @@
 import { Box, Paper, Typography } from '@mui/material'
 import React from 'react'
 import { PFRTeamStats } from '../../types'
-import RankChip from './RankChip'
 
 const ValueRow: React.FC<{ label: string; value: React.ReactNode }> = ({
   label,
@@ -15,27 +14,6 @@ const ValueRow: React.FC<{ label: string; value: React.ReactNode }> = ({
   </Box>
 )
 
-const HeaderRow: React.FC = () => (
-  <Box sx={{ display: 'flex', justifyContent: 'flex-end', py: 0.5, mb: 0.25 }}>
-    <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-      <Typography
-        variant="body2"
-        color="text.secondary"
-        sx={{ fontWeight: 600, minWidth: 40, textAlign: 'center' }}
-      >
-        Value
-      </Typography>
-      <Typography
-        variant="body2"
-        color="text.secondary"
-        sx={{ fontWeight: 600, minWidth: 40, textAlign: 'center' }}
-      >
-        Rank
-      </Typography>
-    </Box>
-  </Box>
-)
-
 // Labels left here as reference for section order; currently unused since we render explicit rows
 
 export interface TeamCardProps {
@@ -45,8 +23,6 @@ export interface TeamCardProps {
 }
 
 const TeamCard: React.FC<TeamCardProps> = ({ name, record, stats }) => {
-  const off = stats?.offense?.rankings
-  const def = stats?.defense?.rankings
   return (
     <Paper variant="outlined" sx={{ p: 1.5, height: '100%' }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.75 }}>
@@ -65,53 +41,46 @@ const TeamCard: React.FC<TeamCardProps> = ({ name, record, stats }) => {
       >
         Offense
       </Typography>
-      <HeaderRow />
       <ValueRow
         label="Passing Yards"
         value={
-          <>
-            {typeof stats?.offense?.values?.passingYards === 'number' && (
-              <Typography
-                variant="body2"
-                sx={{ mr: 1, minWidth: 40, textAlign: 'center' }}
-              >
-                {stats?.offense?.values?.passingYards} ypg
-              </Typography>
-            )}
-            <RankChip rank={off?.passingYardsRank} />
-          </>
+          typeof stats?.offense?.values?.passingYards === 'number' ? (
+            <Typography variant="body2">
+              {stats.offense.values.passingYards} ypg
+            </Typography>
+          ) : (
+            <Typography variant="body2" color="text.disabled">
+              N/A
+            </Typography>
+          )
         }
       />
       <ValueRow
         label="Rushing Yards"
         value={
-          <>
-            {typeof stats?.offense?.values?.rushingYards === 'number' && (
-              <Typography
-                variant="body2"
-                sx={{ mr: 1, minWidth: 40, textAlign: 'center' }}
-              >
-                {stats?.offense?.values?.rushingYards} ypg
-              </Typography>
-            )}
-            <RankChip rank={off?.rushingYardsRank} />
-          </>
+          typeof stats?.offense?.values?.rushingYards === 'number' ? (
+            <Typography variant="body2">
+              {stats.offense.values.rushingYards} ypg
+            </Typography>
+          ) : (
+            <Typography variant="body2" color="text.disabled">
+              N/A
+            </Typography>
+          )
         }
       />
       <ValueRow
         label="Points Per Game"
         value={
-          <>
-            {typeof stats?.offense?.values?.pointsPerGame === 'number' && (
-              <Typography
-                variant="body2"
-                sx={{ mr: 1, minWidth: 40, textAlign: 'center' }}
-              >
-                {stats?.offense?.values?.pointsPerGame} ppg
-              </Typography>
-            )}
-            <RankChip rank={off?.pointsScoredRank} />
-          </>
+          typeof stats?.offense?.values?.pointsPerGame === 'number' ? (
+            <Typography variant="body2">
+              {stats.offense.values.pointsPerGame} ppg
+            </Typography>
+          ) : (
+            <Typography variant="body2" color="text.disabled">
+              N/A
+            </Typography>
+          )
         }
       />
 
@@ -123,54 +92,46 @@ const TeamCard: React.FC<TeamCardProps> = ({ name, record, stats }) => {
         >
           Defense
         </Typography>
-        <HeaderRow />
         <ValueRow
           label="Yards Allowed"
           value={
-            <>
-              {typeof stats?.defense?.values?.totalYardsAllowed ===
-                'number' && (
-                <Typography
-                  variant="body2"
-                  sx={{ mr: 1, minWidth: 40, textAlign: 'center' }}
-                >
-                  {stats?.defense?.values?.totalYardsAllowed} ypg
-                </Typography>
-              )}
-              <RankChip rank={def?.totalYardsAllowedRank} />
-            </>
+            typeof stats?.defense?.values?.totalYardsAllowed === 'number' ? (
+              <Typography variant="body2">
+                {stats.defense.values.totalYardsAllowed} ypg
+              </Typography>
+            ) : (
+              <Typography variant="body2" color="text.disabled">
+                N/A
+              </Typography>
+            )
           }
         />
         <ValueRow
           label="Points Allowed"
           value={
-            <>
-              {typeof stats?.defense?.values?.pointsAllowed === 'number' && (
-                <Typography
-                  variant="body2"
-                  sx={{ mr: 1, minWidth: 40, textAlign: 'center' }}
-                >
-                  {stats?.defense?.values?.pointsAllowed} ppg
-                </Typography>
-              )}
-              <RankChip rank={def?.pointsAllowedRank} />
-            </>
+            typeof stats?.defense?.values?.pointsAllowed === 'number' ? (
+              <Typography variant="body2">
+                {stats.defense.values.pointsAllowed} ppg
+              </Typography>
+            ) : (
+              <Typography variant="body2" color="text.disabled">
+                N/A
+              </Typography>
+            )
           }
         />
         <ValueRow
           label="Takeaways"
           value={
-            <>
-              {typeof stats?.defense?.values?.takeaways === 'number' && (
-                <Typography
-                  variant="body2"
-                  sx={{ mr: 1, minWidth: 40, textAlign: 'center' }}
-                >
-                  {stats?.defense?.values?.takeaways}
-                </Typography>
-              )}
-              <RankChip rank={def?.turnoversRank} />
-            </>
+            typeof stats?.defense?.values?.takeaways === 'number' ? (
+              <Typography variant="body2">
+                {stats.defense.values.takeaways}
+              </Typography>
+            ) : (
+              <Typography variant="body2" color="text.disabled">
+                N/A
+              </Typography>
+            )
           }
         />
       </Box>

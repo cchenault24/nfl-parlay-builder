@@ -9,7 +9,16 @@ const RankChip: React.FC<{ rank?: number | null }> = ({ rank }) => {
     return 'error'
   }
 
-  const label = rank && rank > 0 ? `${rank}` : 'N/A'
+  const getOrdinalSuffix = (num: number): string => {
+    const j = num % 10
+    const k = num % 100
+    if (j === 1 && k !== 11) return 'st'
+    if (j === 2 && k !== 12) return 'nd'
+    if (j === 3 && k !== 13) return 'rd'
+    return 'th'
+  }
+
+  const label = rank && rank > 0 ? `${rank}${getOrdinalSuffix(rank)}` : 'N/A'
   return (
     <Chip
       label={label}
@@ -17,7 +26,7 @@ const RankChip: React.FC<{ rank?: number | null }> = ({ rank }) => {
       size="small"
       sx={{
         fontWeight: 700,
-        minWidth: 40,
+        width: 50,
         justifyContent: 'center',
         '& .MuiChip-label': {
           textAlign: 'center',

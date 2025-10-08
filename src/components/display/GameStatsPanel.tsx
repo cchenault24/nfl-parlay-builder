@@ -38,6 +38,7 @@ const GameStatsPanel: React.FC<GameStatsPanelProps> = ({
   }> = React.useMemo(() => {
     const offenseKeys: Array<keyof NonNullable<typeof offHome>> = [
       'passingYardsRank',
+      'rushingYardsRank',
       'pointsScoredRank',
     ]
     const defenseKeys: Array<keyof NonNullable<typeof defHome>> = [
