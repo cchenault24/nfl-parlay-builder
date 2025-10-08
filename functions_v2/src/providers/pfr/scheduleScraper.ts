@@ -1,12 +1,14 @@
 import axios from 'axios'
 import * as cheerio from 'cheerio'
+import { getStadiumForTeamName } from './stadiumService'
 import { PFRGameItem } from './types'
 import { PFR_BASE, createNFLTeamFromPFRName, getPFRHeaders } from './utils'
 
 /**
  * Convert PFR date and time format to ISO string
  * PFR format: date = "2026-01-04", time = "1:00PM"
- * Output: "2026-01-04T13:00:00.000Z"
+ * Assumes PFR times are in Eastern Time
+ * Output: "2026-01-04T18:00:00.000Z" (1:00 PM ET = 6:00 PM UTC)
  */
 function formatPFRDateTime(date: string, time: string): string {
   try {
@@ -14,7 +16,7 @@ function formatPFRDateTime(date: string, time: string): string {
     const timeMatch = time.match(/^(\d{1,2}):(\d{2})(AM|PM)$/i)
     if (!timeMatch) {
       console.warn(`Invalid time format: ${time}, using 12:00 PM as default`)
-      return `${date}T12:00:00.000Z`
+      return `${date}T17:00:00.000Z` // 12:00 PM ET = 5:00 PM UTC
     }
 
     const [, hours, minutes, period] = timeMatch
@@ -26,20 +28,23 @@ function formatPFRDateTime(date: string, time: string): string {
       hour24 = 0
     }
 
-    // Format as ISO string
-    const isoString = `${date}T${hour24.toString().padStart(2, '0')}:${minutes}:00.000Z`
+    // Create a date string in Eastern Time format
+    const etDateString = `${date}T${hour24.toString().padStart(2, '0')}:${minutes}:00-05:00`
+
+    // Convert to UTC
+    const utcDate = new Date(etDateString)
+    const utcString = utcDate.toISOString()
 
     // Validate the date
-    const testDate = new Date(isoString)
-    if (isNaN(testDate.getTime())) {
-      console.warn(`Invalid date created: ${isoString}, using fallback`)
-      return `${date}T12:00:00.000Z`
+    if (isNaN(utcDate.getTime())) {
+      console.warn(`Invalid date created: ${utcString}, using fallback`)
+      return `${date}T17:00:00.000Z`
     }
 
-    return isoString
+    return utcString
   } catch (error) {
     console.warn(`Error formatting date/time: ${date} ${time}`, error)
-    return `${date}T12:00:00.000Z`
+    return `${date}T17:00:00.000Z`
   }
 }
 
@@ -60,8 +65,17 @@ export async function fetchPFRSeasonSchedule(): Promise<PFRGameItem[]> {
   }
 
   const games: PFRGameItem[] = []
+  const gameData: Array<{
+    homeTeam: any
+    awayTeam: any
+    gameId: string
+    gameDateTime: string
+    gameDate: Date
+    currentWeek: number
+    status: 'scheduled' | 'in_progress' | 'final' | 'postponed'
+  }> = []
 
-  // Process each row in the tbody of the schedule table
+  // First pass: collect basic game data
   scheduleTable.find('tbody tr').each((index, row) => {
     const $row = $(row)
     const cells = $row.find('td')
@@ -82,6 +96,9 @@ export async function fetchPFRSeasonSchedule(): Promise<PFRGameItem[]> {
     // Extract game data using data-stat attributes
     const date = $row.find('td[data-stat="game_date"]').text().trim()
     const time = $row.find('td[data-stat="gametime"]').text().trim()
+
+    // Determine venue based on home team's stadium
+    // We'll get the stadium info after determining home/away teams
 
     // Extract winner and loser information using data-stat attributes
     const winnerCell = $row.find('td[data-stat="winner"]')
@@ -134,16 +151,44 @@ export async function fetchPFRSeasonSchedule(): Promise<PFRGameItem[]> {
       status = 'in_progress'
     }
 
-    games.push({
-      id: gameId,
-      dateTime: gameDateTime,
+    gameData.push({
       homeTeam,
       awayTeam,
-      week: currentWeek,
-      season: 2025,
+      gameId,
+      gameDateTime,
+      gameDate,
+      currentWeek,
       status,
     })
   })
+
+  // Second pass: get venue information for each game
+  for (const game of gameData) {
+    let venue = { name: 'TBD', city: 'TBD', state: 'TBD' }
+    try {
+      const stadium = await getStadiumForTeamName(game.homeTeam.name)
+      if (stadium) {
+        venue = {
+          name: stadium.name,
+          city: stadium.city,
+          state: stadium.state,
+        }
+      }
+    } catch (error) {
+      console.warn(`Failed to get stadium for ${game.homeTeam.name}:`, error)
+    }
+
+    games.push({
+      id: game.gameId,
+      dateTime: game.gameDateTime,
+      homeTeam: game.homeTeam,
+      awayTeam: game.awayTeam,
+      venue,
+      week: game.currentWeek,
+      season: 2025,
+      status: game.status,
+    })
+  }
 
   return games
 }

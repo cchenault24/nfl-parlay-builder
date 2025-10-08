@@ -212,7 +212,11 @@ export const generateParlayHandler = async (
                 roadRecord: teamData.away?.roadRecord || '0-0',
                 stats: teamData.away,
               },
-              venue: { name: 'TBD', city: 'TBD', state: 'TBD' }, // PFR doesn't provide venue info
+              venue: scheduleGame?.venue || {
+                name: 'TBD',
+                city: 'TBD',
+                state: 'TBD',
+              },
               leaders: {}, // PFR doesn't provide player leaders in team stats
             }
           } catch (error) {

@@ -265,7 +265,7 @@ export const getPFRScheduleHandler = async (
         roadRecord: '0-0',
         stats: null,
       },
-      venue: { name: 'TBD', city: 'TBD', state: 'TBD' },
+      venue: game.venue,
       leaders: {},
     }))
 

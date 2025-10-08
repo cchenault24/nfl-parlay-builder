@@ -19,6 +19,11 @@ export interface PFRGameItem {
     alternateColor: string
     logo: string
   }
+  venue: {
+    name: string
+    city: string
+    state: string
+  }
   week: number
   season: number | null
   status: 'scheduled' | 'in_progress' | 'final' | 'postponed'
@@ -106,4 +111,16 @@ export interface PFRGameScheduleItem {
 
 export interface PFRWeekSchedule {
   [weekNumber: number]: PFRGameScheduleItem[]
+}
+
+export interface PFRStadium {
+  name: string
+  city: string
+  state: string
+  primaryTeams: string[]
+  yearsActive: {
+    from: number
+    to: number
+  }
+  gamesPlayed: number
 }

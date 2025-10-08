@@ -1,12 +1,16 @@
+import AccessTimeIcon from '@mui/icons-material/AccessTime'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import LocationOnIcon from '@mui/icons-material/LocationOn'
 import {
   Accordion,
   AccordionDetails,
   AccordionSummary,
   Box,
+  Chip,
   Divider,
   Grid,
   Paper,
+  Skeleton,
   Typography,
 } from '@mui/material'
 import React from 'react'
@@ -18,14 +22,16 @@ export interface GameStatsPanelProps {
   gameData: GameData
   context?: string
   weather?: { condition: string; temperatureF: number; windMph: number }
+  isLoading?: boolean
 }
 
 const GameStatsPanel: React.FC<GameStatsPanelProps> = ({
   gameData,
   context,
   weather,
+  isLoading = false,
 }) => {
-  const { home, away, status, venue, week, dateTime } = gameData
+  const { home, away, venue, dateTime } = gameData
   const offHome = home.stats?.offense?.rankings
   const offAway = away.stats?.offense?.rankings
   const defHome = home.stats?.defense?.rankings
@@ -83,48 +89,118 @@ const GameStatsPanel: React.FC<GameStatsPanelProps> = ({
     defAway,
   ])
 
-  return (
-    <Accordion sx={{ mb: 2 }}>
-      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-        <Typography variant="h6">Game Statistics</Typography>
-      </AccordionSummary>
-      <AccordionDetails>
-        {/* Exact text used in AI prompt (optional transparency) */}
-        {context && (
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="body2" color="text.secondary">
-              {context}
-            </Typography>
-            <Divider sx={{ my: 2 }} />
+  if (isLoading) {
+    return (
+      <Accordion sx={{ mb: 2 }}>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+            Game Statistics
+          </Typography>
+        </AccordionSummary>
+        <AccordionDetails>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Skeleton variant="rectangular" height={60} />
+            <Skeleton variant="rectangular" height={200} />
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Skeleton variant="rectangular" height={150} sx={{ flex: 1 }} />
+              <Skeleton variant="rectangular" height={150} sx={{ flex: 1 }} />
+            </Box>
           </Box>
-        )}
+        </AccordionDetails>
+      </Accordion>
+    )
+  }
 
+  return (
+    <Accordion
+      sx={{
+        mb: 2,
+        '&:before': {
+          display: 'none',
+        },
+        '&.Mui-expanded': {
+          margin: '0 0 16px 0',
+        },
+      }}
+    >
+      <AccordionSummary
+        expandIcon={<ExpandMoreIcon />}
+        sx={{
+          '&.Mui-expanded': {
+            minHeight: 48,
+          },
+          '& .MuiAccordionSummary-content': {
+            '&.Mui-expanded': {
+              margin: '12px 0',
+            },
+          },
+        }}
+      >
+        <Typography variant="h6" sx={{ fontWeight: 600 }}>
+          Game Statistics
+        </Typography>
+      </AccordionSummary>
+      <AccordionDetails sx={{ pt: 0 }}>
         {/* Game info used by AI */}
         <Box sx={{ mb: 1.5 }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 600 }} gutterBottom>
-            Game Info
-          </Typography>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            <Typography variant="body2" color="text.secondary">
-              Week: {week}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Date/Time: {new Date(dateTime).toLocaleString()}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Status: {status}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Venue: {venue.name}, {venue.city}, {venue.state}
-            </Typography>
-            {weather ? (
-              <Typography variant="body2" color="text.secondary">
-                Weather:{' '}
-                {weather
-                  ? `${weather.condition}, ${weather.temperatureF}°F, ${weather.windMph} mph winds`
-                  : 'Not available'}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {context && (
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ fontStyle: 'italic' }}
+              >
+                {context}
               </Typography>
-            ) : null}
+            )}
+
+            {/* Game Details with Icons */}
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <AccessTimeIcon
+                  sx={{ fontSize: 16, color: 'text.secondary' }}
+                />
+                <Typography variant="body2" color="text.secondary">
+                  {new Date(dateTime).toLocaleString('en-US', {
+                    timeZone: 'America/New_York',
+                    year: 'numeric',
+                    month: 'numeric',
+                    day: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true,
+                  })}{' '}
+                  ET
+                </Typography>
+              </Box>
+
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <LocationOnIcon
+                  sx={{ fontSize: 16, color: 'text.secondary' }}
+                />
+                <Typography variant="body2" color="text.secondary">
+                  {venue.name === 'TBD' ||
+                  venue.city === 'TBD' ||
+                  venue.state === 'TBD'
+                    ? 'TBD'
+                    : `${venue.name}, ${venue.city}, ${venue.state}`}
+                </Typography>
+              </Box>
+
+              {weather && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Chip
+                    label={`${weather.temperatureF}°F`}
+                    size="small"
+                    color="primary"
+                    variant="outlined"
+                  />
+                  <Typography variant="body2" color="text.secondary">
+                    {weather.condition}, {weather.windMph} mph winds
+                  </Typography>
+                </Box>
+              )}
+            </Box>
           </Box>
         </Box>
         <Divider sx={{ my: 1.25 }} />
@@ -133,35 +209,111 @@ const GameStatsPanel: React.FC<GameStatsPanelProps> = ({
         <Grid container spacing={1.5}>
           {/* Matchup Card */}
           <Grid item xs={12}>
-            <Paper variant="outlined" sx={{ p: 1.5 }}>
+            <Paper
+              variant="outlined"
+              sx={{
+                p: 1.5,
+              }}
+            >
               <Typography
                 variant="h6"
                 align="center"
                 gutterBottom
-                sx={{ fontWeight: 700 }}
+                sx={{ fontWeight: 700, mb: 2 }}
               >
                 Matchup Rankings
               </Typography>
-              {/* Header with team names */}
+
+              {/* Header with team names - desktop only */}
               <Box
                 sx={{
-                  display: 'grid',
+                  display: { xs: 'none', sm: 'grid' },
                   gridTemplateColumns: '1fr auto 1fr',
                   alignItems: 'center',
-                  mb: 0.5,
+                  mb: 1,
+                  px: 1,
                 }}
               >
-                <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                  {away.name}
-                </Typography>
-                <Box />
                 <Typography
                   variant="subtitle1"
-                  sx={{ fontWeight: 700, textAlign: 'right' }}
+                  sx={{
+                    fontWeight: 700,
+                    fontSize: '0.9rem',
+                    textAlign: 'left',
+                  }}
+                >
+                  {away.name}
+                </Typography>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ fontSize: '0.7rem' }}
+                >
+                  VS
+                </Typography>
+                <Typography
+                  variant="subtitle1"
+                  sx={{
+                    fontWeight: 700,
+                    fontSize: '0.9rem',
+                    textAlign: 'right',
+                  }}
                 >
                   {home.name}
                 </Typography>
               </Box>
+
+              {/* Team abbreviations row - mobile only */}
+              <Box
+                sx={{
+                  display: { xs: 'grid', sm: 'none' },
+                  gridTemplateColumns: '1fr auto 1fr',
+                  alignItems: 'center',
+                  px: 1,
+                  mb: 2,
+                }}
+              >
+                <Box sx={{ justifySelf: 'start' }}>
+                  <Typography
+                    variant="body2"
+                    color="text.primary"
+                    sx={{
+                      fontSize: '0.9rem',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px',
+                    }}
+                  >
+                    {away.abbrev}
+                  </Typography>
+                </Box>
+                <Typography
+                  variant="body2"
+                  color="text.primary"
+                  sx={{
+                    fontSize: '0.7rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                  }}
+                >
+                  VS
+                </Typography>
+                <Box sx={{ justifySelf: 'end' }}>
+                  <Typography
+                    variant="body2"
+                    color="text.primary"
+                    sx={{
+                      fontSize: '0.9rem',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px',
+                    }}
+                  >
+                    {home.abbrev}
+                  </Typography>
+                </Box>
+              </Box>
+
               {matchupRows.map((r, i) => (
                 <MatchupRow
                   key={`${r.label}-matchup-row`}
@@ -173,8 +325,7 @@ const GameStatsPanel: React.FC<GameStatsPanelProps> = ({
               ))}
             </Paper>
           </Grid>
-
-          {/* Away/Home with compact @ separator */}
+          {/* Away/Home with enhanced @ separator */}
           <Grid container item spacing={1} columns={{ xs: 12, md: 11 }}>
             {/* Away Team Card */}
             <Grid item xs={12} md={5}>
@@ -193,14 +344,23 @@ const GameStatsPanel: React.FC<GameStatsPanelProps> = ({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
+                  flexDirection: 'column',
+                  gap: 0.5,
                 }}
               >
                 <Typography
                   variant="h4"
                   color="text.disabled"
-                  sx={{ lineHeight: 1 }}
+                  sx={{ lineHeight: 1, fontWeight: 300 }}
                 >
                   @
+                </Typography>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ fontSize: '0.6rem' }}
+                >
+                  VS
                 </Typography>
               </Box>
             </Grid>
