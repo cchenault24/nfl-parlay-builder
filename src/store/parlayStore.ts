@@ -1,6 +1,5 @@
 import { create } from 'zustand'
-import { V2Game } from '../hooks/useNFLGameWeekWithStats'
-import { GeneratedParlay, GenerateParlayResponse } from '../types'
+import { GeneratedParlay, GenerateParlayResponse, V2Game } from '../types'
 
 // Extended parlay type that includes gameData for UI consumption
 type ExtendedParlay = GeneratedParlay & {

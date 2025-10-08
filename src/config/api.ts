@@ -36,7 +36,6 @@ export const validateEnvironment = (): void => {
  * Determine if we're in a local development environment
  */
 const isLocalDevelopment = () => {
-  // Check if we're running locally
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname
     const isLocal =
@@ -44,14 +43,12 @@ const isLocalDevelopment = () => {
       hostname === '127.0.0.1' ||
       hostname.includes('192.168.')
 
-    // FORCE PRODUCTION: If we're on Firebase hosting domains, never use localhost
     const isFirebaseHosting =
       hostname.includes('.web.app') || hostname.includes('.firebaseapp.com')
     if (isFirebaseHosting) {
       return false
     }
 
-    // console.log('🔧 Hostname check:', { hostname, isLocal })
     return isLocal
   }
   return ENV.NODE_ENV === 'development'
@@ -64,15 +61,12 @@ export const API_CONFIG = {
   CLOUD_FUNCTIONS: {
     baseURL: (() => {
       const projectId = ENV.FIREBASE_PROJECT_ID
-      // Default to dev-like behavior if projectId somehow missing
       const resolvedProjectId = projectId || 'nfl-parlay-builder-dev'
 
       if (isLocalDevelopment()) {
-        // Emulator URL requires the projectId segment
         return `http://localhost:5001/${resolvedProjectId}/us-central1`
       }
 
-      // Cloud Functions production URL includes the projectId in the subdomain
       return `https://us-central1-${resolvedProjectId}.cloudfunctions.net`
     })(),
     timeout: isLocalDevelopment() ? 60000 : 45000,
@@ -90,7 +84,6 @@ export const API_CONFIG = {
   },
 } as const
 
-// Initialize environment validation in non-test environments
 if (ENV.NODE_ENV !== 'test') {
   validateEnvironment()
 }

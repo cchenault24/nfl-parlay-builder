@@ -36,7 +36,6 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({ parlay, loading }) => {
   const { user } = useAuth()
   const [saving, setSaving] = useState(false)
 
-  // Store state and actions
   const setParlay = useParlayStore(state => state.setParlay)
   const authModalOpen = useModalStore(state => state.authModalOpen)
   const setAuthModalOpen = useModalStore(state => state.setAuthModalOpen)
@@ -47,7 +46,6 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({ parlay, loading }) => {
   )
   const setSaveParlayError = useParlayStore(state => state.setSaveParlayError)
 
-  // Sync parlay prop with store whenever it changes
   useEffect(() => {
     setParlay(parlay || null)
   }, [parlay, setParlay])

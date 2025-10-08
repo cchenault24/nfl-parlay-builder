@@ -1,12 +1,12 @@
 // src/services/ParlayService.ts - V2 API implementation
 import { API_CONFIG } from '../config/api'
 import { auth } from '../config/firebase'
-import { V2Game } from '../hooks/useNFLGameWeekWithStats'
 import {
   GameData,
   GenerateParlayRequest,
   GenerateParlayResponse,
   ParlayGenerationResult,
+  V2Game,
 } from '../types'
 import { RateLimitError } from '../types/errors'
 
@@ -62,7 +62,6 @@ export class ParlayService {
       )
     }
 
-    // Use API_CONFIG for consistent URL management
     const baseUrl = API_CONFIG.CLOUD_FUNCTIONS.baseURL
 
     this.cloudFunctionUrl = `${baseUrl}${API_CONFIG.CLOUD_FUNCTIONS.endpoints.v2.generateParlay}`
@@ -77,7 +76,6 @@ export class ParlayService {
     options: { provider?: 'mock' | 'openai' } = {}
   ): Promise<EnhancedParlayGenerationResult> {
     try {
-      // Check authentication before proceeding
       const currentUser = auth.currentUser
       if (!currentUser) {
         throw new Error(
@@ -87,7 +85,6 @@ export class ParlayService {
 
       return await this.generateCloudParlay(game, options)
     } catch (error) {
-      console.error('❌ Error generating parlay:', error)
       throw this.enhanceError(error as Error)
     }
   }
@@ -200,14 +197,6 @@ export class ParlayService {
       const responseData = await response.json()
 
       if (!response.ok) {
-        console.error('[CF FAIL]', {
-          status: response.status,
-          statusText: response.statusText,
-          url: this.cloudFunctionUrl,
-          hasAuthToken: !!authToken,
-          body: responseData,
-        })
-
         // Handle v2 error format
         if (responseData.code && responseData.message) {
           throw new Error(`${responseData.code}: ${responseData.message}`)
@@ -218,12 +207,9 @@ export class ParlayService {
 
       return responseData as GenerateParlayResponse
     } catch (error) {
-      console.error('❌ Cloud Function call failed:', error)
       throw this.enhanceNetworkError(error as Error)
     }
   }
-
-  // Removed unused error response handler; direct errors are thrown above
 
   /**
    * Enhance network errors
@@ -285,13 +271,11 @@ export class ParlayService {
       const token = await currentUser.getIdToken(true)
       return token
     } catch (error) {
-      console.error('❌ Failed to get auth token:', error)
       // If token refresh fails, the user might need to re-authenticate
       if (
         error instanceof Error &&
         error.message.includes('auth/user-token-expired')
       ) {
-        console.error('Token expired - user needs to re-authenticate')
       }
       return null
     }

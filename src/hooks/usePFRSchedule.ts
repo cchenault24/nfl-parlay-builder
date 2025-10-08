@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { API_CONFIG } from '../config/api'
-import { V2Game } from './useNFLGameWeekWithStats'
+import { V2Game } from '../types'
 
 export const usePFRSchedule = () => {
   return useQuery({
