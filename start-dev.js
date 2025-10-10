@@ -34,7 +34,7 @@ try {
       'firebase',
       ['emulators:start', '--only', 'functions'],
       {
-        stdio: 'pipe',
+        stdio: 'inherit',
         shell: true,
       }
     )
