@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "npm run dev:functions:secure & wait-on http://localhost:5001/nfl-parlay-builder-dev/us-central1/api/v2/health -t 30000 && npm run dev:frontend",
     "dev:functions": "firebase emulators:start --only functions",
-    "dev:functions:secure": "./start-emulator.sh",
+    "dev:functions:secure": "node start-emulator.js",
     "dev:frontend": "vite --host",
     "build": "tsc && vite build",
     "lint": "eslint src --ext .ts,.tsx --report-unused-disable-directives --max-warnings 0",
