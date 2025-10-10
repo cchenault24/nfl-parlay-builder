@@ -5,46 +5,70 @@ import { PFRGameItem } from './types'
 import { PFR_BASE, createNFLTeamFromPFRName, getPFRHeaders } from './utils'
 
 /**
- * Convert PFR date and time format to ISO string
- * PFR format: date = "2026-01-04", time = "1:00PM"
- * Assumes PFR times are in Eastern Time
- * Output: "2026-01-04T18:00:00.000Z" (1:00 PM ET = 6:00 PM UTC)
+ * Format PFR date and time as a parseable date string
+ * PFR format: date = "2025-09-04", time = "8:20PM" (12-hour Eastern Time)
+ * Output: "2025-09-04T20:20:00" (parseable ISO string - PFR times are already in correct timezone)
  */
 function formatPFRDateTime(date: string, time: string): string {
   try {
-    // Parse the time to convert from 12-hour to 24-hour format
+    // Validate input parameters
+    if (!date || !time) {
+      console.warn(
+        `Missing date or time: date="${date}", time="${time}", using fallback`
+      )
+      return date || new Date().toISOString()
+    }
+
+    // Validate time format (12-hour with AM/PM, no space)
     const timeMatch = time.match(/^(\d{1,2}):(\d{2})(AM|PM)$/i)
     if (!timeMatch) {
-      console.warn(`Invalid time format: ${time}, using 12:00 PM as default`)
-      return `${date}T17:00:00.000Z` // 12:00 PM ET = 5:00 PM UTC
+      console.warn(
+        `Invalid time format: "${time}", expected format like "8:20PM" or "1:00PM"`
+      )
+      return date
     }
 
     const [, hours, minutes, period] = timeMatch
-    let hour24 = parseInt(hours, 10)
+    const hour = parseInt(hours, 10)
+    const minute = parseInt(minutes, 10)
 
-    if (period.toUpperCase() === 'PM' && hour24 !== 12) {
-      hour24 += 12
-    } else if (period.toUpperCase() === 'AM' && hour24 === 12) {
+    // Validate hour and minute ranges
+    if (hour < 1 || hour > 12) {
+      console.warn(`Invalid hour: ${hour}, must be 1-12`)
+      return date
+    }
+
+    if (minute < 0 || minute > 59) {
+      console.warn(`Invalid minutes: ${minute}, must be 0-59`)
+      return date
+    }
+
+    // Convert to 24-hour format
+    let hour24 = hour
+    if (period.toUpperCase() === 'PM' && hour !== 12) {
+      hour24 = hour + 12
+    } else if (period.toUpperCase() === 'AM' && hour === 12) {
       hour24 = 0
     }
 
-    // Create a date string in Eastern Time format
-    const etDateString = `${date}T${hour24.toString().padStart(2, '0')}:${minutes}:00-05:00`
+    // Create a parseable ISO string - PFR times are already in Eastern Time
+    // No timezone offset needed since PFR provides times in the correct timezone
+    const isoString = `${date}T${hour24.toString().padStart(2, '0')}:${minutes}:00`
 
-    // Convert to UTC
-    const utcDate = new Date(etDateString)
-    const utcString = utcDate.toISOString()
-
-    // Validate the date
-    if (isNaN(utcDate.getTime())) {
-      console.warn(`Invalid date created: ${utcString}, using fallback`)
-      return `${date}T17:00:00.000Z`
+    // Validate the date can be parsed
+    const testDate = new Date(isoString)
+    if (isNaN(testDate.getTime())) {
+      console.warn(`Invalid date created: ${isoString}`)
+      return date
     }
 
-    return utcString
+    return isoString
   } catch (error) {
-    console.warn(`Error formatting date/time: ${date} ${time}`, error)
-    return `${date}T17:00:00.000Z`
+    console.warn(
+      `Error formatting date/time: date="${date}", time="${time}"`,
+      error
+    )
+    return date
   }
 }
 
@@ -70,7 +94,6 @@ export async function fetchPFRSeasonSchedule(): Promise<PFRGameItem[]> {
     awayTeam: any
     gameId: string
     gameDateTime: string
-    gameDate: Date
     currentWeek: number
     status: 'scheduled' | 'in_progress' | 'final' | 'postponed'
   }> = []
@@ -133,30 +156,17 @@ export async function fetchPFRSeasonSchedule(): Promise<PFRGameItem[]> {
 
     const gameId = `${homeTeam.id}-${awayTeam.id}-2025-${currentWeek}`
     const gameDateTime = formatPFRDateTime(date, time)
-    const gameDate = new Date(gameDateTime)
-    const now = new Date()
 
-    // Determine game status based on current date
+    // For now, we'll set all games as 'scheduled' since we're not doing time comparisons
+    // This can be enhanced later if needed with proper ET timezone handling
     let status: 'scheduled' | 'in_progress' | 'final' | 'postponed' =
       'scheduled'
-
-    // If the game date is in the past, mark it as final
-    // We'll add a buffer of 4 hours to account for game duration
-    const gameEndTime = new Date(gameDate.getTime() + 4 * 60 * 60 * 1000)
-
-    if (now > gameEndTime) {
-      status = 'final'
-    } else if (now >= gameDate) {
-      // Game is currently in progress or just started
-      status = 'in_progress'
-    }
 
     gameData.push({
       homeTeam,
       awayTeam,
       gameId,
       gameDateTime,
-      gameDate,
       currentWeek,
       status,
     })
