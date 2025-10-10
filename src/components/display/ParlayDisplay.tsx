@@ -1,6 +1,12 @@
-import { TrendingUp as TrendingUpIcon } from '@mui/icons-material'
 import {
+  Login as LoginIcon,
+  Save as SaveIcon,
+  TrendingUp as TrendingUpIcon,
+} from '@mui/icons-material'
+import {
+  Alert,
   Box,
+  Button,
   Card,
   CardContent,
   Chip,
@@ -8,12 +14,13 @@ import {
   Grid,
   Typography,
 } from '@mui/material'
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
+import { saveParlayToUser } from '../../config/firebase'
+import { useAuth } from '../../hooks/useAuth'
 import useModalStore from '../../store/modalStore'
 import useParlayStore from '../../store/parlayStore'
 import type { GeneratedParlay } from '../../types'
 import { AuthModal } from '../auth/AuthModal'
-import { LegalDisclaimer } from '../legal/LegalDisclaimer' // Add this import
 import GameSummaryView from './GameSummaryView'
 import ParlayDisplayFooter from './ParlayDisplayFooter'
 import ParlayLanding from './ParlayLanding'
@@ -26,15 +33,48 @@ interface ParlayDisplayProps {
 }
 
 const ParlayDisplay: React.FC<ParlayDisplayProps> = ({ parlay, loading }) => {
-  // Store state and actions
+  const { user } = useAuth()
+  const [saving, setSaving] = useState(false)
+
   const setParlay = useParlayStore(state => state.setParlay)
   const authModalOpen = useModalStore(state => state.authModalOpen)
   const setAuthModalOpen = useModalStore(state => state.setAuthModalOpen)
+  const saveParlaySuccess = useParlayStore(state => state.saveParlaySuccess)
+  const saveParlayError = useParlayStore(state => state.saveParlayError)
+  const setSaveParlaySuccess = useParlayStore(
+    state => state.setSaveParlaySuccess
+  )
+  const setSaveParlayError = useParlayStore(state => state.setSaveParlayError)
 
-  // Sync parlay prop with store whenever it changes
   useEffect(() => {
     setParlay(parlay || null)
   }, [parlay, setParlay])
+
+  const handleSaveParlay = async () => {
+    if (!user) {
+      setAuthModalOpen(true)
+      return
+    }
+
+    if (!parlay) {
+      return
+    }
+
+    setSaving(true)
+    setSaveParlayError('')
+    setSaveParlaySuccess(false)
+
+    try {
+      await saveParlayToUser(user.uid, parlay)
+      setSaveParlaySuccess(true)
+      setTimeout(() => setSaveParlaySuccess(false), 3000)
+    } catch (error) {
+      setSaveParlayError('Failed to save parlay. Please try again.')
+      console.error('Error saving parlay:', error)
+    } finally {
+      setSaving(false)
+    }
+  }
 
   if (loading) {
     return <ParlayLoading />
@@ -78,19 +118,43 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({ parlay, loading }) => {
             ))}
           </Grid>
 
-          <Divider sx={{ my: 2 }} />
+          {/* Success/Error Messages */}
+          {saveParlaySuccess && (
+            <Alert severity="success" sx={{ mb: 2 }}>
+              Parlay saved successfully! Check your history to view it again.
+            </Alert>
+          )}
 
-          {/* Add inline legal disclaimer to parlay results */}
-          <Box sx={{ mb: 2 }}>
-            <LegalDisclaimer
-              variant="inline"
-              showResponsibleGamblingLink={true}
-            />
+          {saveParlayError && (
+            <Alert
+              severity="error"
+              sx={{ mb: 2 }}
+              onClose={() => setSaveParlayError('')}
+            >
+              {saveParlayError}
+            </Alert>
+          )}
+
+          {/* Save Button */}
+          <Box sx={{ display: 'flex', justifyContent: 'center', my: 3 }}>
+            <Button
+              variant="outlined"
+              startIcon={user ? <SaveIcon /> : <LoginIcon />}
+              onClick={handleSaveParlay}
+              disabled={saving}
+              sx={{
+                px: 3,
+                py: 1,
+                textTransform: 'none',
+              }}
+            >
+              {saving ? 'Saving...' : user ? 'Save Parlay' : 'Sign In to Save'}
+            </Button>
           </Box>
 
           <Divider sx={{ my: 2 }} />
 
-          {/* Footer now gets parlay from store */}
+          {/* Footer */}
           <ParlayDisplayFooter />
         </CardContent>
       </Card>

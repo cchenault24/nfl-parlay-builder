@@ -1,5 +1,8 @@
 import { BetType } from '../types'
 
+// Re-export team logo utilities
+export * from './teamLogos'
+
 // Workaround for TypeScript env issue
 /**
  * Utility to get environment variables

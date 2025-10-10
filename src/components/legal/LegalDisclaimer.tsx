@@ -26,7 +26,7 @@ export const LegalDisclaimer: React.FC<LegalDisclaimerProps> = ({
               e.preventDefault()
               // This will be handled by the parent component
             }}
-            sx={{ color: '#ff9800' }}
+            sx={{ color: '#ff9800', ml: 1 }}
           >
             Gambling Problem? Get Help.
           </Link>
