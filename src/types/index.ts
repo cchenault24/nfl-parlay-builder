@@ -1,7 +1,7 @@
 import { Timestamp } from 'firebase/firestore'
 
 // ===== PFR TYPES =====
-// This matches the backend schema exactly (functions_v2/src/providers/pfr/types.ts)
+// This matches the backend schema exactly (functions/src/providers/pfr/types.ts)
 // V2 API Types
 export interface V2TeamStatsOffense {
   totalYards: { rank: number; yardsPerGame: number }

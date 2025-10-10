@@ -16,7 +16,7 @@
   "functions": [
     {
       "codebase": "default",
-      "source": "functions_v2",
+      "source": "functions",
       "runtime": "nodejs20",
       "ignore": [
         "node_modules",
