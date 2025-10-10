@@ -1,7 +1,50 @@
-import type { GameItem } from '../../providers/espn'
+import { PFRTeamStats } from '../../providers/pfr/types'
 import { getOpenAI, withTimeout } from './openai'
 import { buildParlayPrompt } from './promptBuilder'
 import { AIGenerateResponseSchema, type AIGenerateResponse } from './schemas'
+
+// Define a basic game item type for PFR
+export interface GameItem {
+  gameId: string
+  week: number
+  home: {
+    teamId: string
+    name: string
+    abbrev: string
+    record: string
+    overallRecord: string
+    homeRecord: string
+    roadRecord: string
+    stats: PFRTeamStats | null
+  }
+  away: {
+    teamId: string
+    name: string
+    abbrev: string
+    record: string
+    overallRecord: string
+    homeRecord: string
+    roadRecord: string
+    stats: PFRTeamStats | null
+  }
+  venue?: {
+    name: string
+    city: string
+    state: string
+  }
+  status?: string
+  weather?: {
+    condition: string
+    temperatureF: number
+    windMph: number
+  }
+  leaders?: {
+    passing?: { name: string; stats: string; value: number }
+    rushing?: { name: string; stats: string; value: number }
+    receiving?: { name: string; stats: string; value: number }
+  }
+  dateTime?: string
+}
 
 export async function generateParlayWithAI(params: {
   gameId: string
@@ -18,7 +61,6 @@ export async function generateParlayWithAI(params: {
   try {
     const client = getOpenAI()
     if (!client) {
-      console.error('OpenAI client is null - OPENAI_API_KEY may be missing')
       return null
     }
 
@@ -49,26 +91,16 @@ export async function generateParlayWithAI(params: {
     const content = completion.choices[0]?.message?.content ?? ''
 
     if (!content) {
-      console.error('OpenAI returned empty content')
       return null
     }
 
     const parsed = AIGenerateResponseSchema.safeParse(JSON.parse(content))
     if (!parsed.success) {
-      console.error('JSON parsing failed:', {
-        error: parsed.error,
-        content:
-          content.substring(0, 500) + (content.length > 500 ? '...' : ''),
-      })
       return null
     }
 
     return parsed.data
-  } catch (error) {
-    console.error('OpenAI API call failed:', {
-      error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-    })
+  } catch {
     return null
   }
 }

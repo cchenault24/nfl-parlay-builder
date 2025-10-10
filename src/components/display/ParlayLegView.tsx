@@ -10,6 +10,7 @@ import {
 } from '@mui/material'
 import React from 'react'
 import type { BetType, ParlayLeg } from '../../types'
+import TeamLogo from './TeamLogo'
 
 interface ParlayLegViewProps extends React.HTMLAttributes<HTMLDivElement> {
   leg: ParlayLeg
@@ -92,7 +93,11 @@ const ParlayLegView: React.FC<ParlayLegViewProps> = ({ leg, index }) => {
       <Card variant="outlined">
         <CardContent>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-            {getBetTypeIcon(leg.betType)}
+            {leg.team ? (
+              <TeamLogo teamName={leg.team} size="small" />
+            ) : (
+              getBetTypeIcon(leg.betType)
+            )}
             <Typography variant="h6" sx={{ ml: 1, flex: 1 }}>
               Leg {index + 1}
               <Chip

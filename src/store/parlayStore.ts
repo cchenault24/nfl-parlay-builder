@@ -1,16 +1,21 @@
 import { create } from 'zustand'
-import { GeneratedParlay, NFLGame } from '../types'
+import { GeneratedParlay, GenerateParlayResponse, V2Game } from '../types'
+
+// Extended parlay type that includes gameData for UI consumption
+type ExtendedParlay = GeneratedParlay & {
+  gameData?: GenerateParlayResponse['gameData']
+}
 
 interface ParlayStore {
   // State
-  parlay: GeneratedParlay | null
-  selectedGame: NFLGame | null
+  parlay: ExtendedParlay | null
+  selectedGame: V2Game | null
   saveParlaySuccess: boolean
   saveParlayError: string
 
   // Actions
-  setParlay: (parlay: GeneratedParlay | null) => void
-  setSelectedGame: (game: NFLGame | null) => void
+  setParlay: (parlay: ExtendedParlay | null) => void
+  setSelectedGame: (game: V2Game | null) => void
   setSaveParlaySuccess: (success: boolean) => void
   setSaveParlayError: (error: string) => void
 }
