@@ -1,3 +1,5 @@
+import { PFRTeam } from './types'
+
 export const PFR_BASE = 'https://www.pro-football-reference.com'
 
 /**
@@ -93,17 +95,9 @@ function getTeamLogoUrl(teamName: string): string {
 }
 
 /**
- * Convert PFR team name to NFL team object format
+ * Create a PFRTeam object from a team name string
  */
-export function createNFLTeamFromPFRName(teamName: string): {
-  id: string
-  name: string
-  displayName: string
-  abbreviation: string
-  color: string
-  alternateColor: string
-  logo: string
-} {
+export function createPFRTeamFromName(teamName: string): PFRTeam {
   const pfrCode =
     getPFRCodeFromTeamName(teamName) ||
     teamName.toLowerCase().replace(/\s+/g, '')
@@ -113,7 +107,7 @@ export function createNFLTeamFromPFRName(teamName: string): {
     id: pfrCode,
     name: teamName,
     displayName: teamName,
-    abbreviation: abbreviation,
+    abbreviation,
     color: '000000', // Default color - could be enhanced with actual team colors
     alternateColor: '000000',
     logo: getTeamLogoUrl(teamName),

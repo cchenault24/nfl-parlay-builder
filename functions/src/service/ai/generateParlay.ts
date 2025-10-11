@@ -1,50 +1,10 @@
-import { PFRTeamStats } from '../../providers/pfr/types'
 import { getOpenAI, withTimeout } from './openai'
 import { buildParlayPrompt } from './promptBuilder'
 import { AIGenerateResponseSchema, type AIGenerateResponse } from './schemas'
+import { GameData } from '../../routes/public/schema'
 
-// Define a basic game item type for PFR
-export interface GameItem {
-  gameId: string
-  week: number
-  home: {
-    teamId: string
-    name: string
-    abbrev: string
-    record: string
-    overallRecord: string
-    homeRecord: string
-    roadRecord: string
-    stats: PFRTeamStats | null
-  }
-  away: {
-    teamId: string
-    name: string
-    abbrev: string
-    record: string
-    overallRecord: string
-    homeRecord: string
-    roadRecord: string
-    stats: PFRTeamStats | null
-  }
-  venue?: {
-    name: string
-    city: string
-    state: string
-  }
-  status?: string
-  weather?: {
-    condition: string
-    temperatureF: number
-    windMph: number
-  }
-  leaders?: {
-    passing?: { name: string; stats: string; value: number }
-    rushing?: { name: string; stats: string; value: number }
-    receiving?: { name: string; stats: string; value: number }
-  }
-  dateTime?: string
-}
+// Use the shared GameData type
+export type GameItem = GameData
 
 export async function generateParlayWithAI(params: {
   gameId: string

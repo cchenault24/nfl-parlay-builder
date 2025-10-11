@@ -4,13 +4,12 @@ import express from 'express'
 import {
   fetchPFRDataForTeams,
   fetchPFRSeasonSchedule,
-  fetchPFRTeamDataForGame,
 } from '../../providers/pfr'
 import { PFRGameItem } from '../../providers/pfr/types'
 import { PFR_BASE, getPFRHeaders } from '../../providers/pfr/utils'
 import { getCached, setCached } from '../../utils/cache'
 import { errorResponse } from '../../utils/errors'
-import { GamesResponse } from './schema'
+import { GameData } from './schema'
 
 // Extended request type with correlation ID
 interface CorrelatedRequest extends express.Request {
@@ -18,93 +17,6 @@ interface CorrelatedRequest extends express.Request {
 }
 
 const CACHE_TTL_MS = 10 * 60 * 1000
-
-export const getPFRGameHandler = async (
-  req: express.Request,
-  res: express.Response
-) => {
-  const correlatedReq = req as CorrelatedRequest
-  const correlationId = correlatedReq.correlationId
-
-  try {
-    const { homeTeamCode, awayTeamCode, season, week } = req.query
-
-    if (!homeTeamCode || !awayTeamCode || !season || !week) {
-      return errorResponse(
-        res,
-        400,
-        'validation_error',
-        'Missing required parameters: homeTeamCode, awayTeamCode, season, week',
-        correlationId
-      )
-    }
-
-    const seasonNum = parseInt(season as string)
-    const weekNum = parseInt(week as string)
-
-    if (
-      !Number.isInteger(seasonNum) ||
-      !Number.isInteger(weekNum) ||
-      weekNum <= 0
-    ) {
-      return errorResponse(
-        res,
-        400,
-        'validation_error',
-        'Invalid season or week',
-        correlationId
-      )
-    }
-
-    const teamData = await fetchPFRTeamDataForGame(
-      homeTeamCode as string,
-      awayTeamCode as string,
-      seasonNum,
-      weekNum
-    )
-
-    // Convert PFR data to GamesResponse format
-    const gameResponse: GamesResponse = {
-      gameId: `${homeTeamCode}-${awayTeamCode}-${season}-${week}`,
-      week: weekNum,
-      dateTime: new Date().toISOString(),
-      status: 'scheduled',
-      home: {
-        teamId: homeTeamCode as string,
-        name: teamData.home?.teamName || (homeTeamCode as string),
-        abbrev: homeTeamCode as string,
-        record: '0-0',
-        overallRecord: '0-0',
-        homeRecord: '0-0',
-        roadRecord: '0-0',
-        stats: teamData.home,
-      },
-      away: {
-        teamId: awayTeamCode as string,
-        name: teamData.away?.teamName || (awayTeamCode as string),
-        abbrev: awayTeamCode as string,
-        record: '0-0',
-        overallRecord: '0-0',
-        homeRecord: '0-0',
-        roadRecord: '0-0',
-        stats: teamData.away,
-      },
-      venue: { name: 'TBD', city: 'TBD', state: 'TBD' },
-      leaders: {},
-    }
-
-    res.json([gameResponse])
-  } catch (error) {
-    console.error('PFR game handler error:', error)
-    return errorResponse(
-      res,
-      500,
-      'internal_error',
-      'Failed to fetch PFR game data',
-      correlationId
-    )
-  }
-}
 
 export const getGamesHandler = async (
   req: express.Request,
@@ -134,14 +46,14 @@ export const getGamesHandler = async (
   }
   try {
     const cacheKey = `games:pfr:week:${week}:withStats:v4`
-    const cached = await getCached<GamesResponse[]>(cacheKey, CACHE_TTL_MS)
+    const cached = await getCached<GameData[]>(cacheKey, CACHE_TTL_MS)
     if (cached) {
       return res.json(cached)
     }
 
     // For PFR, we need specific team codes to scrape
     // For now, return empty array - frontend will need to provide team codes
-    const games: GamesResponse[] = []
+    const games: GameData[] = []
 
     await setCached(cacheKey, games)
     res.json(games)
