@@ -205,6 +205,7 @@ function AppContent() {
           {selectedGame &&
             parlay &&
             parlay.gameData &&
+            !parlayLoading &&
             (() => {
               // Use gameData from parlay response
               const gameData = parlay.gameData

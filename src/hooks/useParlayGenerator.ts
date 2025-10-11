@@ -2,13 +2,12 @@
 import { useMutation } from '@tanstack/react-query'
 import { ServiceContainer } from '../services/container'
 import useParlayStore from '../store/parlayStore'
-import { V2Game } from '../types'
+import { Game } from '../types'
 import { RateLimitError } from '../types/errors'
 import { useRateLimit } from './useRateLimit'
 
 export const useParlayGenerator = () => {
   const setParlay = useParlayStore(state => state.setParlay)
-  const parlayService = ServiceContainer.instance.getParlayService()
   const { updateFromResponse } = useRateLimit()
 
   const mutation = useMutation({
@@ -16,11 +15,12 @@ export const useParlayGenerator = () => {
       game,
       shouldUseMock,
     }: {
-      game: V2Game
-      shouldUseMock: boolean | null
+      game: Game
+      shouldUseMock: boolean
     }) => {
-      const provider = shouldUseMock === true ? 'mock' : 'openai'
-      return await parlayService.generateParlay(game, { provider })
+      const provider = shouldUseMock ? 'mock' : 'openai'
+      const parlayService = ServiceContainer.instance.getParlayService(provider)
+      return await parlayService.generateParlay(game)
     },
     onError: error => {
       console.error('Error generating parlay:', error)
