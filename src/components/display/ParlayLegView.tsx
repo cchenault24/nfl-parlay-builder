@@ -89,7 +89,7 @@ const ParlayLegView: React.FC<ParlayLegViewProps> = ({ leg, index }) => {
   }
 
   return (
-    <Grid item xs={12} key={`${leg.betType}-${leg.selection}-${leg.odds}`}>
+    <Grid item xs={12}>
       <Card variant="outlined">
         <CardContent>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
