@@ -49,7 +49,7 @@ const TeamLogo: React.FC<TeamLogoProps> = ({
           setLogoUrl(url)
           setIsLoading(false)
         }
-      } catch (error) {
+      } catch {
         if (isMounted) {
           setHasError(true)
           setIsLoading(false)

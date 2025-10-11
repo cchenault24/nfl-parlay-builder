@@ -71,7 +71,9 @@ export const useDerivedCurrentWeek = () => {
     for (const week of weeks) {
       const weekGames = allGames.filter(game => game.week === week)
 
-      if (weekGames.length === 0) continue
+      if (weekGames.length === 0) {
+        continue
+      }
 
       // Check if this week has any completed games (final status)
       const completedCount = weekGames.filter(

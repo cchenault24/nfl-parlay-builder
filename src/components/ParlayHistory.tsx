@@ -162,11 +162,11 @@ export const ParlayHistory: React.FC<ParlayHistoryProps> = ({
                   {/* savedAt removed in v2 */}
 
                   <Grid container spacing={2}>
-                    {parlay.legs?.map(leg => (
+                    {parlay.legs?.map((leg, legIndex) => (
                       <Grid
                         item
                         xs={12}
-                        key={`${parlay.parlayId}-${leg.betType}-${leg.selection}`}
+                        key={`${parlay.parlayId}-${leg.betType}-${leg.selection}-${legIndex}`}
                       >
                         <Box
                           sx={{

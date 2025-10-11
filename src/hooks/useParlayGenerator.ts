@@ -8,7 +8,6 @@ import { useRateLimit } from './useRateLimit'
 
 export const useParlayGenerator = () => {
   const setParlay = useParlayStore(state => state.setParlay)
-  const parlayService = ServiceContainer.instance.getParlayService()
   const { updateFromResponse } = useRateLimit()
 
   const mutation = useMutation({
@@ -17,10 +16,11 @@ export const useParlayGenerator = () => {
       shouldUseMock,
     }: {
       game: Game
-      shouldUseMock: boolean | null
+      shouldUseMock: boolean
     }) => {
-      const provider = shouldUseMock === true ? 'mock' : 'openai'
-      return await parlayService.generateParlay(game, { provider })
+      const provider = shouldUseMock ? 'mock' : 'openai'
+      const parlayService = ServiceContainer.instance.getParlayService(provider)
+      return await parlayService.generateParlay(game)
     },
     onError: error => {
       console.error('Error generating parlay:', error)

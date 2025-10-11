@@ -1,59 +1,23 @@
-// src/services/ParlayService.ts - API implementation
+// src/services/RealParlayService.ts - Real API implementation
 import { API_CONFIG } from '../config/api'
 import { auth } from '../config/firebase'
-import {
-  Game,
-  GameData,
-  GenerateParlayRequest,
-  GenerateParlayResponse,
-  ParlayGenerationResult,
-} from '../types'
+import { Game, GenerateParlayRequest, GenerateParlayResponse } from '../types'
 import { RateLimitError } from '../types/errors'
+import {
+  BaseParlayService,
+  EnhancedParlayGenerationResult,
+  ParlayGenerationOptions,
+} from './BaseParlayService'
 
-export interface StrategyConfig {
-  name: string
-  description: string
-  temperature: number
-  riskProfile: 'low' | 'medium' | 'high'
-  confidenceRange: [number, number]
-}
-
-export interface VarietyFactors {
-  strategy: string
-  focusArea: string
-  playerTier: string
-  gameScript: string
-  marketBias: string
-}
-
-export interface ParlayGenerationOptions {
-  temperature?: number
-  strategy?: StrategyConfig
-  varietyFactors?: VarietyFactors
-  provider?: 'mock' | 'openai' | 'openai' // Updated to include mock/real
-  debugMode?: boolean
-}
-
-export interface EnhancedParlayGenerationResult extends ParlayGenerationResult {
-  gameData?: GameData
-  metadata?: {
-    provider: string
-    model: string
-    tokens?: number
-    latency: number
-    confidence: number
-    fallbackUsed: boolean
-    attemptCount: number
-    serviceMode?: 'mock' | 'openai'
-    environment?: string
-  }
-}
-
-export class ParlayService {
+/**
+ * Real parlay service that makes API calls to cloud functions
+ */
+export class RealParlayService extends BaseParlayService {
   private readonly cloudFunctionUrl: string
   private readonly healthCheckUrl: string
 
   constructor() {
+    super()
     const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID
 
     if (!projectId) {
@@ -69,13 +33,14 @@ export class ParlayService {
   }
 
   /**
-   * Generate a parlay with provider options
+   * Generate parlay using cloud functions
    */
   async generateParlay(
     game: Game,
-    options: { provider?: 'mock' | 'openai' } = {}
+    _options: ParlayGenerationOptions = {}
   ): Promise<EnhancedParlayGenerationResult> {
     try {
+      // Require authentication for real API calls
       const currentUser = auth.currentUser
       if (!currentUser) {
         throw new Error(
@@ -83,39 +48,36 @@ export class ParlayService {
         )
       }
 
-      return await this.generateCloudParlay(game, options)
+      const startTime = Date.now()
+      const result = await this.callCloudFunction(game)
+      const latency = Date.now() - startTime
+
+      return {
+        parlay: result.parlay,
+        gameData: result.gameData,
+        rateLimitInfo: undefined,
+        metadata: this.createMetadata(
+          'openai',
+          'gpt-4',
+          latency,
+          result.parlay.parlayConfidence,
+          {
+            serviceMode: 'openai',
+            tokens: 0, // API doesn't return token count
+          }
+        ),
+      }
     } catch (error) {
       throw this.enhanceError(error as Error)
     }
   }
 
   /**
-   * Generate parlay using cloud functions
+   * Check service health
    */
-  private async generateCloudParlay(
-    game: Game,
-    _options: { provider?: 'mock' | 'openai' }
-  ): Promise<EnhancedParlayGenerationResult> {
-    // API handles roster fetching internally
-    const result = await this.callCloudFunction(game)
-
-    // API now returns { parlay, gameData }
-    return {
-      parlay: result.parlay,
-      gameData: result.gameData,
-      rateLimitInfo: undefined,
-      metadata: undefined,
-    }
-  }
-
-  /**
-   * Check service health (updated to work with cloud functions)
-   */
-  async checkServiceHealth(
-    options: { provider?: 'mock' | 'openai' } = {}
-  ): Promise<{
+  async checkServiceHealth(): Promise<{
     healthy: boolean
-    mode: 'mock' | 'openai'
+    mode: 'openai'
     providers?: Array<{
       name: string
       healthy: boolean
@@ -143,7 +105,7 @@ export class ParlayService {
 
       return {
         healthy: data.success,
-        mode: options.provider || 'openai',
+        mode: 'openai',
         providers: data.data?.service?.providers || [],
         timestamp: new Date().toISOString(),
       }
@@ -151,16 +113,33 @@ export class ParlayService {
       console.error('Health check failed:', error)
       return {
         healthy: false,
-        mode: options.provider || 'openai',
+        mode: 'openai',
         providers: [],
         timestamp: new Date().toISOString(),
       }
     }
   }
 
-  // Note: getGameRosters method removed - v2 API handles roster data internally
+  /**
+   * Get service mode for debugging
+   */
+  getServiceMode(): 'openai' {
+    return 'openai'
+  }
 
-  // Removed roster validation; v2 backend handles data readiness
+  /**
+   * Check if service is properly configured
+   */
+  isConfigured(): boolean {
+    return !!import.meta.env.VITE_FIREBASE_PROJECT_ID
+  }
+
+  /**
+   * Get cloud function URL for debugging
+   */
+  getCloudFunctionUrl(): string {
+    return this.cloudFunctionUrl
+  }
 
   /**
    * Call v2 cloud function to generate parlay
@@ -237,16 +216,6 @@ export class ParlayService {
 
     return new Error(`Unexpected error: ${String(error)}`)
   }
-  /**
-   * Enhance any error with context
-   */
-  private enhanceError(error: Error | RateLimitError): Error {
-    if (error instanceof RateLimitError || error instanceof Error) {
-      return error
-    }
-
-    return new Error(`Parlay generation failed: ${String(error)}`)
-  }
 
   /**
    * Get Firebase auth token with refresh handling
@@ -274,29 +243,9 @@ export class ParlayService {
         error instanceof Error &&
         error.message.includes('auth/user-token-expired')
       ) {
+        // Token expired, user needs to re-authenticate
       }
       return null
     }
-  }
-
-  /**
-   * Get service mode for debugging (now takes provider parameter)
-   */
-  getServiceMode(provider?: 'mock' | 'openai'): 'mock' | 'openai' {
-    return provider || 'openai'
-  }
-
-  /**
-   * Get cloud function URL for debugging
-   */
-  getCloudFunctionUrl(): string {
-    return this.cloudFunctionUrl
-  }
-
-  /**
-   * Check if service is properly configured
-   */
-  isConfigured(): boolean {
-    return !!import.meta.env.VITE_FIREBASE_PROJECT_ID
   }
 }
