@@ -99,13 +99,18 @@ export class ParlayService {
   /**
    * Generate parlay using local mock data
    */
-  private async generateMockParlay(game: Game): Promise<EnhancedParlayGenerationResult> {
+  private async generateMockParlay(
+    game: Game
+  ): Promise<EnhancedParlayGenerationResult> {
     const startTime = Date.now()
-    
+
+    // Add 2-second delay to simulate real API response time
+    await new Promise(resolve => setTimeout(resolve, 2000))
+
     // Generate mock parlay and game data
     const parlay = ParlayMock.generateMockParlay(game)
     const gameData = ParlayMock.generateMockGameData(game)
-    
+
     const latency = Date.now() - startTime
 
     return {
