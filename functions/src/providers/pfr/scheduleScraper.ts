@@ -157,10 +157,32 @@ export async function fetchPFRSeasonSchedule(): Promise<PFRGameItem[]> {
     const gameId = `${homeTeam.id}-${awayTeam.id}-2025-${currentWeek}`
     const gameDateTime = formatPFRDateTime(date, time)
 
-    // For now, we'll set all games as 'scheduled' since we're not doing time comparisons
-    // This can be enhanced later if needed with proper ET timezone handling
+    // Determine game status based on current time and game time
     let status: 'scheduled' | 'in_progress' | 'final' | 'postponed' =
       'scheduled'
+
+    try {
+      const gameTime = new Date(gameDateTime)
+      const now = new Date()
+
+      // Add 3.5 hours to game time to account for typical NFL game duration
+      const gameEndTime = new Date(gameTime.getTime() + 3.5 * 60 * 60 * 1000)
+
+      if (now > gameEndTime) {
+        // Game has likely finished (3.5+ hours after start time)
+        status = 'final'
+      } else if (now > gameTime) {
+        // Game has started but not finished yet
+        status = 'in_progress'
+      } else {
+        // Game hasn't started yet
+        status = 'scheduled'
+      }
+    } catch (error) {
+      console.warn(`Error determining status for game ${gameId}:`, error)
+      // Default to scheduled if there's an error parsing the date
+      status = 'scheduled'
+    }
 
     gameData.push({
       homeTeam,
