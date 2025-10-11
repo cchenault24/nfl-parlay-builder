@@ -2,7 +2,7 @@
 import { useMutation } from '@tanstack/react-query'
 import { ServiceContainer } from '../services/container'
 import useParlayStore from '../store/parlayStore'
-import { V2Game } from '../types'
+import { Game } from '../types'
 import { RateLimitError } from '../types/errors'
 import { useRateLimit } from './useRateLimit'
 
@@ -16,7 +16,7 @@ export const useParlayGenerator = () => {
       game,
       shouldUseMock,
     }: {
-      game: V2Game
+      game: Game
       shouldUseMock: boolean | null
     }) => {
       const provider = shouldUseMock === true ? 'mock' : 'openai'

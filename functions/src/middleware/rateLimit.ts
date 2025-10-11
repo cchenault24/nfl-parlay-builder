@@ -1,8 +1,8 @@
 import { createHash } from 'crypto'
 import express from 'express'
 import * as admin from 'firebase-admin'
-import type { AuthedRequest } from './auth'
 import { errorResponse } from '../utils/errors'
+import type { AuthedRequest } from './auth'
 
 // Ensure Firebase Admin is initialized before using Firestore.
 try {
@@ -18,7 +18,7 @@ export type RateLimitRecord = { count: number; windowStart: number }
 function rateLimitDocRef(key: string) {
   const id = createHash('sha256').update(key).digest('hex')
   return db
-    .collection('v2_rate_limits')
+    .collection('rate_limits')
     .doc(id)
     .withConverter<RateLimitRecord>({
       toFirestore: (data: RateLimitRecord) => data,

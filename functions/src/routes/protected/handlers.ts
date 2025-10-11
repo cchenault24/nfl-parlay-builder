@@ -108,7 +108,7 @@ export const generateParlayHandler = async (
 
     // Try to find the game in the current week first
     // Versioned to ensure updated ranking fields are included
-    const cacheKey = `games_week_${targetWeek}_with_stats_v2`
+    const cacheKey = `games_week_${targetWeek}_with_stats`
     let games = await getCached<GamesResponse[]>(cacheKey, 10 * 60 * 1000) // 10 minute TTL
     if (!games) {
       // PFR doesn't support fetching all games - return empty array

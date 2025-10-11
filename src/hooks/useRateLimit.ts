@@ -39,7 +39,7 @@ export const useRateLimit = () => {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['rateLimitStatus', user?.uid],
     queryFn: async (): Promise<RateLimitInfo> => {
-      // V2 doesn't have rate limit status endpoint yet, return default values
+      // API doesn't have rate limit status endpoint yet, return default values
       return {
         remaining: 10,
         total: 10,

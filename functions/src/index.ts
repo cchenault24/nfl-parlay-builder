@@ -74,13 +74,13 @@ app.options('*', corsMiddleware)
 app.use(express.json({ limit: '1mb' }))
 
 // Health
-app.get('/v2/health', (_req: express.Request, res: express.Response) => {
+app.get('/health', (_req: express.Request, res: express.Response) => {
   res.json({ ok: true })
 })
 
 // Mount routers
-app.use('/v2', publicRouter)
-app.use('/v2', protectedRouter)
+app.use('/', publicRouter)
+app.use('/', protectedRouter)
 
 const OPENAI_API_KEY = defineSecret('OPENAI_API_KEY')
 

@@ -1,12 +1,12 @@
-// src/services/ParlayService.ts - V2 API implementation
+// src/services/ParlayService.ts - API implementation
 import { API_CONFIG } from '../config/api'
 import { auth } from '../config/firebase'
 import {
+  Game,
   GameData,
   GenerateParlayRequest,
   GenerateParlayResponse,
   ParlayGenerationResult,
-  V2Game,
 } from '../types'
 import { RateLimitError } from '../types/errors'
 
@@ -64,15 +64,15 @@ export class ParlayService {
 
     const baseUrl = API_CONFIG.CLOUD_FUNCTIONS.baseURL
 
-    this.cloudFunctionUrl = `${baseUrl}${API_CONFIG.CLOUD_FUNCTIONS.endpoints.v2.generateParlay}`
-    this.healthCheckUrl = `${baseUrl}${API_CONFIG.CLOUD_FUNCTIONS.endpoints.v2.health}`
+    this.cloudFunctionUrl = `${baseUrl}${API_CONFIG.CLOUD_FUNCTIONS.endpoints.generateParlay}`
+    this.healthCheckUrl = `${baseUrl}${API_CONFIG.CLOUD_FUNCTIONS.endpoints.health}`
   }
 
   /**
    * Generate a parlay with provider options
    */
   async generateParlay(
-    game: V2Game,
+    game: Game,
     options: { provider?: 'mock' | 'openai' } = {}
   ): Promise<EnhancedParlayGenerationResult> {
     try {
@@ -93,13 +93,13 @@ export class ParlayService {
    * Generate parlay using cloud functions
    */
   private async generateCloudParlay(
-    game: V2Game,
+    game: Game,
     _options: { provider?: 'mock' | 'openai' }
   ): Promise<EnhancedParlayGenerationResult> {
-    // V2 API handles roster fetching internally
+    // API handles roster fetching internally
     const result = await this.callCloudFunction(game)
 
-    // V2 API now returns { parlay, gameData }
+    // API now returns { parlay, gameData }
     return {
       parlay: result.parlay,
       gameData: result.gameData,
@@ -165,9 +165,7 @@ export class ParlayService {
   /**
    * Call v2 cloud function to generate parlay
    */
-  private async callCloudFunction(
-    game: V2Game
-  ): Promise<GenerateParlayResponse> {
+  private async callCloudFunction(game: Game): Promise<GenerateParlayResponse> {
     try {
       const authToken = await this.getAuthToken()
 

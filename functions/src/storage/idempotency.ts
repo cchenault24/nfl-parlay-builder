@@ -11,7 +11,7 @@ type IdempotencyRecord<T> = {
 
 function idempotencyDocRef<T>(docId: string) {
   return db
-    .collection('v2_idempotency')
+    .collection('idempotency')
     .doc(docId)
     .withConverter<IdempotencyRecord<T>>({
       toFirestore: (data: IdempotencyRecord<T>) => data,
