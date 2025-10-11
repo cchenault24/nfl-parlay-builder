@@ -18,7 +18,6 @@ const useGeneralStore = create<GeneralStore>()(
 
       // Actions
       setDevMockOverride: useMock => {
-        console.log('Setting devMockOverride:', useMock)
         set({ devMockOverride: useMock })
       },
       clearDevMockOverride: () => {

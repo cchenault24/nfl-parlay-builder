@@ -1,4 +1,10 @@
-import { BetType, Game, GameData, GeneratedParlay } from '../types'
+import {
+  BetType,
+  Game,
+  GameData,
+  GeneratedParlay,
+  PFRTeamStats,
+} from '../types'
 
 /**
  * Mock parlay generator for development and testing
@@ -140,40 +146,45 @@ export class ParlayMock {
       let reasoning = ''
 
       switch (betType) {
-        case 'spread':
+        case 'spread': {
           const spread = (random() * 14 - 7).toFixed(1) // -7 to +7
           selection = `${teamName} ${parseFloat(spread) > 0 ? '+' : ''}${spread}`
           odds = this.randomInRange(random, 1.9, 2.0)
           reasoning = `${teamName} has been ${parseFloat(spread) > 0 ? 'strong' : 'struggling'} at home this season`
           break
+        }
 
-        case 'total':
+        case 'total': {
           const total = Math.floor(40 + random() * 20) // 40-60
           selection = `Over ${total}`
           odds = this.randomInRange(random, 1.85, 2.0)
           reasoning = `Both teams have been scoring well, expect a high-scoring game`
           break
+        }
 
-        case 'player_passing_yards':
+        case 'player_passing_yards': {
           const qbYards = Math.floor(200 + random() * 150) // 200-350
           selection = `Over ${qbYards} passing yards`
           odds = this.randomInRange(random, 1.8, 2.0)
           reasoning = `${teamName} QB has been throwing well against similar defenses`
           break
+        }
 
-        case 'player_rushing_yards':
+        case 'player_rushing_yards': {
           const rbYards = Math.floor(80 + random() * 70) // 80-150
           selection = `Over ${rbYards} rushing yards`
           odds = this.randomInRange(random, 1.75, 2.0)
           reasoning = `${teamName} running back has been consistent in recent games`
           break
+        }
 
-        case 'player_receiving_yards':
+        case 'player_receiving_yards': {
           const wrYards = Math.floor(60 + random() * 80) // 60-140
           selection = `Over ${wrYards} receiving yards`
           odds = this.randomInRange(random, 1.8, 2.0)
           reasoning = `${teamName} receiver has been a reliable target in the red zone`
           break
+        }
 
         default:
           selection = `${teamName} to win`
@@ -388,7 +399,7 @@ export class ParlayMock {
     week: number,
     random: () => number,
     record: string
-  ): any {
+  ): PFRTeamStats {
     // Generate realistic NFL stats
     const generateOffensiveStats = () => {
       const passingYards = this.randomInRange(
@@ -500,7 +511,7 @@ export class ParlayMock {
       teamName,
       season: new Date().getFullYear(),
       week,
-      record: record,
+      record,
       overallRecord: '0-0',
       homeRecord: '0-0',
       roadRecord: '0-0',
@@ -534,7 +545,7 @@ export class ParlayMock {
       },
       overallOffenseRank: offense.overallRank,
       overallDefenseRank: defense.overallRank,
-      overallTeamRank: overallTeamRank,
+      overallTeamRank,
       specialTeamsRank: this.randomInRange(
         random,
         this.STAT_RANGES.teamRank.min,
