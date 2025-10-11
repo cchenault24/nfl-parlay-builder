@@ -27,7 +27,7 @@ export async function fetchPFRStadiums(): Promise<PFRStadium[]> {
   const stadiumsTable = $('table').first()
 
   if (stadiumsTable.length === 0) {
-    console.log('No stadiums table found')
+    console.error('No stadiums table found')
     return []
   }
 
@@ -124,8 +124,10 @@ export function getStadiumForTeam(
   teamStadiumMap: Map<string, PFRStadium>
 ): PFRStadium | null {
   // Try exact match first
-  let stadium = teamStadiumMap.get(teamName.toLowerCase())
-  if (stadium) return stadium
+  const stadium = teamStadiumMap.get(teamName.toLowerCase())
+  if (stadium) {
+    return stadium
+  }
 
   // Try partial matches
   for (const [mappedTeam, mappedStadium] of teamStadiumMap.entries()) {

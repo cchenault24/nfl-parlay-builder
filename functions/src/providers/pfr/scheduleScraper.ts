@@ -1,8 +1,8 @@
 import axios from 'axios'
 import * as cheerio from 'cheerio'
 import { getStadiumForTeamName } from './stadiumService'
-import { PFRGameItem } from './types'
-import { PFR_BASE, createNFLTeamFromPFRName, getPFRHeaders } from './utils'
+import { PFRGameItem, PFRTeam } from './types'
+import { PFR_BASE, createPFRTeamFromName, getPFRHeaders } from './utils'
 
 /**
  * Format PFR date and time as a parseable date string
@@ -43,26 +43,7 @@ function formatPFRDateTime(date: string, time: string): string {
       return date
     }
 
-    // Convert to 24-hour format
-    let hour24 = hour
-    if (period.toUpperCase() === 'PM' && hour !== 12) {
-      hour24 = hour + 12
-    } else if (period.toUpperCase() === 'AM' && hour === 12) {
-      hour24 = 0
-    }
-
-    // Create a parseable ISO string - PFR times are already in Eastern Time
-    // No timezone offset needed since PFR provides times in the correct timezone
-    const isoString = `${date}T${hour24.toString().padStart(2, '0')}:${minutes}:00`
-
-    // Validate the date can be parsed
-    const testDate = new Date(isoString)
-    if (isNaN(testDate.getTime())) {
-      console.warn(`Invalid date created: ${isoString}`)
-      return date
-    }
-
-    return isoString
+    return `${date} ${hour}:${minutes} ${period}`
   } catch (error) {
     console.warn(
       `Error formatting date/time: date="${date}", time="${time}"`,
@@ -90,8 +71,8 @@ export async function fetchPFRSeasonSchedule(): Promise<PFRGameItem[]> {
 
   const games: PFRGameItem[] = []
   const gameData: Array<{
-    homeTeam: any
-    awayTeam: any
+    homeTeam: PFRTeam
+    awayTeam: PFRTeam
     gameId: string
     gameDateTime: string
     currentWeek: number
@@ -142,25 +123,48 @@ export async function fetchPFRSeasonSchedule(): Promise<PFRGameItem[]> {
     // Look for @ symbol in the away indicator column to determine which team is away
     const isWinnerAway = awayIndicator.text().trim() === '@'
 
-    let homeTeam, awayTeam
+    let homeTeam: PFRTeam
+    let awayTeam: PFRTeam
 
     if (isWinnerAway) {
       // Winner is away, loser is home
-      homeTeam = createNFLTeamFromPFRName(loserName)
-      awayTeam = createNFLTeamFromPFRName(winnerName)
+      homeTeam = createPFRTeamFromName(loserName)
+      awayTeam = createPFRTeamFromName(winnerName)
     } else {
       // Winner is home, loser is away
-      homeTeam = createNFLTeamFromPFRName(winnerName)
-      awayTeam = createNFLTeamFromPFRName(loserName)
+      homeTeam = createPFRTeamFromName(winnerName)
+      awayTeam = createPFRTeamFromName(loserName)
     }
 
     const gameId = `${homeTeam.id}-${awayTeam.id}-2025-${currentWeek}`
     const gameDateTime = formatPFRDateTime(date, time)
 
-    // For now, we'll set all games as 'scheduled' since we're not doing time comparisons
-    // This can be enhanced later if needed with proper ET timezone handling
+    // Determine game status based on current time and game time
     let status: 'scheduled' | 'in_progress' | 'final' | 'postponed' =
       'scheduled'
+
+    try {
+      const gameTime = new Date(gameDateTime)
+      const now = new Date()
+
+      // Add 3.5 hours to game time to account for typical NFL game duration
+      const gameEndTime = new Date(gameTime.getTime() + 3.5 * 60 * 60 * 1000)
+
+      if (now > gameEndTime) {
+        // Game has likely finished (3.5+ hours after start time)
+        status = 'final'
+      } else if (now > gameTime) {
+        // Game has started but not finished yet
+        status = 'in_progress'
+      } else {
+        // Game hasn't started yet
+        status = 'scheduled'
+      }
+    } catch (error) {
+      console.warn(`Error determining status for game ${gameId}:`, error)
+      // Default to scheduled if there's an error parsing the date
+      status = 'scheduled'
+    }
 
     gameData.push({
       homeTeam,

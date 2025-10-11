@@ -46,8 +46,6 @@ export async function fetchPFRDataForTeams(
   season: number,
   week: number
 ): Promise<{ [teamId: string]: PFRTeamStats | null }> {
-  const results: { [teamId: string]: PFRTeamStats | null } = {}
-
   // Process teams in parallel
   const teamPromises = teams.map(async team => {
     try {
@@ -74,11 +72,9 @@ export async function fetchPFRDataForTeams(
   const teamResults = await Promise.all(teamPromises)
 
   // Convert results to the expected format
-  teamResults.forEach(({ teamId, data }) => {
-    results[teamId] = data
-  })
-
-  return results
+  return Object.fromEntries(
+    teamResults.map(({ teamId, data }) => [teamId, data])
+  )
 }
 
 /**
@@ -99,7 +95,7 @@ async function scrapeTeamStatsFromPFR(
   const teamStatsTable = $('table#team_stats').first()
 
   if (teamStatsTable.length === 0) {
-    console.log(`No team stats table found for ${teamCode}`)
+    console.error(`No team stats table found for ${teamCode}`)
     return null
   }
 
@@ -109,7 +105,6 @@ async function scrapeTeamStatsFromPFR(
   // The team stats table contains overall stats and rankings
   // The rushing and receiving table contains per-game averages
   const offenseTable = teamStatsTable
-  const defenseTable = teamStatsTable
 
   // Find the specific rows in the team stats table by looking for the text content
   const offenseTeamRow = offenseTable
@@ -149,7 +144,7 @@ async function scrapeTeamStatsFromPFR(
     .first()
 
   if (offenseTeamRow.length === 0 || defenseTeamRow.length === 0) {
-    console.log(`Missing required data rows for ${teamCode}`)
+    console.error(`Missing required data rows for ${teamCode}`)
     return null
   }
 
@@ -245,13 +240,10 @@ async function scrapeTeamStatsFromPFR(
   const teamYards = getNumberValue(offenseTeamRow, 2) // Yds column
   const teamPassYards = getNumberValue(offenseTeamRow, 10) // Passing Yds column (10th column)
   const teamRushYards = getNumberValue(offenseTeamRow, 16) // Rushing Yds column (16th column)
-  const teamTurnovers = getNumberValue(offenseTeamRow, 5) // TO column
 
   // Extract defense values from Opp. Stats row (Row 3) - what the team allowed
   const teamPointsAllowed = getNumberValue(defenseTeamRow, 1) // PF column (points allowed)
   const teamYardsAllowed = getNumberValue(defenseTeamRow, 2) // Yds column (yards allowed)
-  const teamPassYardsAllowed = getNumberValue(defenseTeamRow, 10) // Passing Yds allowed
-  const teamRushYardsAllowed = getNumberValue(defenseTeamRow, 16) // Rushing Yds allowed
   const teamTakeaways = getNumberValue(defenseTeamRow, 5) // Takeaways
 
   // Extract rankings from Lg Rank Offense row (Row 4)
@@ -259,13 +251,10 @@ async function scrapeTeamStatsFromPFR(
   const teamYardsRank = getNumberValue(offenseRankRow, 2) // Yds rank
   const teamPassYardsRank = getNumberValue(offenseRankRow, 10) // Passing Yds rank
   const teamRushYardsRank = getNumberValue(offenseRankRow, 16) // Rushing Yds rank
-  const teamTurnoversRank = getNumberValue(offenseRankRow, 5) // TO rank
 
   // Extract rankings from Lg Rank Defense row (Row 5)
   const teamPointsAllowedRank = getNumberValue(defenseRankRow, 1) // PF allowed rank
   const teamYardsAllowedRank = getNumberValue(defenseRankRow, 2) // Yds allowed rank
-  const teamPassYardsAllowedRank = getNumberValue(defenseRankRow, 10) // Passing Yds allowed rank
-  const teamRushYardsAllowedRank = getNumberValue(defenseRankRow, 16) // Rushing Yds allowed rank
   const teamTakeawaysRank = getNumberValue(defenseRankRow, 5) // Takeaways rank
 
   // Extract per-game averages from the rushing and receiving table

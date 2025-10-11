@@ -1,48 +1,5 @@
-import { PFRTeamStats } from '../../providers/pfr/types'
+import { GameItem } from './generateParlay'
 import { BetTypeEnum } from './schemas'
-
-// Define a basic game item type for PFR
-interface GameItem {
-  gameId: string
-  week: number
-  home: {
-    teamId: string
-    name: string
-    abbrev: string
-    record: string
-    overallRecord: string
-    homeRecord: string
-    roadRecord: string
-    stats: PFRTeamStats | null
-  }
-  away: {
-    teamId: string
-    name: string
-    abbrev: string
-    record: string
-    overallRecord: string
-    homeRecord: string
-    roadRecord: string
-    stats: PFRTeamStats | null
-  }
-  venue?: {
-    name: string
-    city: string
-    state: string
-  }
-  status?: string
-  weather?: {
-    condition: string
-    temperatureF: number
-    windMph: number
-  }
-  leaders?: {
-    passing?: { name: string; stats: string; value: number }
-    rushing?: { name: string; stats: string; value: number }
-    receiving?: { name: string; stats: string; value: number }
-  }
-  dateTime?: string
-}
 
 // All available bet types - will be filtered by gameData.betType in the future
 const ALL_BET_TYPES = BetTypeEnum.options

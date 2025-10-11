@@ -1,9 +1,9 @@
 import { Timestamp } from 'firebase/firestore'
 
 // ===== PFR TYPES =====
-// This matches the backend schema exactly (functions_v2/src/providers/pfr/types.ts)
-// V2 API Types
-export interface V2TeamStatsOffense {
+// This matches the backend schema exactly (functions/src/providers/pfr/types.ts)
+// API Types
+export interface TeamStatsOffense {
   totalYards: { rank: number; yardsPerGame: number }
   passingYards: { rank: number; yardsPerGame: number }
   rushingYards: { rank: number; yardsPerGame: number }
@@ -12,7 +12,7 @@ export interface V2TeamStatsOffense {
   redZoneEfficiency: { rank: number; percentage: number }
 }
 
-export interface V2TeamStatsDefense {
+export interface TeamStatsDefense {
   totalYardsAllowed: { rank: number; yardsPerGame: number }
   passingYardsAllowed: { rank: number; yardsPerGame: number }
   rushingYardsAllowed: { rank: number; yardsPerGame: number }
@@ -21,16 +21,16 @@ export interface V2TeamStatsDefense {
   sacks: { rank: number; total: number }
 }
 
-export interface V2TeamStats {
+export interface TeamStats {
   overallRank?: number | null
   offensiveRank?: number | null
   defensiveRank?: number | null
   specialTeamsRank?: number | null
-  offensiveRankings: V2TeamStatsOffense
-  defensiveRankings: V2TeamStatsDefense
+  offensiveRankings: TeamStatsOffense
+  defensiveRankings: TeamStatsDefense
 }
 
-export interface V2Team {
+export interface Team {
   teamId: string
   name: string
   abbrev: string
@@ -38,24 +38,24 @@ export interface V2Team {
   overallRecord: string
   homeRecord: string
   roadRecord: string
-  stats: V2TeamStats | null
+  stats: TeamStats | null
 }
 
-export interface V2Leaders {
+export interface Leaders {
   passing?: { name: string; stats: string; value: number }
   rushing?: { name: string; stats: string; value: number }
   receiving?: { name: string; stats: string; value: number }
 }
 
-export interface V2Game {
+export interface Game {
   gameId: string
   week: number
   dateTime: string
   status: 'scheduled' | 'in_progress' | 'final' | 'postponed'
-  home: V2Team
-  away: V2Team
+  home: Team
+  away: Team
   venue: { name: string; city: string; state: string }
-  leaders: V2Leaders
+  leaders: Leaders
   weather?: {
     condition: string
     temperatureF: number

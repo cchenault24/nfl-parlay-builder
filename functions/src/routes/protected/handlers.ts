@@ -2,51 +2,17 @@ import express from 'express'
 import { fetchPFRSeasonSchedule } from '../../providers/pfr'
 import { fetchPFRTeamDataForGame } from '../../providers/pfr/teamStatsScraper'
 import { generateParlayWithAI } from '../../service/ai'
-import { GameItem } from '../../service/ai/generateParlay'
 import {
   getIdempotentResponse,
   saveIdempotentResponse,
 } from '../../storage/idempotency'
 import { getCached, setCached } from '../../utils/cache'
 import { errorResponse } from '../../utils/errors'
-import { GamesResponse } from '../public/schema'
+import { GameData } from '../public/schema'
 import {
   GenerateParlayRequestSchema,
   type GenerateParlayResponse,
 } from './schema'
-
-// Convert GamesResponse to GameItem for AI service
-function convertToGameItem(game: GamesResponse): GameItem {
-  return {
-    gameId: game.gameId,
-    week: game.week,
-    home: {
-      teamId: game.home.teamId,
-      name: game.home.name,
-      abbrev: game.home.abbrev,
-      record: game.home.record,
-      overallRecord: game.home.overallRecord,
-      homeRecord: game.home.homeRecord,
-      roadRecord: game.home.roadRecord,
-      stats: game.home.stats ?? null,
-    },
-    away: {
-      teamId: game.away.teamId,
-      name: game.away.name,
-      abbrev: game.away.abbrev,
-      record: game.away.record,
-      overallRecord: game.away.overallRecord,
-      homeRecord: game.away.homeRecord,
-      roadRecord: game.away.roadRecord,
-      stats: game.away.stats ? game.away.stats : null,
-    },
-    venue: game.venue,
-    status: game.status,
-    weather: game.weather,
-    leaders: game.leaders,
-    dateTime: game.dateTime,
-  }
-}
 
 // Extended request type with authentication data
 interface AuthenticatedRequest extends express.Request {
@@ -108,8 +74,8 @@ export const generateParlayHandler = async (
 
     // Try to find the game in the current week first
     // Versioned to ensure updated ranking fields are included
-    const cacheKey = `games_week_${targetWeek}_with_stats_v2`
-    let games = await getCached<GamesResponse[]>(cacheKey, 10 * 60 * 1000) // 10 minute TTL
+    const cacheKey = `games_week_${targetWeek}_with_stats`
+    let games = await getCached<GameData[]>(cacheKey, 10 * 60 * 1000) // 10 minute TTL
     if (!games) {
       // PFR doesn't support fetching all games - return empty array
       games = []
@@ -132,7 +98,7 @@ export const generateParlayHandler = async (
         }
 
         const weekCacheKey = `games_week_${w}_with_stats`
-        let weekGames = await getCached<GamesResponse[]>(
+        let weekGames = await getCached<GameData[]>(
           weekCacheKey,
           10 * 60 * 1000
         )
@@ -186,7 +152,7 @@ export const generateParlayHandler = async (
               scheduleGame?.dateTime || new Date().toISOString()
             const actualStatus = scheduleGame?.status || 'scheduled'
 
-            // Create a GamesResponse object with real PFR data
+            // Create a GameData object with real PFR data
             game = {
               gameId,
               week: gameWeek,
@@ -241,7 +207,7 @@ export const generateParlayHandler = async (
       ? await generateParlayWithAI({
           gameId,
           riskLevel: parsed.data.riskLevel,
-          gameData: convertToGameItem(game),
+          gameData: game,
         })
       : null
 
@@ -269,17 +235,24 @@ export const generateParlayHandler = async (
         legs: ai.legs,
         combinedOdds: (() => {
           // Convert American odds to decimal, multiply, then convert back to American
-          const decimalOdds = ai.legs.reduce((acc: number, leg: any) => {
-            const decimal =
-              leg.odds > 0 ? leg.odds / 100 + 1 : 100 / Math.abs(leg.odds) + 1
-            return acc * decimal
-          }, 1)
+          const decimalOdds = ai.legs.reduce(
+            (acc: number, leg: { odds: number; confidence: number }) => {
+              const decimal =
+                leg.odds > 0 ? leg.odds / 100 + 1 : 100 / Math.abs(leg.odds) + 1
+              return acc * decimal
+            },
+            1
+          )
           if (decimalOdds >= 2) {
             return Math.round((decimalOdds - 1) * 100)
           }
           return Math.round(-100 / (decimalOdds - 1))
         })(),
-        parlayConfidence: Math.min(...ai.legs.map((l: any) => l.confidence)),
+        parlayConfidence: Math.min(
+          ...ai.legs.map(
+            (l: { odds: number; confidence: number }) => l.confidence
+          )
+        ),
         gameSummary: ai.analysisSummary,
       },
       gameData: {

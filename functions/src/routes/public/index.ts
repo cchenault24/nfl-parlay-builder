@@ -4,7 +4,6 @@ import {
   getGamesHandler,
   getNFLWeeksHandler,
   getPFRDataForTeamsHandler,
-  getPFRGameHandler,
   getPFRScheduleHandler,
 } from './handlers'
 
@@ -17,8 +16,6 @@ publicRouter.get(
 )
 
 publicRouter.get('/games', rateLimitByIp(120, 60_000), getGamesHandler)
-
-publicRouter.get('/pfr-game', rateLimitByIp(30, 60_000), getPFRGameHandler)
 
 publicRouter.post(
   '/pfr-teams',

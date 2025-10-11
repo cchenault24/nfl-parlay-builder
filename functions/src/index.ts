@@ -1,15 +1,10 @@
 import cors from 'cors'
-import dotenv from 'dotenv'
 import express from 'express'
 import * as admin from 'firebase-admin'
 import { defineSecret } from 'firebase-functions/params'
 import { onRequest } from 'firebase-functions/v2/https'
 import type { AuthedRequest } from './middleware/auth'
 import { protectedRouter, publicRouter } from './routes'
-
-// Load environment variables from .env files
-dotenv.config({ path: '../env.development.local' })
-dotenv.config({ path: '../env.production.local' })
 
 // Initialize Firebase Admin once
 try {
@@ -79,13 +74,13 @@ app.options('*', corsMiddleware)
 app.use(express.json({ limit: '1mb' }))
 
 // Health
-app.get('/v2/health', (_req: express.Request, res: express.Response) => {
+app.get('/health', (_req: express.Request, res: express.Response) => {
   res.json({ ok: true })
 })
 
 // Mount routers
-app.use('/v2', publicRouter)
-app.use('/v2', protectedRouter)
+app.use('/', publicRouter)
+app.use('/', protectedRouter)
 
 const OPENAI_API_KEY = defineSecret('OPENAI_API_KEY')
 

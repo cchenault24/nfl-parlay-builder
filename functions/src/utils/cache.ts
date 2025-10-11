@@ -6,7 +6,7 @@ const db = admin.firestore()
 
 function cacheDocRef<T>(key: string) {
   return db
-    .collection('v2_cache')
+    .collection('cache')
     .doc(key)
     .withConverter<CacheEntry<T>>({
       toFirestore: (data: CacheEntry<T>) => data,

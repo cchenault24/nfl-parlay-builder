@@ -73,13 +73,11 @@ export const API_CONFIG = {
     retryAttempts: 2,
     retryDelay: 2000,
     endpoints: {
-      v2: {
-        health: '/api/v2/health',
-        currentWeek: '/api/v2/weeks/current',
-        games: (week: number) => `/api/v2/games?week=${week}`,
-        generateParlay: '/api/v2/parlays/generate',
-        pfrSchedule: '/api/v2/pfr-schedule',
-      },
+      health: '/api/health',
+      currentWeek: '/api/weeks/current',
+      games: (week: number) => `/api/games?week=${week}`,
+      generateParlay: '/api/parlays/generate',
+      pfrSchedule: '/api/pfr-schedule',
     },
   },
 } as const

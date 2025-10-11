@@ -4,7 +4,8 @@ export interface CurrentWeekResponse {
   week: number
 }
 
-export interface GamesResponse {
+// Shared game interface that can be used by both API responses and AI service
+export interface GameData {
   gameId: string
   week: number
   dateTime: string

@@ -1,24 +1,24 @@
+export interface TeamBasic {
+  id: string
+  name: string
+  abbrev: string
+}
+
+export interface PFRTeam {
+  id: string
+  name: string
+  displayName: string
+  abbreviation: string
+  color: string
+  alternateColor: string
+  logo: string
+}
+
 export interface PFRGameItem {
   id: string
   dateTime: string
-  homeTeam: {
-    id: string
-    name: string
-    displayName: string
-    abbreviation: string
-    color: string
-    alternateColor: string
-    logo: string
-  }
-  awayTeam: {
-    id: string
-    name: string
-    displayName: string
-    abbreviation: string
-    color: string
-    alternateColor: string
-    logo: string
-  }
+  homeTeam: PFRTeam
+  awayTeam: PFRTeam
   venue: {
     name: string
     city: string
