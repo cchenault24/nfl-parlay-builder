@@ -9,6 +9,7 @@ import {
   ParlayGenerationResult,
 } from '../types'
 import { RateLimitError } from '../types/errors'
+import { ParlayMock } from './ParlayMock'
 
 export interface StrategyConfig {
   name: string
@@ -76,6 +77,12 @@ export class ParlayService {
     options: { provider?: 'mock' | 'openai' } = {}
   ): Promise<EnhancedParlayGenerationResult> {
     try {
+      // If provider is mock, use local mock generation (no auth required)
+      if (options.provider === 'mock') {
+        return await this.generateMockParlay(game)
+      }
+
+      // For real API calls, require authentication
       const currentUser = auth.currentUser
       if (!currentUser) {
         throw new Error(
@@ -86,6 +93,36 @@ export class ParlayService {
       return await this.generateCloudParlay(game, options)
     } catch (error) {
       throw this.enhanceError(error as Error)
+    }
+  }
+
+  /**
+   * Generate parlay using local mock data
+   */
+  private async generateMockParlay(game: Game): Promise<EnhancedParlayGenerationResult> {
+    const startTime = Date.now()
+    
+    // Generate mock parlay and game data
+    const parlay = ParlayMock.generateMockParlay(game)
+    const gameData = ParlayMock.generateMockGameData(game)
+    
+    const latency = Date.now() - startTime
+
+    return {
+      parlay,
+      gameData,
+      rateLimitInfo: undefined, // No rate limiting in mock mode
+      metadata: {
+        provider: 'mock',
+        model: 'mock-generator',
+        tokens: 0,
+        latency,
+        confidence: parlay.parlayConfidence,
+        fallbackUsed: false,
+        attemptCount: 1,
+        serviceMode: 'mock',
+        environment: import.meta.env.MODE,
+      },
     }
   }
 
@@ -124,6 +161,22 @@ export class ParlayService {
     }>
     timestamp: string
   }> {
+    // If mock mode, always return healthy
+    if (options.provider === 'mock') {
+      return {
+        healthy: true,
+        mode: 'mock',
+        providers: [
+          {
+            name: 'mock-generator',
+            healthy: true,
+            latency: 0,
+          },
+        ],
+        timestamp: new Date().toISOString(),
+      }
+    }
+
     try {
       const authToken = await this.getAuthToken()
 

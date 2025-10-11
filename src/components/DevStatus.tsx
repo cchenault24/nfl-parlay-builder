@@ -37,6 +37,9 @@ const DevStatus: React.FC = () => {
   // Mock toggle state from store
   const devMockOverride = useGeneralStore(state => state.devMockOverride)
   const setDevMockOverride = useGeneralStore(state => state.setDevMockOverride)
+  const clearDevMockOverride = useGeneralStore(
+    state => state.clearDevMockOverride
+  )
 
   // Only show in development
   if (import.meta.env.MODE === 'production') {
@@ -53,14 +56,10 @@ const DevStatus: React.FC = () => {
 
   // Determine current mode for display
   const getCurrentMode = () => {
-    if (devMockOverride !== null) {
-      return devMockOverride ? 'MOCK (Override)' : 'REAL (Override)'
-    }
-    return serviceStatus?.usingMock ? 'MOCK (Default)' : 'REAL (Default)'
+    return devMockOverride ? 'MOCK' : 'REAL'
   }
 
-  const isCurrentlyMock =
-    devMockOverride !== null ? devMockOverride : serviceStatus?.usingMock
+  const isCurrentlyMock = serviceStatus?.usingMock || false
 
   return (
     <Paper
@@ -127,11 +126,7 @@ const DevStatus: React.FC = () => {
                 <FormControlLabel
                   control={
                     <Switch
-                      checked={
-                        devMockOverride !== null
-                          ? devMockOverride
-                          : serviceStatus?.usingMock || false
-                      }
+                      checked={isCurrentlyMock}
                       onChange={handleToggleChange}
                       color="warning"
                     />
@@ -158,11 +153,27 @@ const DevStatus: React.FC = () => {
                     />
                   )}
                 </Stack>
-                {devMockOverride !== null && (
-                  <Typography variant="caption" color="text.secondary">
-                    Override active -
-                    {devMockOverride ? 'forcing mock mode' : 'forcing real API'}
-                  </Typography>
+                {!devMockOverride && (
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Override active -
+                      {devMockOverride
+                        ? 'forcing mock mode'
+                        : 'forcing real API'}
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      color="primary"
+                      sx={{
+                        cursor: 'pointer',
+                        textDecoration: 'underline',
+                        ml: 1,
+                      }}
+                      onClick={clearDevMockOverride}
+                    >
+                      Reset to default
+                    </Typography>
+                  </Box>
                 )}
               </Stack>
             </Box>

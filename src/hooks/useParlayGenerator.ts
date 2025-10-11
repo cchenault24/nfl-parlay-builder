@@ -17,9 +17,9 @@ export const useParlayGenerator = () => {
       shouldUseMock,
     }: {
       game: Game
-      shouldUseMock: boolean | null
+      shouldUseMock: boolean
     }) => {
-      const provider = shouldUseMock === true ? 'mock' : 'openai'
+      const provider = shouldUseMock ? 'mock' : 'openai'
       return await parlayService.generateParlay(game, { provider })
     },
     onError: error => {
