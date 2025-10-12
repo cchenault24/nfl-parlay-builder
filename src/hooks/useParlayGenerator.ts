@@ -10,6 +10,7 @@ import { useRateLimit } from './useRateLimit'
 
 export const useParlayGenerator = () => {
   const setParlay = useParlayStore(state => state.setParlay)
+  const setGameData = useParlayStore(state => state.setGameData)
   const setLoadingContext = useParlayStore(state => state.setLoadingContext)
   const { updateFromResponse } = useRateLimit()
 
@@ -117,13 +118,8 @@ export const useParlayGenerator = () => {
         })
       }
 
-      // Store the parlay data with gameData attached for UI consumption
-      const parlayWithGameData = {
-        ...data.parlay,
-        gameData: data.gameData,
-      }
-
-      setParlay(parlayWithGameData)
+      setParlay(data.parlay)
+      setGameData(data.gameData)
     },
   })
 

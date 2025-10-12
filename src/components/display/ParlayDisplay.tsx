@@ -45,6 +45,7 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
 
+  const gameData = useParlayStore(state => state.gameData)
   const setParlay = useParlayStore(state => state.setParlay)
   const authModalOpen = useModalStore(state => state.authModalOpen)
   const setAuthModalOpen = useModalStore(state => state.setAuthModalOpen)
@@ -61,7 +62,7 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({
 
   // Scroll to game stats panel when loading completes on mobile
   useEffect(() => {
-    if (isMobile && !loading && parlay && parlay.gameData) {
+    if (isMobile && !loading && parlay && gameData) {
       // Small delay to ensure the game stats panel is rendered
       const timer = setTimeout(() => {
         const gameStatsPanel =
@@ -84,7 +85,7 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({
 
       return () => clearTimeout(timer)
     }
-  }, [loading, parlay, isMobile])
+  }, [loading, parlay, gameData, isMobile])
 
   const handleSaveParlay = async () => {
     if (!user) {

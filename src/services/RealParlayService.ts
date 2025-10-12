@@ -1,13 +1,15 @@
 // src/services/RealParlayService.ts - Real API implementation
 import { API_CONFIG } from '../config/api'
 import { auth } from '../config/firebase'
-import { Game, GenerateParlayRequest, GenerateParlayResponse } from '../types'
-import { RateLimitError } from '../types/errors'
 import {
-  BaseParlayService,
-  EnhancedParlayGenerationResult,
+  Game,
+  GenerateParlayRequest,
+  GenerateParlayResponse,
   ParlayGenerationOptions,
-} from './BaseParlayService'
+  ParlayGenerationResult,
+} from '../types'
+import { RateLimitError } from '../types/errors'
+import { BaseParlayService } from './BaseParlayService'
 
 /**
  * Real parlay service that makes API calls to cloud functions
@@ -38,7 +40,7 @@ export class RealParlayService extends BaseParlayService {
   async generateParlay(
     game: Game,
     options: ParlayGenerationOptions = {}
-  ): Promise<EnhancedParlayGenerationResult> {
+  ): Promise<ParlayGenerationResult> {
     try {
       const { onLoadingUpdate } = options
       const startTime = Date.now()

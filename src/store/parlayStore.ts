@@ -1,22 +1,19 @@
 import { create } from 'zustand'
-import { Game, GeneratedParlay, GenerateParlayResponse } from '../types'
+import { Game, GameData, GeneratedParlay } from '../types'
 import { LoadingContext } from '../types/loading'
-
-// Extended parlay type that includes gameData for UI consumption
-type ExtendedParlay = GeneratedParlay & {
-  gameData?: GenerateParlayResponse['gameData']
-}
 
 interface ParlayStore {
   // State
-  parlay: ExtendedParlay | null
+  parlay: GeneratedParlay | null
+  gameData: GameData | null
   selectedGame: Game | null
   saveParlaySuccess: boolean
   saveParlayError: string
   loadingContext: LoadingContext
 
   // Actions
-  setParlay: (parlay: ExtendedParlay | null) => void
+  setParlay: (parlay: GeneratedParlay | null) => void
+  setGameData: (gameData: GameData | null) => void
   setSelectedGame: (game: Game | null) => void
   setSaveParlaySuccess: (success: boolean) => void
   setSaveParlayError: (error: string) => void
@@ -27,6 +24,7 @@ interface ParlayStore {
 const useParlayStore = create<ParlayStore>(set => ({
   // Initial state
   parlay: null,
+  gameData: null,
   selectedGame: null,
   saveParlaySuccess: false,
   saveParlayError: '',
@@ -41,6 +39,7 @@ const useParlayStore = create<ParlayStore>(set => ({
 
   // Action implementations
   setParlay: parlay => set({ parlay }),
+  setGameData: gameData => set({ gameData }),
   setSelectedGame: game => set({ selectedGame: game }),
   setSaveParlaySuccess: success => set({ saveParlaySuccess: success }),
   setSaveParlayError: error => set({ saveParlayError: error }),

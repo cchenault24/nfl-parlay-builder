@@ -1,44 +1,4 @@
-import { Game, GameData, ParlayGenerationResult } from '../types'
-import { LoadingPhaseUpdate } from '../types/loading'
-
-export interface StrategyConfig {
-  name: string
-  description: string
-  temperature: number
-  riskProfile: 'low' | 'medium' | 'high'
-  confidenceRange: [number, number]
-}
-
-export interface VarietyFactors {
-  strategy: string
-  focusArea: string
-  playerTier: string
-  gameScript: string
-  marketBias: string
-}
-
-export interface ParlayGenerationOptions {
-  temperature?: number
-  strategy?: StrategyConfig
-  varietyFactors?: VarietyFactors
-  debugMode?: boolean
-  onLoadingUpdate?: (update: LoadingPhaseUpdate) => void
-}
-
-export interface EnhancedParlayGenerationResult extends ParlayGenerationResult {
-  gameData?: GameData
-  metadata?: {
-    provider: string
-    model: string
-    tokens?: number
-    latency: number
-    confidence: number
-    fallbackUsed: boolean
-    attemptCount: number
-    serviceMode?: 'mock' | 'openai'
-    environment?: string
-  }
-}
+import { Game, ParlayGenerationOptions, ParlayGenerationResult } from '../types'
 
 /**
  * Base abstract class for parlay services
@@ -51,7 +11,7 @@ export abstract class BaseParlayService {
   abstract generateParlay(
     game: Game,
     options?: ParlayGenerationOptions
-  ): Promise<EnhancedParlayGenerationResult>
+  ): Promise<ParlayGenerationResult>
 
   /**
    * Check service health
@@ -100,8 +60,8 @@ export abstract class BaseParlayService {
     model: string,
     latency: number,
     confidence: number,
-    additionalFields: Partial<EnhancedParlayGenerationResult['metadata']> = {}
-  ): EnhancedParlayGenerationResult['metadata'] {
+    additionalFields: Partial<ParlayGenerationResult['metadata']> = {}
+  ): ParlayGenerationResult['metadata'] {
     return {
       provider,
       model,

@@ -1,10 +1,6 @@
 // src/services/MockParlayService.ts - Mock data implementation
-import { Game } from '../types'
-import {
-  BaseParlayService,
-  EnhancedParlayGenerationResult,
-  ParlayGenerationOptions,
-} from './BaseParlayService'
+import { Game, ParlayGenerationOptions, ParlayGenerationResult } from '../types'
+import { BaseParlayService } from './BaseParlayService'
 import { ParlayMock } from './ParlayMock'
 
 /**
@@ -17,7 +13,7 @@ export class MockParlayService extends BaseParlayService {
   async generateParlay(
     game: Game,
     options: ParlayGenerationOptions = {}
-  ): Promise<EnhancedParlayGenerationResult> {
+  ): Promise<ParlayGenerationResult> {
     const startTime = Date.now()
     const { onLoadingUpdate } = options
 

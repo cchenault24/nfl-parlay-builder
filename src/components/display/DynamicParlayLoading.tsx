@@ -27,7 +27,6 @@ const DynamicParlayLoading: React.FC<DynamicParlayLoadingProps> = ({
 
   const {
     currentPhase: activePhase,
-    phaseProgress,
     estimatedTimeRemaining,
     currentPhaseData,
     phases,
@@ -64,16 +63,6 @@ const DynamicParlayLoading: React.FC<DynamicParlayLoadingProps> = ({
     const minutes = Math.floor(seconds / 60)
     const remainingSeconds = seconds % 60
     return `${minutes}m ${remainingSeconds}s`
-  }
-
-  const getProgressColor = (progress: number): string => {
-    if (progress < 30) {
-      return theme.palette.primary.main
-    }
-    if (progress < 70) {
-      return theme.palette.warning.main
-    }
-    return theme.palette.success.main
   }
 
   return (
@@ -122,7 +111,7 @@ const DynamicParlayLoading: React.FC<DynamicParlayLoadingProps> = ({
           {/* Left Side - Current Phase */}
           {currentPhaseData &&
             (() => {
-              const progressColor = getProgressColor(phaseProgress)
+              const progressColor = theme.palette.primary.main
               return (
                 <Box
                   sx={{
@@ -222,7 +211,7 @@ const DynamicParlayLoading: React.FC<DynamicParlayLoadingProps> = ({
                 )
                 const isCompleted = activePhaseIndex > index
                 const isUpcoming = activePhaseIndex < index
-                const progressColor = getProgressColor(phaseProgress)
+                const progressColor = theme.palette.primary.main
 
                 return (
                   <Box
@@ -233,10 +222,22 @@ const DynamicParlayLoading: React.FC<DynamicParlayLoadingProps> = ({
                       gap: 1.5,
                       p: 1,
                       borderRadius: 1,
-                      backgroundColor: isActive
-                        ? `${progressColor}15`
-                        : 'transparent',
+                      backgroundColor: 'transparent',
                       transition: 'all 0.3s ease-in-out',
+                      ...(isActive && {
+                        animation: 'colorPulse 2s ease-in-out infinite',
+                        '@keyframes colorPulse': {
+                          '0%': {
+                            backgroundColor: `${progressColor}20`,
+                          },
+                          '50%': {
+                            backgroundColor: `${progressColor}40`,
+                          },
+                          '100%': {
+                            backgroundColor: `${progressColor}20`,
+                          },
+                        },
+                      }),
                     }}
                   >
                     {/* Status Icon */}
