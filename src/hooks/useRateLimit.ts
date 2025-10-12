@@ -49,11 +49,7 @@ export const useRateLimit = () => {
     queryKey: ['rateLimitStatus', user?.uid],
     queryFn: async (): Promise<RateLimitInfo> => {
       // Get current rate limit status from frontend rate limiter
-      return FrontendRateLimiter.getCurrentStatus(
-        20,
-        60 * 60 * 1000,
-        user?.uid || null
-      )
+      return FrontendRateLimiter.getCurrentStatus(user?.uid || null)
     },
     enabled: true, // Enabled - uses frontend rate limiter for both mock and real data
     refetchInterval: 30000, // Refetch every 30 seconds
@@ -87,7 +83,7 @@ export const useRateLimit = () => {
       storeUpdateFromResponse({
         rateLimitInfo: {
           remaining: responseData.rateLimitInfo.remaining,
-          total: responseData.rateLimitInfo.total || 20, // Default to 20 if not provided
+          total: responseData.rateLimitInfo.total || 20, // Default to 20
           resetTime: responseData.rateLimitInfo.resetTime,
           currentCount: responseData.rateLimitInfo.currentCount,
         },

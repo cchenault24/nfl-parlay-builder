@@ -84,11 +84,9 @@ export class FrontendRateLimiter {
   /**
    * Get current rate limit status without incrementing
    */
-  static getCurrentStatus(
-    limit: number = this.DEFAULT_LIMIT,
-    windowMs: number = this.DEFAULT_WINDOW_MS,
-    userId?: string | null
-  ): RateLimitInfo {
+  static getCurrentStatus(userId?: string | null): RateLimitInfo {
+    const limit = this.DEFAULT_LIMIT
+    const windowMs = this.DEFAULT_WINDOW_MS
     const now = Date.now()
     const key = this.getStorageKey(userId)
     const record = this.getRecord(key)
@@ -170,7 +168,9 @@ export class FrontendRateLimiter {
   private static getRecord(key: string): RateLimitRecord | null {
     try {
       const stored = localStorage.getItem(key)
-      if (!stored) return null
+      if (!stored) {
+        return null
+      }
       return JSON.parse(stored) as RateLimitRecord
     } catch {
       return null

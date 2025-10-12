@@ -1,4 +1,7 @@
-import { Casino as CasinoIcon } from '@mui/icons-material'
+import {
+  AccessTime as AccessTimeIcon,
+  Casino as CasinoIcon,
+} from '@mui/icons-material'
 import {
   Box,
   Button,
@@ -15,8 +18,10 @@ import { SelectChangeEvent } from '@mui/material/Select'
 import React from 'react'
 import { useParlayGenerator } from '../hooks/useParlayGenerator'
 import { usePFRSchedule } from '../hooks/usePFRSchedule'
+import { useRateLimit } from '../hooks/useRateLimit'
 import useParlayStore from '../store/parlayStore'
 import TeamLogo from './display/TeamLogo'
+import ErrorBanner from './ErrorBanner'
 import WeekSelector from './WeekSelector'
 
 interface GameSelectorProps {
@@ -39,6 +44,10 @@ const GameSelector: React.FC<GameSelectorProps> = ({
 }) => {
   // Use PFR schedule hook and filter by current week
   const { data: allGames, isLoading: loading, error } = usePFRSchedule()
+
+  // Rate limiting hook
+  const { rateLimitInfo, isAtLimit, isNearLimit, getTimeUntilReset } =
+    useRateLimit()
 
   const games = allGames?.filter(game => game.week === currentWeek) || []
   const selectedGame = useParlayStore(state => state.selectedGame)
@@ -301,16 +310,38 @@ const GameSelector: React.FC<GameSelectorProps> = ({
                   </Typography>
                 </Box>
 
+                {/* Rate limit status */}
+                {rateLimitInfo && (
+                  <>
+                    {isAtLimit() && (
+                      <ErrorBanner
+                        type="rate_limit_reached"
+                        title="Rate limit reached"
+                        message={`You've used all ${rateLimitInfo.total} parlay generations for this hour.`}
+                        countdown={getTimeUntilReset()}
+                      />
+                    )}
+                    {isNearLimit() && !isAtLimit() && (
+                      <ErrorBanner
+                        type="rate_limit_warning"
+                        message="You're approaching your hourly limit"
+                        countdown={getTimeUntilReset()}
+                      />
+                    )}
+                  </>
+                )}
+
                 <Button
                   variant="contained"
                   size="large"
-                  startIcon={<CasinoIcon />}
+                  startIcon={isAtLimit() ? <AccessTimeIcon /> : <CasinoIcon />}
                   onClick={onGenerateParlay}
-                  disabled={!canGenerate || loading}
+                  disabled={!canGenerate || loading || isAtLimit()}
                   sx={{
                     px: 4,
                     py: 1.5,
                     minHeight: '48px',
+                    opacity: isAtLimit() ? 0.6 : 1,
                   }}
                 >
                   {loading ? 'Loading...' : 'Create 3-Leg Parlay'}

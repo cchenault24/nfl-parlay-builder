@@ -217,14 +217,15 @@ function AppContent() {
               )
             })()}
 
-          {/* Show any parlay errors */}
-          {parlayError && (
-            <Box sx={{ mb: 2 }}>
-              <Typography color="error">
-                Error: {parlayError.message}
-              </Typography>
-            </Box>
-          )}
+          {/* Show any parlay errors (excluding rate limit errors which are handled in GameSelector) */}
+          {parlayError &&
+            !parlayError.message?.includes('Rate limit exceeded') && (
+              <Box sx={{ mb: 2 }}>
+                <Typography color="error">
+                  Error: {parlayError.message}
+                </Typography>
+              </Box>
+            )}
 
           {/* ParlayDisplay gets parlay from store */}
           <ParlayDisplay parlay={parlay || undefined} loading={parlayLoading} />
