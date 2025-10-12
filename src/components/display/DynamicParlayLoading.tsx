@@ -315,7 +315,7 @@ const DynamicParlayLoading: React.FC<DynamicParlayLoadingProps> = ({
                   fontSize: '1.8rem',
                 }}
               >
-                +{overtimeSeconds}s
+                {overtimeSeconds > 0 && `+${overtimeSeconds}s`}
               </Typography>
               <Typography
                 variant="caption"
