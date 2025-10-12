@@ -74,6 +74,14 @@ export const useRateLimit = () => {
     }
   }, [data, setRateLimitInfo])
 
+  // Clear rate limit info when user logs out
+  useEffect(() => {
+    if (!user && !loading) {
+      // User logged out - clear rate limit info from store
+      setRateLimitInfo(null)
+    }
+  }, [user, loading, setRateLimitInfo])
+
   /**
    * Update rate limit info from a parlay generation response
    * This allows real-time updates when rate limits change
@@ -120,6 +128,14 @@ export const useRateLimit = () => {
     return storeIsAtLimit()
   }
 
+  /**
+   * Manually reset rate limits (for testing or admin purposes)
+   */
+  const resetRateLimit = (): void => {
+    FrontendRateLimiter.reset(user?.uid || null)
+    refetch() // Refresh the rate limit status
+  }
+
   return {
     rateLimitInfo,
     isLoading: isLoading || loading,
@@ -130,6 +146,7 @@ export const useRateLimit = () => {
     getTimeUntilReset,
     isNearLimit,
     isAtLimit,
+    resetRateLimit,
     isAuthenticated: !!user,
     userId: user?.uid,
   }

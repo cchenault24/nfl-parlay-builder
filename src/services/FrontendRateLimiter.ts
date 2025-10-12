@@ -44,6 +44,9 @@ export class FrontendRateLimiter {
       updatedRecord = { count: 1, windowStart: now }
     } else if (now - record.windowStart >= windowMs) {
       // Window has expired, reset
+      console.log(
+        `Rate limit window expired for key: ${key}. Resetting window.`
+      )
       updatedRecord = { count: 1, windowStart: now }
     } else if (record.count >= limit) {
       // Rate limit exceeded
@@ -101,7 +104,11 @@ export class FrontendRateLimiter {
     }
 
     if (now - record.windowStart >= windowMs) {
-      // Window has expired
+      // Window has expired - clear the expired record and return fresh status
+      console.log(
+        `Rate limit window expired for key: ${key}. Clearing expired record.`
+      )
+      this.setRecord(key, { count: 0, windowStart: now })
       return {
         remaining: limit,
         total: limit,
@@ -125,6 +132,14 @@ export class FrontendRateLimiter {
    * Reset rate limit (for testing or admin purposes)
    */
   static reset(userId?: string | null): void {
+    const key = this.getStorageKey(userId)
+    localStorage.removeItem(key)
+  }
+
+  /**
+   * Clear rate limit data for a specific user (for logout)
+   */
+  static clearForUser(userId?: string | null): void {
     const key = this.getStorageKey(userId)
     localStorage.removeItem(key)
   }
