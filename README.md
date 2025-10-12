@@ -25,6 +25,24 @@ Note: ParlAId is for entertainment and research. It does not provide betting adv
 - Modern, responsive UI built with MUI and TanStack Query
 - Cloud Functions v2 backend (Express) with strict CORS and health endpoint
 
+## How the AI works
+- Inputs provided to the model:
+  - Game context from ESPN: home/away teams, records (overall/home/road), venue, week, status, weather (when available), and current leaders for passing/rushing/receiving.
+  - Risk level selected by the app: conservative, moderate, or aggressive.
+- Prompt design and settings:
+  - System message enforces JSON-only responses.
+  - User message includes the structured game context, analysis guidance, critical requirements for leg selection, allowed bet types, and the exact JSON schema to return.
+  - Model: gpt-4o-mini. Temperature varies by risk: conservative 0.3, moderate 0.5, aggressive 0.8. Max tokens ~1500. Response format is forced to a JSON object.
+- Output contract (validated server-side):
+  - `legs` (exactly 3): each has `betType` (from an allowed enum), `selection` (descriptive string), `odds` (number in American format), `confidence` (0..1), and `reasoning` (2–3 sentences citing specific data from the context).
+  - `analysisSummary`: `matchupSummary`, `keyFactors[]`, and `gamePrediction` with `winner`, `projectedScore {home, away}`, and `winProbability` (0..1).
+  - The server validates the JSON with a schema; invalid or non-JSON responses are rejected.
+- Post-processing done by the backend:
+  - Calculates combined parlay odds by converting each leg’s American odds to decimal, multiplying, then converting back to American.
+  - Sets `parlayConfidence` to the minimum confidence across legs and attaches a human-readable `gameContext`.
+  - Fetches and includes trimmed roster data (top entries) for transparency.
+  - Applies rate limits and supports idempotent retries via an `Idempotency-Key` header.
+
 ## Tech stack
 - Frontend: Vite, React 18, TypeScript, MUI, TanStack Query, Zustand
 - Backend: Firebase Functions v2 (Node 20), Express, Firebase Admin, Zod
