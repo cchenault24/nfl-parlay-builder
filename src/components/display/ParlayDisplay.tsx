@@ -21,18 +21,23 @@ import useModalStore from '../../store/modalStore'
 import useParlayStore from '../../store/parlayStore'
 import type { GeneratedParlay } from '../../types'
 import { AuthModal } from '../auth/AuthModal'
+import DynamicParlayLoading from './DynamicParlayLoading'
 import GameSummaryView from './GameSummaryView'
 import ParlayDisplayFooter from './ParlayDisplayFooter'
 import ParlayLanding from './ParlayLanding'
 import ParlayLegView from './ParlayLegView'
-import ParlayLoading from './ParlayLoading'
 
 interface ParlayDisplayProps {
   parlay?: GeneratedParlay
   loading: boolean
+  isMockMode?: boolean
 }
 
-const ParlayDisplay: React.FC<ParlayDisplayProps> = ({ parlay, loading }) => {
+const ParlayDisplay: React.FC<ParlayDisplayProps> = ({
+  parlay,
+  loading,
+  isMockMode = false,
+}) => {
   const { user } = useAuth()
   const [saving, setSaving] = useState(false)
 
@@ -77,7 +82,7 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({ parlay, loading }) => {
   }
 
   if (loading) {
-    return <ParlayLoading />
+    return <DynamicParlayLoading isMockMode={isMockMode} />
   }
 
   if (!parlay) {

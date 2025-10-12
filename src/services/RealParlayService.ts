@@ -37,9 +37,12 @@ export class RealParlayService extends BaseParlayService {
    */
   async generateParlay(
     game: Game,
-    _options: ParlayGenerationOptions = {}
+    options: ParlayGenerationOptions = {}
   ): Promise<EnhancedParlayGenerationResult> {
     try {
+      const { onLoadingUpdate } = options
+      const startTime = Date.now()
+
       // Require authentication for real API calls
       const currentUser = auth.currentUser
       if (!currentUser) {
@@ -48,7 +51,16 @@ export class RealParlayService extends BaseParlayService {
         )
       }
 
-      const startTime = Date.now()
+      // Phase 1: Retrieving Stats
+      if (onLoadingUpdate) {
+        onLoadingUpdate({
+          phase: 'retrieving_stats',
+          progress: 0,
+          message: 'Getting latest team and player statistics...',
+          estimatedTimeRemaining: 30000,
+        })
+      }
+
       const result = await this.callCloudFunction(game)
       const latency = Date.now() - startTime
 

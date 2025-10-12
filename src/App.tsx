@@ -83,6 +83,7 @@ function AppContent() {
     isPending: parlayLoading,
     error: parlayError,
     reset: resetParlay,
+    serviceStatus,
   } = useParlayGeneratorSelector()
 
   // Check age verification status
@@ -227,7 +228,11 @@ function AppContent() {
           )}
 
           {/* ParlayDisplay gets parlay from store */}
-          <ParlayDisplay parlay={parlay || undefined} loading={parlayLoading} />
+          <ParlayDisplay
+            parlay={parlay || undefined}
+            loading={parlayLoading}
+            isMockMode={serviceStatus.usingMock}
+          />
 
           <ParlayHistory
             open={historyOpen}

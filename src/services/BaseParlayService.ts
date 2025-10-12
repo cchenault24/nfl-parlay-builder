@@ -1,4 +1,5 @@
 import { Game, GameData, ParlayGenerationResult } from '../types'
+import { LoadingPhaseUpdate } from '../types/loading'
 
 export interface StrategyConfig {
   name: string
@@ -21,6 +22,7 @@ export interface ParlayGenerationOptions {
   strategy?: StrategyConfig
   varietyFactors?: VarietyFactors
   debugMode?: boolean
+  onLoadingUpdate?: (update: LoadingPhaseUpdate) => void
 }
 
 export interface EnhancedParlayGenerationResult extends ParlayGenerationResult {

@@ -16,9 +16,20 @@ export class MockParlayService extends BaseParlayService {
    */
   async generateParlay(
     game: Game,
-    _options: ParlayGenerationOptions = {}
+    options: ParlayGenerationOptions = {}
   ): Promise<EnhancedParlayGenerationResult> {
     const startTime = Date.now()
+    const { onLoadingUpdate } = options
+
+    // Emit loading phase updates for mock mode
+    if (onLoadingUpdate) {
+      onLoadingUpdate({
+        phase: 'simulating',
+        progress: 0,
+        message: 'Starting mock generation...',
+        estimatedTimeRemaining: 2000,
+      })
+    }
 
     // Add 2-second delay to simulate real API response time
     await new Promise(resolve => setTimeout(resolve, 2000))
@@ -32,7 +43,7 @@ export class MockParlayService extends BaseParlayService {
     return {
       parlay,
       gameData,
-      rateLimitInfo: undefined, // No rate limiting in mock mode
+      rateLimitInfo: undefined, // No rate limiting for mock data
       metadata: this.createMetadata(
         'mock',
         'mock-generator',
