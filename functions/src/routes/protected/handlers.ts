@@ -1,4 +1,5 @@
 import express from 'express'
+import { getUserRateLimitStatus } from '../../middleware/rateLimit'
 import { fetchPFRSeasonSchedule } from '../../providers/pfr'
 import { fetchPFRTeamDataForGame } from '../../providers/pfr/teamStatsScraper'
 import { generateParlayWithAI } from '../../service/ai'
@@ -227,6 +228,21 @@ export const generateParlayHandler = async (
     const homeRoster = null
     const awayRoster = null
 
+    // Get current rate limit status for the user
+    const rateLimitStatus = user
+      ? await getUserRateLimitStatus(
+          user.uid,
+          '/parlays/generate',
+          20,
+          60 * 60_000
+        )
+      : {
+          remaining: 20,
+          total: 20,
+          resetTime: new Date(Date.now() + 60 * 60_000),
+          currentCount: 0,
+        }
+
     const response: GenerateParlayResponse = {
       parlay: {
         parlayId: `pl_${Math.random().toString(36).slice(2, 10)}`,
@@ -284,6 +300,12 @@ export const generateParlayHandler = async (
         },
         venue: game.venue,
         leaders: game.leaders,
+      },
+      rateLimitInfo: {
+        remaining: rateLimitStatus.remaining,
+        total: rateLimitStatus.total,
+        resetTime: rateLimitStatus.resetTime.toISOString(),
+        currentCount: rateLimitStatus.currentCount,
       },
     }
 

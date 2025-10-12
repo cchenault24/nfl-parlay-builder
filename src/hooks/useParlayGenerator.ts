@@ -46,7 +46,7 @@ export const useParlayGenerator = () => {
         updateFromResponse({
           rateLimitInfo: {
             remaining: data.rateLimitInfo.remaining,
-            total: data.rateLimitInfo.total || 10,
+            total: data.rateLimitInfo.total || 20,
             resetTime:
               typeof data.rateLimitInfo.resetTime === 'string'
                 ? new Date(data.rateLimitInfo.resetTime)

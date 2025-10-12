@@ -8,6 +8,7 @@ import {
   EnhancedParlayGenerationResult,
   ParlayGenerationOptions,
 } from './BaseParlayService'
+import { FrontendRateLimiter } from './FrontendRateLimiter'
 
 /**
  * Real parlay service that makes API calls to cloud functions
@@ -40,6 +41,20 @@ export class RealParlayService extends BaseParlayService {
     _options: ParlayGenerationOptions = {}
   ): Promise<EnhancedParlayGenerationResult> {
     try {
+      // Check frontend rate limit first (for consistency with mock mode)
+      const userId = auth.currentUser?.uid || null
+      const frontendRateLimit = await FrontendRateLimiter.checkAndIncrement(
+        20,
+        60 * 60 * 1000,
+        userId
+      )
+
+      if (!frontendRateLimit.allowed) {
+        throw new Error(
+          `Rate limit exceeded. You have used all ${frontendRateLimit.rateLimitInfo.total} parlay generations for this hour. Please wait until ${frontendRateLimit.rateLimitInfo.resetTime.toLocaleTimeString()} before generating more parlays.`
+        )
+      }
+
       // Require authentication for real API calls
       const currentUser = auth.currentUser
       if (!currentUser) {
@@ -52,10 +67,16 @@ export class RealParlayService extends BaseParlayService {
       const result = await this.callCloudFunction(game)
       const latency = Date.now() - startTime
 
+      // Use frontend rate limit info for consistency (backend rate limiting is still enforced)
       return {
         parlay: result.parlay,
         gameData: result.gameData,
-        rateLimitInfo: undefined,
+        rateLimitInfo: {
+          remaining: frontendRateLimit.rateLimitInfo.remaining,
+          total: frontendRateLimit.rateLimitInfo.total,
+          resetTime: frontendRateLimit.rateLimitInfo.resetTime.toISOString(),
+          currentCount: frontendRateLimit.rateLimitInfo.currentCount,
+        },
         metadata: this.createMetadata(
           'openai',
           'gpt-4',

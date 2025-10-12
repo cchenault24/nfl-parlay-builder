@@ -114,3 +114,67 @@ export function rateLimitByUser(limit: number, windowMs: number) {
     next()
   }
 }
+
+export async function getRateLimitStatus(
+  key: string,
+  limit: number,
+  windowMs: number
+): Promise<{
+  remaining: number
+  total: number
+  resetTime: Date
+  currentCount: number
+}> {
+  const now = Date.now()
+  const ref = rateLimitDocRef(key)
+  const snap = await ref.get()
+
+  if (!snap.exists) {
+    return {
+      remaining: limit,
+      total: limit,
+      resetTime: new Date(now + windowMs),
+      currentCount: 0,
+    }
+  }
+
+  const record = snap.data() as RateLimitRecord
+  const windowStart = record.windowStart
+  const currentCount = record.count
+
+  // Check if window has expired
+  if (now - windowStart >= windowMs) {
+    return {
+      remaining: limit,
+      total: limit,
+      resetTime: new Date(now + windowMs),
+      currentCount: 0,
+    }
+  }
+
+  const remaining = Math.max(0, limit - currentCount)
+  const resetTime = new Date(windowStart + windowMs)
+
+  return {
+    remaining,
+    total: limit,
+    resetTime,
+    currentCount,
+  }
+}
+
+// Function to get rate limit status for a user
+export async function getUserRateLimitStatus(
+  uid: string,
+  route: string,
+  limit: number,
+  windowMs: number
+): Promise<{
+  remaining: number
+  total: number
+  resetTime: Date
+  currentCount: number
+}> {
+  const key = `user:${uid}:route:${route}:win:${windowMs}`
+  return await getRateLimitStatus(key, limit, windowMs)
+}

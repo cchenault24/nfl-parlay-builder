@@ -32,7 +32,7 @@ export class MockParlayService extends BaseParlayService {
     return {
       parlay,
       gameData,
-      rateLimitInfo: undefined, // No rate limiting in mock mode
+      rateLimitInfo: undefined, // No rate limiting for mock data
       metadata: this.createMetadata(
         'mock',
         'mock-generator',

@@ -17,6 +17,8 @@ import {
 import React, { useState } from 'react'
 import { logOut } from '../../config/firebase'
 import { useAuth } from '../../hooks/useAuth'
+import { FrontendRateLimiter } from '../../services/FrontendRateLimiter'
+import useRateLimitStore from '../../store/rateLimitStore'
 import { AuthModal } from './AuthModal'
 
 interface UserMenuProps {
@@ -25,6 +27,7 @@ interface UserMenuProps {
 
 export const UserMenu: React.FC<UserMenuProps> = ({ onViewHistory }) => {
   const { user, userProfile } = useAuth()
+  const { clearRateLimitInfo } = useRateLimitStore()
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
   const [authModalOpen, setAuthModalOpen] = useState(false)
 
@@ -38,6 +41,12 @@ export const UserMenu: React.FC<UserMenuProps> = ({ onViewHistory }) => {
 
   const handleLogout = async () => {
     try {
+      // Clear rate limit data for this user on logout
+      if (user?.uid) {
+        FrontendRateLimiter.reset(user.uid)
+        clearRateLimitInfo() // Also clear the store
+      }
+
       await logOut()
       handleMenuClose()
     } catch (error) {
