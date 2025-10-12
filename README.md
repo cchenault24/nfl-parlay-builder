@@ -2,6 +2,29 @@
 
 AI-powered NFL parlay generator built with Vite + React (TypeScript) and Firebase Functions v2 (Express). Fetches real-time NFL data from ESPN, generates 3-leg parlays with OpenAI, and stores user history in Firestore.
 
+## Overview
+ParlAId helps NFL fans quickly generate data-driven 3-leg parlays. It combines live game and team information from ESPN with AI analysis to propose a coherent parlay with clear reasoning, confidence, and combined odds. The app runs in the browser with Firebase Authentication for sign-in and Firestore for saving a personal parlay history.
+
+## How to use
+1. Sign in with Google or email to enable secure parlay generation.
+2. Pick a week (the current week is selected automatically).
+3. Choose a game from the schedule.
+4. Click "Create 3-Leg Parlay" to generate AI-driven selections.
+5. Review the parlay: legs, odds, confidence, and AI reasoning.
+6. Save the parlay to your profile, or generate another.
+7. Open "Parlay History" any time to view your saved results.
+
+Note: ParlAId is for entertainment and research. It does not provide betting advice. Please follow local laws and practice responsible gambling.
+
+## Features
+- AI-generated 3-leg parlays with concise reasoning and confidence
+- Real-time NFL data via ESPN with server-side caching
+- Secure authentication (Firebase Auth) and per-user rate limiting
+- Idempotent requests to safely retry without duplicates
+- Parlay history stored in Firestore with real-time updates
+- Modern, responsive UI built with MUI and TanStack Query
+- Cloud Functions v2 backend (Express) with strict CORS and health endpoint
+
 ## Tech stack
 - Frontend: Vite, React 18, TypeScript, MUI, TanStack Query, Zustand
 - Backend: Firebase Functions v2 (Node 20), Express, Firebase Admin, Zod
