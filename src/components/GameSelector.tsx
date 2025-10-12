@@ -32,6 +32,8 @@ interface GameSelectorProps {
   onWeekChange: (week: number) => void
   availableWeeks: number[]
   weekLoading?: boolean
+  // Error props
+  parlayError?: Error | null
 }
 
 const GameSelector: React.FC<GameSelectorProps> = ({
@@ -41,13 +43,13 @@ const GameSelector: React.FC<GameSelectorProps> = ({
   onWeekChange,
   availableWeeks,
   weekLoading = false,
+  parlayError,
 }) => {
   // Use PFR schedule hook and filter by current week
   const { data: allGames, isLoading: loading, error } = usePFRSchedule()
 
   // Rate limiting hook
-  const { rateLimitInfo, isAtLimit, isNearLimit, getTimeUntilReset } =
-    useRateLimit()
+  const { rateLimitInfo, isAtLimit, getTimeUntilReset } = useRateLimit()
 
   const games = allGames?.filter(game => game.week === currentWeek) || []
   const selectedGame = useParlayStore(state => state.selectedGame)
@@ -100,13 +102,11 @@ const GameSelector: React.FC<GameSelectorProps> = ({
     return (
       <Card sx={{ mb: 3 }}>
         <CardContent sx={{ textAlign: 'center', py: 4 }}>
-          <Typography variant="body1" color="error" sx={{ mb: 2 }}>
-            Error loading games:{' '}
-            {error instanceof Error ? error.message : String(error)}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Please try again or select a different week
-          </Typography>
+          <ErrorBanner
+            type="error"
+            title="Error loading games"
+            message={`${error instanceof Error ? error.message : String(error)}. Please try again or select a different week.`}
+          />
         </CardContent>
       </Card>
     )
@@ -321,15 +321,18 @@ const GameSelector: React.FC<GameSelectorProps> = ({
                         countdown={getTimeUntilReset()}
                       />
                     )}
-                    {isNearLimit() && !isAtLimit() && (
-                      <ErrorBanner
-                        type="rate_limit_warning"
-                        message="You're approaching your hourly limit"
-                        countdown={getTimeUntilReset()}
-                      />
-                    )}
                   </>
                 )}
+
+                {/* Parlay generation errors (excluding rate limit errors) */}
+                {parlayError &&
+                  !parlayError.message?.includes('Rate limit exceeded') && (
+                    <ErrorBanner
+                      type="error"
+                      title="Error generating parlay"
+                      message={parlayError.message}
+                    />
+                  )}
 
                 <Button
                   variant="contained"

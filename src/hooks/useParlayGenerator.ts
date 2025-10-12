@@ -1,5 +1,6 @@
 // src/hooks/useParlayGenerator.ts - Fixed version
 import { useMutation } from '@tanstack/react-query'
+import { useEffect, useRef, useState } from 'react'
 import { ServiceContainer } from '../services/container'
 import useParlayStore from '../store/parlayStore'
 import { Game } from '../types'
@@ -9,6 +10,149 @@ import { useRateLimit } from './useRateLimit'
 export const useParlayGenerator = () => {
   const setParlay = useParlayStore(state => state.setParlay)
   const { updateFromResponse } = useRateLimit()
+
+  // Retry state
+  const [isRetrying, setIsRetrying] = useState(false)
+  const [hasExhaustedRetries, setHasExhaustedRetries] = useState(false)
+  const abortControllerRef = useRef<AbortController | null>(null)
+
+  // Cleanup effect to cancel requests on unmount
+  useEffect(() => {
+    return () => {
+      cancelRequests()
+    }
+  }, [])
+
+  // Helper function to determine if an error is retryable
+  const isRetryableError = (error: Error): boolean => {
+    const retryablePatterns = [
+      'ai_service_unavailable',
+      'service temporarily unavailable',
+      'network error',
+      'timeout',
+      'connection failed',
+      'internal server error',
+      'bad gateway',
+      'service unavailable',
+    ]
+
+    return retryablePatterns.some(pattern =>
+      error.message.toLowerCase().includes(pattern.toLowerCase())
+    )
+  }
+
+  // Cancel any ongoing requests
+  const cancelRequests = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+    }
+  }
+
+  // Reset retry state
+  const resetRetryState = () => {
+    setIsRetrying(false)
+    setHasExhaustedRetries(false)
+    cancelRequests()
+  }
+
+  // Retry function with proper cancellation and error handling
+  const retryGeneration = async (
+    game: Game,
+    shouldUseMock: boolean,
+    attemptNumber: number
+  ): Promise<void> => {
+    // Check if we've already exhausted retries
+    if (hasExhaustedRetries) {
+      console.info('Retries already exhausted, not attempting retry')
+      return
+    }
+
+    // Check if we've reached max attempts (3 total attempts: 1 initial + 2 retries)
+    if (attemptNumber > 2) {
+      console.info('Max retries reached, giving up')
+      setIsRetrying(false)
+      setHasExhaustedRetries(true)
+      setParlay(null) // Clear parlay to show error state
+      return
+    }
+
+    console.info(`Retrying parlay generation (attempt ${attemptNumber + 1}/3)`)
+    setIsRetrying(true)
+
+    // Cancel any previous request
+    cancelRequests()
+
+    // Create new abort controller for this retry
+    const abortController = new AbortController()
+    abortControllerRef.current = abortController
+
+    // Wait 2 seconds before retry
+    await new Promise(resolve => setTimeout(resolve, 2000))
+
+    // Check if request was cancelled during wait
+    if (abortController.signal.aborted) {
+      console.info('Retry cancelled during wait period')
+      return
+    }
+
+    try {
+      const provider = shouldUseMock ? 'mock' : 'openai'
+      const parlayService = ServiceContainer.instance.getParlayService(provider)
+      const result = await parlayService.generateParlay(game)
+
+      // Check if request was cancelled during execution
+      if (abortController.signal.aborted) {
+        console.info('Retry cancelled during execution')
+        return
+      }
+
+      // Success - reset retry state
+      resetRetryState()
+
+      // Handle success
+      if (result.rateLimitInfo) {
+        updateFromResponse({
+          rateLimitInfo: {
+            remaining: result.rateLimitInfo.remaining,
+            total: result.rateLimitInfo.total || 20,
+            resetTime:
+              typeof result.rateLimitInfo.resetTime === 'string'
+                ? new Date(result.rateLimitInfo.resetTime)
+                : result.rateLimitInfo.resetTime,
+            currentCount: result.rateLimitInfo.currentCount,
+          },
+        })
+      }
+
+      // Store the parlay data with gameData attached for UI consumption
+      const parlayWithGameData = {
+        ...result.parlay,
+        gameData: result.gameData,
+      }
+
+      setParlay(parlayWithGameData)
+    } catch (retryError) {
+      // Check if request was cancelled
+      if (abortController.signal.aborted) {
+        console.info('Retry cancelled, not processing error')
+        return
+      }
+
+      console.error(`Retry attempt ${attemptNumber + 1} failed:`, retryError)
+
+      if (isRetryableError(retryError as Error) && attemptNumber < 2) {
+        // Try again
+        await retryGeneration(game, shouldUseMock, attemptNumber + 1)
+      } else {
+        // Final failure - exhaust retries
+        console.error('All retry attempts failed, exhausting retries')
+        setIsRetrying(false)
+        setHasExhaustedRetries(true)
+        setParlay(null) // Clear parlay to show error state
+      }
+    }
+  }
 
   const mutation = useMutation({
     mutationFn: async ({
@@ -22,7 +166,7 @@ export const useParlayGenerator = () => {
       const parlayService = ServiceContainer.instance.getParlayService(provider)
       return await parlayService.generateParlay(game)
     },
-    onError: error => {
+    onError: async (error, variables) => {
       console.error('Error generating parlay:', error)
 
       // Handle authentication errors specifically
@@ -31,17 +175,38 @@ export const useParlayGenerator = () => {
         error.message.includes('not authenticated')
       ) {
         console.error('Authentication required - user needs to log in')
-        // You could trigger a re-authentication flow here if needed
+        resetRetryState()
+        setParlay(null)
+        return
       }
 
       if (error instanceof RateLimitError) {
         console.warn('Rate limit exceeded:', error.rateLimitInfo)
         updateFromResponse({ rateLimitInfo: error.rateLimitInfo })
+        resetRetryState()
+        setParlay(null)
+        return
       }
 
+      // Check if error is retryable and we haven't exhausted retries
+      if (
+        error instanceof Error &&
+        isRetryableError(error) &&
+        !hasExhaustedRetries
+      ) {
+        console.info('Retryable error detected, attempting retry...')
+        await retryGeneration(variables.game, variables.shouldUseMock, 0) // Start with attempt 0 (first retry)
+        return // Don't set parlay to null here, let retryGeneration handle it
+      }
+
+      // Non-retryable error or retries exhausted
+      resetRetryState()
       setParlay(null)
     },
     onSuccess: data => {
+      // Reset retry state on success
+      resetRetryState()
+
       if (data.rateLimitInfo) {
         updateFromResponse({
           rateLimitInfo: {
@@ -69,11 +234,16 @@ export const useParlayGenerator = () => {
   return {
     mutate: mutation.mutate, // Return 'mutate' to match App.tsx expectations
     data: mutation.data?.parlay,
-    isPending: mutation.isPending, // Return 'isPending' to match App.tsx expectations
-    isError: mutation.isError,
+    isPending: mutation.isPending || isRetrying, // Include retry state in pending
+    isError: mutation.isError || hasExhaustedRetries, // Include exhausted retries as error state
     error: mutation.error,
-    reset: mutation.reset,
+    reset: () => {
+      mutation.reset()
+      resetRetryState()
+    },
     isSuccess: mutation.isSuccess,
+    // Remove retry-related UI state - only keep for internal use
+    cancelRequests, // Expose cancel function for external use
   }
 }
 

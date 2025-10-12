@@ -1,5 +1,8 @@
 import express from 'express'
-import { getUserRateLimitStatus } from '../../middleware/rateLimit'
+import {
+  clearUserRateLimits,
+  getUserRateLimitStatus,
+} from '../../middleware/rateLimit'
 import { fetchPFRSeasonSchedule } from '../../providers/pfr'
 import { fetchPFRTeamDataForGame } from '../../providers/pfr/teamStatsScraper'
 import { generateParlayWithAI } from '../../service/ai'
@@ -327,6 +330,44 @@ export const generateParlayHandler = async (
       500,
       'internal_error',
       'Failed to generate parlay',
+      correlationId
+    )
+  }
+}
+
+export const clearUserRateLimitsHandler = async (
+  req: express.Request,
+  res: express.Response
+) => {
+  const authReq = req as AuthenticatedRequest
+  const correlationId = authReq.correlationId
+
+  try {
+    const user = authReq.user
+    if (!user) {
+      return errorResponse(
+        res,
+        401,
+        'unauthorized',
+        'User not authenticated',
+        correlationId
+      )
+    }
+
+    await clearUserRateLimits(user.uid)
+
+    res.json({
+      success: true,
+      message: 'Rate limits cleared successfully',
+      userId: user.uid,
+    })
+  } catch (error) {
+    console.error('Error clearing user rate limits:', error)
+    return errorResponse(
+      res,
+      500,
+      'internal_error',
+      'Failed to clear rate limits',
       correlationId
     )
   }

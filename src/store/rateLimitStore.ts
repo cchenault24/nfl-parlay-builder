@@ -24,6 +24,7 @@ interface RateLimitStore {
     }
   }) => void
   clearRateLimitInfo: () => void
+  clearPersistedData: () => void
   isNearLimit: () => boolean
   isAtLimit: () => boolean
   getTimeUntilReset: () => string
@@ -70,6 +71,16 @@ const useRateLimitStore = create<RateLimitStore>()(
           rateLimitInfo: null,
           lastUpdated: null,
         })
+      },
+
+      clearPersistedData: () => {
+        // Clear the in-memory state
+        set({
+          rateLimitInfo: null,
+          lastUpdated: null,
+        })
+        // Clear the persisted data from localStorage
+        localStorage.removeItem('nfl-parlay-rate-limit-store')
       },
 
       isNearLimit: () => {
