@@ -56,7 +56,9 @@ export const useDynamicLoading = ({
 
   // Function to complete loading when API finishes
   const completeLoading = () => {
-    if (isCompletedRef.current) return
+    if (isCompletedRef.current) {
+      return
+    }
     isCompletedRef.current = true
 
     // Clear the interval

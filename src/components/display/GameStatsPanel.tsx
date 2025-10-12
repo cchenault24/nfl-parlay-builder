@@ -114,6 +114,7 @@ const GameStatsPanel: React.FC<GameStatsPanelProps> = ({
 
   return (
     <Accordion
+      data-testid="game-stats-panel"
       sx={{
         mb: 2,
         '&:before': {

@@ -13,13 +13,15 @@ import {
   Divider,
   Grid,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material'
 import React, { useEffect, useState } from 'react'
 import { saveParlayToUser } from '../../config/firebase'
 import { useAuth } from '../../hooks/useAuth'
 import useModalStore from '../../store/modalStore'
 import useParlayStore from '../../store/parlayStore'
-import type { GeneratedParlay } from '../../types'
+import type { GameData, GeneratedParlay } from '../../types'
 import { AuthModal } from '../auth/AuthModal'
 import DynamicParlayLoading from './DynamicParlayLoading'
 import GameSummaryView from './GameSummaryView'
@@ -28,7 +30,7 @@ import ParlayLanding from './ParlayLanding'
 import ParlayLegView from './ParlayLegView'
 
 interface ParlayDisplayProps {
-  parlay?: GeneratedParlay
+  parlay?: GeneratedParlay & { gameData?: GameData }
   loading: boolean
   isMockMode?: boolean
 }
@@ -40,6 +42,8 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({
 }) => {
   const { user } = useAuth()
   const [saving, setSaving] = useState(false)
+  const theme = useTheme()
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
 
   const setParlay = useParlayStore(state => state.setParlay)
   const authModalOpen = useModalStore(state => state.authModalOpen)
@@ -54,6 +58,33 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({
   useEffect(() => {
     setParlay(parlay || null)
   }, [parlay, setParlay])
+
+  // Scroll to game stats panel when loading completes on mobile
+  useEffect(() => {
+    if (isMobile && !loading && parlay && parlay.gameData) {
+      // Small delay to ensure the game stats panel is rendered
+      const timer = setTimeout(() => {
+        const gameStatsPanel =
+          document.querySelector('[data-testid="game-stats-panel"]') ||
+          document.querySelector('h2') // Fallback to first h2 (likely game stats title)
+
+        if (gameStatsPanel) {
+          // Get the element's position and add padding
+          const elementRect = gameStatsPanel.getBoundingClientRect()
+          const padding = 20 // 20px padding from top
+          const scrollTop = window.pageYOffset + elementRect.top - padding
+
+          // Smooth scroll to position the element at the top with padding
+          window.scrollTo({
+            top: Math.max(0, scrollTop),
+            behavior: 'smooth',
+          })
+        }
+      }, 100)
+
+      return () => clearTimeout(timer)
+    }
+  }, [loading, parlay, isMobile])
 
   const handleSaveParlay = async () => {
     if (!user) {
@@ -116,7 +147,7 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({
           <Grid container spacing={2} sx={{ mb: 3 }}>
             {parlay.legs.map((leg, index) => (
               <ParlayLegView
-                key={`${parlay.parlayId}-${leg.betType}-${leg.selection}-${leg.odds}-${index}`}
+                key={`${parlay.parlayId}-${leg.betType}-${leg.selection}-${leg.odds}-${leg.team || 'unknown'}`}
                 leg={leg}
                 index={index}
               />
