@@ -15,8 +15,11 @@ import {
   Typography,
 } from '@mui/material'
 import React, { useState } from 'react'
+import { API_CONFIG } from '../../config/api'
 import { logOut } from '../../config/firebase'
 import { useAuth } from '../../hooks/useAuth'
+import { FrontendRateLimiter } from '../../services/FrontendRateLimiter'
+import useRateLimitStore from '../../store/rateLimitStore'
 import { AuthModal } from './AuthModal'
 
 interface UserMenuProps {
@@ -25,6 +28,7 @@ interface UserMenuProps {
 
 export const UserMenu: React.FC<UserMenuProps> = ({ onViewHistory }) => {
   const { user, userProfile } = useAuth()
+  const { clearPersistedData } = useRateLimitStore()
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
   const [authModalOpen, setAuthModalOpen] = useState(false)
 
@@ -38,6 +42,38 @@ export const UserMenu: React.FC<UserMenuProps> = ({ onViewHistory }) => {
 
   const handleLogout = async () => {
     try {
+      // Clear rate limit data for this user on logout
+      if (user?.uid) {
+        // Clear frontend rate limits
+        FrontendRateLimiter.reset(user.uid)
+        FrontendRateLimiter.clearAll() // Clear all rate limit data
+        clearPersistedData() // Clear both in-memory and persisted store data
+
+        // Clear backend rate limits
+        try {
+          const token = await user.getIdToken()
+          const response = await fetch(
+            `${API_CONFIG.CLOUD_FUNCTIONS.baseURL}/api/rate-limits/clear`,
+            {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+            }
+          )
+
+          if (!response.ok) {
+            console.warn(
+              'Failed to clear backend rate limits:',
+              response.status
+            )
+          }
+        } catch (error) {
+          console.error('Error clearing backend rate limits:', error)
+        }
+      }
+
       await logOut()
       handleMenuClose()
     } catch (error) {

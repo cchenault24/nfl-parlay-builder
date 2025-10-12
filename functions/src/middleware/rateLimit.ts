@@ -114,3 +114,109 @@ export function rateLimitByUser(limit: number, windowMs: number) {
     next()
   }
 }
+
+export async function getRateLimitStatus(
+  key: string,
+  limit: number,
+  windowMs: number
+): Promise<{
+  remaining: number
+  total: number
+  resetTime: Date
+  currentCount: number
+}> {
+  const now = Date.now()
+  const ref = rateLimitDocRef(key)
+  const snap = await ref.get()
+
+  if (!snap.exists) {
+    return {
+      remaining: limit,
+      total: limit,
+      resetTime: new Date(now + windowMs),
+      currentCount: 0,
+    }
+  }
+
+  const record = snap.data() as RateLimitRecord
+  const windowStart = record.windowStart
+  const currentCount = record.count
+
+  // Check if window has expired
+  if (now - windowStart >= windowMs) {
+    return {
+      remaining: limit,
+      total: limit,
+      resetTime: new Date(now + windowMs),
+      currentCount: 0,
+    }
+  }
+
+  const remaining = Math.max(0, limit - currentCount)
+  const resetTime = new Date(windowStart + windowMs)
+
+  return {
+    remaining,
+    total: limit,
+    resetTime,
+    currentCount,
+  }
+}
+
+// Function to get rate limit status for a user
+export async function getUserRateLimitStatus(
+  uid: string,
+  route: string,
+  limit: number,
+  windowMs: number
+): Promise<{
+  remaining: number
+  total: number
+  resetTime: Date
+  currentCount: number
+}> {
+  const key = `user:${uid}:route:${route}:win:${windowMs}`
+  return await getRateLimitStatus(key, limit, windowMs)
+}
+
+// Function to clear all rate limits for a specific user
+export async function clearUserRateLimits(uid: string): Promise<void> {
+  // Clear rate limits for the parlay generation route
+  // Try different possible route variations that might be used
+  const routes = [
+    '/parlays/generate',
+    'parlays/generate',
+    '/parlays/generate/',
+    'parlays/generate/',
+  ]
+  const windowMs = 60 * 60 * 1000 // 1 hour window
+
+  const batch = db.batch()
+  let deleteCount = 0
+
+  for (const route of routes) {
+    const key = `user:${uid}:route:${route}:win:${windowMs}`
+    const ref = rateLimitDocRef(key)
+    const doc = await ref.get()
+
+    if (doc.exists) {
+      batch.delete(ref)
+      deleteCount++
+    }
+  }
+
+  if (deleteCount > 0) {
+    await batch.commit()
+  }
+}
+
+// Function to clear rate limits for a specific user and route
+export async function clearUserRateLimitForRoute(
+  uid: string,
+  route: string,
+  windowMs: number
+): Promise<void> {
+  const key = `user:${uid}:route:${route}:win:${windowMs}`
+  const ref = rateLimitDocRef(key)
+  await ref.delete()
+}

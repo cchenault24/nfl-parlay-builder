@@ -286,6 +286,12 @@ export interface GenerateParlayResponse {
     }
   }
   gameData: GameData
+  rateLimitInfo: {
+    remaining: number
+    total: number
+    resetTime: string // ISO string format
+    currentCount: number
+  }
 }
 
 export interface GenerateParlayRequest {

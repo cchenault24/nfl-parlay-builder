@@ -133,4 +133,10 @@ export type GenerateParlayResponse = {
       receiving?: { name: string; stats: string; value: number }
     }
   }
+  rateLimitInfo: {
+    remaining: number
+    total: number
+    resetTime: string // ISO string format
+    currentCount: number
+  }
 }

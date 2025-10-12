@@ -166,7 +166,7 @@ export const ParlayHistory: React.FC<ParlayHistoryProps> = ({
                       <Grid
                         item
                         xs={12}
-                        key={`${parlay.parlayId}-${leg.betType}-${leg.selection}-${leg.odds}-${leg.team || 'unknown'}`}
+                        key={`${parlay.parlayId}-${leg.betType}-${leg.selection}-${leg.odds}-${leg.confidence}`}
                       >
                         <Box
                           sx={{
