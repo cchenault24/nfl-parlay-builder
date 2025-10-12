@@ -33,8 +33,9 @@ const TeamLogo: React.FC<TeamLogoProps> = ({
     let isMounted = true
 
     const loadLogo = async () => {
-      if (!teamName) {
+      if (!teamName || teamName.trim().length < 2) {
         setIsLoading(false)
+        setHasError(true)
         return
       }
 
@@ -46,7 +47,11 @@ const TeamLogo: React.FC<TeamLogoProps> = ({
         const url = getTeamLogoUrl(teamName)
 
         if (isMounted) {
-          setLogoUrl(url)
+          if (url) {
+            setLogoUrl(url)
+          } else {
+            setHasError(true)
+          }
           setIsLoading(false)
         }
       } catch {
@@ -65,7 +70,11 @@ const TeamLogo: React.FC<TeamLogoProps> = ({
   }, [teamName])
 
   const dimensions = sizeMap[size]
-  const fallbackDisplayText = fallbackText || teamName.slice(0, 3).toUpperCase()
+  const fallbackDisplayText =
+    fallbackText ||
+    (teamName && teamName.length >= 2
+      ? teamName.slice(0, 3).toUpperCase()
+      : 'UNK')
 
   if (isLoading) {
     return (

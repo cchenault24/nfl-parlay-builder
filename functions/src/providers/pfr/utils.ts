@@ -47,7 +47,7 @@ export function getPFRCodeFromTeamName(teamName: string): string | null {
 /**
  * Get team abbreviation from team name for logo URLs
  */
-function getTeamAbbreviation(teamName: string): string {
+function getTeamAbbreviation(teamName: string): string | null {
   const teamNameToAbbreviation: { [key: string]: string } = {
     'Dallas Cowboys': 'DAL',
     'San Francisco 49ers': 'SF',
@@ -83,14 +83,20 @@ function getTeamAbbreviation(teamName: string): string {
     'Washington Commanders': 'WAS',
   }
 
-  return teamNameToAbbreviation[teamName] || teamName.toUpperCase().slice(0, 3)
+  const fallback = teamName.toUpperCase().slice(0, 3)
+  return (
+    teamNameToAbbreviation[teamName] || (fallback.length >= 2 ? fallback : null)
+  )
 }
 
 /**
  * Generate logo URL using Fantasy Nerds API
  */
-function getTeamLogoUrl(teamName: string): string {
+function getTeamLogoUrl(teamName: string): string | null {
   const abbreviation = getTeamAbbreviation(teamName)
+  if (!abbreviation) {
+    return null
+  }
   return `https://www.fantasynerds.com/images/nfl/teams/${abbreviation}.gif`
 }
 
@@ -102,15 +108,16 @@ export function createPFRTeamFromName(teamName: string): PFRTeam {
     getPFRCodeFromTeamName(teamName) ||
     teamName.toLowerCase().replace(/\s+/g, '')
   const abbreviation = getTeamAbbreviation(teamName)
+  const logoUrl = getTeamLogoUrl(teamName)
 
   return {
     id: pfrCode,
     name: teamName,
     displayName: teamName,
-    abbreviation,
+    abbreviation: abbreviation || 'UNK',
     color: '000000', // Default color - could be enhanced with actual team colors
     alternateColor: '000000',
-    logo: getTeamLogoUrl(teamName),
+    logo: logoUrl || '',
   }
 }
 

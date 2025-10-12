@@ -44,9 +44,6 @@ export class FrontendRateLimiter {
       updatedRecord = { count: 1, windowStart: now }
     } else if (now - record.windowStart >= windowMs) {
       // Window has expired, reset
-      console.log(
-        `Rate limit window expired for key: ${key}. Resetting window.`
-      )
       updatedRecord = { count: 1, windowStart: now }
     } else if (record.count >= limit) {
       // Rate limit exceeded
@@ -105,9 +102,6 @@ export class FrontendRateLimiter {
 
     if (now - record.windowStart >= windowMs) {
       // Window has expired - clear the expired record and return fresh status
-      console.log(
-        `Rate limit window expired for key: ${key}. Clearing expired record.`
-      )
       this.setRecord(key, { count: 0, windowStart: now })
       return {
         remaining: limit,

@@ -56,7 +56,7 @@ const TEAM_ABBREVIATIONS: Record<string, string> = {
 /**
  * Get team abbreviation from team name
  */
-export function getTeamAbbreviation(teamName: string): string {
+export function getTeamAbbreviation(teamName: string): string | null {
   const normalizedName = teamName.toLowerCase().trim()
 
   // Direct match first
@@ -81,14 +81,21 @@ export function getTeamAbbreviation(teamName: string): string {
     }
   }
 
-  // Fallback to first 3 characters
-  return teamName.toUpperCase().slice(0, 3)
+  // Fallback to first 3 characters, but ensure minimum length
+  const fallback = teamName.toUpperCase().slice(0, 3)
+  return fallback.length >= 2 ? fallback : null
 }
 
 /**
  * Generate logo URL using ESPN
  */
-export function getTeamLogoUrl(teamName: string): string {
+export function getTeamLogoUrl(teamName: string): string | null {
+  if (teamName.toLowerCase() === 'both teams') {
+    return null
+  }
+
   const abbreviation = getTeamAbbreviation(teamName)
-  return `https://a.espncdn.com/i/teamlogos/nfl/500/${abbreviation.toLowerCase()}.png`
+  return abbreviation
+    ? `https://a.espncdn.com/i/teamlogos/nfl/500/${abbreviation.toLowerCase()}.png`
+    : null
 }

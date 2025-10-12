@@ -101,9 +101,6 @@ export function rateLimitByUser(limit: number, windowMs: number) {
     const uid = user.uid
     const route = req.path || 'unknown'
     const key = `user:${uid}:route:${route}:win:${windowMs}`
-    console.info(
-      `Rate limiting check for user ${uid}, route: "${route}", key: "${key}"`
-    )
     const allowed = await checkAndIncrementRateLimit(key, limit, windowMs)
     if (!allowed) {
       return errorResponse(
@@ -184,49 +181,32 @@ export async function getUserRateLimitStatus(
 
 // Function to clear all rate limits for a specific user
 export async function clearUserRateLimits(uid: string): Promise<void> {
-  try {
-    console.info(`Attempting to clear rate limits for user: ${uid}`)
+  // Clear rate limits for the parlay generation route
+  // Try different possible route variations that might be used
+  const routes = [
+    '/parlays/generate',
+    'parlays/generate',
+    '/parlays/generate/',
+    'parlays/generate/',
+  ]
+  const windowMs = 60 * 60 * 1000 // 1 hour window
 
-    // Clear rate limits for the parlay generation route
-    // Try different possible route variations that might be used
-    const routes = [
-      '/parlays/generate',
-      'parlays/generate',
-      '/parlays/generate/',
-      'parlays/generate/',
-    ]
-    const windowMs = 60 * 60 * 1000 // 1 hour window
+  const batch = db.batch()
+  let deleteCount = 0
 
-    const batch = db.batch()
-    let deleteCount = 0
+  for (const route of routes) {
+    const key = `user:${uid}:route:${route}:win:${windowMs}`
+    const ref = rateLimitDocRef(key)
+    const doc = await ref.get()
 
-    for (const route of routes) {
-      const key = `user:${uid}:route:${route}:win:${windowMs}`
-      const ref = rateLimitDocRef(key)
-      const doc = await ref.get()
-
-      if (doc.exists) {
-        console.info(`Found rate limit document for route: ${route}`)
-        batch.delete(ref)
-        deleteCount++
-      } else {
-        console.info(`No rate limit document found for route: ${route}`)
-      }
+    if (doc.exists) {
+      batch.delete(ref)
+      deleteCount++
     }
+  }
 
-    if (deleteCount > 0) {
-      await batch.commit()
-      console.info(
-        `Successfully cleared ${deleteCount} rate limit records for user ${uid}`
-      )
-    } else {
-      console.info(
-        `No rate limit records found for user ${uid} with any of the tried routes`
-      )
-    }
-  } catch (error) {
-    console.error('Error clearing user rate limits:', error)
-    throw error
+  if (deleteCount > 0) {
+    await batch.commit()
   }
 }
 
@@ -236,13 +216,7 @@ export async function clearUserRateLimitForRoute(
   route: string,
   windowMs: number
 ): Promise<void> {
-  try {
-    const key = `user:${uid}:route:${route}:win:${windowMs}`
-    const ref = rateLimitDocRef(key)
-    await ref.delete()
-    console.info(`Cleared rate limit for user ${uid} on route ${route}`)
-  } catch (error) {
-    console.error('Error clearing user rate limit for route:', error)
-    throw error
-  }
+  const key = `user:${uid}:route:${route}:win:${windowMs}`
+  const ref = rateLimitDocRef(key)
+  await ref.delete()
 }

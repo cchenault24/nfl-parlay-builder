@@ -12,13 +12,6 @@ interface RateLimitInfo {
   currentCount: number
 }
 
-// interface RateLimitResponse {
-//   success: boolean
-//   data?: RateLimitInfo & { resetTime: string } // API returns string, we convert to Date
-//   error?: string
-// }
-
-// Updated interface to make rateLimitInfo required when passed
 interface ParlayGenerationResponse {
   rateLimitInfo: {
     remaining: number
