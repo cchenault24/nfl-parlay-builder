@@ -1,9 +1,9 @@
 # ParlAId (nfl-parlay-builder)
 
-AI-powered NFL parlay generator built with Vite + React (TypeScript) and Firebase Functions v2 (Express). Fetches real-time NFL data from ESPN, generates 3-leg parlays with OpenAI, and stores user history in Firestore.
+AI-powered NFL parlay generator built with Vite + React (TypeScript) and Firebase Functions v2 (Express). Fetches real-time NFL data from Pro Football Reference, generates 3-leg parlays with OpenAI, and stores user history in Firestore.
 
 ## Overview
-ParlAId helps NFL fans quickly generate data-driven 3-leg parlays. It combines live game and team information from ESPN with AI analysis to propose a coherent parlay with clear reasoning, confidence, and combined odds. The app runs in the browser with Firebase Authentication for sign-in and Firestore for saving a personal parlay history.
+ParlAId helps NFL fans quickly generate data-driven 3-leg parlays. It combines game and team information from Pro Football Reference with AI analysis to propose a coherent parlay with clear reasoning, confidence, and combined odds. The app runs in the browser with Firebase Authentication for sign-in and Firestore for saving a personal parlay history.
 
 ## How to use
 1. Sign in with Google or email to enable secure parlay generation.
@@ -18,7 +18,7 @@ Note: ParlAId is for entertainment and research. It does not provide betting adv
 
 ## Features
 - AI-generated 3-leg parlays with concise reasoning and confidence
-- Real-time NFL data via ESPN with server-side caching
+- Real-time NFL data via Pro Football Reference with server-side caching
 - Secure authentication (Firebase Auth) and per-user rate limiting
 - Idempotent requests to safely retry without duplicates
 - Parlay history stored in Firestore with real-time updates
@@ -27,7 +27,7 @@ Note: ParlAId is for entertainment and research. It does not provide betting adv
 
 ## How the AI works
 - Inputs provided to the model:
-  - Game context from ESPN: home/away teams, records (overall/home/road), venue, week, status, weather (when available), and current leaders for passing/rushing/receiving.
+  - Game context from Pro Football Reference: home/away teams, records (overall/home/road), venue, week, status, and relevant player/team performance indicators available from PFR.
   - Risk level selected by the app: conservative, moderate, or aggressive.
 - Prompt design and settings:
   - System message enforces JSON-only responses.
@@ -46,7 +46,7 @@ Note: ParlAId is for entertainment and research. It does not provide betting adv
 ## Tech stack
 - Frontend: Vite, React 18, TypeScript, MUI, TanStack Query, Zustand
 - Backend: Firebase Functions v2 (Node 20), Express, Firebase Admin, Zod
-- Data: ESPN public API, Firestore (caching, rate limits, idempotency, user parlays)
+- Data: Pro Football Reference, Firestore (caching, rate limits, idempotency, user parlays)
 - Tooling: ESLint (flat config), Prettier, GitHub Actions
 
 ## Repository layout
@@ -64,7 +64,7 @@ Note: ParlAId is for entertainment and research. It does not provide betting adv
 │  │  ├─ routes/public          # GET /v2/weeks/current, GET /v2/games
 │  │  ├─ routes/protected       # POST /v2/parlays/generate (auth req'd)
 │  │  ├─ middleware             # auth + rate limiting
-│  │  ├─ providers/espn.ts      # ESPN data fetchers
+│  │  ├─ providers/             # Pro Football Reference data fetchers
 │  │  └─ service/ai/            # OpenAI integration
 │  └─ tsconfig.json
 ├─ .github/workflows/           # CI for hosting + functions deploys
