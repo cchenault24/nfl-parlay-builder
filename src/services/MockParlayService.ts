@@ -1,10 +1,6 @@
 // src/services/MockParlayService.ts - Mock data implementation
-import { Game } from '../types'
-import {
-  BaseParlayService,
-  EnhancedParlayGenerationResult,
-  ParlayGenerationOptions,
-} from './BaseParlayService'
+import { Game, ParlayGenerationOptions, ParlayGenerationResult } from '../types'
+import { BaseParlayService } from './BaseParlayService'
 import { ParlayMock } from './ParlayMock'
 
 /**
@@ -16,9 +12,20 @@ export class MockParlayService extends BaseParlayService {
    */
   async generateParlay(
     game: Game,
-    _options: ParlayGenerationOptions = {}
-  ): Promise<EnhancedParlayGenerationResult> {
+    options: ParlayGenerationOptions = {}
+  ): Promise<ParlayGenerationResult> {
     const startTime = Date.now()
+    const { onLoadingUpdate } = options
+
+    // Emit loading phase updates for mock mode
+    if (onLoadingUpdate) {
+      onLoadingUpdate({
+        phase: 'simulating',
+        progress: 0,
+        message: 'Starting mock generation...',
+        estimatedTimeRemaining: 2000,
+      })
+    }
 
     // Add 2-second delay to simulate real API response time
     await new Promise(resolve => setTimeout(resolve, 2000))

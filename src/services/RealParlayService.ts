@@ -1,13 +1,15 @@
 // src/services/RealParlayService.ts - Real API implementation
 import { API_CONFIG } from '../config/api'
 import { auth } from '../config/firebase'
-import { Game, GenerateParlayRequest, GenerateParlayResponse } from '../types'
-import { RateLimitError } from '../types/errors'
 import {
-  BaseParlayService,
-  EnhancedParlayGenerationResult,
+  Game,
+  GenerateParlayRequest,
+  GenerateParlayResponse,
   ParlayGenerationOptions,
-} from './BaseParlayService'
+  ParlayGenerationResult,
+} from '../types'
+import { RateLimitError } from '../types/errors'
+import { BaseParlayService } from './BaseParlayService'
 import { FrontendRateLimiter } from './FrontendRateLimiter'
 
 /**
@@ -38,9 +40,11 @@ export class RealParlayService extends BaseParlayService {
    */
   async generateParlay(
     game: Game,
-    _options: ParlayGenerationOptions = {}
-  ): Promise<EnhancedParlayGenerationResult> {
+    options: ParlayGenerationOptions = {}
+  ): Promise<ParlayGenerationResult> {
     try {
+      const { onLoadingUpdate } = options
+      const startTime = Date.now()
       // Check frontend rate limit first (for consistency with mock mode)
       const userId = auth.currentUser?.uid || null
       const frontendRateLimit = await FrontendRateLimiter.checkAndIncrement(
@@ -63,7 +67,16 @@ export class RealParlayService extends BaseParlayService {
         )
       }
 
-      const startTime = Date.now()
+      // Phase 1: Retrieving Stats
+      if (onLoadingUpdate) {
+        onLoadingUpdate({
+          phase: 'retrieving_stats',
+          progress: 0,
+          message: 'Getting latest team and player statistics...',
+          estimatedTimeRemaining: 30000,
+        })
+      }
+
       const result = await this.callCloudFunction(game)
       const latency = Date.now() - startTime
 

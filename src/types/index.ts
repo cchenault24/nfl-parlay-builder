@@ -1,4 +1,5 @@
 import { Timestamp } from 'firebase/firestore'
+import { LoadingPhaseUpdate } from './loading'
 
 // ===== PFR TYPES =====
 // This matches the backend schema exactly (functions/src/providers/pfr/types.ts)
@@ -218,11 +219,23 @@ export interface ParlayLeg {
 
 export interface ParlayGenerationResult {
   parlay: GeneratedParlay
+  gameData: GameData
   rateLimitInfo?: {
     remaining: number
     total: number
     resetTime: string
     currentCount: number
+  }
+  metadata?: {
+    provider: string
+    model: string
+    tokens?: number
+    latency: number
+    confidence: number
+    fallbackUsed: boolean
+    attemptCount: number
+    serviceMode?: 'mock' | 'openai'
+    environment?: string
   }
 }
 
@@ -287,6 +300,31 @@ export interface GenerateParlayRequest {
   week: number
   riskLevel?: 'conservative' | 'moderate' | 'aggressive'
   betTypes?: 'all' | string[]
+}
+
+// ===== PARLAY GENERATION TYPES =====
+export interface StrategyConfig {
+  name: string
+  description: string
+  temperature: number
+  riskProfile: 'low' | 'medium' | 'high'
+  confidenceRange: [number, number]
+}
+
+export interface VarietyFactors {
+  strategy: string
+  focusArea: string
+  playerTier: string
+  gameScript: string
+  marketBias: string
+}
+
+export interface ParlayGenerationOptions {
+  temperature?: number
+  strategy?: StrategyConfig
+  varietyFactors?: VarietyFactors
+  debugMode?: boolean
+  onLoadingUpdate?: (update: LoadingPhaseUpdate) => void
 }
 
 // ===== AUTH TYPES =====

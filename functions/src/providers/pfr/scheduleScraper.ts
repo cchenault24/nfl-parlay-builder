@@ -147,11 +147,9 @@ export async function fetchPFRSeasonSchedule(): Promise<PFRGameItem[]> {
       const gameTime = new Date(gameDateTime)
       const now = new Date()
 
-      // Add 3.5 hours to game time to account for typical NFL game duration
-      const gameEndTime = new Date(gameTime.getTime() + 3.5 * 60 * 60 * 1000)
+      const gameEndTime = new Date(gameTime.getTime() + 4.5 * 60 * 60 * 1000)
 
       if (now > gameEndTime) {
-        // Game has likely finished (3.5+ hours after start time)
         status = 'final'
       } else if (now > gameTime) {
         // Game has started but not finished yet

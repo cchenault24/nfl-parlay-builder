@@ -13,30 +13,40 @@ import {
   Divider,
   Grid,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material'
 import React, { useEffect, useState } from 'react'
 import { saveParlayToUser } from '../../config/firebase'
 import { useAuth } from '../../hooks/useAuth'
 import useModalStore from '../../store/modalStore'
 import useParlayStore from '../../store/parlayStore'
-import type { GeneratedParlay } from '../../types'
+import type { GameData, GeneratedParlay } from '../../types'
 import { AuthModal } from '../auth/AuthModal'
 import ErrorBanner from '../ErrorBanner'
+import DynamicParlayLoading from './DynamicParlayLoading'
 import GameSummaryView from './GameSummaryView'
 import ParlayDisplayFooter from './ParlayDisplayFooter'
 import ParlayLanding from './ParlayLanding'
 import ParlayLegView from './ParlayLegView'
-import ParlayLoading from './ParlayLoading'
 
 interface ParlayDisplayProps {
-  parlay?: GeneratedParlay
+  parlay?: GeneratedParlay & { gameData?: GameData }
   loading: boolean
+  isMockMode?: boolean
 }
 
-const ParlayDisplay: React.FC<ParlayDisplayProps> = ({ parlay, loading }) => {
+const ParlayDisplay: React.FC<ParlayDisplayProps> = ({
+  parlay,
+  loading,
+  isMockMode = false,
+}) => {
   const { user } = useAuth()
   const [saving, setSaving] = useState(false)
+  const theme = useTheme()
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
 
+  const gameData = useParlayStore(state => state.gameData)
   const setParlay = useParlayStore(state => state.setParlay)
   const authModalOpen = useModalStore(state => state.authModalOpen)
   const setAuthModalOpen = useModalStore(state => state.setAuthModalOpen)
@@ -50,6 +60,33 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({ parlay, loading }) => {
   useEffect(() => {
     setParlay(parlay || null)
   }, [parlay, setParlay])
+
+  // Scroll to game stats panel when loading completes on mobile
+  useEffect(() => {
+    if (isMobile && !loading && parlay && gameData) {
+      // Small delay to ensure the game stats panel is rendered
+      const timer = setTimeout(() => {
+        const gameStatsPanel =
+          document.querySelector('[data-testid="game-stats-panel"]') ||
+          document.querySelector('h2') // Fallback to first h2 (likely game stats title)
+
+        if (gameStatsPanel) {
+          // Get the element's position and add padding
+          const elementRect = gameStatsPanel.getBoundingClientRect()
+          const padding = 20 // 20px padding from top
+          const scrollTop = window.pageYOffset + elementRect.top - padding
+
+          // Smooth scroll to position the element at the top with padding
+          window.scrollTo({
+            top: Math.max(0, scrollTop),
+            behavior: 'smooth',
+          })
+        }
+      }, 100)
+
+      return () => clearTimeout(timer)
+    }
+  }, [loading, parlay, gameData, isMobile])
 
   const handleSaveParlay = async () => {
     if (!user) {
@@ -78,7 +115,7 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({ parlay, loading }) => {
   }
 
   if (loading) {
-    return <ParlayLoading />
+    return <DynamicParlayLoading isMockMode={isMockMode} />
   }
 
   if (!parlay) {

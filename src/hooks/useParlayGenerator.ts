@@ -5,10 +5,14 @@ import { ServiceContainer } from '../services/container'
 import useParlayStore from '../store/parlayStore'
 import { Game } from '../types'
 import { RateLimitError } from '../types/errors'
+import { LoadingPhaseUpdate } from '../types/loading'
+import { responseTimeTracker } from '../utils/responseTimeTracker'
 import { useRateLimit } from './useRateLimit'
 
 export const useParlayGenerator = () => {
   const setParlay = useParlayStore(state => state.setParlay)
+  const setGameData = useParlayStore(state => state.setGameData)
+  const setLoadingContext = useParlayStore(state => state.setLoadingContext)
   const { updateFromResponse } = useRateLimit()
 
   // Retry state
@@ -162,12 +166,52 @@ export const useParlayGenerator = () => {
       game: Game
       shouldUseMock: boolean
     }) => {
+      const startTime = Date.now()
       const provider = shouldUseMock ? 'mock' : 'openai'
       const parlayService = ServiceContainer.instance.getParlayService(provider)
-      return await parlayService.generateParlay(game)
+
+      // Set up loading context
+      setLoadingContext({
+        isActive: true,
+        isMockMode: shouldUseMock,
+        currentPhase: '',
+        progress: 0,
+        elapsedTime: 0,
+        estimatedTimeRemaining: 0,
+      })
+
+      // Create loading update callback
+      const onLoadingUpdate = (update: LoadingPhaseUpdate) => {
+        setLoadingContext({
+          currentPhase: update.phase,
+          progress: update.progress,
+          estimatedTimeRemaining: update.estimatedTimeRemaining || 0,
+        })
+      }
+
+      const result = await parlayService.generateParlay(game, {
+        onLoadingUpdate,
+      })
+
+      // Record response time for real API calls only
+      if (!shouldUseMock) {
+        const responseTime = Date.now() - startTime
+        responseTimeTracker.recordResponseTime(responseTime)
+      }
+
+      return result
     },
     onError: async (error, variables) => {
       console.error('Error generating parlay:', error)
+
+      // Reset loading context on error
+      setLoadingContext({
+        isActive: false,
+        currentPhase: '',
+        progress: 0,
+        elapsedTime: 0,
+        estimatedTimeRemaining: 0,
+      })
 
       // Handle authentication errors specifically
       if (
@@ -204,6 +248,24 @@ export const useParlayGenerator = () => {
       setParlay(null)
     },
     onSuccess: data => {
+      // Update loading context to show completion
+      setLoadingContext({
+        currentPhase: 'generating_parlay',
+        progress: 100,
+        estimatedTimeRemaining: 0,
+      })
+
+      // Small delay to show completion, then reset
+      setTimeout(() => {
+        setLoadingContext({
+          isActive: false,
+          currentPhase: '',
+          progress: 0,
+          elapsedTime: 0,
+          estimatedTimeRemaining: 0,
+        })
+      }, 500)
+
       // Reset retry state on success
       resetRetryState()
 
@@ -221,13 +283,8 @@ export const useParlayGenerator = () => {
         })
       }
 
-      // Store the parlay data with gameData attached for UI consumption
-      const parlayWithGameData = {
-        ...data.parlay,
-        gameData: data.gameData,
-      }
-
-      setParlay(parlayWithGameData)
+      setParlay(data.parlay)
+      setGameData(data.gameData)
     },
   })
 

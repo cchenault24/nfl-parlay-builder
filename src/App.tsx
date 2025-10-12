@@ -41,6 +41,7 @@ function AppContent() {
   const selectedGame = useParlayStore(state => state.selectedGame)
   const setSelectedGame = useParlayStore(state => state.setSelectedGame)
   const parlay = useParlayStore(state => state.parlay)
+  const gameData = useParlayStore(state => state.gameData)
   const devMockOverride = useGeneralStore(state => state.devMockOverride)
 
   const { user, loading } = useAuth()
@@ -83,6 +84,7 @@ function AppContent() {
     isPending: parlayLoading,
     error: parlayError,
     reset: resetParlay,
+    serviceStatus,
   } = useParlayGeneratorSelector()
 
   // Check age verification status
@@ -203,23 +205,16 @@ function AppContent() {
           />
 
           {/* Stats panel for selected game */}
-          {selectedGame &&
-            parlay &&
-            parlay.gameData &&
-            !parlayLoading &&
-            (() => {
-              // Use gameData from parlay response
-              const gameData = parlay.gameData
-              return (
-                <GameStatsPanel
-                  gameData={gameData}
-                  context={parlay.gameContext}
-                />
-              )
-            })()}
+          {selectedGame && gameData && parlay && !parlayLoading && (
+            <GameStatsPanel gameData={gameData} context={parlay.gameContext} />
+          )}
 
           {/* ParlayDisplay gets parlay from store */}
-          <ParlayDisplay parlay={parlay || undefined} loading={parlayLoading} />
+          <ParlayDisplay
+            parlay={parlay || undefined}
+            loading={parlayLoading}
+            isMockMode={serviceStatus.usingMock}
+          />
 
           <ParlayHistory
             open={historyOpen}
