@@ -21,6 +21,7 @@ import useModalStore from '../../store/modalStore'
 import useParlayStore from '../../store/parlayStore'
 import type { GeneratedParlay } from '../../types'
 import { AuthModal } from '../auth/AuthModal'
+import ErrorBanner from '../ErrorBanner'
 import GameSummaryView from './GameSummaryView'
 import ParlayDisplayFooter from './ParlayDisplayFooter'
 import ParlayLanding from './ParlayLanding'
@@ -111,7 +112,7 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({ parlay, loading }) => {
           <Grid container spacing={2} sx={{ mb: 3 }}>
             {parlay.legs.map((leg, index) => (
               <ParlayLegView
-                key={`${parlay.parlayId}-${leg.betType}-${leg.selection}-${leg.odds}-${index}`}
+                key={`${parlay.parlayId}-${leg.betType}-${leg.selection}-${leg.odds}-${leg.confidence}`}
                 leg={leg}
                 index={index}
               />
@@ -126,13 +127,11 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({ parlay, loading }) => {
           )}
 
           {saveParlayError && (
-            <Alert
-              severity="error"
-              sx={{ mb: 2 }}
-              onClose={() => setSaveParlayError('')}
-            >
-              {saveParlayError}
-            </Alert>
+            <ErrorBanner
+              type="error"
+              title="Failed to save parlay"
+              message={saveParlayError}
+            />
           )}
 
           {/* Save Button */}

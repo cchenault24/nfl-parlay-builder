@@ -1,13 +1,19 @@
 import express from 'express'
 import { verifyAuth } from '../../middleware/auth'
 import { rateLimitByUser } from '../../middleware/rateLimit'
-import { generateParlayHandler } from './handlers'
+import { clearUserRateLimitsHandler, generateParlayHandler } from './handlers'
 
 export const protectedRouter = express.Router()
 
 protectedRouter.post(
   '/parlays/generate',
   verifyAuth,
-  rateLimitByUser(10, 30 * 60_000),
+  rateLimitByUser(20, 60 * 60_000), // 20 requests per hour (60 minutes)
   generateParlayHandler
+)
+
+protectedRouter.post(
+  '/rate-limits/clear',
+  verifyAuth,
+  clearUserRateLimitsHandler
 )

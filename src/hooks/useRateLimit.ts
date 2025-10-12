@@ -1,7 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useAuthState } from 'react-firebase-hooks/auth'
 import { auth } from '../config/firebase'
+import { FrontendRateLimiter } from '../services/FrontendRateLimiter'
+import useRateLimitStore from '../store/rateLimitStore'
 
 interface RateLimitInfo {
   remaining: number
@@ -10,13 +12,6 @@ interface RateLimitInfo {
   currentCount: number
 }
 
-// interface RateLimitResponse {
-//   success: boolean
-//   data?: RateLimitInfo & { resetTime: string } // API returns string, we convert to Date
-//   error?: string
-// }
-
-// Updated interface to make rateLimitInfo required when passed
 interface ParlayGenerationResponse {
   rateLimitInfo: {
     remaining: number
@@ -33,21 +28,23 @@ interface ParlayGenerationResponse {
  */
 export const useRateLimit = () => {
   const [user, loading] = useAuthState(auth)
-  const [rateLimitInfo, setRateLimitInfo] = useState<RateLimitInfo | null>(null)
+  const {
+    rateLimitInfo,
+    setRateLimitInfo,
+    updateFromResponse: storeUpdateFromResponse,
+    isNearLimit: storeIsNearLimit,
+    isAtLimit: storeIsAtLimit,
+    getTimeUntilReset: storeGetTimeUntilReset,
+  } = useRateLimitStore()
 
-  // Query rate limit status - DISABLED for v2 (no rate limit endpoint yet)
+  // Query rate limit status - ENABLED for v2 with unified frontend rate limiting
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['rateLimitStatus', user?.uid],
     queryFn: async (): Promise<RateLimitInfo> => {
-      // API doesn't have rate limit status endpoint yet, return default values
-      return {
-        remaining: 10,
-        total: 10,
-        currentCount: 0,
-        resetTime: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes from now
-      }
+      // Get current rate limit status from frontend rate limiter
+      return FrontendRateLimiter.getCurrentStatus(user?.uid || null)
     },
-    enabled: false, // Disabled until v2 rate limit endpoint is added
+    enabled: true, // Enabled - uses frontend rate limiter for both mock and real data
     refetchInterval: 30000, // Refetch every 30 seconds
     staleTime: 15000, // Consider data stale after 15 seconds
     retry: (failureCount, error) => {
@@ -63,12 +60,20 @@ export const useRateLimit = () => {
     retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
   })
 
-  // Update local state when query data changes
+  // Update store when query data changes
   useEffect(() => {
     if (data) {
       setRateLimitInfo(data)
     }
-  }, [data])
+  }, [data, setRateLimitInfo])
+
+  // Clear rate limit info when user logs out
+  useEffect(() => {
+    if (!user && !loading) {
+      // User logged out - clear rate limit info from store
+      setRateLimitInfo(null)
+    }
+  }, [user, loading, setRateLimitInfo])
 
   /**
    * Update rate limit info from a parlay generation response
@@ -76,19 +81,14 @@ export const useRateLimit = () => {
    */
   const updateFromResponse = (responseData: ParlayGenerationResponse) => {
     if (responseData.rateLimitInfo) {
-      const resetTime =
-        typeof responseData.rateLimitInfo.resetTime === 'string'
-          ? new Date(responseData.rateLimitInfo.resetTime)
-          : responseData.rateLimitInfo.resetTime
-
-      const updatedInfo: RateLimitInfo = {
-        remaining: responseData.rateLimitInfo.remaining,
-        total: responseData.rateLimitInfo.total || rateLimitInfo?.total || 10, // Use existing total or default
-        resetTime,
-        currentCount: responseData.rateLimitInfo.currentCount,
-      }
-
-      setRateLimitInfo(updatedInfo)
+      storeUpdateFromResponse({
+        rateLimitInfo: {
+          remaining: responseData.rateLimitInfo.remaining,
+          total: responseData.rateLimitInfo.total || 20, // Default to 20
+          resetTime: responseData.rateLimitInfo.resetTime,
+          currentCount: responseData.rateLimitInfo.currentCount,
+        },
+      })
     }
   }
 
@@ -104,43 +104,29 @@ export const useRateLimit = () => {
    * Get a formatted string showing time until reset
    */
   const getTimeUntilReset = (): string => {
-    if (!rateLimitInfo?.resetTime) {
-      return ''
-    }
-
-    const now = new Date()
-    const resetTime = new Date(rateLimitInfo.resetTime)
-    const timeDiff = resetTime.getTime() - now.getTime()
-
-    if (timeDiff <= 0) {
-      return 'Reset available'
-    }
-
-    const minutes = Math.floor(timeDiff / (1000 * 60))
-    const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000)
-
-    if (minutes > 0) {
-      return `${minutes}m ${seconds}s`
-    }
-    return `${seconds}s`
+    return storeGetTimeUntilReset()
   }
 
   /**
    * Check if user is near rate limit (less than 20% remaining)
    */
   const isNearLimit = (): boolean => {
-    if (!rateLimitInfo) {
-      return false
-    }
-    const percentRemaining = rateLimitInfo.remaining / rateLimitInfo.total
-    return percentRemaining < 0.2
+    return storeIsNearLimit()
   }
 
   /**
    * Check if user has hit rate limit
    */
   const isAtLimit = (): boolean => {
-    return rateLimitInfo?.remaining === 0
+    return storeIsAtLimit()
+  }
+
+  /**
+   * Manually reset rate limits (for testing or admin purposes)
+   */
+  const resetRateLimit = (): void => {
+    FrontendRateLimiter.reset(user?.uid || null)
+    refetch() // Refresh the rate limit status
   }
 
   return {
@@ -153,6 +139,7 @@ export const useRateLimit = () => {
     getTimeUntilReset,
     isNearLimit,
     isAtLimit,
+    resetRateLimit,
     isAuthenticated: !!user,
     userId: user?.uid,
   }

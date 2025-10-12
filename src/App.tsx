@@ -199,6 +199,7 @@ function AppContent() {
             onWeekChange={handleWeekChange}
             availableWeeks={availableWeeks}
             weekLoading={weekLoading || gamesLoading}
+            parlayError={parlayError}
           />
 
           {/* Stats panel for selected game */}
@@ -216,15 +217,6 @@ function AppContent() {
                 />
               )
             })()}
-
-          {/* Show any parlay errors */}
-          {parlayError && (
-            <Box sx={{ mb: 2 }}>
-              <Typography color="error">
-                Error: {parlayError.message}
-              </Typography>
-            </Box>
-          )}
 
           {/* ParlayDisplay gets parlay from store */}
           <ParlayDisplay parlay={parlay || undefined} loading={parlayLoading} />

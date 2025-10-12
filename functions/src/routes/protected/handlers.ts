@@ -1,4 +1,8 @@
 import express from 'express'
+import {
+  clearUserRateLimits,
+  getUserRateLimitStatus,
+} from '../../middleware/rateLimit'
 import { fetchPFRSeasonSchedule } from '../../providers/pfr'
 import { fetchPFRTeamDataForGame } from '../../providers/pfr/teamStatsScraper'
 import { generateParlayWithAI } from '../../service/ai'
@@ -227,6 +231,21 @@ export const generateParlayHandler = async (
     const homeRoster = null
     const awayRoster = null
 
+    // Get current rate limit status for the user
+    const rateLimitStatus = user
+      ? await getUserRateLimitStatus(
+          user.uid,
+          '/parlays/generate',
+          20,
+          60 * 60_000
+        )
+      : {
+          remaining: 20,
+          total: 20,
+          resetTime: new Date(Date.now() + 60 * 60_000),
+          currentCount: 0,
+        }
+
     const response: GenerateParlayResponse = {
       parlay: {
         parlayId: `pl_${Math.random().toString(36).slice(2, 10)}`,
@@ -285,6 +304,12 @@ export const generateParlayHandler = async (
         venue: game.venue,
         leaders: game.leaders,
       },
+      rateLimitInfo: {
+        remaining: rateLimitStatus.remaining,
+        total: rateLimitStatus.total,
+        resetTime: rateLimitStatus.resetTime.toISOString(),
+        currentCount: rateLimitStatus.currentCount,
+      },
     }
 
     if (
@@ -305,6 +330,44 @@ export const generateParlayHandler = async (
       500,
       'internal_error',
       'Failed to generate parlay',
+      correlationId
+    )
+  }
+}
+
+export const clearUserRateLimitsHandler = async (
+  req: express.Request,
+  res: express.Response
+) => {
+  const authReq = req as AuthenticatedRequest
+  const correlationId = authReq.correlationId
+
+  try {
+    const user = authReq.user
+    if (!user) {
+      return errorResponse(
+        res,
+        401,
+        'unauthorized',
+        'User not authenticated',
+        correlationId
+      )
+    }
+
+    await clearUserRateLimits(user.uid)
+
+    res.json({
+      success: true,
+      message: 'Rate limits cleared successfully',
+      userId: user.uid,
+    })
+  } catch (error) {
+    console.error('Error clearing user rate limits:', error)
+    return errorResponse(
+      res,
+      500,
+      'internal_error',
+      'Failed to clear rate limits',
       correlationId
     )
   }
