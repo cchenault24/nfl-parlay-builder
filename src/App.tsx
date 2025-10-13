@@ -59,7 +59,7 @@ function AppContent() {
   // Get current week derived from PFR game data
   const { currentWeek, isLoading: weekLoading } = useDerivedCurrentWeek()
 
-  // Use PFR schedule for all games
+  // Use PFR schedule for all games (for week selection)
   const { data: allGames, isLoading: gamesLoading } = usePFRSchedule()
 
   // Derive available weeks from PFR schedule

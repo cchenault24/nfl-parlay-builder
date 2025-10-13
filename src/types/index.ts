@@ -1,6 +1,9 @@
 import { Timestamp } from 'firebase/firestore'
 import { LoadingPhaseUpdate } from './loading'
 
+// Re-export loading types
+export type { LoadingPhaseUpdate } from './loading'
+
 // ===== PFR TYPES =====
 // This matches the backend schema exactly (functions/src/providers/pfr/types.ts)
 // API Types
@@ -234,8 +237,9 @@ export interface ParlayGenerationResult {
     confidence: number
     fallbackUsed: boolean
     attemptCount: number
-    serviceMode?: 'mock' | 'openai'
+    serviceMode?: 'mock' | 'openai' | 'agent'
     environment?: string
+    runId?: string
   }
 }
 

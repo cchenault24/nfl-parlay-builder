@@ -4,6 +4,7 @@ import {
   getGamesHandler,
   getNFLWeeksHandler,
   getPFRDataForTeamsHandler,
+  getPFRGamesForWeekHandler,
   getPFRScheduleHandler,
 } from './handlers'
 
@@ -27,4 +28,10 @@ publicRouter.get(
   '/pfr-schedule',
   rateLimitByIp(30, 60_000),
   getPFRScheduleHandler
+)
+
+publicRouter.get(
+  '/pfr-games',
+  rateLimitByIp(30, 60_000),
+  getPFRGamesForWeekHandler
 )

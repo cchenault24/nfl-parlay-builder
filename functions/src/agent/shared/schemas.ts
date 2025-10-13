@@ -42,6 +42,37 @@ export const AgentRunStatusSchema = z.enum([
   'failed',
 ])
 
+// Enhanced game context schema for agent input
+export const GameContextSchema = z.object({
+  gameId: z.string(),
+  week: z.number().int().positive(),
+  dateTime: z.string(),
+  status: z.enum(['scheduled', 'in_progress', 'final', 'postponed']),
+  home: z.object({
+    teamId: z.string(),
+    name: z.string(),
+    abbrev: z.string(),
+    record: z.string(),
+    overallRecord: z.string(),
+    homeRecord: z.string(),
+    roadRecord: z.string(),
+  }),
+  away: z.object({
+    teamId: z.string(),
+    name: z.string(),
+    abbrev: z.string(),
+    record: z.string(),
+    overallRecord: z.string(),
+    homeRecord: z.string(),
+    roadRecord: z.string(),
+  }),
+  venue: z.object({
+    name: z.string(),
+    city: z.string(),
+    state: z.string(),
+  }),
+})
+
 export const AgentRunSchema = z.object({
   id: z.string(),
   userId: z.string(),
@@ -52,6 +83,7 @@ export const AgentRunSchema = z.object({
   budget: AgentBudgetSchema,
   input: z.object({
     gameId: z.string(),
+    gameContext: GameContextSchema.optional(), // Rich game context
     numLegs: z.number().int().positive(),
     riskLevel: z.enum(['low', 'medium', 'high']).optional(),
   }),
@@ -73,6 +105,7 @@ export type AgentBudget = z.infer<typeof AgentBudgetSchema>
 export type AgentToolResult = z.infer<typeof AgentToolResultSchema>
 export type AgentStep = z.infer<typeof AgentStepSchema>
 export type AgentRunStatus = z.infer<typeof AgentRunStatusSchema>
+export type GameContext = z.infer<typeof GameContextSchema>
 
 export const AIGenerateResponseStrictSchema =
   AIGenerateResponseSchema.superRefine((val, ctx) => {

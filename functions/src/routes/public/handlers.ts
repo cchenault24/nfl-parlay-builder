@@ -199,6 +199,103 @@ export const getPFRScheduleHandler = async (
   }
 }
 
+// New endpoint to fetch games for a specific week
+export const getPFRGamesForWeekHandler = async (
+  req: express.Request,
+  res: express.Response
+) => {
+  const correlatedReq = req as CorrelatedRequest
+  const correlationId = correlatedReq.correlationId
+  const weekStr = req.query.week as string | undefined
+
+  if (!weekStr) {
+    return errorResponse(
+      res,
+      400,
+      'validation_error',
+      'Missing query param: week',
+      correlationId
+    )
+  }
+
+  const week = Number(weekStr)
+  if (!Number.isInteger(week) || week <= 0 || week > 18) {
+    return errorResponse(
+      res,
+      400,
+      'validation_error',
+      'Invalid week (must be 1-18)',
+      correlationId
+    )
+  }
+
+  try {
+    // Fetch entire season schedule from PFR (cached)
+    const allGames: PFRGameItem[] = await fetchPFRSeasonSchedule()
+
+    // Filter to specific week
+    const weekGames = allGames.filter(game => game.week === week)
+
+    // Debug logging - Week filtering
+    console.info(
+      `📅 [getPFRGamesForWeekHandler] Filtered games for week ${week}:`,
+      {
+        week,
+        totalGames: allGames.length,
+        weekGames: weekGames.length,
+        games: weekGames.map(game => ({
+          gameId: game.id,
+          homeTeam: game.homeTeam.name,
+          awayTeam: game.awayTeam.name,
+          dateTime: game.dateTime,
+          status: game.status,
+          venue: game.venue,
+        })),
+      }
+    )
+
+    // Convert PFRGameItem to the format expected by frontend
+    const games = weekGames.map(game => ({
+      gameId: game.id,
+      week: game.week,
+      dateTime: game.dateTime,
+      status: game.status,
+      home: {
+        teamId: game.homeTeam.id,
+        name: game.homeTeam.name,
+        abbrev: game.homeTeam.abbreviation,
+        record: '0-0',
+        overallRecord: '0-0',
+        homeRecord: '0-0',
+        roadRecord: '0-0',
+        stats: null,
+      },
+      away: {
+        teamId: game.awayTeam.id,
+        name: game.awayTeam.name,
+        abbrev: game.awayTeam.abbreviation,
+        record: '0-0',
+        overallRecord: '0-0',
+        homeRecord: '0-0',
+        roadRecord: '0-0',
+        stats: null,
+      },
+      venue: game.venue,
+      leaders: {},
+    }))
+
+    res.json(games)
+  } catch {
+    return errorResponse(
+      res,
+      500,
+      'internal_error',
+      'Failed to fetch games for week',
+      correlationId
+    )
+  }
+}
+
 export const getNFLWeeksHandler = async (
   req: express.Request,
   res: express.Response

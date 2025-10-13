@@ -18,7 +18,7 @@ export abstract class BaseParlayService {
    */
   abstract checkServiceHealth(): Promise<{
     healthy: boolean
-    mode: 'mock' | 'openai'
+    mode: 'mock' | 'openai' | 'agent'
     providers?: Array<{
       name: string
       healthy: boolean
@@ -31,7 +31,7 @@ export abstract class BaseParlayService {
   /**
    * Get service mode for debugging
    */
-  abstract getServiceMode(): 'mock' | 'openai'
+  abstract getServiceMode(): 'mock' | 'openai' | 'agent'
 
   /**
    * Check if service is properly configured

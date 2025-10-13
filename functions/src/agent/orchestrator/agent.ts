@@ -145,7 +145,15 @@ export async function runAgent(
         'weather',
         async () => {
           const t0 = Date.now()
-          const data = await fetchWeatherForGame(current.input.gameId)
+          const data = await fetchWeatherForGame(
+            current.input.gameId,
+            current.input.gameContext
+              ? {
+                  venue: current.input.gameContext.venue,
+                  dateTime: current.input.gameContext.dateTime,
+                }
+              : undefined
+          )
           return {
             name: 'weather',
             ok: true,
@@ -173,7 +181,16 @@ export async function runAgent(
         'odds',
         async () => {
           const t0 = Date.now()
-          const data = await fetchOddsForGame(current.input.gameId)
+          const data = await fetchOddsForGame(
+            current.input.gameId,
+            current.input.gameContext
+              ? {
+                  home: current.input.gameContext.home,
+                  away: current.input.gameContext.away,
+                  dateTime: current.input.gameContext.dateTime,
+                }
+              : undefined
+          )
           return { name: 'odds', ok: true, durationMs: Date.now() - t0, data }
         },
         {
@@ -224,70 +241,154 @@ export async function runAgent(
     return { ...current, status: 'failed' }
   }
 
-  // Build minimal GameData from tools
-  const [home, away, _season, week] = (() => {
-    const parts = current.input.gameId.split('-')
-    return [
-      parts[0],
-      parts[1],
-      parseInt(parts[2] || '2025'),
-      parseInt(parts[3] || '1'),
-    ]
-  })()
-  const schedule =
-    (toolStep.tools?.find(t => t.name === 'pfr_schedule')?.data as Array<{
-      id: string
-      dateTime?: string
-      status?: 'scheduled' | 'in_progress' | 'final' | 'postponed'
-      venue?: { name: string; city: string; state: string }
-    }>) || []
-  const scheduleGame = schedule.find(g => g?.id === current.input.gameId)
-  const teamStats = toolStep.tools?.find(t => t.name === 'pfr_team_stats')
-    ?.data as
-    | {
-        home?: import('../../providers/pfr').PFRTeamStats | null
-        away?: import('../../providers/pfr').PFRTeamStats | null
-      }
-    | undefined
-  const weather = toolStep.tools?.find(t => t.name === 'weather')?.data as
-    | { condition: string; temperatureF: number; windMph: number }
-    | undefined
-  const _odds = toolStep.tools?.find(t => t.name === 'odds')?.data as
-    | {
-        moneylineHome: number
-        moneylineAway: number
-        totalPoints: number
-        spreadHome: number
-      }
-    | undefined
-  const gameData: GameData = {
-    gameId: current.input.gameId,
-    week,
-    dateTime: scheduleGame?.dateTime || new Date().toISOString(),
-    status: scheduleGame?.status ?? 'scheduled',
-    home: {
-      teamId: home,
-      name: teamStats?.home?.teamName || home,
-      abbrev: home,
-      record: teamStats?.home?.record || '0-0',
-      overallRecord: teamStats?.home?.overallRecord || '0-0',
-      homeRecord: teamStats?.home?.homeRecord || '0-0',
-      roadRecord: teamStats?.home?.roadRecord || '0-0',
-      stats: teamStats?.home ?? null,
-    },
-    away: {
-      teamId: away,
-      name: teamStats?.away?.teamName || away,
-      abbrev: away,
-      record: teamStats?.away?.record || '0-0',
-      overallRecord: teamStats?.away?.overallRecord || '0-0',
-      homeRecord: teamStats?.away?.homeRecord || '0-0',
-      roadRecord: teamStats?.away?.roadRecord || '0-0',
-      stats: teamStats?.away ?? null,
-    },
-    venue: scheduleGame?.venue || { name: 'TBD', city: 'TBD', state: 'TBD' },
-    weather: weather || undefined,
-    leaders: {},
+  // Build GameData using pre-loaded context or fallback to tools
+  let gameData: GameData
+
+  if (current.input.gameContext) {
+    // Use pre-loaded game context (optimized path)
+    const context = current.input.gameContext
+
+    // Debug logging - Pre-loaded game context
+    console.info('🎯 [Agent Orchestrator] Using pre-loaded game context:', {
+      gameId: context.gameId,
+      homeTeam: context.home.name,
+      awayTeam: context.away.name,
+      venue: context.venue,
+      week: context.week,
+      dateTime: context.dateTime,
+      status: context.status,
+    })
+
+    const teamStats = toolStep.tools?.find(t => t.name === 'pfr_team_stats')
+      ?.data as
+      | {
+          home?: import('../../providers/pfr').PFRTeamStats | null
+          away?: import('../../providers/pfr').PFRTeamStats | null
+        }
+      | undefined
+    const weather = toolStep.tools?.find(t => t.name === 'weather')?.data as
+      | { condition: string; temperatureF: number; windMph: number }
+      | undefined
+
+    // Debug logging - Tool results
+    console.info('🔧 [Agent Orchestrator] Tool results:', {
+      teamStats: teamStats
+        ? {
+            home: teamStats.home
+              ? {
+                  teamName: teamStats.home.teamName,
+                  record: teamStats.home.record,
+                  hasStats: !!(teamStats.home as { stats?: unknown }).stats,
+                }
+              : null,
+            away: teamStats.away
+              ? {
+                  teamName: teamStats.away.teamName,
+                  record: teamStats.away.record,
+                  hasStats: !!(teamStats.away as { stats?: unknown }).stats,
+                }
+              : null,
+          }
+        : null,
+      weather: weather
+        ? {
+            condition: weather.condition,
+            temperatureF: weather.temperatureF,
+            windMph: weather.windMph,
+          }
+        : null,
+    })
+
+    gameData = {
+      gameId: context.gameId,
+      week: context.week,
+      dateTime: context.dateTime,
+      status: context.status,
+      home: {
+        teamId: context.home.teamId,
+        name: context.home.name,
+        abbrev: context.home.abbrev,
+        record: teamStats?.home?.record || context.home.record,
+        overallRecord:
+          teamStats?.home?.overallRecord || context.home.overallRecord,
+        homeRecord: teamStats?.home?.homeRecord || context.home.homeRecord,
+        roadRecord: teamStats?.home?.roadRecord || context.home.roadRecord,
+        stats: teamStats?.home ?? null,
+      },
+      away: {
+        teamId: context.away.teamId,
+        name: context.away.name,
+        abbrev: context.away.abbrev,
+        record: teamStats?.away?.record || context.away.record,
+        overallRecord:
+          teamStats?.away?.overallRecord || context.away.overallRecord,
+        homeRecord: teamStats?.away?.homeRecord || context.away.homeRecord,
+        roadRecord: teamStats?.away?.roadRecord || context.away.roadRecord,
+        stats: teamStats?.away ?? null,
+      },
+      venue: context.venue,
+      weather: weather || undefined,
+      leaders: {},
+    }
+  } else {
+    // Fallback to legacy tool-based approach
+    const [home, away, _season, week] = (() => {
+      const parts = current.input.gameId.split('-')
+      return [
+        parts[0],
+        parts[1],
+        parseInt(parts[2] || '2025'),
+        parseInt(parts[3] || '1'),
+      ]
+    })()
+    const schedule =
+      (toolStep.tools?.find(t => t.name === 'pfr_schedule')?.data as Array<{
+        id: string
+        dateTime?: string
+        status?: 'scheduled' | 'in_progress' | 'final' | 'postponed'
+        venue?: { name: string; city: string; state: string }
+      }>) || []
+    const scheduleGame = schedule.find(g => g?.id === current.input.gameId)
+    const teamStats = toolStep.tools?.find(t => t.name === 'pfr_team_stats')
+      ?.data as
+      | {
+          home?: import('../../providers/pfr').PFRTeamStats | null
+          away?: import('../../providers/pfr').PFRTeamStats | null
+        }
+      | undefined
+    const weather = toolStep.tools?.find(t => t.name === 'weather')?.data as
+      | { condition: string; temperatureF: number; windMph: number }
+      | undefined
+
+    gameData = {
+      gameId: current.input.gameId,
+      week,
+      dateTime: scheduleGame?.dateTime || new Date().toISOString(),
+      status: scheduleGame?.status ?? 'scheduled',
+      home: {
+        teamId: home,
+        name: teamStats?.home?.teamName || home,
+        abbrev: home,
+        record: teamStats?.home?.record || '0-0',
+        overallRecord: teamStats?.home?.overallRecord || '0-0',
+        homeRecord: teamStats?.home?.homeRecord || '0-0',
+        roadRecord: teamStats?.home?.roadRecord || '0-0',
+        stats: teamStats?.home ?? null,
+      },
+      away: {
+        teamId: away,
+        name: teamStats?.away?.teamName || away,
+        abbrev: away,
+        record: teamStats?.away?.record || '0-0',
+        overallRecord: teamStats?.away?.overallRecord || '0-0',
+        homeRecord: teamStats?.away?.homeRecord || '0-0',
+        roadRecord: teamStats?.away?.roadRecord || '0-0',
+        stats: teamStats?.away ?? null,
+      },
+      venue: scheduleGame?.venue || { name: 'TBD', city: 'TBD', state: 'TBD' },
+      weather: weather || undefined,
+      leaders: {},
+    }
   }
 
   const riskLevel = (

@@ -55,6 +55,35 @@ export class AgentRunService {
 
   async createRun(params: {
     gameId: string
+    gameContext?: {
+      gameId: string
+      week: number
+      dateTime: string
+      status: 'scheduled' | 'in_progress' | 'final' | 'postponed'
+      home: {
+        teamId: string
+        name: string
+        abbrev: string
+        record: string
+        overallRecord: string
+        homeRecord: string
+        roadRecord: string
+      }
+      away: {
+        teamId: string
+        name: string
+        abbrev: string
+        record: string
+        overallRecord: string
+        homeRecord: string
+        roadRecord: string
+      }
+      venue: {
+        name: string
+        city: string
+        state: string
+      }
+    }
     numLegs: number
     riskLevel: 'conservative' | 'moderate' | 'aggressive'
     authToken?: string
@@ -74,6 +103,7 @@ export class AgentRunService {
       headers,
       body: JSON.stringify({
         gameId: params.gameId,
+        gameContext: params.gameContext, // Rich game context
         numLegs: params.numLegs,
         riskLevel: params.riskLevel,
       }),

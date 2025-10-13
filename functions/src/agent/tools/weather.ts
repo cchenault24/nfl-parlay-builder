@@ -49,11 +49,51 @@ function extractGameDetails(gameId: string): {
 }
 
 export async function fetchWeatherForGame(
-  gameId: string
+  gameId: string,
+  gameContext?: {
+    venue: { name: string; city: string; state: string }
+    dateTime: string
+  }
 ): Promise<WeatherInfo> {
   try {
-    // Extract game details from gameId
-    const gameDetails = extractGameDetails(gameId)
+    let gameDetails: {
+      stadium: string
+      city: string
+      state: string
+      gameTime: string
+    }
+
+    if (gameContext) {
+      // Use pre-loaded context (optimized path)
+      gameDetails = {
+        stadium: gameContext.venue.name,
+        city: gameContext.venue.city,
+        state: gameContext.venue.state,
+        gameTime: gameContext.dateTime,
+      }
+
+      // Debug logging - Weather tool with context
+      console.info('🌤️ [Weather Tool] Using pre-loaded context:', {
+        gameId,
+        stadium: gameDetails.stadium,
+        city: gameDetails.city,
+        state: gameDetails.state,
+        gameTime: gameDetails.gameTime,
+      })
+    } else {
+      // Fallback to extracting from gameId
+      gameDetails = extractGameDetails(gameId)
+
+      // Debug logging - Weather tool fallback
+      console.info('🌤️ [Weather Tool] Using fallback extraction:', {
+        gameId,
+        stadium: gameDetails.stadium,
+        city: gameDetails.city,
+        state: gameDetails.state,
+        gameTime: gameDetails.gameTime,
+      })
+    }
+
     const request = {
       gameId,
       stadium: gameDetails.stadium,
@@ -63,6 +103,14 @@ export async function fetchWeatherForGame(
     }
 
     const response = await weatherProvider.getWeather(request)
+
+    // Debug logging - Weather API response
+    console.info('🌤️ [Weather Tool] API response:', {
+      gameId,
+      condition: response.data.condition,
+      temperature: response.data.temperature,
+      windSpeed: response.data.windSpeed,
+    })
 
     // Convert to expected format
     return {

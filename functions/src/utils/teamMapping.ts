@@ -399,7 +399,9 @@ export function getStadiumFromTeamCode(
   code: string
 ): { stadium: string; city: string; state: string } | null {
   const team = NFL_TEAMS[code.toUpperCase()]
-  if (!team) return null
+  if (!team) {
+    return null
+  }
 
   return {
     stadium: team.stadium,
@@ -421,7 +423,9 @@ export function getStadiumNameFromTeamCode(code: string): string {
  */
 export function getLocationFromTeamCode(code: string): string {
   const team = NFL_TEAMS[code.toUpperCase()]
-  if (!team) return `Unknown Location (${code})`
+  if (!team) {
+    return `Unknown Location (${code})`
+  }
 
   return `${team.city}, ${team.state}`
 }

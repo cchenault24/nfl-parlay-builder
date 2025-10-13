@@ -167,7 +167,7 @@ export const useParlayGenerator = () => {
       shouldUseMock: boolean
     }) => {
       const startTime = Date.now()
-      const provider = shouldUseMock ? 'mock' : 'openai'
+      const provider = shouldUseMock ? 'mock' : 'agent'
       const parlayService = ServiceContainer.instance.getParlayService(provider)
 
       // Set up loading context

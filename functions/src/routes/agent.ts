@@ -67,12 +67,31 @@ agentRouter.post(
       },
       input: {
         gameId: String(req.body?.gameId || ''),
+        ...(req.body?.gameContext && { gameContext: req.body.gameContext }), // Only include if defined
         numLegs: Number(req.body?.numLegs || 3),
         riskLevel: normalizedRisk,
       },
       tokensInput: 0,
       tokensOutput: 0,
       steps: [],
+    })
+
+    // Debug logging - Agent input received
+    console.info('🤖 [Agent Route] Agent run created with input:', {
+      runId: run.id,
+      gameId: run.input.gameId,
+      hasGameContext: !!run.input.gameContext,
+      gameContext: run.input.gameContext
+        ? {
+            homeTeam: run.input.gameContext.home.name,
+            awayTeam: run.input.gameContext.away.name,
+            venue: run.input.gameContext.venue,
+            week: run.input.gameContext.week,
+            dateTime: run.input.gameContext.dateTime,
+          }
+        : null,
+      riskLevel: run.input.riskLevel,
+      numLegs: run.input.numLegs,
     })
 
     if (!run.input.gameId || run.input.numLegs !== 3) {
