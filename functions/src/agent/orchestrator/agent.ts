@@ -1,3 +1,6 @@
+import { log, timeIt } from '../../observability/logger'
+import { inc, observe, setActiveRuns } from '../../observability/metrics'
+import { endSpan, startSpan } from '../../observability/tracing'
 import { fetchPFRSeasonSchedule } from '../../providers/pfr'
 import { fetchPFRTeamDataForGame } from '../../providers/pfr/teamStatsScraper'
 import { GameData } from '../../routes/public/schema'
@@ -25,6 +28,18 @@ export async function runAgent(
 ): Promise<AgentRun> {
   const startedAt = Date.now()
   const current = AgentRunSchema.parse(run)
+  setActiveRuns(1)
+  inc('runs_started')
+  const rootSpan = startSpan('agent.run', {
+    correlationId: current.correlationId,
+    runId: current.id,
+    attrs: { userId: current.userId },
+  })
+  log.info('agent.run.start', {
+    correlationId: current.correlationId,
+    runId: current.id,
+    userId: current.userId,
+  })
   const budget: AgentBudget = current.budget
 
   function remainingMs() {
@@ -54,6 +69,11 @@ export async function runAgent(
 
   // Step: tools (PFR schedule + team stats in parallel)
   const toolStepStart = Date.now()
+  const toolsSpan = startSpan('agent.tools', {
+    parent: rootSpan.ctx,
+    correlationId: current.correlationId,
+    runId: current.id,
+  })
   const toolResults: AgentToolResult[] = await Promise.all([
     parallelLimit(() =>
       withResilience(
@@ -183,6 +203,11 @@ export async function runAgent(
     tokensOutput: 0,
   }
   await persist.appendStep(current.id, toolStep)
+  observe('tool_duration_ms', Date.now() - toolStepStart)
+  endSpan(toolsSpan, {
+    correlationId: current.correlationId,
+    runId: current.id,
+  })
   ensureWithinBudgetOrThrow()
 
   // Step: draft using existing single-shot prompt/model
@@ -278,20 +303,28 @@ export async function runAgent(
     riskLevel,
   })
   const draftStepStart = Date.now()
-  const completion = await ai.chat.completions.create({
-    model: 'gpt-4o-mini',
-    temperature: 0.2,
-    messages: [
-      {
-        role: 'system',
-        content:
-          'You are an NFL betting assistant. Return STRICT JSON only. No prose. Use the provided constraints.',
-      },
-      { role: 'user', content: prompt },
-    ],
-    response_format: { type: 'json_object' },
-    max_tokens: 1500,
+  const draftSpan = startSpan('agent.draft', {
+    parent: rootSpan.ctx,
+    correlationId: current.correlationId,
+    runId: current.id,
   })
+  const completionTimed = await timeIt(() =>
+    ai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      temperature: 0.2,
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You are an NFL betting assistant. Return STRICT JSON only. No prose. Use the provided constraints.',
+        },
+        { role: 'user', content: prompt },
+      ],
+      response_format: { type: 'json_object' },
+      max_tokens: 1500,
+    })
+  )
+  const completion = completionTimed.result
 
   const draftText = completion.choices?.[0]?.message?.content || ''
   const draftParsed = (() => {
@@ -312,10 +345,20 @@ export async function runAgent(
     notes: draftParsed ? 'draft parsed' : 'draft parse failed',
   }
   await persist.appendStep(current.id, draftStep)
+  observe('step_duration_ms', completionTimed.ms)
+  endSpan(draftSpan, {
+    correlationId: current.correlationId,
+    runId: current.id,
+  })
   ensureWithinBudgetOrThrow()
 
   // Step: validate strictly
   const validateStepStart = Date.now()
+  const validateSpan = startSpan('agent.validate', {
+    parent: rootSpan.ctx,
+    correlationId: current.correlationId,
+    runId: current.id,
+  })
   const parsed = AIGenerateResponseStrictSchema.safeParse(draftParsed)
   const validateStep: AgentStep = {
     id: `step_${Math.random().toString(36).slice(2)}`,
@@ -327,6 +370,12 @@ export async function runAgent(
     notes: parsed.success ? 'ok' : 'failed',
   }
   await persist.appendStep(current.id, validateStep)
+  endSpan(validateSpan, {
+    correlationId: current.correlationId,
+    runId: current.id,
+    status: parsed.success ? 'ok' : 'error',
+    errorMessage: parsed.success ? undefined : 'strict zod failed',
+  })
 
   // Enforce maximum steps budget (current pipeline uses 4 steps)
   const stepsUsed = 4
@@ -340,6 +389,12 @@ export async function runAgent(
   }
 
   if (!parsed.success) {
+    inc('runs_failed')
+    log.warn('agent.run.validation_failed', {
+      correlationId: current.correlationId,
+      runId: current.id,
+      error: { code: 'validation_error', message: 'strict zod failed' },
+    })
     // Simple contradiction: prevent both over and under for same market
     // and ensure leg odds are within sane range (already checked per-leg)
     await persist.updateRun(current.id, {
@@ -350,6 +405,13 @@ export async function runAgent(
         message: 'Draft failed strict validation',
         details: parsed.error.flatten(),
       },
+    })
+    setActiveRuns(-1)
+    endSpan(rootSpan, {
+      correlationId: current.correlationId,
+      runId: current.id,
+      status: 'error',
+      errorMessage: 'validation_failed',
     })
     return { ...current, status: 'failed' }
   }
@@ -364,6 +426,18 @@ export async function runAgent(
     status: 'succeeded',
     result: parsed.data,
     updatedAt: finalized.updatedAt,
+  })
+  inc('runs_succeeded')
+  observe('run_duration_ms', Date.now() - startedAt)
+  log.info('agent.run.succeeded', {
+    correlationId: current.correlationId,
+    runId: current.id,
+  })
+  setActiveRuns(-1)
+  endSpan(rootSpan, {
+    correlationId: current.correlationId,
+    runId: current.id,
+    status: 'ok',
   })
   return finalized
 }

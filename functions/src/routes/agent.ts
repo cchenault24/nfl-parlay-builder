@@ -14,6 +14,8 @@ import {
 } from '../agent/store/firestore'
 import { verifyAuth, type AuthedRequest } from '../middleware/auth'
 import { rateLimitByUser } from '../middleware/rateLimit'
+import { log } from '../observability/logger'
+import { inc, observe } from '../observability/metrics'
 import { errorResponse } from '../utils/errors'
 
 export const agentRouter = express.Router()
@@ -27,6 +29,7 @@ agentRouter.post(
     const auth = req as AuthedRequest
     const correlationId = auth.correlationId
     const user = auth.user
+    log.info('api.agent.create', { correlationId, userId: user?.uid })
     if (!user) {
       return errorResponse(
         res,
@@ -87,11 +90,13 @@ agentRouter.post(
     // Fire and forget execution
     ;(async () => {
       try {
+        const t0 = Date.now()
         await updateRun(run.id, {
           status: 'running',
           updatedAt: new Date().toISOString(),
         })
         await runAgent(run, { appendStep, updateRun })
+        observe('api_create_to_finish_ms', Date.now() - t0)
       } catch (e) {
         await updateRun(run.id, {
           status: 'failed',
@@ -101,6 +106,7 @@ agentRouter.post(
             message: e instanceof Error ? e.message : String(e),
           },
         })
+        inc('runs_failed')
       }
     })()
   }
@@ -122,6 +128,7 @@ agentRouter.get('/agent/runs/:id/stream', verifyAuth, async (req, res) => {
   const auth = req as AuthedRequest
   const correlationId = auth.correlationId
   const runId = req.params.id
+  log.info('api.agent.stream.start', { correlationId, runId })
   const run = await getRun(runId)
   if (!run) {
     return errorResponse(res, 404, 'not_found', 'Run not found', correlationId)
@@ -167,6 +174,7 @@ agentRouter.get('/agent/runs/:id/stream', verifyAuth, async (req, res) => {
       } catch {
         void 0
       }
+      log.warn('api.agent.stream.error', { correlationId, runId })
     }
   }, 750)
 })
