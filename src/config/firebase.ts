@@ -79,18 +79,14 @@ export const createUserProfile = async (
     const { displayName, email, photoURL } = user
     const createdAt = Timestamp.now()
 
-    try {
-      await setDoc(userRef, {
-        displayName: displayName || email?.split('@')[0] || 'User',
-        email,
-        photoURL:
-          photoURL || `https://api.dicebear.com/8.x/initials/svg?seed=${email}`,
-        createdAt,
-        ...additionalData,
-      })
-    } catch (error) {
-      throw error
-    }
+    await setDoc(userRef, {
+      displayName: displayName || email?.split('@')[0] || 'User',
+      email,
+      photoURL:
+        photoURL || `https://api.dicebear.com/8.x/initials/svg?seed=${email}`,
+      createdAt,
+      ...additionalData,
+    })
   }
 
   return userRef
@@ -127,16 +123,12 @@ export const saveParlayToUser = async (
   userId: string,
   parlayData: GeneratedParlay
 ) => {
-  try {
-    const parlayRef = await addDoc(collection(db, 'parlays'), {
-      userId,
-      ...parlayData,
-      savedAt: Timestamp.now(),
-    })
-    return parlayRef.id
-  } catch (error) {
-    throw error
-  }
+  const parlayRef = await addDoc(collection(db, 'parlays'), {
+    userId,
+    ...parlayData,
+    savedAt: Timestamp.now(),
+  })
+  return parlayRef.id
 }
 
 /**

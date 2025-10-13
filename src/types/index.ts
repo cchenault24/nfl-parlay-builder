@@ -57,8 +57,8 @@ export interface Game {
   status: 'scheduled' | 'in_progress' | 'final' | 'postponed'
   home: Team
   away: Team
-  venue: { name: string; city: string; state: string }
   leaders: Leaders
+  venue?: { name: string; city: string; state: string }
   weather?: {
     condition: string
     temperatureF: number
@@ -136,7 +136,7 @@ export interface GameData {
     stats: PFRTeamStats | null
     roster: Array<{ playerId: string; name: string; position?: string }>
   }
-  venue: { name: string; city: string; state: string }
+  venue: { name: string; city: string; state: string } | undefined
   leaders?: {
     passing?: { name: string; stats: string; value: number }
     rushing?: { name: string; stats: string; value: number }

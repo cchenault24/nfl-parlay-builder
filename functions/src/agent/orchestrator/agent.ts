@@ -147,13 +147,9 @@ export async function runAgent(
           const t0 = Date.now()
           const data = await fetchWeatherForGame(
             current.input.gameId,
-            current.input.gameContext
+            current.input.gameContext?.venue
               ? {
-                  venue: current.input.gameContext.venue || {
-                    name: '',
-                    city: '',
-                    state: '',
-                  },
+                  venue: current.input.gameContext.venue,
                   dateTime: current.input.gameContext.dateTime,
                 }
               : undefined
@@ -357,7 +353,17 @@ export async function runAgent(
         roadRecord: teamStats?.away?.roadRecord || '',
         stats: teamStats?.away ?? null,
       },
-      venue: scheduleGame?.venue || { name: 'TBD', city: 'TBD', state: 'TBD' },
+      venue:
+        scheduleGame?.venue &&
+        scheduleGame.venue.name?.trim() !== '' &&
+        scheduleGame.venue.city?.trim() !== '' &&
+        scheduleGame.venue.state?.trim() !== ''
+          ? {
+              name: scheduleGame.venue.name,
+              city: scheduleGame.venue.city,
+              state: scheduleGame.venue.state,
+            }
+          : undefined,
       weather: weather || undefined,
       leaders: {},
     }

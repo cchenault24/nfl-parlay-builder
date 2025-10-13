@@ -1,9 +1,13 @@
 import axios from 'axios'
 import * as cheerio from 'cheerio'
 import { log } from '../../observability/logger'
+import {
+  getStadiumFromTeamCode,
+  getTeamCodeFromName,
+} from '../../utils/teamMapping'
 import { getStadiumForTeamName } from './stadiumService'
 import { PFRGameItem, PFRTeam } from './types'
-import { PFR_BASE, createPFRTeamFromName, getPFRHeaders } from './utils'
+import { createPFRTeamFromName, getPFRHeaders, PFR_BASE } from './utils'
 
 /**
  * Format PFR date and time as a parseable date string
@@ -190,24 +194,36 @@ export async function fetchPFRSeasonSchedule(): Promise<PFRGameItem[]> {
 
   // Second pass: get venue information for each game
   for (const game of gameData) {
-    let venue = { name: 'TBD', city: 'TBD', state: 'TBD' }
-    try {
-      const stadium = await getStadiumForTeamName(game.homeTeam.name)
-      if (stadium) {
+    let venue: { name: string; city: string; state: string } | undefined =
+      undefined
+
+    // First try team mapping (reliable for home games)
+    const teamCode = getTeamCodeFromName(game.homeTeam.name)
+    if (teamCode) {
+      const stadiumInfo = getStadiumFromTeamCode(teamCode)
+      if (stadiumInfo) {
         venue = {
-          name: stadium.name,
-          city: stadium.city,
-          state: stadium.state,
+          name: stadiumInfo.stadium,
+          city: stadiumInfo.city,
+          state: stadiumInfo.state,
         }
       }
-    } catch (error) {
-      log.warn('schedule.stadium.fetch.error', {
-        teamName: game.homeTeam.name,
-        error: {
-          code: 'stadium_error',
-          message: error instanceof Error ? error.message : String(error),
-        },
-      })
+    }
+
+    // Fallback to PFR scraping for international games or when team mapping fails
+    if (!venue) {
+      try {
+        const stadium = await getStadiumForTeamName(game.homeTeam.name)
+        if (stadium && stadium.name && stadium.city && stadium.state) {
+          venue = {
+            name: stadium.name,
+            city: stadium.city,
+            state: stadium.state,
+          }
+        }
+      } catch {
+        venue = undefined
+      }
     }
 
     games.push({

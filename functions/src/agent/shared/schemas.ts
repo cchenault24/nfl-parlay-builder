@@ -103,11 +103,13 @@ export const AgentResultSchema = z.object({
       roadRecord: z.string(),
       stats: z.any().nullable(),
     }),
-    venue: z.object({
-      name: z.string(),
-      city: z.string(),
-      state: z.string(),
-    }),
+    venue: z
+      .object({
+        name: z.string(),
+        city: z.string(),
+        state: z.string(),
+      })
+      .optional(),
     weather: z
       .object({
         condition: z.string(),

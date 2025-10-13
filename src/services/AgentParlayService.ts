@@ -67,6 +67,7 @@ export class AgentParlayService extends BaseParlayService {
           name: game.away.name,
           abbrev: game.away.abbrev,
         },
+        venue: game.venue,
       }
 
       // Create agent run

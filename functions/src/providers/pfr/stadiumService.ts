@@ -61,7 +61,7 @@ export async function getTeamStadiumMapping(): Promise<
  */
 export async function getStadiumForTeamName(
   teamName: string
-): Promise<PFRStadium | null> {
+): Promise<PFRStadium | undefined> {
   const mapping = await getTeamStadiumMapping()
   return getStadiumForTeam(teamName, mapping)
 }

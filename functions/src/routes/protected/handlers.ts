@@ -156,6 +156,17 @@ export const generateParlayHandler = async (
             const actualDateTime =
               scheduleGame?.dateTime || new Date().toISOString()
             const actualStatus = scheduleGame?.status || 'scheduled'
+            const venue =
+              scheduleGame?.venue &&
+              scheduleGame.venue.name?.trim() !== '' &&
+              scheduleGame.venue.city?.trim() !== '' &&
+              scheduleGame.venue.state?.trim() !== ''
+                ? {
+                    name: scheduleGame.venue.name,
+                    city: scheduleGame.venue.city,
+                    state: scheduleGame.venue.state,
+                  }
+                : undefined
 
             // Create a GameData object with real PFR data
             game = {
@@ -183,11 +194,7 @@ export const generateParlayHandler = async (
                 roadRecord: teamData.away?.roadRecord || '0-0',
                 stats: teamData.away,
               },
-              venue: scheduleGame?.venue || {
-                name: 'TBD',
-                city: 'TBD',
-                state: 'TBD',
-              },
+              venue,
               leaders: {}, // PFR doesn't provide player leaders in team stats
             }
           } catch (error) {

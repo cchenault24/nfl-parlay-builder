@@ -158,34 +158,49 @@ export const getPFRScheduleHandler = async (
     const allGames: PFRGameItem[] = await fetchPFRSeasonSchedule()
 
     // Convert PFRGameItem to the format expected by frontend
-    const games = allGames.map(game => ({
-      gameId: game.id,
-      week: game.week,
-      dateTime: game.dateTime,
-      status: game.status,
-      home: {
-        teamId: game.homeTeam.id,
-        name: game.homeTeam.name,
-        abbrev: game.homeTeam.abbreviation,
-        record: '0-0',
-        overallRecord: '0-0',
-        homeRecord: '0-0',
-        roadRecord: '0-0',
-        stats: null,
-      },
-      away: {
-        teamId: game.awayTeam.id,
-        name: game.awayTeam.name,
-        abbrev: game.awayTeam.abbreviation,
-        record: '0-0',
-        overallRecord: '0-0',
-        homeRecord: '0-0',
-        roadRecord: '0-0',
-        stats: null,
-      },
-      venue: game.venue,
-      leaders: {},
-    }))
+    const games = allGames.map(game => {
+      // Only include venue if we have valid data
+      const venue =
+        game.venue &&
+        game.venue.name?.trim() !== '' &&
+        game.venue.city?.trim() !== '' &&
+        game.venue.state?.trim() !== ''
+          ? {
+              name: game.venue.name,
+              city: game.venue.city,
+              state: game.venue.state,
+            }
+          : undefined
+
+      return {
+        gameId: game.id,
+        week: game.week,
+        dateTime: game.dateTime,
+        status: game.status,
+        home: {
+          teamId: game.homeTeam.id,
+          name: game.homeTeam.name,
+          abbrev: game.homeTeam.abbreviation,
+          record: '0-0',
+          overallRecord: '0-0',
+          homeRecord: '0-0',
+          roadRecord: '0-0',
+          stats: null,
+        },
+        away: {
+          teamId: game.awayTeam.id,
+          name: game.awayTeam.name,
+          abbrev: game.awayTeam.abbreviation,
+          record: '0-0',
+          overallRecord: '0-0',
+          homeRecord: '0-0',
+          roadRecord: '0-0',
+          stats: null,
+        },
+        venue,
+        leaders: {},
+      }
+    })
 
     res.json(games)
   } catch {
@@ -237,34 +252,49 @@ export const getPFRGamesForWeekHandler = async (
     const weekGames = allGames.filter(game => game.week === week)
 
     // Convert PFRGameItem to the format expected by frontend
-    const games = weekGames.map(game => ({
-      gameId: game.id,
-      week: game.week,
-      dateTime: game.dateTime,
-      status: game.status,
-      home: {
-        teamId: game.homeTeam.id,
-        name: game.homeTeam.name,
-        abbrev: game.homeTeam.abbreviation,
-        record: '0-0',
-        overallRecord: '0-0',
-        homeRecord: '0-0',
-        roadRecord: '0-0',
-        stats: null,
-      },
-      away: {
-        teamId: game.awayTeam.id,
-        name: game.awayTeam.name,
-        abbrev: game.awayTeam.abbreviation,
-        record: '0-0',
-        overallRecord: '0-0',
-        homeRecord: '0-0',
-        roadRecord: '0-0',
-        stats: null,
-      },
-      venue: game.venue,
-      leaders: {},
-    }))
+    const games = weekGames.map(game => {
+      // Only include venue if we have valid data
+      const venue =
+        game.venue &&
+        game.venue.name?.trim() !== '' &&
+        game.venue.city?.trim() !== '' &&
+        game.venue.state?.trim() !== ''
+          ? {
+              name: game.venue.name,
+              city: game.venue.city,
+              state: game.venue.state,
+            }
+          : undefined
+
+      return {
+        gameId: game.id,
+        week: game.week,
+        dateTime: game.dateTime,
+        status: game.status,
+        home: {
+          teamId: game.homeTeam.id,
+          name: game.homeTeam.name,
+          abbrev: game.homeTeam.abbreviation,
+          record: '0-0',
+          overallRecord: '0-0',
+          homeRecord: '0-0',
+          roadRecord: '0-0',
+          stats: null,
+        },
+        away: {
+          teamId: game.awayTeam.id,
+          name: game.awayTeam.name,
+          abbrev: game.awayTeam.abbreviation,
+          record: '0-0',
+          overallRecord: '0-0',
+          homeRecord: '0-0',
+          roadRecord: '0-0',
+          stats: null,
+        },
+        venue,
+        leaders: {},
+      }
+    })
 
     res.json(games)
   } catch {

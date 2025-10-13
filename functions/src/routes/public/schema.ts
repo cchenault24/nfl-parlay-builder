@@ -30,7 +30,7 @@ export interface GameData {
     roadRecord: string
     stats: PFRTeamStats | null
   }
-  venue: { name: string; city: string; state: string }
+  venue?: { name: string; city: string; state: string }
   weather?: { condition: string; temperatureF: number; windMph: number }
   leaders?: {
     passing?: { name: string; stats: string; value: number }

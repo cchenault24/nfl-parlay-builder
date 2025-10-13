@@ -123,7 +123,7 @@ export function createTeamStadiumMapping(
 export function getStadiumForTeam(
   teamName: string,
   teamStadiumMap: Map<string, PFRStadium>
-): PFRStadium | null {
+): PFRStadium | undefined {
   // Try exact match first
   const stadium = teamStadiumMap.get(teamName.toLowerCase())
   if (stadium) {
@@ -140,5 +140,5 @@ export function getStadiumForTeam(
     }
   }
 
-  return null
+  return undefined
 }

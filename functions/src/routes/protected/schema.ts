@@ -126,7 +126,7 @@ export type GenerateParlayResponse = {
       stats: PFRTeamStats | null
       roster: Array<{ playerId: string; name: string; position?: string }>
     }
-    venue: { name: string; city: string; state: string }
+    venue?: { name: string; city: string; state: string }
     leaders?: {
       passing?: { name: string; stats: string; value: number }
       rushing?: { name: string; stats: string; value: number }
