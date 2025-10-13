@@ -18,6 +18,7 @@ const REGION = 'us-central1'
 const CORS_ALLOWLIST = new Set([
   'http://localhost:3001',
   'http://localhost:3000',
+  'http://localhost:5173',
   // Production main site
   'https://nfl-parlay-builder.web.app',
   'https://nfl-parlay-builder.firebaseapp.com',

@@ -12,7 +12,7 @@ import {
   listSteps,
   updateRun,
 } from '../agent/store/firestore'
-import { verifyAuth } from '../middleware/auth'
+import { verifyAuth, type AuthedRequest } from '../middleware/auth'
 import { rateLimitByUser } from '../middleware/rateLimit'
 import { errorResponse } from '../utils/errors'
 
@@ -24,10 +24,10 @@ agentRouter.post(
   verifyAuth,
   rateLimitByUser(30, 60_000),
   async (req: express.Request, res: express.Response) => {
-    const auth = req as any
+    const auth = req as AuthedRequest
     const correlationId = auth.correlationId
     const user = auth.user
-    if (!user)
+    if (!user) {
       return errorResponse(
         res,
         401,
@@ -35,12 +35,17 @@ agentRouter.post(
         'Missing user',
         correlationId
       )
+    }
 
     const budget = AgentBudgetSchema.partial().parse(req.body?.budget || {})
     const rlRaw = String(req.body?.riskLevel || 'medium').toLowerCase()
     const normalizedRisk = ((): 'low' | 'medium' | 'high' => {
-      if (rlRaw === 'conservative' || rlRaw === 'low') return 'low'
-      if (rlRaw === 'aggressive' || rlRaw === 'high') return 'high'
+      if (rlRaw === 'conservative' || rlRaw === 'low') {
+        return 'low'
+      }
+      if (rlRaw === 'aggressive' || rlRaw === 'high') {
+        return 'high'
+      }
       return 'medium'
     })()
 
@@ -87,13 +92,13 @@ agentRouter.post(
           updatedAt: new Date().toISOString(),
         })
         await runAgent(run, { appendStep, updateRun })
-      } catch (e: any) {
+      } catch (e) {
         await updateRun(run.id, {
           status: 'failed',
           updatedAt: new Date().toISOString(),
           error: {
             code: 'orchestrator_error',
-            message: String(e?.message || e),
+            message: e instanceof Error ? e.message : String(e),
           },
         })
       }
@@ -103,22 +108,24 @@ agentRouter.post(
 
 // GET /agent/runs/:id
 agentRouter.get('/agent/runs/:id', verifyAuth, async (req, res) => {
-  const auth = req as any
+  const auth = req as AuthedRequest
   const correlationId = auth.correlationId
   const run = await getRun(req.params.id)
-  if (!run)
+  if (!run) {
     return errorResponse(res, 404, 'not_found', 'Run not found', correlationId)
+  }
   res.json(run)
 })
 
 // GET /agent/runs/:id/stream (SSE)
 agentRouter.get('/agent/runs/:id/stream', verifyAuth, async (req, res) => {
-  const auth = req as any
+  const auth = req as AuthedRequest
   const correlationId = auth.correlationId
   const runId = req.params.id
   const run = await getRun(runId)
-  if (!run)
+  if (!run) {
     return errorResponse(res, 404, 'not_found', 'Run not found', correlationId)
+  }
 
   res.setHeader('Content-Type', 'text/event-stream')
   res.setHeader('Cache-Control', 'no-cache, no-transform')
@@ -136,7 +143,9 @@ agentRouter.get('/agent/runs/:id/stream', verifyAuth, async (req, res) => {
       }
       lastSent = steps.length
       const latest = await getRun(runId)
-      if (!latest) return
+      if (!latest) {
+        return
+      }
       if (latest.status === 'succeeded') {
         res.write(`event: final\n`)
         res.write(`data: ${JSON.stringify(latest.result)}\n\n`)
@@ -151,23 +160,26 @@ agentRouter.get('/agent/runs/:id/stream', verifyAuth, async (req, res) => {
         clearInterval(interval)
         res.end()
       }
-    } catch (e) {
+    } catch {
       clearInterval(interval)
       try {
         res.end()
-      } catch {}
+      } catch {
+        void 0
+      }
     }
   }, 750)
 })
 
 // POST /agent/runs/:id/cancel
 agentRouter.post('/agent/runs/:id/cancel', verifyAuth, async (req, res) => {
-  const auth = req as any
+  const auth = req as AuthedRequest
   const correlationId = auth.correlationId
   const runId = req.params.id
   const run = await getRun(runId)
-  if (!run)
+  if (!run) {
     return errorResponse(res, 404, 'not_found', 'Run not found', correlationId)
+  }
   await updateRun(runId, {
     status: 'canceled',
     updatedAt: new Date().toISOString(),

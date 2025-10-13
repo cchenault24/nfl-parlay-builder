@@ -24,7 +24,7 @@ export async function runAgent(
   persist: Persist
 ): Promise<AgentRun> {
   const startedAt = Date.now()
-  let current = AgentRunSchema.parse(run)
+  const current = AgentRunSchema.parse(run)
   const budget: AgentBudget = current.budget
 
   function remainingMs() {
@@ -72,14 +72,14 @@ export async function runAgent(
           timeoutMs: Math.min(remainingMs(), budget.perToolTimeoutMs),
           retries: 1,
         }
-      ).catch((e: any) => ({
+      ).catch(e => ({
         name: 'pfr_schedule',
         ok: false,
         durationMs: Date.now() - toolStepStart,
         error: {
-          code: e?.code || 'error',
-          message: String(e?.message || e),
-          retriable: !!e?.retriable,
+          code: (e as { code?: string }).code || 'error',
+          message: e instanceof Error ? e.message : String(e),
+          retriable: Boolean((e as { retriable?: boolean }).retriable),
         },
       }))
     ),
@@ -109,14 +109,14 @@ export async function runAgent(
           timeoutMs: Math.min(remainingMs(), budget.perToolTimeoutMs),
           retries: 1,
         }
-      ).catch((e: any) => ({
+      ).catch(e => ({
         name: 'pfr_team_stats',
         ok: false,
         durationMs: Date.now() - toolStepStart,
         error: {
-          code: e?.code || 'error',
-          message: String(e?.message || e),
-          retriable: !!e?.retriable,
+          code: (e as { code?: string }).code || 'error',
+          message: e instanceof Error ? e.message : String(e),
+          retriable: Boolean((e as { retriable?: boolean }).retriable),
         },
       }))
     ),
@@ -137,14 +137,14 @@ export async function runAgent(
           timeoutMs: Math.min(remainingMs(), budget.perToolTimeoutMs),
           retries: 0,
         }
-      ).catch((e: any) => ({
+      ).catch(e => ({
         name: 'weather',
         ok: false,
         durationMs: Date.now() - toolStepStart,
         error: {
-          code: e?.code || 'error',
-          message: String(e?.message || e),
-          retriable: !!e?.retriable,
+          code: (e as { code?: string }).code || 'error',
+          message: e instanceof Error ? e.message : String(e),
+          retriable: Boolean((e as { retriable?: boolean }).retriable),
         },
       }))
     ),
@@ -160,14 +160,14 @@ export async function runAgent(
           timeoutMs: Math.min(remainingMs(), budget.perToolTimeoutMs),
           retries: 0,
         }
-      ).catch((e: any) => ({
+      ).catch(e => ({
         name: 'odds',
         ok: false,
         durationMs: Date.now() - toolStepStart,
         error: {
-          code: e?.code || 'error',
-          message: String(e?.message || e),
-          retriable: !!e?.retriable,
+          code: (e as { code?: string }).code || 'error',
+          message: e instanceof Error ? e.message : String(e),
+          retriable: Boolean((e as { retriable?: boolean }).retriable),
         },
       }))
     ),
@@ -200,7 +200,7 @@ export async function runAgent(
   }
 
   // Build minimal GameData from tools
-  const [home, away, season, week] = (() => {
+  const [home, away, _season, week] = (() => {
     const parts = current.input.gameId.split('-')
     return [
       parts[0],
@@ -210,17 +210,36 @@ export async function runAgent(
     ]
   })()
   const schedule =
-    (toolStep.tools?.find(t => t.name === 'pfr_schedule')?.data as any[]) || []
+    (toolStep.tools?.find(t => t.name === 'pfr_schedule')?.data as Array<{
+      id: string
+      dateTime?: string
+      status?: 'scheduled' | 'in_progress' | 'final' | 'postponed'
+      venue?: { name: string; city: string; state: string }
+    }>) || []
   const scheduleGame = schedule.find(g => g?.id === current.input.gameId)
   const teamStats = toolStep.tools?.find(t => t.name === 'pfr_team_stats')
-    ?.data as any
-  const weather = toolStep.tools?.find(t => t.name === 'weather')?.data as any
-  const odds = toolStep.tools?.find(t => t.name === 'odds')?.data as any
+    ?.data as
+    | {
+        home?: import('../../providers/pfr').PFRTeamStats | null
+        away?: import('../../providers/pfr').PFRTeamStats | null
+      }
+    | undefined
+  const weather = toolStep.tools?.find(t => t.name === 'weather')?.data as
+    | { condition: string; temperatureF: number; windMph: number }
+    | undefined
+  const _odds = toolStep.tools?.find(t => t.name === 'odds')?.data as
+    | {
+        moneylineHome: number
+        moneylineAway: number
+        totalPoints: number
+        spreadHome: number
+      }
+    | undefined
   const gameData: GameData = {
     gameId: current.input.gameId,
-    week: week,
+    week,
     dateTime: scheduleGame?.dateTime || new Date().toISOString(),
-    status: scheduleGame?.status || 'scheduled',
+    status: scheduleGame?.status ?? 'scheduled',
     home: {
       teamId: home,
       name: teamStats?.home?.teamName || home,
@@ -229,7 +248,7 @@ export async function runAgent(
       overallRecord: teamStats?.home?.overallRecord || '0-0',
       homeRecord: teamStats?.home?.homeRecord || '0-0',
       roadRecord: teamStats?.home?.roadRecord || '0-0',
-      stats: teamStats?.home || null,
+      stats: teamStats?.home ?? null,
     },
     away: {
       teamId: away,
@@ -239,7 +258,7 @@ export async function runAgent(
       overallRecord: teamStats?.away?.overallRecord || '0-0',
       homeRecord: teamStats?.away?.homeRecord || '0-0',
       roadRecord: teamStats?.away?.roadRecord || '0-0',
-      stats: teamStats?.away || null,
+      stats: teamStats?.away ?? null,
     },
     venue: scheduleGame?.venue || { name: 'TBD', city: 'TBD', state: 'TBD' },
     weather: weather || undefined,

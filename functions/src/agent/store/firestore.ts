@@ -21,7 +21,9 @@ export async function createRun(run: AgentRun): Promise<void> {
 
 export async function getRun(runId: string): Promise<AgentRun | null> {
   const snap = await getDb().collection('agentRuns').doc(runId).get()
-  if (!snap.exists) return null
+  if (!snap.exists) {
+    return null
+  }
   return AgentRunSchema.parse(snap.data())
 }
 
