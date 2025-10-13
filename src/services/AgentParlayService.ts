@@ -169,7 +169,7 @@ export class AgentParlayService extends BaseParlayService {
             const parlay: GeneratedParlay = {
               parlayId: `agent-${runId}`,
               gameId: runId,
-              gameContext: JSON.stringify(agentResult.parlay.analysisSummary),
+              gameContext: `${agentResult.gameData.away.name} @ ${agentResult.gameData.home.name} - Week ${agentResult.gameData.week}`,
               legs: agentResult.parlay.legs.map(
                 (leg): ParlayLeg => ({
                   betType: leg.betType as BetType,
