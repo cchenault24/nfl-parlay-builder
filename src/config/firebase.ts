@@ -89,7 +89,6 @@ export const createUserProfile = async (
         ...additionalData,
       })
     } catch (error) {
-      console.error('Error creating user profile:', error)
       throw error
     }
   }
@@ -110,7 +109,6 @@ export const getUserProfile = async (
   const data = userSnap.data()
 
   if (!data.displayName || !data.email || !data.createdAt) {
-    console.warn('User profile missing required fields:', data)
     return null
   }
 
@@ -137,7 +135,6 @@ export const saveParlayToUser = async (
     })
     return parlayRef.id
   } catch (error) {
-    console.error('Error saving parlay:', error)
     throw error
   }
 }

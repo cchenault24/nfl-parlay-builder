@@ -69,21 +69,6 @@ export class AgentParlayService extends BaseParlayService {
         },
       }
 
-      // Debug logging - Raw game data and context
-      console.info('🎮 [AgentParlayService] Raw game data received:', {
-        gameId: game.gameId,
-        week: game.week,
-        dateTime: game.dateTime,
-        status: game.status,
-        homeTeam: game.home.name,
-        awayTeam: game.away.name,
-      })
-
-      console.info(
-        '📋 [AgentParlayService] Minimal game context being sent to agent:',
-        JSON.stringify(gameContext, null, 2)
-      )
-
       // Create agent run
       const { runId } = await this.agentService.createRun({
         gameId: game.gameId,
@@ -217,32 +202,6 @@ export class AgentParlayService extends BaseParlayService {
             // Get toolResponses from the agent result
             const toolResponses = agentResult.toolResponses
 
-            console.info('🤖 [AgentParlayService] Agent run completed:', {
-              runId,
-              status: run.status,
-              hasResult: !!run.result,
-              resultKeys: run.result ? Object.keys(run.result) : [],
-              parlayLegs: agentResult.parlay.legs?.length || 0,
-              toolResponses,
-            })
-
-            // Debug: Log the full agent result structure
-            console.info(
-              '🔍 [AgentParlayService] Full agent result structure:',
-              {
-                hasParlay: !!agentResult.parlay,
-                parlayKeys: agentResult.parlay
-                  ? Object.keys(agentResult.parlay)
-                  : [],
-                parlayLegs: agentResult.parlay?.legs,
-                hasGameData: !!agentResult.gameData,
-                hasToolResponses: !!agentResult.toolResponses,
-                toolResponsesKeys: agentResult.toolResponses
-                  ? Object.keys(agentResult.toolResponses)
-                  : [],
-              }
-            )
-
             resolve({
               parlay,
               gameData,
@@ -288,21 +247,18 @@ export class AgentParlayService extends BaseParlayService {
       const { auth } = await import('../config/firebase')
       const currentUser = auth.currentUser
       if (!currentUser) {
-        console.warn('No authenticated user found')
         return undefined
       }
 
       // Check if user is still valid
       if (!currentUser.emailVerified && currentUser.providerData.length === 0) {
-        console.warn('User account may be invalid')
         return undefined
       }
 
       // Get the ID token, which will refresh if needed
       const token = await currentUser.getIdToken()
       return token
-    } catch (error) {
-      console.error('Error getting auth token:', error)
+    } catch {
       return undefined
     }
   }

@@ -96,7 +96,6 @@ export const usePFRGames = (
       const data = await response.json()
       setGames(data)
     } catch (err) {
-      console.error('Error fetching PFR games:', err)
       setError(err instanceof Error ? err.message : 'Failed to fetch games')
     } finally {
       setLoading(false)

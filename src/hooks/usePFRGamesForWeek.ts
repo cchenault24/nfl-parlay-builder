@@ -19,23 +19,6 @@ export const usePFRGamesForWeek = (week: number) => {
 
       const games: Game[] = await response.json()
 
-      // Debug logging - Week-specific games
-      console.info(
-        `📅 [usePFRGamesForWeek] Loaded ${games.length} games for week ${week}:`,
-        {
-          week,
-          gamesCount: games.length,
-          games: games.map(game => ({
-            gameId: game.gameId,
-            homeTeam: game.home.name,
-            awayTeam: game.away.name,
-            dateTime: game.dateTime,
-            status: game.status,
-            venue: game.venue,
-          })),
-        }
-      )
-
       return games
     },
     enabled: !!week && week > 0,

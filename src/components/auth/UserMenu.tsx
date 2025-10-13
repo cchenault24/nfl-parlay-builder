@@ -52,7 +52,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({ onViewHistory }) => {
         // Clear backend rate limits
         try {
           const token = await user.getIdToken()
-          const response = await fetch(
+          await fetch(
             `${API_CONFIG.CLOUD_FUNCTIONS.baseURL}/api/rate-limits/clear`,
             {
               method: 'POST',
@@ -62,13 +62,6 @@ export const UserMenu: React.FC<UserMenuProps> = ({ onViewHistory }) => {
               },
             }
           )
-
-          if (!response.ok) {
-            console.warn(
-              'Failed to clear backend rate limits:',
-              response.status
-            )
-          }
         } catch (error) {
           console.error('Error clearing backend rate limits:', error)
         }

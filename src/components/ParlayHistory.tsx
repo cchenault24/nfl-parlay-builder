@@ -159,8 +159,6 @@ export const ParlayHistory: React.FC<ParlayHistoryProps> = ({
                     />
                   </Box>
 
-                  {/* savedAt removed in v2 */}
-
                   <Grid container spacing={2}>
                     {parlay.legs?.map((leg, _legIndex) => (
                       <Grid

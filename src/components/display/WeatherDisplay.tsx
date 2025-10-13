@@ -27,16 +27,6 @@ const WeatherDisplay: React.FC<WeatherDisplayProps> = ({ weather }) => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const isSmall = useMediaQuery(theme.breakpoints.down('sm'))
 
-  // Log weather data for debugging
-  React.useEffect(() => {
-    console.info('🌤️ [WeatherDisplay] Rendering weather data:', {
-      condition: weather.condition,
-      temperatureF: weather.temperatureF,
-      windMph: weather.windMph,
-      weather,
-    })
-  }, [weather])
-
   // Get weather condition color and icon
   const getWeatherDisplay = (condition: string) => {
     const lowerCondition = condition.toLowerCase()

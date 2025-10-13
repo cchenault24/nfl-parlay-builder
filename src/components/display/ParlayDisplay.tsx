@@ -126,9 +126,8 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({
       await saveParlayToUser(user.uid, parlay)
       setSaveParlaySuccess(true)
       setTimeout(() => setSaveParlaySuccess(false), 3000)
-    } catch (error) {
+    } catch {
       setSaveParlayError('Failed to save parlay. Please try again.')
-      console.error('Error saving parlay:', error)
     } finally {
       setSaving(false)
     }

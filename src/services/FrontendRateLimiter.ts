@@ -193,7 +193,7 @@ export class FrontendRateLimiter {
     try {
       localStorage.setItem(key, JSON.stringify(record))
     } catch (error) {
-      console.warn('Failed to save rate limit record:', error)
+      console.error('Failed to save rate limit record:', error)
     }
   }
 }

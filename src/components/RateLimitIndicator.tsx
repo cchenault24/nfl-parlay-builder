@@ -88,13 +88,11 @@ export const RateLimitIndicator: React.FC<RateLimitIndicatorProps> = ({
         <Typography variant="caption" color="text.secondary" gutterBottom>
           Checking usage limits...
         </Typography>
-        {/* Fix 1: Remove invalid 'size' prop from LinearProgress */}
         <LinearProgress />
       </Box>
     )
   }
 
-  // Fix 2: Remove unused currentCount destructuring
   const { remaining, total } = rateLimitInfo
   const usagePercentage = ((total - remaining) / total) * 100
   const isNearLimit = remaining <= 2
@@ -119,9 +117,6 @@ export const RateLimitIndicator: React.FC<RateLimitIndicatorProps> = ({
     }
     return <CheckIcon fontSize="small" />
   }
-
-  // Fix 3: Remove unused getStatusText function or use it
-  // Since it's not used anywhere, I'll remove it
 
   return (
     <Fade in>
