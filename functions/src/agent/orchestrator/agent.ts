@@ -252,17 +252,6 @@ export async function runAgent(
     // Use pre-loaded game context (optimized path)
     const context = current.input.gameContext
 
-    // Debug logging - Pre-loaded game context
-    console.info('🎯 [Agent Orchestrator] Using pre-loaded game context:', {
-      gameId: context.gameId,
-      homeTeam: context.home.name,
-      awayTeam: context.away.name,
-      venue: context.venue,
-      week: context.week,
-      dateTime: context.dateTime,
-      status: context.status,
-    })
-
     const teamStats = toolStep.tools?.find(t => t.name === 'pfr_team_stats')
       ?.data as
       | {
@@ -273,35 +262,6 @@ export async function runAgent(
     const weather = toolStep.tools?.find(t => t.name === 'weather')?.data as
       | { condition: string; temperatureF: number; windMph: number }
       | undefined
-
-    // Debug logging - Tool results
-    console.info('🔧 [Agent Orchestrator] Tool results:', {
-      teamStats: teamStats
-        ? {
-            home: teamStats.home
-              ? {
-                  teamName: teamStats.home.teamName,
-                  record: teamStats.home.record,
-                  hasStats: !!(teamStats.home as { stats?: unknown }).stats,
-                }
-              : null,
-            away: teamStats.away
-              ? {
-                  teamName: teamStats.away.teamName,
-                  record: teamStats.away.record,
-                  hasStats: !!(teamStats.away as { stats?: unknown }).stats,
-                }
-              : null,
-          }
-        : null,
-      weather: weather
-        ? {
-            condition: weather.condition,
-            temperatureF: weather.temperatureF,
-            windMph: weather.windMph,
-          }
-        : null,
-    })
 
     gameData = {
       gameId: context.gameId,
@@ -542,19 +502,6 @@ export async function runAgent(
         spreadHome: number
       }
     | undefined
-
-  // Log tool responses for debugging
-  console.info('🔧 [Agent Orchestrator] Tool responses extracted:', {
-    allTools: toolStep.tools?.map(t => ({
-      name: t.name,
-      hasData: !!t.data,
-      ok: t.ok,
-    })),
-    weatherResult,
-    oddsResult,
-    hasWeather: !!weatherResult,
-    hasOdds: !!oddsResult,
-  })
 
   // Create enhanced result with tool responses
   const enhancedResult = {

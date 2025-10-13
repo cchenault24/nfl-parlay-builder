@@ -55,7 +55,9 @@ export class WeatherProvider {
   /**
    * Get weather data for a game
    */
-  async getWeather(request: WeatherRequest): Promise<WeatherResponse> {
+  async getWeather(
+    request: WeatherRequest
+  ): Promise<WeatherResponse | undefined> {
     const startTime = Date.now()
     const cacheKey = {
       gameId: request.gameId,
@@ -104,8 +106,8 @@ export class WeatherProvider {
         durationMs,
       })
 
-      // Return fallback data instead of throwing
-      return this.getFallbackWeather(request, durationMs)
+      // Return undefined instead of fallback data
+      return undefined
     }
   }
 
@@ -141,7 +143,7 @@ export class WeatherProvider {
     const apiKey = process.env.WEATHER_API_KEY
     if (!apiKey) {
       log.warn('weather.api.key.missing', { gameId: request.gameId })
-      return this.getFallbackWeatherData(request)
+      throw new Error('Weather API key not configured')
     }
 
     try {
@@ -183,7 +185,7 @@ export class WeatherProvider {
         },
       })
 
-      return this.getFallbackWeatherData(request)
+      throw error
     }
   }
 
@@ -264,7 +266,6 @@ export class WeatherProvider {
     const isSummer = month >= 6 && month <= 8
     const isFall = month >= 9 && month <= 11
 
-    // Base temperatures by region
     const regionTemps: Record<
       string,
       { winter: number; spring: number; summer: number; fall: number }
@@ -299,7 +300,6 @@ export class WeatherProvider {
    * Get hourly temperature variation
    */
   private getHourlyTemperatureVariation(hour: number): number {
-    // Colder at night, warmer during day
     if (hour >= 6 && hour <= 18) {
       return 5 // Daytime bonus
     }

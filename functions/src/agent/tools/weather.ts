@@ -54,7 +54,7 @@ export async function fetchWeatherForGame(
     venue: { name: string; city: string; state: string }
     dateTime: string
   }
-): Promise<WeatherInfo> {
+): Promise<WeatherInfo | undefined> {
   try {
     let gameDetails: {
       stadium: string
@@ -71,27 +71,9 @@ export async function fetchWeatherForGame(
         state: gameContext.venue.state,
         gameTime: gameContext.dateTime,
       }
-
-      // Debug logging - Weather tool with context
-      console.info('🌤️ [Weather Tool] Using pre-loaded context:', {
-        gameId,
-        stadium: gameDetails.stadium,
-        city: gameDetails.city,
-        state: gameDetails.state,
-        gameTime: gameDetails.gameTime,
-      })
     } else {
       // Fallback to extracting from gameId
       gameDetails = extractGameDetails(gameId)
-
-      // Debug logging - Weather tool fallback
-      console.info('🌤️ [Weather Tool] Using fallback extraction:', {
-        gameId,
-        stadium: gameDetails.stadium,
-        city: gameDetails.city,
-        state: gameDetails.state,
-        gameTime: gameDetails.gameTime,
-      })
     }
 
     const request = {
@@ -104,13 +86,9 @@ export async function fetchWeatherForGame(
 
     const response = await weatherProvider.getWeather(request)
 
-    // Debug logging - Weather API response
-    console.info('🌤️ [Weather Tool] API response:', {
-      gameId,
-      condition: response.data.condition,
-      temperature: response.data.temperature,
-      windSpeed: response.data.windSpeed,
-    })
+    if (!response) {
+      return undefined
+    }
 
     // Convert to expected format
     return {
@@ -127,11 +105,7 @@ export async function fetchWeatherForGame(
       },
     })
 
-    // Return fallback data
-    return {
-      condition: 'Clear',
-      temperatureF: 68,
-      windMph: 5,
-    }
+    // Return undefined instead of fallback data
+    return undefined
   }
 }

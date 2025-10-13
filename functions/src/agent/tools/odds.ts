@@ -61,25 +61,9 @@ export async function fetchOddsForGame(
         awayTeam: gameContext.away.name,
         gameTime: gameContext.dateTime,
       }
-
-      // Debug logging - Odds tool with context
-      console.info('💰 [Odds Tool] Using pre-loaded context:', {
-        gameId,
-        homeTeam: teamDetails.homeTeam,
-        awayTeam: teamDetails.awayTeam,
-        gameTime: teamDetails.gameTime,
-      })
     } else {
       // Fallback to extracting from gameId
       teamDetails = extractTeamDetails(gameId)
-
-      // Debug logging - Odds tool fallback
-      console.info('💰 [Odds Tool] Using fallback extraction:', {
-        gameId,
-        homeTeam: teamDetails.homeTeam,
-        awayTeam: teamDetails.awayTeam,
-        gameTime: teamDetails.gameTime,
-      })
     }
 
     const request = {
@@ -90,14 +74,6 @@ export async function fetchOddsForGame(
     }
 
     const response = await oddsProvider.getOdds(request)
-
-    // Debug logging - Odds API response
-    console.info('💰 [Odds Tool] API response:', {
-      gameId,
-      moneyline: response.data.moneyline,
-      total: response.data.total,
-      spread: response.data.spread,
-    })
 
     // Convert to expected format
     return {

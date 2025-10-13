@@ -5,7 +5,6 @@ import { LoadingPhaseUpdate } from './loading'
 export type { LoadingPhaseUpdate } from './loading'
 
 // ===== PFR TYPES =====
-// This matches the backend schema exactly (functions/src/providers/pfr/types.ts)
 // API Types
 export interface TeamStatsOffense {
   totalYards: { rank: number; yardsPerGame: number }
@@ -234,7 +233,6 @@ export interface ToolResponses {
   }
 }
 
-// Minimal game context for agent input - agent tools will discover venue and team data
 export interface GameContext {
   gameId: string
   week: number
