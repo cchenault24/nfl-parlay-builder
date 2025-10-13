@@ -1,4 +1,5 @@
 import { API_CONFIG } from '../config/api'
+import { GameContext } from '../types'
 import { SSEClient } from './SSEClient'
 
 export type AgentRun = {
@@ -55,35 +56,7 @@ export class AgentRunService {
 
   async createRun(params: {
     gameId: string
-    gameContext?: {
-      gameId: string
-      week: number
-      dateTime: string
-      status: 'scheduled' | 'in_progress' | 'final' | 'postponed'
-      home: {
-        teamId: string
-        name: string
-        abbrev: string
-        record: string
-        overallRecord: string
-        homeRecord: string
-        roadRecord: string
-      }
-      away: {
-        teamId: string
-        name: string
-        abbrev: string
-        record: string
-        overallRecord: string
-        homeRecord: string
-        roadRecord: string
-      }
-      venue: {
-        name: string
-        city: string
-        state: string
-      }
-    }
+    gameContext?: GameContext
     numLegs: number
     riskLevel: 'conservative' | 'moderate' | 'aggressive'
     authToken?: string

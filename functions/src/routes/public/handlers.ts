@@ -236,24 +236,6 @@ export const getPFRGamesForWeekHandler = async (
     // Filter to specific week
     const weekGames = allGames.filter(game => game.week === week)
 
-    // Debug logging - Week filtering
-    console.info(
-      `📅 [getPFRGamesForWeekHandler] Filtered games for week ${week}:`,
-      {
-        week,
-        totalGames: allGames.length,
-        weekGames: weekGames.length,
-        games: weekGames.map(game => ({
-          gameId: game.id,
-          homeTeam: game.homeTeam.name,
-          awayTeam: game.awayTeam.name,
-          dateTime: game.dateTime,
-          status: game.status,
-          venue: game.venue,
-        })),
-      }
-    )
-
     // Convert PFRGameItem to the format expected by frontend
     const games = weekGames.map(game => ({
       gameId: game.id,

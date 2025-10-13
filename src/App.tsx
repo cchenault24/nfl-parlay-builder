@@ -24,7 +24,6 @@ import { useAuth } from './hooks/useAuth'
 import { useDerivedCurrentWeek } from './hooks/useDerivedCurrentWeek'
 import { useParlayGeneratorSelector } from './hooks/useParlayGeneratorSelector'
 import { usePFRSchedule } from './hooks/usePFRSchedule'
-import useGeneralStore from './store/generalStore'
 import useParlayStore from './store/parlayStore'
 import { theme } from './theme'
 
@@ -43,7 +42,7 @@ function AppContent() {
   const parlay = useParlayStore(state => state.parlay)
   const gameData = useParlayStore(state => state.gameData)
   const toolResponses = useParlayStore(state => state.toolResponses)
-  const devMockOverride = useGeneralStore(state => state.devMockOverride)
+  const parlayMode = useParlayStore(state => state.parlayMode)
 
   const { user, loading } = useAuth()
   const [historyOpen, setHistoryOpen] = useState(false)
@@ -58,7 +57,7 @@ function AppContent() {
   const [ageVerificationOpen, setAgeVerificationOpen] = useState(false)
 
   // Get current week derived from PFR game data
-  const { currentWeek, isLoading: weekLoading } = useDerivedCurrentWeek()
+  const { currentWeek, isLoading: currentWeekLoading } = useDerivedCurrentWeek()
 
   // Use PFR schedule for all games (for week selection)
   const { data: allGames, isLoading: gamesLoading } = usePFRSchedule()
@@ -68,15 +67,16 @@ function AppContent() {
     ? Array.from(new Set(allGames.map(game => game.week))).sort((a, b) => a - b)
     : []
 
-  // Initialize selectedWeek with currentWeek
+  // Simple state management - start with currentWeek when available
   const [selectedWeek, setSelectedWeek] = useState<number>(currentWeek || 1)
+  const [userSelectedWeek, setUserSelectedWeek] = useState<number | null>(null)
 
-  // Keep selectedWeek in sync with currentWeek when it changes
+  // Update selectedWeek when currentWeek changes (but only if user hasn't manually selected a different week)
   useEffect(() => {
-    if (currentWeek && currentWeek !== selectedWeek) {
+    if (currentWeek && !userSelectedWeek) {
       setSelectedWeek(currentWeek)
     }
-  }, [currentWeek])
+  }, [currentWeek, userSelectedWeek])
 
   // No longer need separate gamesWithStats hook - gameData comes with parlay response
 
@@ -97,6 +97,7 @@ function AppContent() {
 
   const handleWeekChange = (week: number) => {
     setSelectedWeek(week)
+    setUserSelectedWeek(week) // Track that user manually selected this week
     setSelectedGame(null)
     resetParlay()
   }
@@ -105,7 +106,7 @@ function AppContent() {
     if (selectedGame) {
       generateParlay({
         game: selectedGame,
-        shouldUseMock: devMockOverride,
+        shouldUseMock: parlayMode === 'single-shot',
       })
     }
   }
@@ -130,8 +131,8 @@ function AppContent() {
     setShowResponsibleGambling(false)
   }
 
-  // Show loading screen while checking authentication or age verification
-  if (loading || ageLoading) {
+  // Show loading screen while checking authentication, age verification, or determining current week
+  if (loading || ageLoading || currentWeekLoading) {
     return <LoadingScreen />
   }
 
@@ -201,7 +202,7 @@ function AppContent() {
             currentWeek={selectedWeek}
             onWeekChange={handleWeekChange}
             availableWeeks={availableWeeks}
-            weekLoading={weekLoading || gamesLoading}
+            weekLoading={gamesLoading}
             parlayError={parlayError}
           />
 
@@ -216,6 +217,7 @@ function AppContent() {
             toolResponses={toolResponses || undefined}
             loading={parlayLoading}
             isMockMode={serviceStatus.usingMock}
+            parlayMode={parlayMode}
           />
 
           <ParlayHistory

@@ -1,11 +1,14 @@
 import {
   BetType,
   Game,
+  GameContext,
   GameData,
+  GeneratedParlay,
   LoadingPhaseUpdate,
   ParlayGenerationOptions,
   ParlayGenerationResult,
   ParlayLeg,
+  ToolResponses,
 } from '../types'
 import { AgentRunService } from './AgentRunService'
 import { BaseParlayService } from './BaseParlayService'
@@ -48,8 +51,8 @@ export class AgentParlayService extends BaseParlayService {
         })
       }
 
-      // Create game context from the selected game
-      const gameContext = {
+      // Create minimal game context - agent tools will discover venue and team data
+      const gameContext: GameContext = {
         gameId: game.gameId,
         week: game.week,
         dateTime: game.dateTime,
@@ -58,21 +61,12 @@ export class AgentParlayService extends BaseParlayService {
           teamId: game.home.teamId,
           name: game.home.name,
           abbrev: game.home.abbrev,
-          record: game.home.record,
-          overallRecord: game.home.overallRecord,
-          homeRecord: game.home.homeRecord,
-          roadRecord: game.home.roadRecord,
         },
         away: {
           teamId: game.away.teamId,
           name: game.away.name,
           abbrev: game.away.abbrev,
-          record: game.away.record,
-          overallRecord: game.away.overallRecord,
-          homeRecord: game.away.homeRecord,
-          roadRecord: game.away.roadRecord,
         },
-        venue: game.venue,
       }
 
       // Debug logging - Raw game data and context
@@ -83,11 +77,10 @@ export class AgentParlayService extends BaseParlayService {
         status: game.status,
         homeTeam: game.home.name,
         awayTeam: game.away.name,
-        venue: game.venue,
       })
 
       console.info(
-        '📋 [AgentParlayService] Game context being sent to agent:',
+        '📋 [AgentParlayService] Minimal game context being sent to agent:',
         JSON.stringify(gameContext, null, 2)
       )
 
@@ -118,7 +111,7 @@ export class AgentParlayService extends BaseParlayService {
       return {
         parlay: result.parlay,
         gameData: result.gameData,
-        toolResponses: result.toolResponses,
+        toolResponses: result.toolResponses || undefined,
         rateLimitInfo: {
           remaining: 19, // Agent runs have different rate limits
           total: 20,
@@ -146,24 +139,9 @@ export class AgentParlayService extends BaseParlayService {
     runId: string,
     onLoadingUpdate?: (update: LoadingPhaseUpdate) => void
   ): Promise<{
-    parlay: {
-      parlayId: string
-      gameId: string
-      gameContext: string
-      legs: ParlayLeg[]
-      combinedOdds: number
-      parlayConfidence: number
-      gameSummary: {
-        matchupSummary: string
-        keyFactors: string[]
-        gamePrediction: {
-          winner: string
-          projectedScore: { home: number; away: number }
-          winProbability: number
-        }
-      }
-    }
+    parlay: GeneratedParlay
     gameData: GameData
+    toolResponses?: ToolResponses
   }> {
     return new Promise((resolve, reject) => {
       let pollCount = 0
@@ -178,11 +156,36 @@ export class AgentParlayService extends BaseParlayService {
 
           if (run.status === 'succeeded' && run.result) {
             // Convert agent result to parlay format
-            const parlay = {
+            // The run.result contains the full enhanced result with parlay, gameData, and toolResponses
+            const agentResult = run.result as unknown as {
+              parlay: {
+                legs: Array<{
+                  betType: string
+                  selection: string
+                  odds: number
+                  confidence: number
+                  reasoning: string
+                  team: string
+                }>
+                analysisSummary: {
+                  matchupSummary: string
+                  keyFactors: string[]
+                  gamePrediction: {
+                    winner: string
+                    projectedScore: { home: number; away: number }
+                    winProbability: number
+                  }
+                }
+              }
+              gameData: GameData
+              toolResponses?: ToolResponses
+            }
+
+            const parlay: GeneratedParlay = {
               parlayId: `agent-${runId}`,
               gameId: runId,
-              gameContext: JSON.stringify(run.result.analysisSummary),
-              legs: run.result.legs.map(
+              gameContext: JSON.stringify(agentResult.parlay.analysisSummary),
+              legs: agentResult.parlay.legs.map(
                 (leg): ParlayLeg => ({
                   betType: leg.betType as BetType,
                   selection: leg.selection,
@@ -192,50 +195,59 @@ export class AgentParlayService extends BaseParlayService {
                   team: leg.team,
                 })
               ),
-              combinedOdds: run.result.legs.reduce(
+              combinedOdds: agentResult.parlay.legs.reduce(
                 (acc, leg) => acc * leg.odds,
                 1
               ),
               parlayConfidence:
-                run.result.analysisSummary.gamePrediction.winProbability,
+                agentResult.parlay.analysisSummary.gamePrediction
+                  .winProbability,
               gameSummary: {
-                matchupSummary: run.result.analysisSummary.matchupSummary,
-                keyFactors: run.result.analysisSummary.keyFactors,
-                gamePrediction: run.result.analysisSummary.gamePrediction,
+                matchupSummary:
+                  agentResult.parlay.analysisSummary.matchupSummary,
+                keyFactors: agentResult.parlay.analysisSummary.keyFactors,
+                gamePrediction:
+                  agentResult.parlay.analysisSummary.gamePrediction,
               },
             }
 
-            const gameData: GameData = {
-              gameId: runId,
-              week: 1, // You'll need to get this from somewhere
-              dateTime: new Date().toISOString(),
-              status: 'scheduled',
-              home: {
-                teamId: 'home-team-id',
-                name: 'Home Team',
-                abbrev: 'HT',
-                record: '0-0',
-                overallRecord: '0-0',
-                homeRecord: '0-0',
-                roadRecord: '0-0',
-                stats: null,
-                roster: [],
-              },
-              away: {
-                teamId: 'away-team-id',
-                name: 'Away Team',
-                abbrev: 'AT',
-                record: '0-0',
-                overallRecord: '0-0',
-                homeRecord: '0-0',
-                roadRecord: '0-0',
-                stats: null,
-                roster: [],
-              },
-              venue: { name: 'Stadium', city: 'City', state: 'State' },
-            }
+            // Use the gameData from the agent result
+            const gameData: GameData = agentResult.gameData
 
-            resolve({ parlay, gameData })
+            // Get toolResponses from the agent result
+            const toolResponses = agentResult.toolResponses
+
+            console.info('🤖 [AgentParlayService] Agent run completed:', {
+              runId,
+              status: run.status,
+              hasResult: !!run.result,
+              resultKeys: run.result ? Object.keys(run.result) : [],
+              parlayLegs: agentResult.parlay.legs?.length || 0,
+              toolResponses,
+            })
+
+            // Debug: Log the full agent result structure
+            console.info(
+              '🔍 [AgentParlayService] Full agent result structure:',
+              {
+                hasParlay: !!agentResult.parlay,
+                parlayKeys: agentResult.parlay
+                  ? Object.keys(agentResult.parlay)
+                  : [],
+                parlayLegs: agentResult.parlay?.legs,
+                hasGameData: !!agentResult.gameData,
+                hasToolResponses: !!agentResult.toolResponses,
+                toolResponsesKeys: agentResult.toolResponses
+                  ? Object.keys(agentResult.toolResponses)
+                  : [],
+              }
+            )
+
+            resolve({
+              parlay,
+              gameData,
+              toolResponses: toolResponses || undefined,
+            })
             return
           }
 
@@ -272,9 +284,27 @@ export class AgentParlayService extends BaseParlayService {
   }
 
   private async getAuthToken(): Promise<string | undefined> {
-    // You'll need to implement this based on your auth system
-    // This is a placeholder
-    return undefined
+    try {
+      const { auth } = await import('../config/firebase')
+      const currentUser = auth.currentUser
+      if (!currentUser) {
+        console.warn('No authenticated user found')
+        return undefined
+      }
+
+      // Check if user is still valid
+      if (!currentUser.emailVerified && currentUser.providerData.length === 0) {
+        console.warn('User account may be invalid')
+        return undefined
+      }
+
+      // Get the ID token, which will refresh if needed
+      const token = await currentUser.getIdToken()
+      return token
+    } catch (error) {
+      console.error('Error getting auth token:', error)
+      return undefined
+    }
   }
 
   async checkServiceHealth(): Promise<{

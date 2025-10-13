@@ -149,7 +149,11 @@ export async function runAgent(
             current.input.gameId,
             current.input.gameContext
               ? {
-                  venue: current.input.gameContext.venue,
+                  venue: current.input.gameContext.venue || {
+                    name: '',
+                    city: '',
+                    state: '',
+                  },
                   dateTime: current.input.gameContext.dateTime,
                 }
               : undefined
@@ -308,25 +312,33 @@ export async function runAgent(
         teamId: context.home.teamId,
         name: context.home.name,
         abbrev: context.home.abbrev,
-        record: teamStats?.home?.record || context.home.record,
+        record: teamStats?.home?.record || context.home.record || '',
         overallRecord:
-          teamStats?.home?.overallRecord || context.home.overallRecord,
-        homeRecord: teamStats?.home?.homeRecord || context.home.homeRecord,
-        roadRecord: teamStats?.home?.roadRecord || context.home.roadRecord,
+          teamStats?.home?.overallRecord || context.home.overallRecord || '',
+        homeRecord:
+          teamStats?.home?.homeRecord || context.home.homeRecord || '',
+        roadRecord:
+          teamStats?.home?.roadRecord || context.home.roadRecord || '',
         stats: teamStats?.home ?? null,
       },
       away: {
         teamId: context.away.teamId,
         name: context.away.name,
         abbrev: context.away.abbrev,
-        record: teamStats?.away?.record || context.away.record,
+        record: teamStats?.away?.record || context.away.record || '',
         overallRecord:
-          teamStats?.away?.overallRecord || context.away.overallRecord,
-        homeRecord: teamStats?.away?.homeRecord || context.away.homeRecord,
-        roadRecord: teamStats?.away?.roadRecord || context.away.roadRecord,
+          teamStats?.away?.overallRecord || context.away.overallRecord || '',
+        homeRecord:
+          teamStats?.away?.homeRecord || context.away.homeRecord || '',
+        roadRecord:
+          teamStats?.away?.roadRecord || context.away.roadRecord || '',
         stats: teamStats?.away ?? null,
       },
-      venue: context.venue,
+      venue: context.venue || {
+        name: '',
+        city: '',
+        state: '',
+      },
       weather: weather || undefined,
       leaders: {},
     }
@@ -369,20 +381,20 @@ export async function runAgent(
         teamId: home,
         name: teamStats?.home?.teamName || home,
         abbrev: home,
-        record: teamStats?.home?.record || '0-0',
-        overallRecord: teamStats?.home?.overallRecord || '0-0',
-        homeRecord: teamStats?.home?.homeRecord || '0-0',
-        roadRecord: teamStats?.home?.roadRecord || '0-0',
+        record: teamStats?.home?.record || '',
+        overallRecord: teamStats?.home?.overallRecord || '',
+        homeRecord: teamStats?.home?.homeRecord || '',
+        roadRecord: teamStats?.home?.roadRecord || '',
         stats: teamStats?.home ?? null,
       },
       away: {
         teamId: away,
         name: teamStats?.away?.teamName || away,
         abbrev: away,
-        record: teamStats?.away?.record || '0-0',
-        overallRecord: teamStats?.away?.overallRecord || '0-0',
-        homeRecord: teamStats?.away?.homeRecord || '0-0',
-        roadRecord: teamStats?.away?.roadRecord || '0-0',
+        record: teamStats?.away?.record || '',
+        overallRecord: teamStats?.away?.overallRecord || '',
+        homeRecord: teamStats?.away?.homeRecord || '',
+        roadRecord: teamStats?.away?.roadRecord || '',
         stats: teamStats?.away ?? null,
       },
       venue: scheduleGame?.venue || { name: 'TBD', city: 'TBD', state: 'TBD' },
@@ -530,6 +542,19 @@ export async function runAgent(
         spreadHome: number
       }
     | undefined
+
+  // Log tool responses for debugging
+  console.info('🔧 [Agent Orchestrator] Tool responses extracted:', {
+    allTools: toolStep.tools?.map(t => ({
+      name: t.name,
+      hasData: !!t.data,
+      ok: t.ok,
+    })),
+    weatherResult,
+    oddsResult,
+    hasWeather: !!weatherResult,
+    hasOdds: !!oddsResult,
+  })
 
   // Create enhanced result with tool responses
   const enhancedResult = {

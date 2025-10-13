@@ -1,7 +1,7 @@
 import {
+  Air as AirIcon,
   Cloud as CloudIcon,
   Thermostat as ThermostatIcon,
-  Air as AirIcon,
 } from '@mui/icons-material'
 import {
   Box,
@@ -27,23 +27,39 @@ const WeatherDisplay: React.FC<WeatherDisplayProps> = ({ weather }) => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const isSmall = useMediaQuery(theme.breakpoints.down('sm'))
 
+  // Log weather data for debugging
+  React.useEffect(() => {
+    console.info('🌤️ [WeatherDisplay] Rendering weather data:', {
+      condition: weather.condition,
+      temperatureF: weather.temperatureF,
+      windMph: weather.windMph,
+      weather,
+    })
+  }, [weather])
+
   // Get weather condition color and icon
   const getWeatherDisplay = (condition: string) => {
     const lowerCondition = condition.toLowerCase()
-    
+
     if (lowerCondition.includes('sunny') || lowerCondition.includes('clear')) {
       return {
         color: 'warning' as const,
         icon: '☀️',
         label: 'Sunny',
       }
-    } else if (lowerCondition.includes('cloudy') || lowerCondition.includes('overcast')) {
+    } else if (
+      lowerCondition.includes('cloudy') ||
+      lowerCondition.includes('overcast')
+    ) {
       return {
         color: 'info' as const,
         icon: '☁️',
         label: 'Cloudy',
       }
-    } else if (lowerCondition.includes('rain') || lowerCondition.includes('drizzle')) {
+    } else if (
+      lowerCondition.includes('rain') ||
+      lowerCondition.includes('drizzle')
+    ) {
       return {
         color: 'primary' as const,
         icon: '🌧️',
@@ -55,14 +71,17 @@ const WeatherDisplay: React.FC<WeatherDisplayProps> = ({ weather }) => {
         icon: '❄️',
         label: 'Snowy',
       }
-    } else if (lowerCondition.includes('fog') || lowerCondition.includes('mist')) {
+    } else if (
+      lowerCondition.includes('fog') ||
+      lowerCondition.includes('mist')
+    ) {
       return {
         color: 'default' as const,
         icon: '🌫️',
         label: 'Foggy',
       }
     }
-    
+
     return {
       color: 'default' as const,
       icon: '🌤️',
@@ -104,13 +123,22 @@ const WeatherDisplay: React.FC<WeatherDisplayProps> = ({ weather }) => {
           <Typography
             variant="h6"
             component="h3"
-            sx={{ 
+            sx={{
               fontSize: isSmall ? '1rem' : '1.1rem',
               fontWeight: 600,
             }}
           >
             Weather Conditions
           </Typography>
+          <Box sx={{ ml: 'auto' }}>
+            <Chip
+              label="Live Data"
+              color="success"
+              variant="outlined"
+              size="small"
+              sx={{ fontSize: '0.7rem' }}
+            />
+          </Box>
         </Box>
 
         <Box

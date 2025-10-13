@@ -52,25 +52,27 @@ export const GameContextSchema = z.object({
     teamId: z.string(),
     name: z.string(),
     abbrev: z.string(),
-    record: z.string(),
-    overallRecord: z.string(),
-    homeRecord: z.string(),
-    roadRecord: z.string(),
+    record: z.string().optional(),
+    overallRecord: z.string().optional(),
+    homeRecord: z.string().optional(),
+    roadRecord: z.string().optional(),
   }),
   away: z.object({
     teamId: z.string(),
     name: z.string(),
     abbrev: z.string(),
-    record: z.string(),
-    overallRecord: z.string(),
-    homeRecord: z.string(),
-    roadRecord: z.string(),
+    record: z.string().optional(),
+    overallRecord: z.string().optional(),
+    homeRecord: z.string().optional(),
+    roadRecord: z.string().optional(),
   }),
-  venue: z.object({
-    name: z.string(),
-    city: z.string(),
-    state: z.string(),
-  }),
+  venue: z
+    .object({
+      name: z.string(),
+      city: z.string(),
+      state: z.string(),
+    })
+    .optional(),
 })
 
 // Enhanced result schema for agent runs with tool responses

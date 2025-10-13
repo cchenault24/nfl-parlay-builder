@@ -53,8 +53,7 @@ function base(level: LogLevel, msg: string, fields: LogFields = {}): void {
     msg,
     ...redacted,
   }
-  // eslint-disable-next-line no-console
-  console.log(JSON.stringify(entry))
+  console.info(JSON.stringify(entry))
 }
 
 export const log = {

@@ -220,22 +220,55 @@ export interface ParlayLeg {
   team: string
 }
 
+export interface ToolResponses {
+  weather?: {
+    condition: string
+    temperatureF: number
+    windMph: number
+  }
+  odds?: {
+    moneylineHome: number
+    moneylineAway: number
+    totalPoints: number
+    spreadHome: number
+  }
+}
+
+// Minimal game context for agent input - agent tools will discover venue and team data
+export interface GameContext {
+  gameId: string
+  week: number
+  dateTime: string
+  status: 'scheduled' | 'in_progress' | 'final' | 'postponed'
+  home: {
+    teamId: string
+    name: string
+    abbrev: string
+    record?: string
+    overallRecord?: string
+    homeRecord?: string
+    roadRecord?: string
+  }
+  away: {
+    teamId: string
+    name: string
+    abbrev: string
+    record?: string
+    overallRecord?: string
+    homeRecord?: string
+    roadRecord?: string
+  }
+  venue?: {
+    name: string
+    city: string
+    state: string
+  }
+}
+
 export interface ParlayGenerationResult {
   parlay: GeneratedParlay
   gameData: GameData
-  toolResponses?: {
-    weather?: {
-      condition: string
-      temperatureF: number
-      windMph: number
-    }
-    odds?: {
-      moneylineHome: number
-      moneylineAway: number
-      totalPoints: number
-      spreadHome: number
-    }
-  }
+  toolResponses?: ToolResponses
   rateLimitInfo?: {
     remaining: number
     total: number

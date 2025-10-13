@@ -286,6 +286,19 @@ export const useParlayGenerator = () => {
 
       setParlay(data.parlay)
       setGameData(data.gameData)
+
+      // Log tool responses for debugging
+      if (data.toolResponses) {
+        console.info('🔧 [useParlayGenerator] Tool responses received:', {
+          weather: data.toolResponses.weather,
+          odds: data.toolResponses.odds,
+          hasWeather: !!data.toolResponses.weather,
+          hasOdds: !!data.toolResponses.odds,
+        })
+      } else {
+        console.info('🔧 [useParlayGenerator] No tool responses received')
+      }
+
       setToolResponses(data.toolResponses || null)
     },
   })

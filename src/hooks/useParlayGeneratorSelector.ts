@@ -1,25 +1,21 @@
-import useGeneralStore from '../store/generalStore'
+import useParlayStore from '../store/parlayStore'
 import { useParlayGenerator } from './useParlayGenerator'
 
 /**
  * Hook that automatically selects between real and mock parlay generators
  */
 export const useParlayGeneratorSelector = () => {
-  const devMockOverride = useGeneralStore(state => state.devMockOverride)
+  const parlayMode = useParlayStore(state => state.parlayMode)
   const parlayGenerator = useParlayGenerator()
 
-  // Compute final usingMock value
-  // If devMockOverride is not null, use it (override)
-  // Else default to: development = mock, production = real
-  const usingMockDefault = import.meta.env.MODE === 'development'
-  const usingMock =
-    devMockOverride !== null ? devMockOverride : usingMockDefault
+  // Use single-shot mode for mock, agentic mode for real
+  const usingMock = parlayMode === 'single-shot'
 
   return {
     ...parlayGenerator,
     serviceStatus: {
       usingMock,
-      usingMockDefault,
+      usingMockDefault: false,
       usingCloudFunction: !usingMock,
       environment: import.meta.env.MODE,
       ready: true,
