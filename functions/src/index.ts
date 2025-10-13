@@ -4,7 +4,7 @@ import * as admin from 'firebase-admin'
 import { defineSecret } from 'firebase-functions/params'
 import { onRequest } from 'firebase-functions/v2/https'
 import type { AuthedRequest } from './middleware/auth'
-import { protectedRouter, publicRouter } from './routes'
+import { agentRouter, protectedRouter, publicRouter } from './routes'
 
 // Initialize Firebase Admin once
 try {
@@ -81,6 +81,7 @@ app.get('/health', (_req: express.Request, res: express.Response) => {
 // Mount routers
 app.use('/', publicRouter)
 app.use('/', protectedRouter)
+app.use('/', agentRouter)
 
 const OPENAI_API_KEY = defineSecret('OPENAI_API_KEY')
 

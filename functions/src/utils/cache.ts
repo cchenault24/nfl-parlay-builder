@@ -2,10 +2,24 @@ import * as admin from 'firebase-admin'
 
 type CacheEntry<T> = { value: T; updatedAt: number }
 
-const db = admin.firestore()
+function getDb(): FirebaseFirestore.Firestore {
+  // Lazily ensure admin app exists before accessing Firestore
+  // Safe in emulator and prod; no-ops if already initialized
+  // admin.apps is available across admin versions
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const apps = (admin as any).apps as unknown[] | undefined
+  if (!apps || apps.length === 0) {
+    try {
+      admin.initializeApp()
+    } catch {
+      // If another module initialized concurrently, ignore
+    }
+  }
+  return admin.firestore()
+}
 
 function cacheDocRef<T>(key: string) {
-  return db
+  return getDb()
     .collection('cache')
     .doc(key)
     .withConverter<CacheEntry<T>>({

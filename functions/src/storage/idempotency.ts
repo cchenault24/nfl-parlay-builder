@@ -1,6 +1,17 @@
 import * as admin from 'firebase-admin'
 
-const db = admin.firestore()
+function getDb(): FirebaseFirestore.Firestore {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const apps = (admin as any).apps as unknown[] | undefined
+  if (!apps || apps.length === 0) {
+    try {
+      admin.initializeApp()
+    } catch {
+      // ignore race
+    }
+  }
+  return admin.firestore()
+}
 
 type IdempotencyRecord<T> = {
   userId: string
@@ -10,7 +21,7 @@ type IdempotencyRecord<T> = {
 }
 
 function idempotencyDocRef<T>(docId: string) {
-  return db
+  return getDb()
     .collection('idempotency')
     .doc(docId)
     .withConverter<IdempotencyRecord<T>>({
