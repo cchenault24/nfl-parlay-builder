@@ -13,6 +13,7 @@ export const useParlayGenerator = () => {
   const setParlay = useParlayStore(state => state.setParlay)
   const setGameData = useParlayStore(state => state.setGameData)
   const setLoadingContext = useParlayStore(state => state.setLoadingContext)
+  const setToolResponses = useParlayStore(state => state.setToolResponses)
   const { updateFromResponse } = useRateLimit()
 
   // Retry state
@@ -285,6 +286,7 @@ export const useParlayGenerator = () => {
 
       setParlay(data.parlay)
       setGameData(data.gameData)
+      setToolResponses(data.toolResponses || null)
     },
   })
 

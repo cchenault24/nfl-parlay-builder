@@ -73,6 +73,93 @@ export const GameContextSchema = z.object({
   }),
 })
 
+// Enhanced result schema for agent runs with tool responses
+export const AgentResultSchema = z.object({
+  parlay: AIGenerateResponseSchema,
+  gameData: z.object({
+    gameId: z.string(),
+    week: z.number().int().positive(),
+    dateTime: z.string(),
+    status: z.enum(['scheduled', 'in_progress', 'final', 'postponed']),
+    home: z.object({
+      teamId: z.string(),
+      name: z.string(),
+      abbrev: z.string(),
+      record: z.string(),
+      overallRecord: z.string(),
+      homeRecord: z.string(),
+      roadRecord: z.string(),
+      stats: z.any().nullable(),
+    }),
+    away: z.object({
+      teamId: z.string(),
+      name: z.string(),
+      abbrev: z.string(),
+      record: z.string(),
+      overallRecord: z.string(),
+      homeRecord: z.string(),
+      roadRecord: z.string(),
+      stats: z.any().nullable(),
+    }),
+    venue: z.object({
+      name: z.string(),
+      city: z.string(),
+      state: z.string(),
+    }),
+    weather: z
+      .object({
+        condition: z.string(),
+        temperatureF: z.number(),
+        windMph: z.number(),
+      })
+      .optional(),
+    leaders: z
+      .object({
+        passing: z
+          .object({
+            name: z.string(),
+            stats: z.string(),
+            value: z.number(),
+          })
+          .optional(),
+        rushing: z
+          .object({
+            name: z.string(),
+            stats: z.string(),
+            value: z.number(),
+          })
+          .optional(),
+        receiving: z
+          .object({
+            name: z.string(),
+            stats: z.string(),
+            value: z.number(),
+          })
+          .optional(),
+      })
+      .optional(),
+  }),
+  toolResponses: z
+    .object({
+      weather: z
+        .object({
+          condition: z.string(),
+          temperatureF: z.number(),
+          windMph: z.number(),
+        })
+        .optional(),
+      odds: z
+        .object({
+          moneylineHome: z.number(),
+          moneylineAway: z.number(),
+          totalPoints: z.number(),
+          spreadHome: z.number(),
+        })
+        .optional(),
+    })
+    .optional(),
+})
+
 export const AgentRunSchema = z.object({
   id: z.string(),
   userId: z.string(),
@@ -90,7 +177,7 @@ export const AgentRunSchema = z.object({
   tokensInput: z.number().int().nonnegative().default(0),
   tokensOutput: z.number().int().nonnegative().default(0),
   steps: z.array(AgentStepSchema).default([]),
-  result: AIGenerateResponseSchema.optional(),
+  result: AgentResultSchema.optional(),
   error: z
     .object({
       code: z.string(),
@@ -106,6 +193,7 @@ export type AgentToolResult = z.infer<typeof AgentToolResultSchema>
 export type AgentStep = z.infer<typeof AgentStepSchema>
 export type AgentRunStatus = z.infer<typeof AgentRunStatusSchema>
 export type GameContext = z.infer<typeof GameContextSchema>
+export type AgentResult = z.infer<typeof AgentResultSchema>
 
 export const AIGenerateResponseStrictSchema =
   AIGenerateResponseSchema.superRefine((val, ctx) => {

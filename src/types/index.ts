@@ -223,6 +223,19 @@ export interface ParlayLeg {
 export interface ParlayGenerationResult {
   parlay: GeneratedParlay
   gameData: GameData
+  toolResponses?: {
+    weather?: {
+      condition: string
+      temperatureF: number
+      windMph: number
+    }
+    odds?: {
+      moneylineHome: number
+      moneylineAway: number
+      totalPoints: number
+      spreadHome: number
+    }
+  }
   rateLimitInfo?: {
     remaining: number
     total: number

@@ -2,6 +2,20 @@ import { create } from 'zustand'
 import { Game, GameData, GeneratedParlay } from '../types'
 import { LoadingContext } from '../types/loading'
 
+interface ToolResponses {
+  weather?: {
+    condition: string
+    temperatureF: number
+    windMph: number
+  }
+  odds?: {
+    moneylineHome: number
+    moneylineAway: number
+    totalPoints: number
+    spreadHome: number
+  }
+}
+
 interface ParlayStore {
   // State
   parlay: GeneratedParlay | null
@@ -10,6 +24,7 @@ interface ParlayStore {
   saveParlaySuccess: boolean
   saveParlayError: string
   loadingContext: LoadingContext
+  toolResponses: ToolResponses | null
 
   // Actions
   setParlay: (parlay: GeneratedParlay | null) => void
@@ -19,6 +34,7 @@ interface ParlayStore {
   setSaveParlayError: (error: string) => void
   setLoadingContext: (context: Partial<LoadingContext>) => void
   resetLoadingContext: () => void
+  setToolResponses: (toolResponses: ToolResponses | null) => void
 }
 
 const useParlayStore = create<ParlayStore>(set => ({
@@ -28,6 +44,7 @@ const useParlayStore = create<ParlayStore>(set => ({
   selectedGame: null,
   saveParlaySuccess: false,
   saveParlayError: '',
+  toolResponses: null,
   loadingContext: {
     isActive: false,
     currentPhase: '',
@@ -58,6 +75,7 @@ const useParlayStore = create<ParlayStore>(set => ({
         estimatedTimeRemaining: 0,
       },
     }),
+  setToolResponses: toolResponses => set({ toolResponses }),
 }))
 
 export default useParlayStore

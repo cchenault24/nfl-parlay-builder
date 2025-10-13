@@ -29,15 +29,32 @@ import GameSummaryView from './GameSummaryView'
 import ParlayDisplayFooter from './ParlayDisplayFooter'
 import ParlayLanding from './ParlayLanding'
 import ParlayLegView from './ParlayLegView'
+import WeatherDisplay from './WeatherDisplay'
+
+interface ToolResponses {
+  weather?: {
+    condition: string
+    temperatureF: number
+    windMph: number
+  }
+  odds?: {
+    moneylineHome: number
+    moneylineAway: number
+    totalPoints: number
+    spreadHome: number
+  }
+}
 
 interface ParlayDisplayProps {
   parlay?: GeneratedParlay & { gameData?: GameData }
+  toolResponses?: ToolResponses
   loading: boolean
   isMockMode?: boolean
 }
 
 const ParlayDisplay: React.FC<ParlayDisplayProps> = ({
   parlay,
+  toolResponses,
   loading,
   isMockMode = false,
 }) => {
@@ -129,6 +146,11 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({
           gameSummary={parlay.gameSummary}
           gameContext={parlay.gameContext}
         />
+      )}
+
+      {/* Weather Display */}
+      {toolResponses?.weather && (
+        <WeatherDisplay weather={toolResponses.weather} />
       )}
 
       <Card>

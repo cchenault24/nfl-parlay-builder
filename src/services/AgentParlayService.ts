@@ -118,6 +118,7 @@ export class AgentParlayService extends BaseParlayService {
       return {
         parlay: result.parlay,
         gameData: result.gameData,
+        toolResponses: result.toolResponses,
         rateLimitInfo: {
           remaining: 19, // Agent runs have different rate limits
           total: 20,

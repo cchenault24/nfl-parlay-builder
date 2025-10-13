@@ -42,6 +42,7 @@ function AppContent() {
   const setSelectedGame = useParlayStore(state => state.setSelectedGame)
   const parlay = useParlayStore(state => state.parlay)
   const gameData = useParlayStore(state => state.gameData)
+  const toolResponses = useParlayStore(state => state.toolResponses)
   const devMockOverride = useGeneralStore(state => state.devMockOverride)
 
   const { user, loading } = useAuth()
@@ -212,6 +213,7 @@ function AppContent() {
           {/* ParlayDisplay gets parlay from store */}
           <ParlayDisplay
             parlay={parlay || undefined}
+            toolResponses={toolResponses || undefined}
             loading={parlayLoading}
             isMockMode={serviceStatus.usingMock}
           />

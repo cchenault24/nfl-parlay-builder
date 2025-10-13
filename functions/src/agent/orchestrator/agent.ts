@@ -517,15 +517,39 @@ export async function runAgent(
     return { ...current, status: 'failed' }
   }
 
+  // Extract tool responses for the result
+  const weatherResult = toolStep.tools?.find(t => t.name === 'weather')
+    ?.data as
+    | { condition: string; temperatureF: number; windMph: number }
+    | undefined
+  const oddsResult = toolStep.tools?.find(t => t.name === 'odds')?.data as
+    | {
+        moneylineHome: number
+        moneylineAway: number
+        totalPoints: number
+        spreadHome: number
+      }
+    | undefined
+
+  // Create enhanced result with tool responses
+  const enhancedResult = {
+    parlay: parsed.data,
+    gameData,
+    toolResponses: {
+      ...(weatherResult && { weather: weatherResult }),
+      ...(oddsResult && { odds: oddsResult }),
+    },
+  }
+
   const finalized: AgentRun = {
     ...current,
     status: 'succeeded',
     updatedAt: new Date().toISOString(),
-    result: parsed.data,
+    result: enhancedResult,
   }
   await persist.updateRun(current.id, {
     status: 'succeeded',
-    result: parsed.data,
+    result: enhancedResult,
     updatedAt: finalized.updatedAt,
   })
   inc('runs_succeeded')
