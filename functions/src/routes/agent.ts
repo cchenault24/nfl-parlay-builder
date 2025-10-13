@@ -151,6 +151,8 @@ agentRouter.get('/agent/runs/:id/stream', verifyAuth, async (req, res) => {
       lastSent = steps.length
       const latest = await getRun(runId)
       if (!latest) {
+        clearInterval(interval)
+        res.end()
         return
       }
       if (latest.status === 'succeeded') {

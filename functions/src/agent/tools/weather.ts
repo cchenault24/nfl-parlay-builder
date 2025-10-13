@@ -1,17 +1,89 @@
+import { log } from '../../observability/logger'
+import { weatherProvider } from '../../providers/weather/client'
+import { getStadiumFromTeamCode } from '../../utils/teamMapping'
+
 export type WeatherInfo = {
   condition: string
   temperatureF: number
   windMph: number
 }
 
-// Stubbed local weather provider. In prod, wire to a real API with withResilience
-export async function fetchWeatherForGame(
-  _gameId: string
-): Promise<WeatherInfo> {
-  // Deterministic, fast response for emulator
+/**
+ * Extract game details from gameId
+ * Maps team codes to stadium locations for weather lookup
+ */
+function extractGameDetails(gameId: string): {
+  stadium: string
+  city: string
+  state: string
+  gameTime: string
+} {
+  // Parse gameId format: "team1-team2-year-week" or similar
+  const parts = gameId.split('-')
+  if (parts.length >= 2) {
+    // Try to determine stadium based on team names
+    const homeTeam = parts[0]?.toUpperCase()
+
+    // Get stadium information from centralized team mapping
+    const homeStadium = getStadiumFromTeamCode(homeTeam) || {
+      stadium: 'Unknown Stadium',
+      city: 'Unknown City',
+      state: 'XX',
+    }
+
+    return {
+      stadium: homeStadium.stadium,
+      city: homeStadium.city,
+      state: homeStadium.state,
+      gameTime: new Date().toISOString(),
+    }
+  }
+
+  // Fallback for unknown format
   return {
-    condition: 'Clear',
-    temperatureF: 68,
-    windMph: 5,
+    stadium: 'Unknown Stadium',
+    city: 'Unknown City',
+    state: 'XX',
+    gameTime: new Date().toISOString(),
+  }
+}
+
+export async function fetchWeatherForGame(
+  gameId: string
+): Promise<WeatherInfo> {
+  try {
+    // Extract game details from gameId
+    const gameDetails = extractGameDetails(gameId)
+    const request = {
+      gameId,
+      stadium: gameDetails.stadium,
+      city: gameDetails.city,
+      state: gameDetails.state,
+      gameTime: gameDetails.gameTime,
+    }
+
+    const response = await weatherProvider.getWeather(request)
+
+    // Convert to expected format
+    return {
+      condition: response.data.condition,
+      temperatureF: response.data.temperature,
+      windMph: response.data.windSpeed,
+    }
+  } catch (error) {
+    log.error('weather.tool.error', {
+      gameId,
+      error: {
+        code: 'tool_error',
+        message: error instanceof Error ? error.message : String(error),
+      },
+    })
+
+    // Return fallback data
+    return {
+      condition: 'Clear',
+      temperatureF: 68,
+      windMph: 5,
+    }
   }
 }

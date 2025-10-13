@@ -1,5 +1,6 @@
 import axios from 'axios'
 import * as cheerio from 'cheerio'
+import { log } from '../../observability/logger'
 import { PFRTeamData, PFRTeamInput, PFRTeamStats } from './types'
 import { PFR_BASE, getPFRCodeFromTeamName, getPFRHeaders } from './utils'
 
@@ -33,7 +34,12 @@ export async function fetchPFRTeamDataForGame(
       away: awayData,
     }
   } catch (error) {
-    console.error('Error fetching PFR team data:', error)
+    log.error('pfr.team.fetch.error', {
+      error: {
+        code: 'fetch_error',
+        message: error instanceof Error ? error.message : String(error),
+      },
+    })
     return { home: null, away: null }
   }
 }
@@ -64,7 +70,13 @@ export async function fetchPFRDataForTeams(
 
       return { teamId: team.teamId, data: teamData }
     } catch (error) {
-      console.error(`Error fetching data for team ${team.teamName}:`, error)
+      log.error('pfr.team.batch.fetch.error', {
+        teamName: team.teamName,
+        error: {
+          code: 'fetch_error',
+          message: error instanceof Error ? error.message : String(error),
+        },
+      })
       return { teamId: team.teamId, data: null }
     }
   })
@@ -95,7 +107,7 @@ async function scrapeTeamStatsFromPFR(
   const teamStatsTable = $('table#team_stats').first()
 
   if (teamStatsTable.length === 0) {
-    console.error(`No team stats table found for ${teamCode}`)
+    log.error('pfr.team.table.not.found', { teamCode })
     return null
   }
 
@@ -144,7 +156,10 @@ async function scrapeTeamStatsFromPFR(
     .first()
 
   if (offenseTeamRow.length === 0 || defenseTeamRow.length === 0) {
-    console.error(`Missing required data rows for ${teamCode}`)
+    log.error('pfr.team.data.missing', {
+      teamCode,
+      requiredRows: 'offense, defense, rushing',
+    })
     return null
   }
 

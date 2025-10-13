@@ -67,7 +67,7 @@ export async function getStadiumForTeamName(
 }
 
 /**
- * Clear stadium cache (useful for testing or forced refresh)
+ * Clear stadium cache (useful for forced refresh)
  */
 export function clearStadiumCache(): void {
   stadiumCache = null

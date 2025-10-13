@@ -52,7 +52,19 @@ export function useAgentRun() {
   const [steps, setSteps] = useState<StepEvent[]>([])
   const lastStepIdRef = useRef<string | null>(null)
   const seenStepIdsRef = useRef<Set<string>>(new Set())
+  const statusRef = useRef<RunStatus>('idle')
+  const finalDataRef = useRef<FinalResult | null>(null)
   const [finalData, setFinalData] = useState<FinalResult | null>(null)
+
+  // Keep refs in sync with state
+  useEffect(() => {
+    statusRef.current = status
+  }, [status])
+
+  useEffect(() => {
+    finalDataRef.current = finalData
+  }, [finalData])
+
   const [error, setError] = useState<{ code: string; message: string } | null>(
     null
   )
@@ -146,6 +158,11 @@ export function useAgentRun() {
         if (r.status === 'succeeded') {
           const result = r.result
           setFinalData(result ? (result as FinalResult) : null)
+          // Stop polling when run completes successfully
+          if (pollTimer) {
+            clearTimeout(pollTimer)
+            pollTimer = null
+          }
         } else if (r.status === 'failed' || r.status === 'canceled') {
           const err = r.error
           if (err && typeof err.message === 'string') {
@@ -153,36 +170,29 @@ export function useAgentRun() {
           } else if (err) {
             setError({ code: err.code, message: 'error' })
           }
+          // Stop polling when run fails or is canceled
+          if (pollTimer) {
+            clearTimeout(pollTimer)
+            pollTimer = null
+          }
         }
       } catch {
         void 0
       }
-      backoff = Math.min(backoff * 2 + Math.random() * 200, 5000)
-      pollTimer = setTimeout(pollOnce, backoff)
-    }
-    pollTimer = setTimeout(pollOnce, backoff)
 
-    // patch SSE client close handler by recreating with wrapper
-    ;(async () => {
-      // periodic health of SSE: if no new steps for a while, reattach
-      let lastLen = steps.length
-      const healthInterval = setInterval(() => {
-        if (closed) {
-          return clearInterval(healthInterval)
-        }
-        if (steps.length === lastLen) {
-          // assume stale, reattach
-          try {
-            cancelSse?.()
-          } catch {
-            void 0
-          }
-          attachSSE()
-        } else {
-          lastLen = steps.length
-        }
-      }, 5000)
-    })()
+      // Only schedule next poll if we haven't completed and aren't closed
+      if (
+        !closed &&
+        statusRef.current !== 'succeeded' &&
+        statusRef.current !== 'failed' &&
+        statusRef.current !== 'canceled'
+      ) {
+        backoff = Math.min(backoff * 2 + Math.random() * 200, 5000)
+        pollTimer = setTimeout(pollOnce, backoff)
+      }
+    }
+    // Start initial polling
+    pollTimer = setTimeout(pollOnce, backoff)
 
     return () => {
       closed = true
@@ -194,8 +204,9 @@ export function useAgentRun() {
       if (pollTimer) {
         clearTimeout(pollTimer)
       }
+      // Health check removed
     }
-  }, [runId, svc, authHeaders])
+  }, [runId, svc, authHeaders]) // Note: status and finalData are intentionally not in deps to avoid recreating health check
 
   const clear = useCallback(() => {
     setRunId(null)

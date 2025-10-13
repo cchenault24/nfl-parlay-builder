@@ -1,5 +1,6 @@
 import axios from 'axios'
 import * as cheerio from 'cheerio'
+import { log } from '../../observability/logger'
 import { PFR_BASE, getPFRHeaders } from './utils'
 
 export interface PFRStadium {
@@ -27,7 +28,7 @@ export async function fetchPFRStadiums(): Promise<PFRStadium[]> {
   const stadiumsTable = $('table').first()
 
   if (stadiumsTable.length === 0) {
-    console.error('No stadiums table found')
+    log.error('pfr.stadiums.table.not.found')
     return []
   }
 

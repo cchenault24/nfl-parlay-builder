@@ -4,7 +4,12 @@ import * as admin from 'firebase-admin'
 import { defineSecret } from 'firebase-functions/params'
 import { onRequest } from 'firebase-functions/v2/https'
 import type { AuthedRequest } from './middleware/auth'
-import { agentRouter, protectedRouter, publicRouter } from './routes'
+import {
+  agentRouter,
+  metricsRouter,
+  protectedRouter,
+  publicRouter,
+} from './routes'
 
 // Initialize Firebase Admin once
 try {
@@ -83,7 +88,16 @@ app.get('/health', (_req: express.Request, res: express.Response) => {
 app.use('/', publicRouter)
 app.use('/', protectedRouter)
 app.use('/', agentRouter)
+app.use('/', metricsRouter)
 
 const OPENAI_API_KEY = defineSecret('OPENAI_API_KEY')
+const WEATHER_API_KEY = defineSecret('WEATHER_API_KEY')
+const ODDS_API_KEY = defineSecret('ODDS_API_KEY')
 
-export const api = onRequest({ region: REGION, secrets: [OPENAI_API_KEY] }, app)
+export const api = onRequest(
+  {
+    region: REGION,
+    secrets: [OPENAI_API_KEY, WEATHER_API_KEY, ODDS_API_KEY],
+  },
+  app
+)

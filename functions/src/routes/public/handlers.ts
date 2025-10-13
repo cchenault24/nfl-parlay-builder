@@ -1,6 +1,7 @@
 import axios from 'axios'
 import * as cheerio from 'cheerio'
 import express from 'express'
+import { log } from '../../observability/logger'
 import {
   fetchPFRDataForTeams,
   fetchPFRSeasonSchedule,
@@ -52,7 +53,7 @@ export const getGamesHandler = async (
     }
 
     // For PFR, we need specific team codes to scrape
-    // For now, return empty array - frontend will need to provide team codes
+    // Return empty array - frontend will provide team codes
     const games: GameData[] = []
 
     await setCached(cacheKey, games)
@@ -128,7 +129,12 @@ export const getPFRDataForTeamsHandler = async (
       teams: teamData,
     })
   } catch (error) {
-    console.error('Error fetching PFR data for teams:', error)
+    log.error('pfr.teams.fetch.error', {
+      error: {
+        code: 'fetch_error',
+        message: error instanceof Error ? error.message : String(error),
+      },
+    })
     return errorResponse(
       res,
       500,

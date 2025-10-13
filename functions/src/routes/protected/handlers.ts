@@ -3,6 +3,7 @@ import {
   clearUserRateLimits,
   getUserRateLimitStatus,
 } from '../../middleware/rateLimit'
+import { log } from '../../observability/logger'
 import { fetchPFRSeasonSchedule } from '../../providers/pfr'
 import { fetchPFRTeamDataForGame } from '../../providers/pfr/teamStatsScraper'
 import { generateParlayWithAI } from '../../service/ai'
@@ -190,7 +191,13 @@ export const generateParlayHandler = async (
               leaders: {}, // PFR doesn't provide player leaders in team stats
             }
           } catch (error) {
-            console.error('Error fetching PFR data for game:', gameId, error)
+            log.error('pfr.game.fetch.error', {
+              gameId,
+              error: {
+                code: 'fetch_error',
+                message: error instanceof Error ? error.message : String(error),
+              },
+            })
           }
         }
       }
@@ -362,7 +369,12 @@ export const clearUserRateLimitsHandler = async (
       userId: user.uid,
     })
   } catch (error) {
-    console.error('Error clearing user rate limits:', error)
+    log.error('rate_limit.clear.error', {
+      error: {
+        code: 'clear_error',
+        message: error instanceof Error ? error.message : String(error),
+      },
+    })
     return errorResponse(
       res,
       500,
