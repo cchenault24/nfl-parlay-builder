@@ -30,7 +30,7 @@ export async function withResilience<T>(
   }
 
   let attempt = 0
-  // eslint-disable-next-line no-constant-condition
+
   while (true) {
     try {
       const result = await Promise.race([
@@ -45,13 +45,15 @@ export async function withResilience<T>(
       ])
       circuit.failures = 0
       return result as T
-    } catch (err: any) {
+    } catch (err) {
       attempt += 1
       circuit.failures += 1
       if (circuit.failures >= 5) {
         circuit.openUntil = Date.now() + 15_000
       }
-      if (attempt > retries) throw err
+      if (attempt > retries) {
+        throw err
+      }
       await new Promise(r => setTimeout(r, backoffMs * attempt))
     }
   }

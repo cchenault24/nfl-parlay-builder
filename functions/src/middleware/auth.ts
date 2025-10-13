@@ -23,7 +23,9 @@ export async function verifyAuth(
       !!process.env.FIREBASE_AUTH_EMULATOR_HOST
     const emulatorUid = (req.headers['x-emulator-auth-uid'] as string) || ''
     if (isEmulator && emulatorUid) {
-      ;(req as AuthedRequest).user = { uid: emulatorUid } as any
+      ;(req as AuthedRequest).user = {
+        uid: emulatorUid,
+      } as admin.auth.DecodedIdToken
       return next()
     }
 
@@ -40,7 +42,9 @@ export async function verifyAuth(
     }
 
     const decoded = await admin.auth().verifyIdToken(token)
-    ;(req as AuthedRequest).user = decoded
+    ;(req as AuthedRequest).user = {
+      uid: decoded.uid,
+    } as admin.auth.DecodedIdToken
     return next()
   } catch {
     return errorResponse(
