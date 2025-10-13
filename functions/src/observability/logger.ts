@@ -17,7 +17,7 @@ export type LogFields = {
 }
 
 function truncate(value: string, max = 512): string {
-  return value.length > max ? value.slice(0, max) + '…' : value
+  return value.length > max ? `${value.slice(0, max)}…` : value
 }
 
 function redact(value: unknown): unknown {
