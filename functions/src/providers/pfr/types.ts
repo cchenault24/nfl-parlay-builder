@@ -19,7 +19,7 @@ export interface PFRGameItem {
   dateTime: string
   homeTeam: PFRTeam
   awayTeam: PFRTeam
-  venue: {
+  venue?: {
     name: string
     city: string
     state: string

@@ -1,8 +1,13 @@
 import axios from 'axios'
 import * as cheerio from 'cheerio'
+import { log } from '../../observability/logger'
+import {
+  getStadiumFromTeamCode,
+  getTeamCodeFromName,
+} from '../../utils/teamMapping'
 import { getStadiumForTeamName } from './stadiumService'
 import { PFRGameItem, PFRTeam } from './types'
-import { PFR_BASE, createPFRTeamFromName, getPFRHeaders } from './utils'
+import { createPFRTeamFromName, getPFRHeaders, PFR_BASE } from './utils'
 
 /**
  * Format PFR date and time as a parseable date string
@@ -13,18 +18,21 @@ function formatPFRDateTime(date: string, time: string): string {
   try {
     // Validate input parameters
     if (!date || !time) {
-      console.warn(
-        `Missing date or time: date="${date}", time="${time}", using fallback`
-      )
+      log.warn('schedule.datetime.missing', {
+        date,
+        time,
+        message: 'Using fallback date',
+      })
       return date || new Date().toISOString()
     }
 
     // Validate time format (12-hour with AM/PM, no space)
     const timeMatch = time.match(/^(\d{1,2}):(\d{2})(AM|PM)$/i)
     if (!timeMatch) {
-      console.warn(
-        `Invalid time format: "${time}", expected format like "8:20PM" or "1:00PM"`
-      )
+      log.warn('schedule.time.format.invalid', {
+        time,
+        expectedFormat: '8:20PM or 1:00PM',
+      })
       return date
     }
 
@@ -34,21 +42,25 @@ function formatPFRDateTime(date: string, time: string): string {
 
     // Validate hour and minute ranges
     if (hour < 1 || hour > 12) {
-      console.warn(`Invalid hour: ${hour}, must be 1-12`)
+      log.warn('schedule.hour.invalid', { hour, validRange: '1-12' })
       return date
     }
 
     if (minute < 0 || minute > 59) {
-      console.warn(`Invalid minutes: ${minute}, must be 0-59`)
+      log.warn('schedule.minutes.invalid', { minute, validRange: '0-59' })
       return date
     }
 
     return `${date} ${hour}:${minutes} ${period}`
   } catch (error) {
-    console.warn(
-      `Error formatting date/time: date="${date}", time="${time}"`,
-      error
-    )
+    log.warn('schedule.datetime.format.error', {
+      date,
+      time,
+      error: {
+        code: 'format_error',
+        message: error instanceof Error ? error.message : String(error),
+      },
+    })
     return date
   }
 }
@@ -159,7 +171,13 @@ export async function fetchPFRSeasonSchedule(): Promise<PFRGameItem[]> {
         status = 'scheduled'
       }
     } catch (error) {
-      console.warn(`Error determining status for game ${gameId}:`, error)
+      log.warn('schedule.game.status.error', {
+        gameId,
+        error: {
+          code: 'status_error',
+          message: error instanceof Error ? error.message : String(error),
+        },
+      })
       // Default to scheduled if there's an error parsing the date
       status = 'scheduled'
     }
@@ -176,18 +194,36 @@ export async function fetchPFRSeasonSchedule(): Promise<PFRGameItem[]> {
 
   // Second pass: get venue information for each game
   for (const game of gameData) {
-    let venue = { name: 'TBD', city: 'TBD', state: 'TBD' }
-    try {
-      const stadium = await getStadiumForTeamName(game.homeTeam.name)
-      if (stadium) {
+    let venue: { name: string; city: string; state: string } | undefined =
+      undefined
+
+    // First try team mapping (reliable for home games)
+    const teamCode = getTeamCodeFromName(game.homeTeam.name)
+    if (teamCode) {
+      const stadiumInfo = getStadiumFromTeamCode(teamCode)
+      if (stadiumInfo) {
         venue = {
-          name: stadium.name,
-          city: stadium.city,
-          state: stadium.state,
+          name: stadiumInfo.stadium,
+          city: stadiumInfo.city,
+          state: stadiumInfo.state,
         }
       }
-    } catch (error) {
-      console.warn(`Failed to get stadium for ${game.homeTeam.name}:`, error)
+    }
+
+    // Fallback to PFR scraping for international games or when team mapping fails
+    if (!venue) {
+      try {
+        const stadium = await getStadiumForTeamName(game.homeTeam.name)
+        if (stadium && stadium.name && stadium.city && stadium.state) {
+          venue = {
+            name: stadium.name,
+            city: stadium.city,
+            state: stadium.state,
+          }
+        }
+      } catch {
+        venue = undefined
+      }
     }
 
     games.push({

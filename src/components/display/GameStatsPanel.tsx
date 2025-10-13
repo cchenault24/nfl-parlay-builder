@@ -14,6 +14,7 @@ import {
   Typography,
 } from '@mui/material'
 import React from 'react'
+import useParlayStore from '../../store/parlayStore'
 import { GameData } from '../../types'
 import MatchupRow from './MatchupRow'
 import TeamCard from './TeamCard'
@@ -29,9 +30,10 @@ export interface GameStatsPanelProps {
 const GameStatsPanel: React.FC<GameStatsPanelProps> = ({
   gameData,
   context,
-  weather,
   isLoading = false,
 }) => {
+  const toolResponses = useParlayStore(state => state.toolResponses)
+  const weather = toolResponses?.weather
   const { home, away, venue, dateTime } = gameData
   const offHome = home.stats?.offense?.rankings
   const offAway = away.stats?.offense?.rankings
@@ -176,29 +178,13 @@ const GameStatsPanel: React.FC<GameStatsPanelProps> = ({
                 </Typography>
               </Box>
 
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <LocationOnIcon
-                  sx={{ fontSize: 16, color: 'text.secondary' }}
-                />
-                <Typography variant="body2" color="text.secondary">
-                  {venue.name === 'TBD' ||
-                  venue.city === 'TBD' ||
-                  venue.state === 'TBD'
-                    ? 'TBD'
-                    : `${venue.name}, ${venue.city}, ${venue.state}`}
-                </Typography>
-              </Box>
-
-              {weather && (
+              {venue && (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Chip
-                    label={`${weather.temperatureF}°F`}
-                    size="small"
-                    color="primary"
-                    variant="outlined"
+                  <LocationOnIcon
+                    sx={{ fontSize: 16, color: 'text.secondary' }}
                   />
                   <Typography variant="body2" color="text.secondary">
-                    {weather.condition}, {weather.windMph} mph winds
+                    {[venue.name, venue.city, venue.state].join(', ')}
                   </Typography>
                 </Box>
               )}
@@ -206,6 +192,47 @@ const GameStatsPanel: React.FC<GameStatsPanelProps> = ({
           </Box>
         </Box>
         <Divider sx={{ my: 1.25 }} />
+
+        {/* Weather Display */}
+        {weather && (
+          <Box sx={{ mb: 2 }}>
+            <Paper
+              variant="outlined"
+              sx={{
+                p: 1.5,
+                backgroundColor: 'primary.50',
+                borderColor: 'primary.200',
+              }}
+            >
+              <Typography
+                variant="h6"
+                align="center"
+                gutterBottom
+                sx={{ fontWeight: 700, mb: 1.5 }}
+              >
+                Weather Conditions
+              </Typography>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 1,
+                }}
+              >
+                <Chip
+                  label={`${weather.temperatureF}°F`}
+                  size="small"
+                  color="primary"
+                  variant="outlined"
+                />
+                <Typography variant="body2" color="text.secondary">
+                  {weather.condition}, {weather.windMph} mph winds
+                </Typography>
+              </Box>
+            </Paper>
+          </Box>
+        )}
 
         {/* Three-card layout: Matchup, Home, Away */}
         <Grid container spacing={1.5}>

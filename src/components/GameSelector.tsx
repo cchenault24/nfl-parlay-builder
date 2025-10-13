@@ -17,7 +17,7 @@ import {
 import { SelectChangeEvent } from '@mui/material/Select'
 import React from 'react'
 import { useParlayGenerator } from '../hooks/useParlayGenerator'
-import { usePFRSchedule } from '../hooks/usePFRSchedule'
+import { usePFRGamesForWeek } from '../hooks/usePFRGamesForWeek'
 import { useRateLimit } from '../hooks/useRateLimit'
 import useParlayStore from '../store/parlayStore'
 import TeamLogo from './display/TeamLogo'
@@ -45,20 +45,22 @@ const GameSelector: React.FC<GameSelectorProps> = ({
   weekLoading = false,
   parlayError,
 }) => {
-  // Use PFR schedule hook and filter by current week
-  const { data: allGames, isLoading: loading, error } = usePFRSchedule()
+  // Use PFR games hook for specific week (optimized)
+  const {
+    data: games,
+    isLoading: loading,
+    error,
+  } = usePFRGamesForWeek(currentWeek)
 
   // Rate limiting hook
   const { rateLimitInfo, isAtLimit, getTimeUntilReset } = useRateLimit()
-
-  const games = allGames?.filter(game => game.week === currentWeek) || []
   const selectedGame = useParlayStore(state => state.selectedGame)
   const setSelectedGame = useParlayStore(state => state.setSelectedGame)
   const { reset: resetParlay } = useParlayGenerator()
 
   // Reset selected game if it's not in the current week's games
   React.useEffect(() => {
-    if (selectedGame && games.length > 0) {
+    if (selectedGame && games && games.length > 0) {
       const gameExists = games.some(game => game.gameId === selectedGame.gameId)
       if (!gameExists) {
         setSelectedGame(null)
@@ -87,7 +89,7 @@ const GameSelector: React.FC<GameSelectorProps> = ({
     })
   }
 
-  if (loading && !games?.length) {
+  if (loading && !games) {
     return (
       <Card sx={{ mb: 3 }}>
         <CardContent sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
@@ -152,6 +154,7 @@ const GameSelector: React.FC<GameSelectorProps> = ({
                 id="game-select"
                 value={
                   selectedGame &&
+                  games &&
                   games.some(game => game.gameId === selectedGame.gameId)
                     ? selectedGame.gameId
                     : ''

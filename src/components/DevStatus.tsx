@@ -19,6 +19,7 @@ import React from 'react'
 import { useParlayGeneratorSelector } from '../hooks/useParlayGeneratorSelector'
 import { useRateLimit } from '../hooks/useRateLimit'
 import useGeneralStore from '../store/generalStore'
+import useParlayStore from '../store/parlayStore'
 import RateLimitIndicator from './RateLimitIndicator'
 
 /**
@@ -34,7 +35,8 @@ const DevStatus: React.FC = () => {
     error: rateLimitError,
   } = useRateLimit()
 
-  // Mock toggle state from store
+  // Get current parlay mode and mock toggle state
+  const parlayMode = useParlayStore(state => state.parlayMode)
   const devMockOverride = useGeneralStore(state => state.devMockOverride)
   const setDevMockOverride = useGeneralStore(state => state.setDevMockOverride)
   const clearDevMockOverride = useGeneralStore(
@@ -56,7 +58,12 @@ const DevStatus: React.FC = () => {
 
   // Determine current mode for display
   const getCurrentMode = () => {
-    return devMockOverride ? 'MOCK' : 'REAL'
+    if (parlayMode === 'agentic') {
+      return 'Agentic Real Data'
+    } else if (parlayMode === 'single-shot' && devMockOverride) {
+      return 'Single-Shot Mock Data'
+    }
+    return 'Single-Shot Real Data'
   }
 
   const isCurrentlyMock = serviceStatus?.usingMock || false
@@ -91,7 +98,7 @@ const DevStatus: React.FC = () => {
           </Typography>
           {!expanded && (
             <Chip
-              label={isCurrentlyMock ? 'MOCK DATA' : 'REAL DATA'}
+              label={getCurrentMode()}
               size="small"
               color={isCurrentlyMock ? 'warning' : 'success'}
               variant="outlined"
@@ -129,9 +136,24 @@ const DevStatus: React.FC = () => {
                       checked={isCurrentlyMock}
                       onChange={handleToggleChange}
                       color="warning"
+                      disabled={parlayMode === 'agentic'}
                     />
                   }
-                  label={<Typography variant="body2">Use Mock Data</Typography>}
+                  label={
+                    <Typography variant="body2">
+                      Use Mock Data
+                      {parlayMode === 'agentic' && (
+                        <Typography
+                          component="span"
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{ ml: 1, fontStyle: 'italic' }}
+                        >
+                          (disabled for agentic mode)
+                        </Typography>
+                      )}
+                    </Typography>
+                  }
                 />
                 <Stack direction="row" spacing={1} flexWrap="wrap">
                   <Chip
@@ -153,7 +175,13 @@ const DevStatus: React.FC = () => {
                     />
                   )}
                 </Stack>
-                {!devMockOverride && (
+                {parlayMode === 'agentic' ? (
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Agentic mode always uses real data via AgentParlayService
+                    </Typography>
+                  </Box>
+                ) : !devMockOverride ? (
                   <Box>
                     <Typography variant="caption" color="text.secondary">
                       Override active -
@@ -174,7 +202,7 @@ const DevStatus: React.FC = () => {
                       Reset to default
                     </Typography>
                   </Box>
-                )}
+                ) : null}
               </Stack>
             </Box>
 

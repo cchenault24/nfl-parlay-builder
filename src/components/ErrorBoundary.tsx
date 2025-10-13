@@ -1,6 +1,6 @@
-import { Component, ErrorInfo, ReactNode } from 'react'
-import { Box, Typography, Button, Card, CardContent } from '@mui/material'
 import { Error as ErrorIcon } from '@mui/icons-material'
+import { Box, Button, Card, CardContent, Typography } from '@mui/material'
+import { Component, ErrorInfo, ReactNode } from 'react'
 
 interface Props {
   children: ReactNode

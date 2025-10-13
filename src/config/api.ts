@@ -78,6 +78,7 @@ export const API_CONFIG = {
       games: (week: number) => `/api/games?week=${week}`,
       generateParlay: '/api/parlays/generate',
       pfrSchedule: '/api/pfr-schedule',
+      pfrGames: '/api/pfr-games',
     },
   },
 } as const

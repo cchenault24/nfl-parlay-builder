@@ -67,6 +67,7 @@ agentRouter.post(
       },
       input: {
         gameId: String(req.body?.gameId || ''),
+        ...(req.body?.gameContext && { gameContext: req.body.gameContext }), // Only include if defined
         numLegs: Number(req.body?.numLegs || 3),
         riskLevel: normalizedRisk,
       },
@@ -151,6 +152,8 @@ agentRouter.get('/agent/runs/:id/stream', verifyAuth, async (req, res) => {
       lastSent = steps.length
       const latest = await getRun(runId)
       if (!latest) {
+        clearInterval(interval)
+        res.end()
         return
       }
       if (latest.status === 'succeeded') {

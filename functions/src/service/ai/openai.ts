@@ -1,7 +1,7 @@
 import OpenAI from 'openai'
 
 export function getOpenAI(): OpenAI | null {
-  // Try environment variable first (for local development)
+  // Try environment variable first
   const key = process.env.OPENAI_API_KEY
 
   if (!key || key.length === 0) {

@@ -1,6 +1,8 @@
 import { create } from 'zustand'
-import { Game, GameData, GeneratedParlay } from '../types'
+import { Game, GameData, GeneratedParlay, ToolResponses } from '../types'
 import { LoadingContext } from '../types/loading'
+
+export type ParlayMode = 'agentic' | 'single-shot'
 
 interface ParlayStore {
   // State
@@ -10,6 +12,8 @@ interface ParlayStore {
   saveParlaySuccess: boolean
   saveParlayError: string
   loadingContext: LoadingContext
+  toolResponses: ToolResponses | null
+  parlayMode: ParlayMode
 
   // Actions
   setParlay: (parlay: GeneratedParlay | null) => void
@@ -19,6 +23,8 @@ interface ParlayStore {
   setSaveParlayError: (error: string) => void
   setLoadingContext: (context: Partial<LoadingContext>) => void
   resetLoadingContext: () => void
+  setToolResponses: (toolResponses: ToolResponses | null) => void
+  setParlayMode: (mode: ParlayMode) => void
 }
 
 const useParlayStore = create<ParlayStore>(set => ({
@@ -28,6 +34,8 @@ const useParlayStore = create<ParlayStore>(set => ({
   selectedGame: null,
   saveParlaySuccess: false,
   saveParlayError: '',
+  toolResponses: null,
+  parlayMode: 'agentic', // Default to agentic mode
   loadingContext: {
     isActive: false,
     currentPhase: '',
@@ -58,6 +66,8 @@ const useParlayStore = create<ParlayStore>(set => ({
         estimatedTimeRemaining: 0,
       },
     }),
+  setToolResponses: toolResponses => set({ toolResponses }),
+  setParlayMode: mode => set({ parlayMode: mode }),
 }))
 
 export default useParlayStore

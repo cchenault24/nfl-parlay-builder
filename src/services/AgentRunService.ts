@@ -1,4 +1,5 @@
 import { API_CONFIG } from '../config/api'
+import { GameContext } from '../types'
 import { SSEClient } from './SSEClient'
 
 export type AgentRun = {
@@ -55,6 +56,7 @@ export class AgentRunService {
 
   async createRun(params: {
     gameId: string
+    gameContext?: GameContext
     numLegs: number
     riskLevel: 'conservative' | 'moderate' | 'aggressive'
     authToken?: string
@@ -74,6 +76,7 @@ export class AgentRunService {
       headers,
       body: JSON.stringify({
         gameId: params.gameId,
+        gameContext: params.gameContext, // Rich game context
         numLegs: params.numLegs,
         riskLevel: params.riskLevel,
       }),

@@ -61,13 +61,13 @@ export async function getTeamStadiumMapping(): Promise<
  */
 export async function getStadiumForTeamName(
   teamName: string
-): Promise<PFRStadium | null> {
+): Promise<PFRStadium | undefined> {
   const mapping = await getTeamStadiumMapping()
   return getStadiumForTeam(teamName, mapping)
 }
 
 /**
- * Clear stadium cache (useful for testing or forced refresh)
+ * Clear stadium cache (useful for forced refresh)
  */
 export function clearStadiumCache(): void {
   stadiumCache = null

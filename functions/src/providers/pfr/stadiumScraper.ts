@@ -1,5 +1,6 @@
 import axios from 'axios'
 import * as cheerio from 'cheerio'
+import { log } from '../../observability/logger'
 import { PFR_BASE, getPFRHeaders } from './utils'
 
 export interface PFRStadium {
@@ -27,7 +28,7 @@ export async function fetchPFRStadiums(): Promise<PFRStadium[]> {
   const stadiumsTable = $('table').first()
 
   if (stadiumsTable.length === 0) {
-    console.error('No stadiums table found')
+    log.error('pfr.stadiums.table.not.found')
     return []
   }
 
@@ -122,7 +123,7 @@ export function createTeamStadiumMapping(
 export function getStadiumForTeam(
   teamName: string,
   teamStadiumMap: Map<string, PFRStadium>
-): PFRStadium | null {
+): PFRStadium | undefined {
   // Try exact match first
   const stadium = teamStadiumMap.get(teamName.toLowerCase())
   if (stadium) {
@@ -139,5 +140,5 @@ export function getStadiumForTeam(
     }
   }
 
-  return null
+  return undefined
 }

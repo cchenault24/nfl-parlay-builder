@@ -1,8 +1,10 @@
 import { Timestamp } from 'firebase/firestore'
 import { LoadingPhaseUpdate } from './loading'
 
+// Re-export loading types
+export type { LoadingPhaseUpdate } from './loading'
+
 // ===== PFR TYPES =====
-// This matches the backend schema exactly (functions/src/providers/pfr/types.ts)
 // API Types
 export interface TeamStatsOffense {
   totalYards: { rank: number; yardsPerGame: number }
@@ -55,8 +57,8 @@ export interface Game {
   status: 'scheduled' | 'in_progress' | 'final' | 'postponed'
   home: Team
   away: Team
-  venue: { name: string; city: string; state: string }
   leaders: Leaders
+  venue?: { name: string; city: string; state: string }
   weather?: {
     condition: string
     temperatureF: number
@@ -134,7 +136,7 @@ export interface GameData {
     stats: PFRTeamStats | null
     roster: Array<{ playerId: string; name: string; position?: string }>
   }
-  venue: { name: string; city: string; state: string }
+  venue: { name: string; city: string; state: string } | undefined
   leaders?: {
     passing?: { name: string; stats: string; value: number }
     rushing?: { name: string; stats: string; value: number }
@@ -217,9 +219,54 @@ export interface ParlayLeg {
   team: string
 }
 
+export interface ToolResponses {
+  weather?: {
+    condition: string
+    temperatureF: number
+    windMph: number
+  }
+  odds?: {
+    moneylineHome: number
+    moneylineAway: number
+    totalPoints: number
+    spreadHome: number
+  }
+}
+
+export interface GameContext {
+  gameId: string
+  week: number
+  dateTime: string
+  status: 'scheduled' | 'in_progress' | 'final' | 'postponed'
+  home: {
+    teamId: string
+    name: string
+    abbrev: string
+    record?: string
+    overallRecord?: string
+    homeRecord?: string
+    roadRecord?: string
+  }
+  away: {
+    teamId: string
+    name: string
+    abbrev: string
+    record?: string
+    overallRecord?: string
+    homeRecord?: string
+    roadRecord?: string
+  }
+  venue?: {
+    name: string
+    city: string
+    state: string
+  }
+}
+
 export interface ParlayGenerationResult {
   parlay: GeneratedParlay
   gameData: GameData
+  toolResponses?: ToolResponses
   rateLimitInfo?: {
     remaining: number
     total: number
@@ -234,8 +281,9 @@ export interface ParlayGenerationResult {
     confidence: number
     fallbackUsed: boolean
     attemptCount: number
-    serviceMode?: 'mock' | 'openai'
+    serviceMode?: 'mock' | 'openai' | 'agent'
     environment?: string
+    runId?: string
   }
 }
 

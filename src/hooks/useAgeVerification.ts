@@ -37,8 +37,7 @@ export const useAgeVerification = () => {
         localStorage.removeItem(AGE_VERIFICATION_KEY)
         setIsVerified(false)
       }
-    } catch (error) {
-      console.error('Error checking age verification:', error)
+    } catch {
       setIsVerified(false)
     }
     setIsLoading(false)

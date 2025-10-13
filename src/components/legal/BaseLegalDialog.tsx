@@ -1,4 +1,3 @@
-// src/components/legal/BaseLegalDialog.tsx (Reduced font sizes)
 import { Close as CloseIcon } from '@mui/icons-material'
 import {
   Alert,

@@ -34,8 +34,6 @@ const GameSummaryView: React.FC<GameSummaryViewProps> = ({
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const isSmall = useMediaQuery(theme.breakpoints.down('sm'))
 
-  // Removed unused helper functions - v2 API provides clean data
-
   // Use win probability to determine game flow
   const getGameFlowDisplay = (winProbability: number) => {
     if (winProbability > 0.7) {

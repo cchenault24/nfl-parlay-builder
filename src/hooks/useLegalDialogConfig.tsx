@@ -25,8 +25,7 @@ export const useLegalDialogConfig = (isOpen: boolean, configKey: ConfigKey) => {
           setConfig(configs[configKey])
           setLoading(false)
         })
-        .catch(err => {
-          console.error(`Failed to load ${configKey}:`, err)
+        .catch(() => {
           setError('Failed to load legal content')
           setLoading(false)
         })

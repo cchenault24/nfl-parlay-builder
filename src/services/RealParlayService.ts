@@ -143,8 +143,7 @@ export class RealParlayService extends BaseParlayService {
         providers: data.data?.service?.providers || [],
         timestamp: new Date().toISOString(),
       }
-    } catch (error) {
-      console.error('Health check failed:', error)
+    } catch {
       return {
         healthy: false,
         mode: 'openai',
@@ -257,14 +256,10 @@ export class RealParlayService extends BaseParlayService {
   private async getAuthToken(): Promise<string | null> {
     try {
       const currentUser = auth.currentUser
-      if (!currentUser) {
-        console.warn('No authenticated user found')
-        return null
-      }
-
-      // Check if user is still valid
-      if (!currentUser.emailVerified && currentUser.providerData.length === 0) {
-        console.warn('User account may be invalid')
+      if (
+        !currentUser ||
+        (!currentUser.emailVerified && currentUser.providerData.length === 0)
+      ) {
         return null
       }
 

@@ -17,7 +17,7 @@ export async function verifyAuth(
     `req_${Math.random().toString(36).slice(2)}`
   ;(req as AuthedRequest).correlationId = correlationId
   try {
-    // Dev emulator bypass: allow providing a UID via header when running locally
+    // Emulator bypass: allow providing a UID via header when running locally
     const isEmulator =
       !!process.env.FUNCTIONS_EMULATOR ||
       !!process.env.FIREBASE_AUTH_EMULATOR_HOST

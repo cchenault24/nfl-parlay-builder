@@ -1,7 +1,8 @@
 import {
   Login as LoginIcon,
+  Psychology as PsychologyIcon,
   Save as SaveIcon,
-  TrendingUp as TrendingUpIcon,
+  Speed as SpeedIcon,
 } from '@mui/icons-material'
 import {
   Alert,
@@ -34,12 +35,14 @@ interface ParlayDisplayProps {
   parlay?: GeneratedParlay & { gameData?: GameData }
   loading: boolean
   isMockMode?: boolean
+  parlayMode?: 'agentic' | 'single-shot'
 }
 
 const ParlayDisplay: React.FC<ParlayDisplayProps> = ({
   parlay,
   loading,
   isMockMode = false,
+  parlayMode = 'agentic',
 }) => {
   const { user } = useAuth()
   const [saving, setSaving] = useState(false)
@@ -106,9 +109,8 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({
       await saveParlayToUser(user.uid, parlay)
       setSaveParlaySuccess(true)
       setTimeout(() => setSaveParlaySuccess(false), 3000)
-    } catch (error) {
+    } catch {
       setSaveParlayError('Failed to save parlay. Please try again.')
-      console.error('Error saving parlay:', error)
     } finally {
       setSaving(false)
     }
@@ -134,9 +136,28 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({
       <Card>
         <CardContent>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-            <TrendingUpIcon sx={{ mr: 1 }} />
-            <Typography variant="h6">AI Generated Parlay</Typography>
-            <Box sx={{ ml: 'auto' }}>
+            {parlayMode === 'agentic' ? (
+              <PsychologyIcon sx={{ mr: 1, color: 'primary.main' }} />
+            ) : (
+              <SpeedIcon sx={{ mr: 1, color: 'action.active' }} />
+            )}
+            <Typography variant="h6">
+              {parlayMode === 'agentic'
+                ? 'AI Agent Generated Parlay'
+                : 'AI Generated Parlay'}
+            </Typography>
+            <Box
+              sx={{ ml: 'auto', display: 'flex', gap: 1, alignItems: 'center' }}
+            >
+              <Chip
+                label={parlayMode === 'agentic' ? 'Agentic' : 'Single-Shot'}
+                color={parlayMode === 'agentic' ? 'primary' : 'default'}
+                variant="outlined"
+                size="small"
+                icon={
+                  parlayMode === 'agentic' ? <PsychologyIcon /> : <SpeedIcon />
+                }
+              />
               <Chip
                 label={`${parlay.combinedOdds > 0 ? '+' : ''}${parlay.combinedOdds}`}
                 color="primary"
