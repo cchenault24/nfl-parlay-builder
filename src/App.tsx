@@ -105,7 +105,8 @@ function AppContent() {
     if (selectedGame) {
       generateParlay({
         game: selectedGame,
-        shouldUseMock: parlayMode === 'single-shot',
+        parlayMode,
+        shouldUseMock: serviceStatus.usingMock,
       })
     }
   }

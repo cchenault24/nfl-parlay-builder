@@ -18,7 +18,7 @@ const ParlayLanding: React.FC = () => {
           Select a game and click &quot;Create 3-Leg Parlay&quot; to get started
         </Typography>
 
-        <ParlayModeToggle />
+        {import.meta.env.MODE === 'development' && <ParlayModeToggle />}
       </CardContent>
     </Card>
   )
