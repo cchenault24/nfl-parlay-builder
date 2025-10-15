@@ -27,7 +27,9 @@ export const agentRouter = express.Router()
 agentRouter.post(
   '/agent/runs',
   verifyAuth,
-  rateLimitByUser(20, 60 * 60_000), // 20 requests per hour
+  ...(process.env.FUNCTIONS_EMULATOR || process.env.FIREBASE_AUTH_EMULATOR_HOST
+    ? []
+    : [rateLimitByUser(20, 60 * 60_000)]),
   async (req: express.Request, res: express.Response) => {
     const auth = req as AuthedRequest
     const correlationId = auth.correlationId
@@ -91,14 +93,20 @@ agentRouter.post(
     await createRun(run)
 
     // Include current rate limit status in response for frontend UX
-    const rateLimitInfo = await getUserRateLimitStatus(
-      user.uid,
-      '/agent/runs',
-      20,
-      60 * 60_000
-    )
-
-    res.json({ runId: run.id, rateLimitInfo })
+    if (
+      process.env.FUNCTIONS_EMULATOR ||
+      process.env.FIREBASE_AUTH_EMULATOR_HOST
+    ) {
+      res.json({ runId: run.id })
+    } else {
+      const rateLimitInfo = await getUserRateLimitStatus(
+        user.uid,
+        '/agent/runs',
+        20,
+        60 * 60_000
+      )
+      res.json({ runId: run.id, rateLimitInfo })
+    }
 
     // Fire and forget execution
     ;(async () => {
@@ -223,6 +231,17 @@ agentRouter.get('/agent/rate-limit', verifyAuth, async (req, res) => {
       'Missing user',
       correlationId
     )
+  }
+  if (
+    process.env.FUNCTIONS_EMULATOR ||
+    process.env.FIREBASE_AUTH_EMULATOR_HOST
+  ) {
+    return res.json({
+      remaining: 9999,
+      total: 9999,
+      resetTime: new Date().toISOString(),
+      currentCount: 0,
+    })
   }
   const status = await getUserRateLimitStatus(
     user.uid,

@@ -72,7 +72,11 @@ export class AgentRunService {
     }
     const res = await fetch(`${this.base()}/agent/rate-limit`, { headers })
     if (!res.ok) {
-      throw new Error(`getRateLimitStatus failed: ${res.status}`)
+      if (res.status === 401) {
+        throw new Error('Authentication failed. Please log in again.')
+      } else {
+        throw new Error(`Failed to get rate limit status: ${res.status}`)
+      }
     }
     return res.json()
   }
@@ -113,7 +117,17 @@ export class AgentRunService {
       }),
     })
     if (!res.ok) {
-      throw new Error(`createRun failed: ${res.status}`)
+      if (res.status === 429) {
+        throw new Error(
+          'Rate limit exceeded. You have used all your parlay generations for this hour. Please wait before generating more parlays.'
+        )
+      } else if (res.status === 401) {
+        throw new Error(
+          'Authentication failed. Please log in again to generate parlays.'
+        )
+      } else {
+        throw new Error(`Failed to create parlay: ${res.status}`)
+      }
     }
     return res.json()
   }
@@ -131,7 +145,13 @@ export class AgentRunService {
     }
     const res = await fetch(`${this.base()}/agent/runs/${runId}`, { headers })
     if (!res.ok) {
-      throw new Error(`getRun failed: ${res.status}`)
+      if (res.status === 401) {
+        throw new Error('Authentication failed. Please log in again.')
+      } else if (res.status === 404) {
+        throw new Error('Parlay run not found.')
+      } else {
+        throw new Error(`Failed to get parlay run: ${res.status}`)
+      }
     }
     return res.json()
   }

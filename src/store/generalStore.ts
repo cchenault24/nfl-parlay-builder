@@ -7,7 +7,6 @@ interface GeneralStore {
 
   // Actions
   setDevMockOverride: (useMock: boolean) => void
-  clearDevMockOverride: () => void
 }
 
 const useGeneralStore = create<GeneralStore>()(
@@ -19,9 +18,6 @@ const useGeneralStore = create<GeneralStore>()(
       // Actions
       setDevMockOverride: useMock => {
         set({ devMockOverride: useMock })
-      },
-      clearDevMockOverride: () => {
-        set({ devMockOverride: import.meta.env.MODE === 'development' })
       },
     }),
     {

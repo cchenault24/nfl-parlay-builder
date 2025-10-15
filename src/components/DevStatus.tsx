@@ -17,9 +17,7 @@ import {
 } from '@mui/material'
 import React from 'react'
 import { useParlayService } from '../hooks/useParlayService'
-import { useRateLimit } from '../hooks/useRateLimit'
 import useGeneralStore from '../store/generalStore'
-import RateLimitIndicator from './RateLimitIndicator'
 
 /**
  * Development Status Component
@@ -28,18 +26,10 @@ import RateLimitIndicator from './RateLimitIndicator'
 const DevStatus: React.FC = () => {
   const [expanded, setExpanded] = React.useState(false)
   const { serviceStatus } = useParlayService()
-  const {
-    rateLimitInfo,
-    isLoading: rateLimitLoading,
-    error: rateLimitError,
-  } = useRateLimit()
 
   // Get mock toggle state
   const devMockOverride = useGeneralStore(state => state.devMockOverride)
   const setDevMockOverride = useGeneralStore(state => state.setDevMockOverride)
-  const clearDevMockOverride = useGeneralStore(
-    state => state.clearDevMockOverride
-  )
 
   // Only show in development
   if (import.meta.env.MODE === 'production') {
@@ -164,38 +154,12 @@ const DevStatus: React.FC = () => {
                     <Typography variant="caption" color="text.secondary">
                       Override active - forcing mock mode
                     </Typography>
-                    <Typography
-                      variant="caption"
-                      color="primary"
-                      sx={{
-                        cursor: 'pointer',
-                        textDecoration: 'underline',
-                        ml: 1,
-                      }}
-                      onClick={clearDevMockOverride}
-                    >
-                      Reset to default
-                    </Typography>
                   </Box>
                 )}
               </Stack>
             </Box>
 
             <Divider />
-
-            {/* Rate Limiting Status - Only show for real API */}
-            {!isCurrentlyMock && (
-              <Box>
-                <Typography variant="subtitle2" gutterBottom>
-                  Rate Limiting
-                </Typography>
-                <RateLimitIndicator
-                  rateLimitInfo={rateLimitInfo}
-                  isLoading={rateLimitLoading}
-                  error={rateLimitError}
-                />
-              </Box>
-            )}
 
             {/* Mock Mode Notice */}
             {isCurrentlyMock && (

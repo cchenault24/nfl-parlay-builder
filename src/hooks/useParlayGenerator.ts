@@ -30,6 +30,15 @@ export const useParlayGenerator = () => {
 
   // Helper function to determine if an error is retryable
   const isRetryableError = (error: Error): boolean => {
+    // Don't retry authentication or rate limiting errors
+    if (
+      error.message.includes('not authenticated') ||
+      error.message.includes('Authentication failed') ||
+      error.message.includes('Rate limit exceeded')
+    ) {
+      return false
+    }
+
     const retryablePatterns = [
       'ai_service_unavailable',
       'service temporarily unavailable',
@@ -208,7 +217,18 @@ export const useParlayGenerator = () => {
       // Handle authentication errors specifically
       if (
         error instanceof Error &&
-        error.message.includes('not authenticated')
+        (error.message.includes('not authenticated') ||
+          error.message.includes('Authentication failed'))
+      ) {
+        resetRetryState()
+        setParlay(null)
+        return
+      }
+
+      // Handle rate limiting errors
+      if (
+        error instanceof Error &&
+        error.message.includes('Rate limit exceeded')
       ) {
         resetRetryState()
         setParlay(null)

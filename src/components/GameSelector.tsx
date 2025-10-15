@@ -54,6 +54,7 @@ const GameSelector: React.FC<GameSelectorProps> = ({
 
   // Rate limiting hook
   const { rateLimitInfo, isAtLimit, getTimeUntilReset } = useRateLimit()
+  const [, forceRerender] = React.useState(0)
   const selectedGame = useParlayStore(state => state.selectedGame)
   const setSelectedGame = useParlayStore(state => state.setSelectedGame)
   const { reset: resetParlay } = useParlayGenerator()
@@ -88,6 +89,16 @@ const GameSelector: React.FC<GameSelectorProps> = ({
       minute: '2-digit',
     })
   }
+
+  // Live countdown re-render while at rate limit
+  const atLimit = isAtLimit()
+  React.useEffect(() => {
+    if (!atLimit) return
+    const id = setInterval(() => {
+      forceRerender(v => v + 1)
+    }, 1000)
+    return () => clearInterval(id)
+  }, [atLimit])
 
   if (loading && !games) {
     return (
@@ -314,17 +325,13 @@ const GameSelector: React.FC<GameSelectorProps> = ({
                 </Box>
 
                 {/* Rate limit status */}
-                {rateLimitInfo && (
-                  <>
-                    {isAtLimit() && (
-                      <ErrorBanner
-                        type="rate_limit_reached"
-                        title="Rate limit reached"
-                        message={`You've used all ${rateLimitInfo.total} parlay generations for this hour.`}
-                        countdown={getTimeUntilReset()}
-                      />
-                    )}
-                  </>
+                {isAtLimit() && (
+                  <ErrorBanner
+                    type="rate_limit_reached"
+                    title="Hourly limit reached"
+                    message={`You’ve hit your limit of ${rateLimitInfo?.total ?? 0} parlay generations this hour. The timer below shows when you can try again.`}
+                    countdown={getTimeUntilReset()}
+                  />
                 )}
 
                 {/* Parlay generation errors (excluding rate limit errors) */}
