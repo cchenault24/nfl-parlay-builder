@@ -54,6 +54,29 @@ export class AgentRunService {
     return `${API_CONFIG.CLOUD_FUNCTIONS.baseURL}/api`
   }
 
+  async getRateLimitStatus(auth?: {
+    token?: string
+    emulatorUid?: string
+  }): Promise<{
+    remaining: number
+    total: number
+    resetTime: string
+    currentCount: number
+  }> {
+    const headers: Record<string, string> = {}
+    if (auth?.token) {
+      headers['Authorization'] = `Bearer ${auth.token}`
+    }
+    if (auth?.emulatorUid) {
+      headers['X-Emulator-Auth-UID'] = auth.emulatorUid
+    }
+    const res = await fetch(`${this.base()}/agent/rate-limit`, { headers })
+    if (!res.ok) {
+      throw new Error(`getRateLimitStatus failed: ${res.status}`)
+    }
+    return res.json()
+  }
+
   async createRun(params: {
     gameId: string
     gameContext?: GameContext
@@ -61,7 +84,15 @@ export class AgentRunService {
     riskLevel: 'conservative' | 'moderate' | 'aggressive'
     authToken?: string
     emulatorUid?: string
-  }): Promise<{ runId: string }> {
+  }): Promise<{
+    runId: string
+    rateLimitInfo?: {
+      remaining: number
+      total: number
+      resetTime: string
+      currentCount: number
+    }
+  }> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     }

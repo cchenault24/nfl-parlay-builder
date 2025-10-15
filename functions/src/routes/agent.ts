@@ -13,18 +13,21 @@ import {
   updateRun,
 } from '../agent/store/firestore'
 import { verifyAuth, type AuthedRequest } from '../middleware/auth'
-import { rateLimitByUser } from '../middleware/rateLimit'
+import {
+  getUserRateLimitStatus,
+  rateLimitByUser,
+} from '../middleware/rateLimit'
 import { log } from '../observability/logger'
 import { inc, observe } from '../observability/metrics'
 import { errorResponse } from '../utils/errors'
 
 export const agentRouter = express.Router()
 
-// POST /agent/runs -> { runId }
+// POST /agent/runs -> { runId, rateLimitInfo? }
 agentRouter.post(
   '/agent/runs',
   verifyAuth,
-  rateLimitByUser(30, 60_000),
+  rateLimitByUser(20, 60 * 60_000), // 20 requests per hour
   async (req: express.Request, res: express.Response) => {
     const auth = req as AuthedRequest
     const correlationId = auth.correlationId
@@ -86,7 +89,16 @@ agentRouter.post(
       )
     }
     await createRun(run)
-    res.json({ runId: run.id })
+
+    // Include current rate limit status in response for frontend UX
+    const rateLimitInfo = await getUserRateLimitStatus(
+      user.uid,
+      '/agent/runs',
+      20,
+      60 * 60_000
+    )
+
+    res.json({ runId: run.id, rateLimitInfo })
 
     // Fire and forget execution
     ;(async () => {
@@ -196,4 +208,27 @@ agentRouter.post('/agent/runs/:id/cancel', verifyAuth, async (req, res) => {
     updatedAt: new Date().toISOString(),
   })
   res.json({ ok: true })
+})
+
+// GET /agent/rate-limit -> current user's rate limit status for agent runs
+agentRouter.get('/agent/rate-limit', verifyAuth, async (req, res) => {
+  const auth = req as AuthedRequest
+  const user = auth.user
+  const correlationId = auth.correlationId
+  if (!user) {
+    return errorResponse(
+      res,
+      401,
+      'unauthorized',
+      'Missing user',
+      correlationId
+    )
+  }
+  const status = await getUserRateLimitStatus(
+    user.uid,
+    '/agent/runs',
+    20,
+    60 * 60_000
+  )
+  res.json(status)
 })

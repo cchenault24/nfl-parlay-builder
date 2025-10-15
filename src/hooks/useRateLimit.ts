@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useEffect } from 'react'
 import { useAuthState } from 'react-firebase-hooks/auth'
 import { auth } from '../config/firebase'
+import { AgentRunService } from '../services/AgentRunService'
 import { FrontendRateLimiter } from '../services/FrontendRateLimiter'
 import useRateLimitStore from '../store/rateLimitStore'
 
@@ -37,14 +38,28 @@ export const useRateLimit = () => {
     getTimeUntilReset: storeGetTimeUntilReset,
   } = useRateLimitStore()
 
-  // Query rate limit status - ENABLED for v2 with unified frontend rate limiting
+  // Query rate limit status from backend for agent runs; fallback to frontend limiter
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['rateLimitStatus', user?.uid],
     queryFn: async (): Promise<RateLimitInfo> => {
-      // Get current rate limit status from frontend rate limiter
-      return FrontendRateLimiter.getCurrentStatus(user?.uid || null)
+      try {
+        const svc = new AgentRunService()
+        const authToken = await auth.currentUser?.getIdToken?.()
+        const status = await svc.getRateLimitStatus(
+          authToken ? { token: authToken } : undefined
+        )
+        return {
+          remaining: status.remaining,
+          total: status.total,
+          resetTime: new Date(status.resetTime),
+          currentCount: status.currentCount,
+        }
+      } catch {
+        // Fallback to frontend limiter if backend not reachable
+        return FrontendRateLimiter.getCurrentStatus(user?.uid || null)
+      }
     },
-    enabled: true, // Enabled - uses frontend rate limiter for both mock and real data
+    enabled: true,
     refetchInterval: 30000, // Refetch every 30 seconds
     staleTime: 15000, // Consider data stale after 15 seconds
     retry: (failureCount, error) => {
