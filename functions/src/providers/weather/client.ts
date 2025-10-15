@@ -140,7 +140,7 @@ export class WeatherProvider {
   private async fetchMockWeather(
     request: WeatherRequest
   ): Promise<WeatherData> {
-    const apiKey = process.env.WEATHER_API_KEY
+    const apiKey = this.config.apiKey
     if (!apiKey) {
       log.warn('weather.api.key.missing', { gameId: request.gameId })
       throw new Error('Weather API key not configured')

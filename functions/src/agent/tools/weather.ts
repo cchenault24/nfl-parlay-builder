@@ -1,5 +1,5 @@
 import { log } from '../../observability/logger'
-import { weatherProvider } from '../../providers/weather/client'
+import { WeatherProvider } from '../../providers/weather/client'
 import { getStadiumFromTeamCode } from '../../utils/teamMapping'
 
 export type WeatherInfo = {
@@ -53,7 +53,8 @@ export async function fetchWeatherForGame(
   gameContext?: {
     venue: { name: string; city: string; state: string }
     dateTime: string
-  }
+  },
+  apiKey?: string
 ): Promise<WeatherInfo | undefined> {
   try {
     let gameDetails: {
@@ -84,6 +85,9 @@ export async function fetchWeatherForGame(
       gameTime: gameDetails.gameTime,
     }
 
+    const weatherProvider = new WeatherProvider({
+      apiKey,
+    })
     const response = await weatherProvider.getWeather(request)
 
     if (!response) {

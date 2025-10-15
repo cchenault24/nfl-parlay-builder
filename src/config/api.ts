@@ -55,13 +55,40 @@ const isLocalDevelopment = () => {
 }
 
 /**
+ * Attempt to derive the Firebase projectId from the hosting domain when
+ * running on Firebase Hosting (including preview channels). Falls back to
+ * the provided env var or a sensible default for development.
+ */
+const resolveProjectId = () => {
+  // Prefer explicitly provided env var if present
+  const envProjectId = ENV.FIREBASE_PROJECT_ID
+  if (envProjectId && envProjectId.trim().length > 0) {
+    return envProjectId
+  }
+
+  if (typeof window !== 'undefined') {
+    const host = window.location.host
+    // Matches: <project>[--<channel>].web.app or .firebaseapp.com
+    const match = host.match(
+      /^(?<projectId>[a-z0-9-]+)(?:--[a-z0-9-]+)?\.(?:web\.app|firebaseapp\.com)$/
+    )
+    const inferred = match?.groups?.projectId
+    if (inferred && inferred.trim().length > 0) {
+      return inferred
+    }
+  }
+
+  // Default to dev project if nothing else is available
+  return 'nfl-parlay-builder-dev'
+}
+
+/**
  * API Configuration with environment-based settings
  */
 export const API_CONFIG = {
   CLOUD_FUNCTIONS: {
     baseURL: (() => {
-      const projectId = ENV.FIREBASE_PROJECT_ID
-      const resolvedProjectId = projectId || 'nfl-parlay-builder-dev'
+      const resolvedProjectId = resolveProjectId()
 
       if (isLocalDevelopment()) {
         return `http://localhost:5001/${resolvedProjectId}/us-central1`

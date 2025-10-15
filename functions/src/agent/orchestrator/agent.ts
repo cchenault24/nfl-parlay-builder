@@ -17,6 +17,10 @@ import { parallelLimit, withResilience } from '../tools'
 import { fetchOddsForGame } from '../tools/odds'
 import { fetchWeatherForGame } from '../tools/weather'
 
+// Import secrets
+import { defineSecret } from 'firebase-functions/params'
+const WEATHER_API_KEY = defineSecret('WEATHER_API_KEY')
+
 type Persist = {
   appendStep: (runId: string, step: AgentStep) => Promise<void>
   updateRun: (runId: string, updates: Partial<AgentRun>) => Promise<void>
@@ -152,7 +156,8 @@ export async function runAgent(
                   venue: current.input.gameContext.venue,
                   dateTime: current.input.gameContext.dateTime,
                 }
-              : undefined
+              : undefined,
+            WEATHER_API_KEY.value()
           )
           return {
             name: 'weather',
