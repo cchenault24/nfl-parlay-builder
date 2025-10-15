@@ -98,7 +98,7 @@ export const useParlayGenerator = () => {
     }
 
     try {
-      const provider = shouldUseMock ? 'mock' : 'openai'
+      const provider = shouldUseMock ? 'mock' : 'agent'
       const parlayService = ServiceContainer.instance.getParlayService(provider)
       const result = await parlayService.generateParlay(game)
 
@@ -153,25 +153,15 @@ export const useParlayGenerator = () => {
   const mutation = useMutation({
     mutationFn: async ({
       game,
-      parlayMode,
       shouldUseMock,
     }: {
       game: Game
-      parlayMode: 'agentic' | 'single-shot'
       shouldUseMock: boolean
     }) => {
       const startTime = Date.now()
 
-      // Determine provider based on parlay mode and mock setting
-      let provider: 'mock' | 'openai' | 'agent'
-      if (parlayMode === 'agentic') {
-        // Agentic mode always uses agent service
-        provider = 'agent'
-      } else {
-        // Single-shot mode: check if mock is enabled
-        provider = shouldUseMock ? 'mock' : 'openai'
-      }
-
+      // Always use agent service for agentic mode, or mock if override is enabled
+      const provider: 'mock' | 'agent' = shouldUseMock ? 'mock' : 'agent'
       const parlayService = ServiceContainer.instance.getParlayService(provider)
 
       // Set up loading context

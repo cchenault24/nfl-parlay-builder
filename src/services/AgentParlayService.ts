@@ -266,7 +266,7 @@ export class AgentParlayService extends BaseParlayService {
 
   async checkServiceHealth(): Promise<{
     healthy: boolean
-    mode: 'mock' | 'openai' | 'agent'
+    mode: 'mock' | 'agent'
     providers?: Array<{
       name: string
       healthy: boolean
@@ -288,7 +288,7 @@ export class AgentParlayService extends BaseParlayService {
     }
   }
 
-  getServiceMode(): 'mock' | 'openai' | 'agent' {
+  getServiceMode(): 'mock' | 'agent' {
     return 'agent'
   }
 

@@ -281,7 +281,7 @@ export interface ParlayGenerationResult {
     confidence: number
     fallbackUsed: boolean
     attemptCount: number
-    serviceMode?: 'mock' | 'openai' | 'agent'
+    serviceMode?: 'mock' | 'agent'
     environment?: string
     runId?: string
   }

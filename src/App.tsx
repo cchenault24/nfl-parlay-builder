@@ -41,7 +41,6 @@ function AppContent() {
   const setSelectedGame = useParlayStore(state => state.setSelectedGame)
   const parlay = useParlayStore(state => state.parlay)
   const gameData = useParlayStore(state => state.gameData)
-  const parlayMode = useParlayStore(state => state.parlayMode)
 
   const { user, loading } = useAuth()
   const [historyOpen, setHistoryOpen] = useState(false)
@@ -105,7 +104,6 @@ function AppContent() {
     if (selectedGame) {
       generateParlay({
         game: selectedGame,
-        parlayMode,
         shouldUseMock: serviceStatus.usingMock,
       })
     }
@@ -216,7 +214,6 @@ function AppContent() {
             parlay={parlay || undefined}
             loading={parlayLoading}
             isMockMode={serviceStatus.usingMock}
-            parlayMode={parlayMode}
           />
 
           <ParlayHistory
