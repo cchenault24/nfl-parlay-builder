@@ -300,7 +300,7 @@ export async function runAgent(
         city: '',
         state: '',
       },
-      weather: weather || undefined,
+      weather: weather || null,
       leaders: {},
     }
   } else {
@@ -369,7 +369,7 @@ export async function runAgent(
               state: scheduleGame.venue.state,
             }
           : undefined,
-      weather: weather || undefined,
+      weather: weather || null,
       leaders: {},
     }
   }

@@ -93,7 +93,9 @@ const GameSelector: React.FC<GameSelectorProps> = ({
   // Live countdown re-render while at rate limit
   const atLimit = isAtLimit()
   React.useEffect(() => {
-    if (!atLimit) return
+    if (!atLimit) {
+      return
+    }
     const id = setInterval(() => {
       forceRerender(v => v + 1)
     }, 1000)

@@ -58,5 +58,9 @@ export async function updateRun(
   runId: string,
   updates: Partial<AgentRun>
 ): Promise<void> {
-  await getDb().collection('agentRuns').doc(runId).update(updates)
+  // Filter out undefined values to prevent Firestore errors
+  const cleanUpdates = Object.fromEntries(
+    Object.entries(updates).filter(([_, value]) => value !== undefined)
+  )
+  await getDb().collection('agentRuns').doc(runId).update(cleanUpdates)
 }

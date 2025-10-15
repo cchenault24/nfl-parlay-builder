@@ -31,7 +31,7 @@ export interface GameData {
     stats: PFRTeamStats | null
   }
   venue?: { name: string; city: string; state: string }
-  weather?: { condition: string; temperatureF: number; windMph: number }
+  weather: { condition: string; temperatureF: number; windMph: number } | null
   leaders?: {
     passing?: { name: string; stats: string; value: number }
     rushing?: { name: string; stats: string; value: number }

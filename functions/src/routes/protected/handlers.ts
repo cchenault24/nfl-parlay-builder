@@ -196,6 +196,7 @@ export const generateParlayHandler = async (
               },
               venue,
               leaders: {}, // PFR doesn't provide player leaders in team stats
+              weather: null,
             }
           } catch (error) {
             log.error('pfr.game.fetch.error', {
