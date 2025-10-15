@@ -1,7 +1,6 @@
 import { AgentParlayService } from './AgentParlayService'
 import { BaseParlayService } from './BaseParlayService'
 import { MockParlayService } from './MockParlayService'
-import { RealParlayService } from './RealParlayService'
 
 /**
  * Centralized dependency container with lazy singletons.
@@ -12,7 +11,6 @@ export class ServiceContainer {
   private static _instance: ServiceContainer | undefined
 
   // Cached singletons
-  private realParlayService?: RealParlayService
   private mockParlayService?: MockParlayService
   private agentParlayService?: AgentParlayService
 
@@ -36,10 +34,6 @@ export class ServiceContainer {
 
   // ----- registration for tests or manual overrides -----
 
-  registerRealParlayService(instance: RealParlayService): void {
-    this.realParlayService = instance
-  }
-
   registerMockParlayService(instance: MockParlayService): void {
     this.mockParlayService = instance
   }
@@ -49,13 +43,6 @@ export class ServiceContainer {
   }
 
   // ----- services -----
-
-  getRealParlayService(): RealParlayService {
-    if (!this.realParlayService) {
-      this.realParlayService = new RealParlayService()
-    }
-    return this.realParlayService
-  }
 
   getMockParlayService(): MockParlayService {
     if (!this.mockParlayService) {
@@ -74,15 +61,11 @@ export class ServiceContainer {
   /**
    * Get the appropriate parlay service based on provider
    */
-  getParlayService(
-    provider: 'mock' | 'openai' | 'agent' = 'agent'
-  ): BaseParlayService {
+  getParlayService(provider: 'mock' | 'agent' = 'agent'): BaseParlayService {
     if (provider === 'mock') {
       return this.getMockParlayService()
-    } else if (provider === 'agent') {
-      return this.getAgentParlayService()
     }
-    return this.getRealParlayService()
+    return this.getAgentParlayService()
   }
 
   // ----- utility methods -----
@@ -91,7 +74,6 @@ export class ServiceContainer {
    * Clear all cached services (useful for testing)
    */
   clear(): void {
-    this.realParlayService = undefined
     this.mockParlayService = undefined
     this.agentParlayService = undefined
   }
@@ -101,7 +83,6 @@ export class ServiceContainer {
    */
   getRegisteredServices(): Record<string, boolean> {
     return {
-      realParlayService: !!this.realParlayService,
       mockParlayService: !!this.mockParlayService,
       agentParlayService: !!this.agentParlayService,
     }
@@ -113,7 +94,7 @@ export class ServiceContainer {
  * These all resolve from the same underlying singleton container instance.
  */
 export const getParlayService = (
-  provider: 'mock' | 'openai' | 'agent' = 'agent'
+  provider: 'mock' | 'agent' = 'agent'
 ): BaseParlayService => ServiceContainer.instance.getParlayService(provider)
 
 /**

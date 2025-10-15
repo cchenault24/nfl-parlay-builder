@@ -22,7 +22,7 @@ import AuthProvider from './contexts/authentication/AuthContext'
 import { useAgeVerification } from './hooks/useAgeVerification'
 import { useAuth } from './hooks/useAuth'
 import { useDerivedCurrentWeek } from './hooks/useDerivedCurrentWeek'
-import { useParlayGeneratorSelector } from './hooks/useParlayGeneratorSelector'
+import { useParlayService } from './hooks/useParlayService'
 import { usePFRSchedule } from './hooks/usePFRSchedule'
 import useParlayStore from './store/parlayStore'
 import { theme } from './theme'
@@ -41,7 +41,6 @@ function AppContent() {
   const setSelectedGame = useParlayStore(state => state.setSelectedGame)
   const parlay = useParlayStore(state => state.parlay)
   const gameData = useParlayStore(state => state.gameData)
-  const parlayMode = useParlayStore(state => state.parlayMode)
 
   const { user, loading } = useAuth()
   const [historyOpen, setHistoryOpen] = useState(false)
@@ -85,7 +84,7 @@ function AppContent() {
     error: parlayError,
     reset: resetParlay,
     serviceStatus,
-  } = useParlayGeneratorSelector()
+  } = useParlayService()
 
   // Check age verification status
   useEffect(() => {
@@ -105,7 +104,6 @@ function AppContent() {
     if (selectedGame) {
       generateParlay({
         game: selectedGame,
-        parlayMode,
         shouldUseMock: serviceStatus.usingMock,
       })
     }
@@ -216,7 +214,6 @@ function AppContent() {
             parlay={parlay || undefined}
             loading={parlayLoading}
             isMockMode={serviceStatus.usingMock}
-            parlayMode={parlayMode}
           />
 
           <ParlayHistory

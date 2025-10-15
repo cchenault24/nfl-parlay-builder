@@ -1,7 +1,6 @@
 import { Card, CardContent, Typography } from '@mui/material'
 import React from 'react'
 import useRateLimitStore from '../../store/rateLimitStore'
-import ParlayModeToggle from './ParlayModeToggle'
 
 const ParlayLanding: React.FC = () => {
   const isAtLimit = useRateLimitStore(state => state.isAtLimit)
@@ -17,8 +16,6 @@ const ParlayLanding: React.FC = () => {
         <Typography variant="h6" color="text.secondary" sx={{ mb: 3 }}>
           Select a game and click &quot;Create 3-Leg Parlay&quot; to get started
         </Typography>
-
-        {import.meta.env.MODE === 'development' && <ParlayModeToggle />}
       </CardContent>
     </Card>
   )

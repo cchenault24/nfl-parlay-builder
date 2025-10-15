@@ -54,6 +54,33 @@ export class AgentRunService {
     return `${API_CONFIG.CLOUD_FUNCTIONS.baseURL}/api`
   }
 
+  async getRateLimitStatus(auth?: {
+    token?: string
+    emulatorUid?: string
+  }): Promise<{
+    remaining: number
+    total: number
+    resetTime: string
+    currentCount: number
+  }> {
+    const headers: Record<string, string> = {}
+    if (auth?.token) {
+      headers['Authorization'] = `Bearer ${auth.token}`
+    }
+    if (auth?.emulatorUid) {
+      headers['X-Emulator-Auth-UID'] = auth.emulatorUid
+    }
+    const res = await fetch(`${this.base()}/agent/rate-limit`, { headers })
+    if (!res.ok) {
+      if (res.status === 401) {
+        throw new Error('Authentication failed. Please log in again.')
+      } else {
+        throw new Error(`Failed to get rate limit status: ${res.status}`)
+      }
+    }
+    return res.json()
+  }
+
   async createRun(params: {
     gameId: string
     gameContext?: GameContext
@@ -61,7 +88,15 @@ export class AgentRunService {
     riskLevel: 'conservative' | 'moderate' | 'aggressive'
     authToken?: string
     emulatorUid?: string
-  }): Promise<{ runId: string }> {
+  }): Promise<{
+    runId: string
+    rateLimitInfo?: {
+      remaining: number
+      total: number
+      resetTime: string
+      currentCount: number
+    }
+  }> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     }
@@ -82,7 +117,17 @@ export class AgentRunService {
       }),
     })
     if (!res.ok) {
-      throw new Error(`createRun failed: ${res.status}`)
+      if (res.status === 429) {
+        throw new Error(
+          'Rate limit exceeded. You have used all your parlay generations for this hour. Please wait before generating more parlays.'
+        )
+      } else if (res.status === 401) {
+        throw new Error(
+          'Authentication failed. Please log in again to generate parlays.'
+        )
+      } else {
+        throw new Error(`Failed to create parlay: ${res.status}`)
+      }
     }
     return res.json()
   }
@@ -100,7 +145,13 @@ export class AgentRunService {
     }
     const res = await fetch(`${this.base()}/agent/runs/${runId}`, { headers })
     if (!res.ok) {
-      throw new Error(`getRun failed: ${res.status}`)
+      if (res.status === 401) {
+        throw new Error('Authentication failed. Please log in again.')
+      } else if (res.status === 404) {
+        throw new Error('Parlay run not found.')
+      } else {
+        throw new Error(`Failed to get parlay run: ${res.status}`)
+      }
     }
     return res.json()
   }

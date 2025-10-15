@@ -71,7 +71,7 @@ export class AgentParlayService extends BaseParlayService {
       }
 
       // Create agent run
-      const { runId } = await this.agentService.createRun({
+      const { runId, rateLimitInfo } = await this.agentService.createRun({
         gameId: game.gameId,
         gameContext,
         numLegs: 3,
@@ -98,12 +98,14 @@ export class AgentParlayService extends BaseParlayService {
         parlay: result.parlay,
         gameData: result.gameData,
         toolResponses: result.toolResponses || undefined,
-        rateLimitInfo: {
-          remaining: 19, // Agent runs have different rate limits
-          total: 20,
-          resetTime: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
-          currentCount: 1,
-        },
+        rateLimitInfo: rateLimitInfo
+          ? {
+              remaining: rateLimitInfo.remaining,
+              total: rateLimitInfo.total,
+              resetTime: rateLimitInfo.resetTime,
+              currentCount: rateLimitInfo.currentCount,
+            }
+          : undefined,
         metadata: this.createMetadata(
           'agent',
           'gpt-4o-mini',
@@ -266,7 +268,7 @@ export class AgentParlayService extends BaseParlayService {
 
   async checkServiceHealth(): Promise<{
     healthy: boolean
-    mode: 'mock' | 'openai' | 'agent'
+    mode: 'mock' | 'agent'
     providers?: Array<{
       name: string
       healthy: boolean
@@ -288,7 +290,7 @@ export class AgentParlayService extends BaseParlayService {
     }
   }
 
-  getServiceMode(): 'mock' | 'openai' | 'agent' {
+  getServiceMode(): 'mock' | 'agent' {
     return 'agent'
   }
 

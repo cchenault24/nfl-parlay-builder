@@ -16,11 +16,8 @@ import {
   Typography,
 } from '@mui/material'
 import React from 'react'
-import { useParlayGeneratorSelector } from '../hooks/useParlayGeneratorSelector'
-import { useRateLimit } from '../hooks/useRateLimit'
+import { useParlayService } from '../hooks/useParlayService'
 import useGeneralStore from '../store/generalStore'
-import useParlayStore from '../store/parlayStore'
-import RateLimitIndicator from './RateLimitIndicator'
 
 /**
  * Development Status Component
@@ -28,20 +25,11 @@ import RateLimitIndicator from './RateLimitIndicator'
  */
 const DevStatus: React.FC = () => {
   const [expanded, setExpanded] = React.useState(false)
-  const { serviceStatus } = useParlayGeneratorSelector()
-  const {
-    rateLimitInfo,
-    isLoading: rateLimitLoading,
-    error: rateLimitError,
-  } = useRateLimit()
+  const { serviceStatus } = useParlayService()
 
-  // Get current parlay mode and mock toggle state
-  const parlayMode = useParlayStore(state => state.parlayMode)
+  // Get mock toggle state
   const devMockOverride = useGeneralStore(state => state.devMockOverride)
   const setDevMockOverride = useGeneralStore(state => state.setDevMockOverride)
-  const clearDevMockOverride = useGeneralStore(
-    state => state.clearDevMockOverride
-  )
 
   // Only show in development
   if (import.meta.env.MODE === 'production') {
@@ -58,12 +46,7 @@ const DevStatus: React.FC = () => {
 
   // Determine current mode for display
   const getCurrentMode = () => {
-    if (parlayMode === 'agentic') {
-      return 'Agentic Real Data'
-    } else if (parlayMode === 'single-shot' && devMockOverride) {
-      return 'Single-Shot Mock Data'
-    }
-    return 'Single-Shot Real Data'
+    return devMockOverride ? 'Agentic Mock Data' : 'Agentic Real Data'
   }
 
   const isCurrentlyMock = serviceStatus?.usingMock || false
@@ -136,24 +119,9 @@ const DevStatus: React.FC = () => {
                       checked={isCurrentlyMock}
                       onChange={handleToggleChange}
                       color="warning"
-                      disabled={parlayMode === 'agentic'}
                     />
                   }
-                  label={
-                    <Typography variant="body2">
-                      Use Mock Data
-                      {parlayMode === 'agentic' && (
-                        <Typography
-                          component="span"
-                          variant="caption"
-                          color="text.secondary"
-                          sx={{ ml: 1, fontStyle: 'italic' }}
-                        >
-                          (disabled for agentic mode)
-                        </Typography>
-                      )}
-                    </Typography>
-                  }
+                  label={<Typography variant="body2">Use Mock Data</Typography>}
                 />
                 <Stack direction="row" spacing={1} flexWrap="wrap">
                   <Chip
@@ -175,52 +143,23 @@ const DevStatus: React.FC = () => {
                     />
                   )}
                 </Stack>
-                {parlayMode === 'agentic' ? (
+                {!devMockOverride ? (
                   <Box>
                     <Typography variant="caption" color="text.secondary">
-                      Agentic mode always uses real data via AgentParlayService
+                      Using real data via AgentParlayService
                     </Typography>
                   </Box>
-                ) : !devMockOverride ? (
+                ) : (
                   <Box>
                     <Typography variant="caption" color="text.secondary">
-                      Override active -
-                      {devMockOverride
-                        ? 'forcing mock mode'
-                        : 'forcing real API'}
-                    </Typography>
-                    <Typography
-                      variant="caption"
-                      color="primary"
-                      sx={{
-                        cursor: 'pointer',
-                        textDecoration: 'underline',
-                        ml: 1,
-                      }}
-                      onClick={clearDevMockOverride}
-                    >
-                      Reset to default
+                      Override active - forcing mock mode
                     </Typography>
                   </Box>
-                ) : null}
+                )}
               </Stack>
             </Box>
 
             <Divider />
-
-            {/* Rate Limiting Status - Only show for real API */}
-            {!isCurrentlyMock && (
-              <Box>
-                <Typography variant="subtitle2" gutterBottom>
-                  Rate Limiting
-                </Typography>
-                <RateLimitIndicator
-                  rateLimitInfo={rateLimitInfo}
-                  isLoading={rateLimitLoading}
-                  error={rateLimitError}
-                />
-              </Box>
-            )}
 
             {/* Mock Mode Notice */}
             {isCurrentlyMock && (

@@ -116,7 +116,7 @@ export const AgentResultSchema = z.object({
         temperatureF: z.number(),
         windMph: z.number(),
       })
-      .optional(),
+      .nullable(),
     leaders: z
       .object({
         passing: z
