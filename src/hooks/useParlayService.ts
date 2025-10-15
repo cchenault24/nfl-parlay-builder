@@ -7,7 +7,7 @@ import { useParlayGenerator } from './useParlayGenerator'
  * 1. Agentic Real Data (devMockOverride = false)
  * 2. Agentic Mock Data (devMockOverride = true)
  */
-export const useParlayGeneratorSelector = () => {
+export const useParlayService = () => {
   const devMockOverride = useGeneralStore(state => state.devMockOverride)
   const parlayGenerator = useParlayGenerator()
 

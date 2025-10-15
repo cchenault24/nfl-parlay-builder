@@ -232,7 +232,7 @@ export async function runAgent(
   })
   ensureWithinBudgetOrThrow()
 
-  // Step: draft using existing single-shot prompt/model
+  // Step: agentic draft using current prompt/model
   const ai = getOpenAI()
   if (!ai) {
     await persist.updateRun(current.id, {

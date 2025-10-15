@@ -22,7 +22,7 @@ import AuthProvider from './contexts/authentication/AuthContext'
 import { useAgeVerification } from './hooks/useAgeVerification'
 import { useAuth } from './hooks/useAuth'
 import { useDerivedCurrentWeek } from './hooks/useDerivedCurrentWeek'
-import { useParlayGeneratorSelector } from './hooks/useParlayGeneratorSelector'
+import { useParlayService } from './hooks/useParlayService'
 import { usePFRSchedule } from './hooks/usePFRSchedule'
 import useParlayStore from './store/parlayStore'
 import { theme } from './theme'
@@ -84,7 +84,7 @@ function AppContent() {
     error: parlayError,
     reset: resetParlay,
     serviceStatus,
-  } = useParlayGeneratorSelector()
+  } = useParlayService()
 
   // Check age verification status
   useEffect(() => {

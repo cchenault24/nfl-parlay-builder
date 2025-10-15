@@ -293,6 +293,3 @@ export const useParlayGenerator = () => {
     cancelRequests, // Expose cancel function for external use
   }
 }
-
-// Also update the export to match the expected interface
-export const useParlayGeneratorReal = useParlayGenerator // Keep for backwards compatibility

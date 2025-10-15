@@ -16,7 +16,7 @@ import {
   Typography,
 } from '@mui/material'
 import React from 'react'
-import { useParlayGeneratorSelector } from '../hooks/useParlayGeneratorSelector'
+import { useParlayService } from '../hooks/useParlayService'
 import { useRateLimit } from '../hooks/useRateLimit'
 import useGeneralStore from '../store/generalStore'
 import RateLimitIndicator from './RateLimitIndicator'
@@ -27,7 +27,7 @@ import RateLimitIndicator from './RateLimitIndicator'
  */
 const DevStatus: React.FC = () => {
   const [expanded, setExpanded] = React.useState(false)
-  const { serviceStatus } = useParlayGeneratorSelector()
+  const { serviceStatus } = useParlayService()
   const {
     rateLimitInfo,
     isLoading: rateLimitLoading,
