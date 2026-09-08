@@ -53,12 +53,20 @@ async function checkAndIncrementRateLimit(
   })
 }
 
+// Limits live in Firestore; the emulator skips them so local runs don't need
+// project credentials (the agent routes do the same).
+const isEmulator = () =>
+  !!process.env.FUNCTIONS_EMULATOR || !!process.env.FIREBASE_AUTH_EMULATOR_HOST
+
 export function rateLimitByIp(limit: number, windowMs: number) {
   return async (
     req: express.Request,
     res: express.Response,
     next: express.NextFunction
   ) => {
+    if (isEmulator()) {
+      return next()
+    }
     const correlationId =
       (req as AuthedRequest).correlationId ||
       `req_${Math.random().toString(36).slice(2)}`

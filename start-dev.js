@@ -85,10 +85,9 @@ if (missing.length > 0) {
   )
 }
 
-// Firestore runs in the emulator too so agent runs and rate limits stay local.
 emulator = spawn(
   'firebase',
-  ['emulators:start', '--only', 'functions,firestore', '--project', projectId],
+  ['emulators:start', '--only', 'functions', '--project', projectId],
   { stdio: 'inherit', shell: true }
 )
 emulator.on('exit', code => {

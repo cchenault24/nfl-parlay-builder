@@ -12,9 +12,7 @@ if (admin.apps.length === 0) {
 
 const REGION = 'us-central1'
 const CORS_ALLOWLIST: Array<string | RegExp> = [
-  'http://localhost:3000',
-  'http://localhost:3001',
-  'http://localhost:5173',
+  /^http:\/\/localhost:\d+$/,
   /^https:\/\/nfl-parlay-builder(?:-dev)?(?:--[\w-]+)?\.(?:web\.app|firebaseapp\.com)$/,
 ]
 
