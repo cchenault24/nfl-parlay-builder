@@ -1,47 +1,38 @@
+import { Box, type SxProps, type Theme } from '@mui/material'
 import React from 'react'
-import { Typography, Box } from '@mui/material'
+
+type ResponsiveHeight = number | Partial<Record<'xs' | 'sm' | 'md', number>>
 
 interface ParlAIdLogoProps {
-  variant?: 'h3' | 'h4' | 'h5' | 'h6'
-  showIcon?: boolean
-  size?: 'small' | 'medium' | 'large'
+  height?: ResponsiveHeight
+  variant?: 'onDark' | 'onLight'
+  sx?: SxProps<Theme>
+}
+
+// Wordmark artwork lives in /public; pick the variant by the background it sits on.
+const SRC = {
+  onDark: '/parlaid-wordmark-white.png',
+  onLight: '/parlaid-wordmark-black.png',
 }
 
 const ParlAIdLogo: React.FC<ParlAIdLogoProps> = ({
-  variant = 'h3',
-  showIcon = true,
-}) => {
-  return (
-    <Box
-      sx={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: showIcon ? 1 : 0,
-      }}
-    >
-      <Typography
-        variant={variant}
-        component="h1"
-        sx={{
-          fontFamily: '"Orbitron", monospace',
-          fontWeight: 700,
-          letterSpacing: '-0.02em',
-          userSelect: 'none',
-        }}
-      >
-        <Box component="span" sx={{ color: 'white' }}>
-          PARL
-        </Box>
-        <Box component="span" sx={{ color: '#2e7d32' }}>
-          ai
-        </Box>
-        <Box component="span" sx={{ color: 'white' }}>
-          D
-        </Box>
-      </Typography>
-    </Box>
-  )
-}
+  height = 40,
+  variant = 'onDark',
+  sx,
+}) => (
+  <Box
+    component="img"
+    src={SRC[variant]}
+    alt="ParlAId — AI powered NFL parlay generator"
+    draggable={false}
+    sx={{
+      height,
+      width: 'auto',
+      display: 'block',
+      userSelect: 'none',
+      ...sx,
+    }}
+  />
+)
 
 export default ParlAIdLogo
