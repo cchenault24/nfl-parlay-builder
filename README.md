@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="public/parlaid-wordmark-white.png">
+    <img src="public/parlaid-wordmark-black.png" alt="ParlAId — AI powered NFL parlay generator" width="520">
+  </picture>
+</p>
+
 # ParlAId — NFL Parlay Builder
 
 AI-generated 3-leg NFL parlays for entertainment. Pick a game, choose a risk level, and an agent gathers real data, drafts a parlay with `gpt-5.6-terra`, and validates every market leg against the posted book line before showing it.

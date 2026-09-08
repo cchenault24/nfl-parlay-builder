@@ -5,7 +5,6 @@ import {
   Psychology as PsychologyIcon,
   Security as SecurityIcon,
   Sports as SportsIcon,
-  TrendingUp as TrendingUpIcon,
 } from '@mui/icons-material'
 import {
   Box,
@@ -14,7 +13,6 @@ import {
   CardContent,
   Container,
   Grid,
-  Paper,
   Stack,
   Typography,
 } from '@mui/material'
@@ -73,21 +71,12 @@ export const AuthGate: React.FC = () => {
         }}
       >
         <Box sx={{ textAlign: 'center', mb: 8 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
-            <Paper
-              elevation={3}
-              sx={{
-                p: 3,
-                borderRadius: 3,
-                background: 'linear-gradient(135deg, #2e7d32 0%, #4caf50 100%)',
-                display: 'inline-flex',
-              }}
-            >
-              <TrendingUpIcon sx={{ fontSize: 60, color: 'white' }} />
-            </Paper>
+          <Box
+            component="h1"
+            sx={{ display: 'flex', justifyContent: 'center', m: 0, mb: 3 }}
+          >
+            <ParlAIdLogo height={{ xs: 88, sm: 130, md: 160 }} />
           </Box>
-
-          <ParlAIdLogo variant="h3" showIcon={false} size="large" />
 
           <Typography
             variant="h6"

@@ -106,7 +106,7 @@ function AppContent() {
         <AppBar position="static" color="transparent" elevation={0} sx={{ borderBottom: '1px solid', borderColor: 'divider', mb: 4 }}>
           <Toolbar>
             <Box sx={{ flexGrow: 1 }}>
-              <ParlAIdLogo variant="h6" />
+              <ParlAIdLogo height={40} />
             </Box>
             <UserMenu onViewHistory={() => setHistoryOpen(true)} />
           </Toolbar>
