@@ -18,7 +18,17 @@ function readProjectId() {
   return 'nfl-parlay-builder-dev'
 }
 
+// Secrets live on the billed prod project; the dev project is on Spark.
+function readSecretsProject() {
+  try {
+    return JSON.parse(readFileSync('.firebaserc', 'utf8')).projects.prod
+  } catch {
+    return 'nfl-parlay-builder'
+  }
+}
+
 const projectId = readProjectId()
+const secretsProject = readSecretsProject()
 const healthUrl = `http://localhost:5001/${projectId}/us-central1/api/health`
 
 let emulator = null
@@ -29,7 +39,7 @@ function loadSecrets() {
   for (const name of SECRETS) {
     try {
       const value = execSync(
-        `firebase functions:secrets:access ${name} --project ${projectId}`,
+        `firebase functions:secrets:access ${name} --project ${secretsProject}`,
         { encoding: 'utf8', stdio: 'pipe' }
       ).trim()
       if (value) {
@@ -77,7 +87,7 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
   })
 }
 
-console.log(`Project: ${projectId}`)
+console.log(`Project: ${projectId} (secrets from ${secretsProject})`)
 const missing = loadSecrets()
 if (missing.length > 0) {
   console.log(
