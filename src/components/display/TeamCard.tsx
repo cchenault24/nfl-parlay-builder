@@ -1,171 +1,58 @@
-import { Box, Divider, Paper, Typography } from '@mui/material'
+import { Box, Paper, Typography } from '@mui/material'
 import React from 'react'
-import { PFRTeamStats } from '../../types'
+import type { RankedStat, TeamRef, TeamStats } from '../../types'
+import RankChip from './RankChip'
 import TeamLogo from './TeamLogo'
 
-const ValueRow: React.FC<{ label: string; value: React.ReactNode }> = ({
+const StatRow: React.FC<{ label: string; stat?: RankedStat; unit?: string }> = ({
   label,
-  value,
+  stat,
+  unit = '',
 }) => (
-  <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
-    <Typography variant="body2" color="text.secondary" sx={{ minWidth: 160 }}>
+  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', py: 0.5 }}>
+    <Typography variant="body2" color="text.secondary">
       {label}
     </Typography>
-    <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>{value}</Box>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <Typography variant="body2" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+        {stat ? `${stat.value.toFixed(1)}${unit}` : '—'}
+      </Typography>
+      <RankChip rank={stat?.rank} />
+    </Box>
   </Box>
 )
 
-// Labels left here as reference for section order; currently unused since we render explicit rows
-
 export interface TeamCardProps {
-  name: string
-  record: string
-  stats?: PFRTeamStats | null
+  team: TeamRef
+  stats: TeamStats | null
 }
 
-const TeamCard: React.FC<TeamCardProps> = ({ name, record, stats }) => {
-  return (
-    <Paper variant="outlined" sx={{ p: 1.5, height: '100%' }}>
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          mb: 0.75,
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <TeamLogo teamName={name} size="small" />
-          <Typography variant="h6" sx={{ fontWeight: 700 }}>
-            {name}
-          </Typography>
-        </Box>
-        <Typography variant="subtitle1" color="text.secondary">
-          {record}
-        </Typography>
-      </Box>
-
-      <Typography
-        variant="subtitle1"
-        sx={{ fontWeight: 600, mb: 0.5 }}
-        gutterBottom={false}
-      >
-        Offense
+const TeamCard: React.FC<TeamCardProps> = ({ team, stats }) => (
+  <Paper variant="outlined" sx={{ p: 2, height: '100%' }}>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+      <TeamLogo teamName={team.name} size="small" />
+      <Typography variant="subtitle1" sx={{ fontWeight: 600, flex: 1 }}>
+        {team.name}
       </Typography>
-      <ValueRow
-        label="Passing Yards"
-        value={
-          typeof stats?.offense?.values?.passingYards === 'number' ? (
-            <Typography variant="body2">
-              {stats.offense.values.passingYards} yards
-            </Typography>
-          ) : (
-            <Typography variant="body2" color="text.disabled">
-              N/A
-            </Typography>
-          )
-        }
-      />
-      <ValueRow
-        label="Rushing Yards"
-        value={
-          typeof stats?.offense?.values?.rushingYards === 'number' ? (
-            <Typography variant="body2">
-              {stats.offense.values.rushingYards} yards
-            </Typography>
-          ) : (
-            <Typography variant="body2" color="text.disabled">
-              N/A
-            </Typography>
-          )
-        }
-      />
-      <ValueRow
-        label="Points Scored"
-        value={
-          typeof stats?.offense?.values?.pointsPerGame === 'number' ? (
-            <Typography variant="body2">
-              {Math.round(
-                stats.offense.values.pointsPerGame / Math.max(1, stats.week)
-              )}{' '}
-              points
-            </Typography>
-          ) : (
-            <Typography variant="body2" color="text.disabled">
-              N/A
-            </Typography>
-          )
-        }
-      />
+      <Typography variant="body2" color="text.secondary" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+        {team.record}
+      </Typography>
+    </Box>
 
-      <Box sx={{ mt: 1.25 }}>
-        <Typography
-          variant="subtitle1"
-          sx={{ fontWeight: 600, mb: 0.5 }}
-          gutterBottom={false}
-        >
-          Defense
-        </Typography>
-        <ValueRow
-          label="Yards Allowed"
-          value={
-            typeof stats?.defense?.values?.totalYardsAllowed === 'number' ? (
-              <Typography variant="body2">
-                {Math.round(
-                  stats.defense.values.totalYardsAllowed /
-                    Math.max(1, stats.week)
-                )}{' '}
-                yards
-              </Typography>
-            ) : (
-              <Typography variant="body2" color="text.disabled">
-                N/A
-              </Typography>
-            )
-          }
-        />
-        <ValueRow
-          label="Points Allowed"
-          value={
-            typeof stats?.defense?.values?.pointsAllowed === 'number' ? (
-              <Typography variant="body2">
-                {Math.round(
-                  stats.defense.values.pointsAllowed / Math.max(1, stats.week)
-                )}{' '}
-                points
-              </Typography>
-            ) : (
-              <Typography variant="body2" color="text.disabled">
-                N/A
-              </Typography>
-            )
-          }
-        />
-        <ValueRow
-          label="Takeaways"
-          value={
-            typeof stats?.defense?.values?.takeaways === 'number' ? (
-              <Typography variant="body2">
-                {(() => {
-                  const avg =
-                    stats.defense.values.takeaways / Math.max(1, stats.week)
-                  return avg < 1 ? '< 1' : `${avg.toFixed(1)}`
-                })()}
-              </Typography>
-            ) : (
-              <Typography variant="body2" color="text.disabled">
-                N/A
-              </Typography>
-            )
-          }
-        />
-        <Divider sx={{ my: 1 }} />
-        <Typography variant="subtitle2" color="text.secondary" align="center">
-          Averages per game
-        </Typography>
-      </Box>
-    </Paper>
-  )
-}
+    <Typography variant="overline" color="text.secondary">
+      Offense · per game
+    </Typography>
+    <StatRow label="Passing yards" stat={stats?.offense.passingYardsPerGame} />
+    <StatRow label="Rushing yards" stat={stats?.offense.rushingYardsPerGame} />
+    <StatRow label="Points" stat={stats?.offense.pointsPerGame} />
+
+    <Typography variant="overline" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
+      Defense · per game
+    </Typography>
+    <StatRow label="Yards allowed" stat={stats?.defense.yardsAllowedPerGame} />
+    <StatRow label="Points allowed" stat={stats?.defense.pointsAllowedPerGame} />
+    <StatRow label="Takeaways (season)" stat={stats?.defense.takeaways} />
+  </Paper>
+)
 
 export default TeamCard

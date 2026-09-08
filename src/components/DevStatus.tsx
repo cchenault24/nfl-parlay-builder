@@ -1,180 +1,57 @@
-import {
-  BugReport as BugIcon,
-  ExpandMore as ExpandMoreIcon,
-  ToggleOn as ToggleIcon,
-} from '@mui/icons-material'
-import {
-  Box,
-  Chip,
-  Collapse,
-  Divider,
-  FormControlLabel,
-  IconButton,
-  Paper,
-  Stack,
-  Switch,
-  Typography,
-} from '@mui/material'
+import { BugReport as BugIcon } from '@mui/icons-material'
+import { Box, Chip, FormControlLabel, Paper, Switch, Typography } from '@mui/material'
 import React from 'react'
-import { useParlayService } from '../hooks/useParlayService'
 import useGeneralStore from '../store/generalStore'
 
-/**
- * Development Status Component
- * Shows service status, environment info, rate limiting, and mock toggle in development
- */
+// Development-only switch between the live agent and the local mock service.
 const DevStatus: React.FC = () => {
-  const [expanded, setExpanded] = React.useState(false)
-  const { serviceStatus } = useParlayService()
-
-  // Get mock toggle state
   const devMockOverride = useGeneralStore(state => state.devMockOverride)
   const setDevMockOverride = useGeneralStore(state => state.setDevMockOverride)
 
-  // Only show in development
   if (import.meta.env.MODE === 'production') {
     return null
   }
 
-  const handleExpandClick = () => {
-    setExpanded(!expanded)
-  }
-
-  const handleToggleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setDevMockOverride(event.target.checked)
-  }
-
-  // Determine current mode for display
-  const getCurrentMode = () => {
-    return devMockOverride ? 'Agentic Mock Data' : 'Agentic Real Data'
-  }
-
-  const isCurrentlyMock = serviceStatus?.usingMock || false
-
   return (
     <Paper
-      elevation={1}
+      variant="outlined"
       sx={{
         position: 'fixed',
         bottom: 16,
         right: 16,
-        width: expanded ? 420 : 'auto',
+        px: 2,
+        py: 1,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1.5,
         zIndex: 1300,
-        transition: 'width 0.3s ease-in-out',
       }}
     >
-      {/* Header */}
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          p: 1,
-          cursor: 'pointer',
-        }}
-        onClick={handleExpandClick}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <BugIcon fontSize="small" color="primary" />
-          <Typography variant="body2" fontWeight="medium">
-            Dev Status
-          </Typography>
-          {!expanded && (
-            <Chip
-              label={getCurrentMode()}
-              size="small"
-              color={isCurrentlyMock ? 'warning' : 'success'}
-              variant="outlined"
-            />
-          )}
-        </Box>
-        <IconButton
-          size="small"
-          sx={{
-            transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
-            transition: 'transform 0.3s',
-          }}
-        >
-          <ExpandMoreIcon fontSize="small" />
-        </IconButton>
+      <BugIcon fontSize="small" color="primary" />
+      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+        Dev
+      </Typography>
+      <FormControlLabel
+        sx={{ m: 0 }}
+        control={
+          <Switch
+            size="small"
+            checked={devMockOverride}
+            onChange={e => setDevMockOverride(e.target.checked)}
+            color="warning"
+          />
+        }
+        label={<Typography variant="body2">Mock data</Typography>}
+      />
+      <Chip
+        label={devMockOverride ? 'mock' : 'live agent'}
+        size="small"
+        color={devMockOverride ? 'warning' : 'success'}
+        variant="outlined"
+      />
+      <Box component="span" sx={{ typography: 'caption', color: 'text.secondary' }}>
+        {import.meta.env.MODE}
       </Box>
-
-      {/* Expanded Content */}
-      <Collapse in={expanded}>
-        <Box sx={{ p: 2, pt: 0 }}>
-          <Stack spacing={2}>
-            {/* Mock/Real Toggle */}
-            <Box>
-              <Typography variant="subtitle2" gutterBottom>
-                <ToggleIcon
-                  fontSize="small"
-                  sx={{ mr: 1, verticalAlign: 'middle' }}
-                />
-                Service Mode
-              </Typography>
-              <Stack spacing={1}>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={isCurrentlyMock}
-                      onChange={handleToggleChange}
-                      color="warning"
-                    />
-                  }
-                  label={<Typography variant="body2">Use Mock Data</Typography>}
-                />
-                <Stack direction="row" spacing={1} flexWrap="wrap">
-                  <Chip
-                    label={getCurrentMode()}
-                    size="small"
-                    color={isCurrentlyMock ? 'warning' : 'success'}
-                  />
-                  <Chip
-                    label={serviceStatus?.environment || 'Unknown'}
-                    size="small"
-                    variant="outlined"
-                  />
-                  {serviceStatus?.usingCloudFunction && !isCurrentlyMock && (
-                    <Chip
-                      label="Cloud Functions"
-                      size="small"
-                      color="info"
-                      variant="outlined"
-                    />
-                  )}
-                </Stack>
-                {!devMockOverride ? (
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">
-                      Using real data via AgentParlayService
-                    </Typography>
-                  </Box>
-                ) : (
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">
-                      Override active - forcing mock mode
-                    </Typography>
-                  </Box>
-                )}
-              </Stack>
-            </Box>
-
-            <Divider />
-
-            {/* Mock Mode Notice */}
-            {isCurrentlyMock && (
-              <Box>
-                <Typography variant="subtitle2" gutterBottom>
-                  Mock Mode
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Using mock data - no rate limiting or API costs
-                </Typography>
-              </Box>
-            )}
-          </Stack>
-        </Box>
-      </Collapse>
     </Paper>
   )
 }

@@ -15,11 +15,8 @@ import {
   Typography,
 } from '@mui/material'
 import React, { useState } from 'react'
-import { API_CONFIG } from '../../config/api'
 import { logOut } from '../../config/firebase'
 import { useAuth } from '../../hooks/useAuth'
-import { FrontendRateLimiter } from '../../services/FrontendRateLimiter'
-import useRateLimitStore from '../../store/rateLimitStore'
 import { AuthModal } from './AuthModal'
 
 interface UserMenuProps {
@@ -28,153 +25,90 @@ interface UserMenuProps {
 
 export const UserMenu: React.FC<UserMenuProps> = ({ onViewHistory }) => {
   const { user, userProfile } = useAuth()
-  const { clearPersistedData } = useRateLimitStore()
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
   const [authModalOpen, setAuthModalOpen] = useState(false)
 
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
-    setAnchorEl(event.currentTarget)
-  }
-
-  const handleMenuClose = () => {
-    setAnchorEl(null)
-  }
+  const close = () => setAnchorEl(null)
 
   const handleLogout = async () => {
+    close()
     try {
-      // Clear rate limit data for this user on logout
-      if (user?.uid) {
-        // Clear frontend rate limits
-        FrontendRateLimiter.reset(user.uid)
-        FrontendRateLimiter.clearAll() // Clear all rate limit data
-        clearPersistedData() // Clear both in-memory and persisted store data
-
-        // Clear backend rate limits
-        try {
-          const token = await user.getIdToken()
-          await fetch(
-            `${API_CONFIG.CLOUD_FUNCTIONS.baseURL}/api/rate-limits/clear`,
-            {
-              method: 'POST',
-              headers: {
-                Authorization: `Bearer ${token}`,
-                'Content-Type': 'application/json',
-              },
-            }
-          )
-        } catch (error) {
-          console.error('Error clearing backend rate limits:', error)
-        }
-      }
-
       await logOut()
-      handleMenuClose()
     } catch (error) {
       console.error('Error signing out:', error)
     }
   }
 
-  const handleViewHistory = () => {
-    handleMenuClose()
-    onViewHistory?.()
-  }
-
   if (!user) {
     return (
       <>
-        <Button
-          variant="outlined"
-          startIcon={<LoginIcon />}
-          onClick={() => setAuthModalOpen(true)}
-          sx={{ textTransform: 'none' }}
-        >
-          Sign In
+        <Button variant="outlined" startIcon={<LoginIcon />} onClick={() => setAuthModalOpen(true)}>
+          Sign in
         </Button>
-        <AuthModal
-          open={authModalOpen}
-          onClose={() => setAuthModalOpen(false)}
-        />
+        <AuthModal open={authModalOpen} onClose={() => setAuthModalOpen(false)} />
       </>
     )
   }
 
+  const displayName = userProfile?.displayName || user.displayName || 'User'
+
   return (
     <Box>
       <Button
-        onClick={handleMenuOpen}
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1,
-          textTransform: 'none',
-          color: 'text.primary',
-        }}
+        onClick={e => setAnchorEl(e.currentTarget)}
+        sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.primary' }}
       >
         <Avatar
           src={userProfile?.photoURL || user.photoURL || undefined}
-          alt={userProfile?.displayName || user.displayName || 'User'}
+          alt={displayName}
           sx={{ width: 32, height: 32 }}
         >
-          {(userProfile?.displayName ||
-            user.displayName ||
-            'U')[0].toUpperCase()}
+          {displayName[0].toUpperCase()}
         </Avatar>
-        <Typography
-          variant="body2"
-          sx={{ display: { xs: 'none', sm: 'block' } }}
-        >
-          {userProfile?.displayName || user.displayName || 'User'}
+        <Typography variant="body2" sx={{ display: { xs: 'none', sm: 'block' } }}>
+          {displayName}
         </Typography>
       </Button>
 
       <Menu
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
-        onClose={handleMenuClose}
-        onClick={handleMenuClose}
+        onClose={close}
         transformOrigin={{ horizontal: 'right', vertical: 'top' }}
         anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-        PaperProps={{
-          sx: {
-            mt: 1,
-            minWidth: 200,
-            '& .MuiMenuItem-root': {
-              px: 2,
-              py: 1,
-            },
-          },
-        }}
+        PaperProps={{ variant: 'outlined', elevation: 0, sx: { mt: 1, minWidth: 220 } }}
       >
         <MenuItem disabled>
           <ListItemIcon>
             <AccountIcon />
           </ListItemIcon>
           <Box>
-            <Typography variant="body2" fontWeight="medium">
-              {userProfile?.displayName || user.displayName}
+            <Typography variant="body2" fontWeight={500}>
+              {displayName}
             </Typography>
             <Typography variant="caption" color="text.secondary">
               {user.email}
             </Typography>
           </Box>
         </MenuItem>
-
         <Divider />
-
-        <MenuItem onClick={handleViewHistory}>
+        <MenuItem
+          onClick={() => {
+            close()
+            onViewHistory?.()
+          }}
+        >
           <ListItemIcon>
             <HistoryIcon />
           </ListItemIcon>
-          <Typography variant="body2">Parlay History</Typography>
+          <Typography variant="body2">Parlay history</Typography>
         </MenuItem>
-
         <Divider />
-
         <MenuItem onClick={handleLogout}>
           <ListItemIcon>
             <LogoutIcon />
           </ListItemIcon>
-          <Typography variant="body2">Sign Out</Typography>
+          <Typography variant="body2">Sign out</Typography>
         </MenuItem>
       </Menu>
     </Box>

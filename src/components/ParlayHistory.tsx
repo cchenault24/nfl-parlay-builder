@@ -4,7 +4,6 @@ import {
   TrendingUp as TrendingUpIcon,
 } from '@mui/icons-material'
 import {
-  Alert,
   Box,
   Button,
   Card,
@@ -15,215 +14,108 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  Grid,
   IconButton,
   Typography,
 } from '@mui/material'
 import React, { useEffect, useState } from 'react'
 import { getUserParlays } from '../config/firebase'
 import { useAuth } from '../hooks/useAuth'
-import { GeneratedParlay } from '../types'
+import type { GeneratedParlay } from '../types'
+import { formatOdds, getBetTypeColor, getConfidenceColor } from '../utils'
 
 interface ParlayHistoryProps {
   open: boolean
   onClose: () => void
 }
 
-export const ParlayHistory: React.FC<ParlayHistoryProps> = ({
-  open,
-  onClose,
-}) => {
+export const ParlayHistory: React.FC<ParlayHistoryProps> = ({ open, onClose }) => {
   const { user } = useAuth()
-  const [parlays, setParlays] = useState<GeneratedParlay[]>([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [parlays, setParlays] = useState<GeneratedParlay[] | null>(null)
 
   useEffect(() => {
     if (!open || !user) {
+      setParlays(null)
       return
     }
-
-    setLoading(true)
-    setError('')
-
-    // getUserParlays returns an unsubscribe function for the real-time listener
-    const unsubscribe = getUserParlays(user.uid, parlayData => {
-      setParlays(parlayData as GeneratedParlay[])
-      setLoading(false)
-    })
-
-    // Clean up the listener when component unmounts or modal closes
-    return () => {
-      unsubscribe()
-    }
+    return getUserParlays(user.uid, setParlays)
   }, [open, user])
-
-  // Reset state when modal closes
-  useEffect(() => {
-    if (!open) {
-      setParlays([])
-      setLoading(false)
-      setError('')
-    }
-  }, [open])
-
-  const getBetTypeColor = (betType: string) => {
-    switch (betType) {
-      case 'spread':
-        return 'primary'
-      case 'total':
-        return 'secondary'
-      case 'moneyline':
-        return 'success'
-      case 'player_prop':
-        return 'info'
-      default:
-        return 'default'
-    }
-  }
-
-  const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 8) {
-      return 'success'
-    }
-    if (confidence >= 6) {
-      return 'warning'
-    }
-    return 'error'
-  }
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <TrendingUpIcon />
-          <Typography variant="h6">Parlay History</Typography>
-        </Box>
-        <IconButton onClick={onClose} size="small">
+      <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <TrendingUpIcon />
+        <Typography variant="h6" component="span" sx={{ flex: 1 }}>
+          Parlay history
+        </Typography>
+        <IconButton onClick={onClose} size="small" aria-label="Close">
           <CloseIcon />
         </IconButton>
       </DialogTitle>
 
       <DialogContent>
-        {loading ? (
+        {parlays === null ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
             <CircularProgress />
           </Box>
-        ) : error ? (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
         ) : parlays.length === 0 ? (
           <Box sx={{ textAlign: 'center', py: 4 }}>
-            <CasinoIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
-            <Typography variant="h6" color="text.secondary" gutterBottom>
-              No Parlays Yet
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Create your first parlay to see it here!
+            <CasinoIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
+            <Typography variant="subtitle1" color="text.secondary">
+              No saved parlays yet
             </Typography>
           </Box>
         ) : (
-          <Box sx={{ maxHeight: '60vh', overflowY: 'auto' }}>
-            {parlays.map(parlay => (
-              <Card
-                key={
-                  parlay.parlayId ||
-                  `parlay-${parlay.gameId}-${parlay.combinedOdds}`
-                }
-                sx={{ mb: 2 }}
-              >
-                <CardContent>
+          parlays.map(parlay => (
+            <Card key={parlay.parlayId} variant="outlined" sx={{ mb: 2 }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 600, flex: 1 }}>
+                    {parlay.gameContext || 'NFL parlay'}
+                  </Typography>
+                  <Chip
+                    label={formatOdds(parlay.combinedOdds)}
+                    color="primary"
+                    variant="outlined"
+                    size="small"
+                    sx={{ fontVariantNumeric: 'tabular-nums' }}
+                  />
+                </Box>
+                {parlay.legs.map(leg => (
                   <Box
+                    key={`${parlay.parlayId}-${leg.betType}-${leg.selection}`}
                     sx={{
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'space-between',
-                      mb: 2,
+                      gap: 1,
+                      py: 1,
+                      borderTop: '1px solid',
+                      borderColor: 'divider',
                     }}
                   >
-                    <Typography variant="h6" gutterBottom>
-                      NFL Parlay
+                    <Chip
+                      label={leg.betType.replace(/_/g, ' ')}
+                      color={getBetTypeColor(leg.betType)}
+                      size="small"
+                      variant="outlined"
+                      sx={{ textTransform: 'capitalize' }}
+                    />
+                    <Typography variant="body2" sx={{ flex: 1, fontWeight: 500 }}>
+                      {leg.selection}
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                      {formatOdds(leg.odds)}
                     </Typography>
                     <Chip
-                      label={`+${parlay.combinedOdds}`}
-                      color="primary"
-                      variant="outlined"
+                      label={`${Math.round(leg.confidence * 100)}%`}
+                      color={getConfidenceColor(leg.confidence)}
                       size="small"
+                      sx={{ fontVariantNumeric: 'tabular-nums' }}
                     />
                   </Box>
-
-                  <Grid container spacing={2}>
-                    {parlay.legs?.map((leg, _legIndex) => (
-                      <Grid
-                        item
-                        xs={12}
-                        key={`${parlay.parlayId}-${leg.betType}-${leg.selection}-${leg.odds}-${leg.confidence}`}
-                      >
-                        <Box
-                          sx={{
-                            p: 2,
-                            border: '1px solid',
-                            borderColor: 'divider',
-                            borderRadius: 1,
-                            bgcolor: 'background.paper',
-                          }}
-                        >
-                          <Box
-                            sx={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              mb: 1,
-                            }}
-                          >
-                            <Box
-                              sx={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 1,
-                              }}
-                            >
-                              <Chip
-                                label={leg.betType.replace('_', ' ')}
-                                color={getBetTypeColor(leg.betType)}
-                                size="small"
-                                variant="outlined"
-                              />
-                              <Typography
-                                variant="body2"
-                                sx={{ fontWeight: 'bold' }}
-                              >
-                                {leg.odds}
-                              </Typography>
-                            </Box>
-                            <Chip
-                              label={`${leg.confidence}/10`}
-                              color={getConfidenceColor(leg.confidence)}
-                              size="small"
-                            />
-                          </Box>
-
-                          <Typography
-                            variant="body1"
-                            sx={{ fontWeight: 'medium', mb: 1 }}
-                          >
-                            {leg.selection}
-                          </Typography>
-                        </Box>
-                      </Grid>
-                    ))}
-                  </Grid>
-                </CardContent>
-              </Card>
-            ))}
-          </Box>
+                ))}
+              </CardContent>
+            </Card>
+          ))
         )}
       </DialogContent>
 

@@ -1,96 +1,64 @@
-// src/services/MockParlayService.ts - Mock data implementation
-import { Game, ParlayGenerationOptions, ParlayGenerationResult } from '../types'
+import type {
+  AgentStep,
+  Game,
+  ParlayGenerationOptions,
+  ParlayGenerationResult,
+} from '../types'
 import { BaseParlayService } from './BaseParlayService'
 import { ParlayMock } from './ParlayMock'
 
-/**
- * Mock parlay service that generates local mock data
- */
+const STEP_SEQUENCE: Array<{
+  type: AgentStep['type']
+  tool?: AgentStep['tool']
+  ms: number
+}> = [
+  { type: 'plan', ms: 150 },
+  { type: 'tool', tool: 'espn_game', ms: 350 },
+  { type: 'tool', tool: 'espn_team_stats', ms: 600 },
+  { type: 'tool', tool: 'odds', ms: 450 },
+  { type: 'draft', ms: 1200 },
+  { type: 'validate', ms: 200 },
+]
+
+const wait = (ms: number, signal?: AbortSignal) =>
+  new Promise<void>((resolve, reject) => {
+    const t = setTimeout(resolve, ms)
+    signal?.addEventListener('abort', () => {
+      clearTimeout(t)
+      reject(new Error('Parlay generation canceled.'))
+    })
+  })
+
 export class MockParlayService extends BaseParlayService {
-  /**
-   * Generate parlay using local mock data
-   */
   async generateParlay(
     game: Game,
-    options: ParlayGenerationOptions = {}
+    options: ParlayGenerationOptions
   ): Promise<ParlayGenerationResult> {
-    const startTime = Date.now()
-    const { onLoadingUpdate } = options
-
-    // Emit loading phase updates for mock mode
-    if (onLoadingUpdate) {
-      onLoadingUpdate({
-        phase: 'simulating',
-        progress: 0,
-        message: 'Starting mock generation...',
-        estimatedTimeRemaining: 2000,
+    for (const s of STEP_SEQUENCE) {
+      const id = `step_${s.type}${s.tool ? `_${s.tool}` : ''}`
+      const startedAt = new Date().toISOString()
+      options.onStep?.({ id, type: s.type, tool: s.tool, status: 'running', startedAt })
+      await wait(s.ms, options.signal)
+      options.onStep?.({
+        id,
+        type: s.type,
+        tool: s.tool,
+        status: 'ok',
+        startedAt,
+        finishedAt: new Date().toISOString(),
+        durationMs: s.ms,
       })
     }
 
-    // Add 2-second delay to simulate real API response time
-    await new Promise(resolve => setTimeout(resolve, 2000))
-
-    // Generate mock parlay and game data
-    const parlay = ParlayMock.generateMockParlay(game)
-    const gameData = ParlayMock.generateMockGameData(game)
-
-    const latency = Date.now() - startTime
-
+    const mock = ParlayMock.generate(game)
     return {
-      parlay,
-      gameData,
-      rateLimitInfo: undefined, // No rate limiting for mock data
-      metadata: this.createMetadata(
-        'mock',
-        'mock-generator',
-        latency,
-        parlay.parlayConfidence,
-        {
-          serviceMode: 'mock',
-        }
-      ),
+      parlay: this.toParlay(`mock_${game.gameId}`, game, mock.parlay, 'mock'),
+      game,
+      homeStats: mock.homeStats,
+      awayStats: mock.awayStats,
+      odds: mock.odds,
+      sources: { stats: 'ok', odds: 'ok', weather: game.weather ? 'ok' : 'unavailable' },
+      serviceMode: 'mock',
     }
-  }
-
-  /**
-   * Check service health (always returns healthy for mock)
-   */
-  async checkServiceHealth(): Promise<{
-    healthy: boolean
-    mode: 'mock'
-    providers?: Array<{
-      name: string
-      healthy: boolean
-      latency?: number
-      lastError?: string
-    }>
-    timestamp: string
-  }> {
-    return {
-      healthy: true,
-      mode: 'mock',
-      providers: [
-        {
-          name: 'mock-generator',
-          healthy: true,
-          latency: 0,
-        },
-      ],
-      timestamp: new Date().toISOString(),
-    }
-  }
-
-  /**
-   * Get service mode for debugging
-   */
-  getServiceMode(): 'mock' {
-    return 'mock'
-  }
-
-  /**
-   * Check if service is properly configured (always true for mock)
-   */
-  isConfigured(): boolean {
-    return true
   }
 }

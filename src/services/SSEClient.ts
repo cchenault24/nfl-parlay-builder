@@ -1,31 +1,18 @@
-export type SSEOptions<
-  TStep,
-  TFinal,
-  TErr extends { code: string; message?: string; raw?: string },
-> = {
+export type SSEOptions<TEvent extends { type: string; data: unknown }> = {
   url: string
   headers?: Record<string, string>
-  onEvent: (
-    evt:
-      | { type: 'step'; data: TStep }
-      | { type: 'final'; data: TFinal }
-      | { type: 'error'; data: TErr }
-  ) => void
-  onOpen?: () => void
+  onEvent: (evt: TEvent) => void
   onClose?: (reason?: string) => void
 }
 
-export class SSEClient<
-  TStep,
-  TFinal,
-  TErr extends { code: string; message?: string; raw?: string },
-> {
+// fetch-based SSE so an Authorization header can be sent (EventSource can't).
+export class SSEClient<TEvent extends { type: string; data: unknown }> {
   private controller: AbortController | null = null
 
-  start(opts: SSEOptions<TStep, TFinal, TErr>): () => void {
-    const { url, headers = {}, onEvent, onOpen, onClose } = opts
+  start(opts: SSEOptions<TEvent>): () => void {
+    const { url, headers = {}, onEvent, onClose } = opts
     this.controller = new AbortController()
-    const signal = this.controller.signal
+    const { signal } = this.controller
 
     ;(async () => {
       try {
@@ -34,67 +21,48 @@ export class SSEClient<
           onClose?.(`bad_status_${res.status}`)
           return
         }
-        onOpen?.()
         const reader = res.body.getReader()
-        const dec = new TextDecoder()
+        const decoder = new TextDecoder()
         let buffer = ''
         while (true) {
           const { done, value } = await reader.read()
           if (done) {
             break
           }
-          buffer += dec.decode(value, { stream: true })
+          buffer += decoder.decode(value, { stream: true })
           let idx
-          // Parse SSE frames separated by double newlines
           while ((idx = buffer.indexOf('\n\n')) !== -1) {
             const frame = buffer.slice(0, idx)
             buffer = buffer.slice(idx + 2)
-            const lines = frame.split('\n')
-            let eventType: 'step' | 'final' | 'error' | null = null
-            let dataLine = ''
-            for (const l of lines) {
-              if (l.startsWith('event:')) {
-                eventType = l.slice(6).trim() as 'step' | 'final' | 'error'
-              }
-              if (l.startsWith('data:')) {
-                dataLine += l.slice(5).trim()
+            let type = ''
+            let data = ''
+            for (const line of frame.split('\n')) {
+              if (line.startsWith('event:')) {
+                type = line.slice(6).trim()
+              } else if (line.startsWith('data:')) {
+                data += line.slice(5).trim()
               }
             }
-            if (eventType && dataLine) {
+            if (type && data) {
               try {
-                const parsed = JSON.parse(dataLine) as TStep & TFinal & TErr
-                if (eventType === 'step') {
-                  onEvent({ type: 'step', data: parsed as TStep })
-                } else if (eventType === 'final') {
-                  onEvent({ type: 'final', data: parsed as TFinal })
-                } else {
-                  onEvent({ type: 'error', data: parsed as TErr })
-                }
+                onEvent({ type, data: JSON.parse(data) } as TEvent)
               } catch {
-                onEvent({
-                  type: 'error',
-                  data: { code: 'bad_json', raw: dataLine } as TErr,
-                })
+                onClose?.('bad_json')
+                return
               }
             }
           }
         }
         onClose?.('eof')
       } catch (e) {
-        if (signal.aborted) {
-          return
+        if (!signal.aborted) {
+          onClose?.(e instanceof Error ? e.message : String(e))
         }
-        const msg = e instanceof Error ? e.message : String(e)
-        onClose?.(msg)
       }
     })()
 
     return () => {
-      try {
-        this.controller?.abort()
-      } catch {
-        // ignore
-      }
+      this.controller?.abort()
       this.controller = null
     }
   }

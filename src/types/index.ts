@@ -1,163 +1,89 @@
 import { Timestamp } from 'firebase/firestore'
-import { LoadingPhaseUpdate } from './loading'
 
-// Re-export loading types
-export type { LoadingPhaseUpdate } from './loading'
+// ===== SCHEDULE (mirrors functions/src/providers/espn/types.ts) =====
+export type GameStatus = 'scheduled' | 'in_progress' | 'final' | 'postponed'
 
-// ===== PFR TYPES =====
-// API Types
-export interface TeamStatsOffense {
-  totalYards: { rank: number; yardsPerGame: number }
-  passingYards: { rank: number; yardsPerGame: number }
-  rushingYards: { rank: number; yardsPerGame: number }
-  pointsScored: { rank: number; pointsPerGame: number }
-  thirdDownConversion: { rank: number; percentage: number }
-  redZoneEfficiency: { rank: number; percentage: number }
-}
-
-export interface TeamStatsDefense {
-  totalYardsAllowed: { rank: number; yardsPerGame: number }
-  passingYardsAllowed: { rank: number; yardsPerGame: number }
-  rushingYardsAllowed: { rank: number; yardsPerGame: number }
-  pointsAllowed: { rank: number; pointsPerGame: number }
-  turnovers: { rank: number; total: number }
-  sacks: { rank: number; total: number }
-}
-
-export interface TeamStats {
-  overallRank?: number | null
-  offensiveRank?: number | null
-  defensiveRank?: number | null
-  specialTeamsRank?: number | null
-  offensiveRankings: TeamStatsOffense
-  defensiveRankings: TeamStatsDefense
-}
-
-export interface Team {
+export interface TeamRef {
   teamId: string
-  name: string
   abbrev: string
+  name: string
   record: string
-  overallRecord: string
   homeRecord: string
   roadRecord: string
-  stats: TeamStats | null
 }
 
-export interface Leaders {
-  passing?: { name: string; stats: string; value: number }
-  rushing?: { name: string; stats: string; value: number }
-  receiving?: { name: string; stats: string; value: number }
+export interface Venue {
+  name: string
+  city: string
+  state: string
+  indoor: boolean
+}
+
+export interface GameWeather {
+  condition: string
+  temperatureF: number
 }
 
 export interface Game {
   gameId: string
+  season: number
   week: number
   dateTime: string
-  status: 'scheduled' | 'in_progress' | 'final' | 'postponed'
-  home: Team
-  away: Team
-  leaders: Leaders
-  venue?: { name: string; city: string; state: string }
-  weather?: {
-    condition: string
-    temperatureF: number
-    windMph: number
-  }
+  status: GameStatus
+  neutralSite: boolean
+  home: TeamRef
+  away: TeamRef
+  venue: Venue | null
+  weather: GameWeather | null
 }
 
-export interface PFRTeamStats {
+export interface RankedStat {
+  value: number
+  rank: number
+}
+
+export interface TeamStats {
   teamId: string
   teamName: string
   season: number
-  week: number
-  record: string
-  overallRecord: string
-  homeRecord: string
-  roadRecord: string
+  gamesPlayed: number
   offense: {
-    rankings: {
-      totalYardsRank: number
-      passingYardsRank: number
-      rushingYardsRank: number
-      pointsScoredRank: number
-      overallRank: number
-    }
-    values?: {
-      totalYards?: number
-      passingYards?: number
-      rushingYards?: number
-      pointsPerGame?: number
-    }
+    totalYardsPerGame: RankedStat
+    passingYardsPerGame: RankedStat
+    rushingYardsPerGame: RankedStat
+    pointsPerGame: RankedStat
   }
   defense: {
-    rankings: {
-      totalYardsAllowedRank: number
-      pointsAllowedRank: number
-      turnoversRank: number
-      overallRank: number
-    }
-    values?: {
-      totalYardsAllowed?: number
-      pointsAllowed?: number
-      takeaways?: number
-    }
+    yardsAllowedPerGame: RankedStat
+    passingYardsAllowedPerGame: RankedStat
+    rushingYardsAllowedPerGame: RankedStat
+    pointsAllowedPerGame: RankedStat
+    takeaways: RankedStat
   }
   overallOffenseRank: number
   overallDefenseRank: number
-  overallTeamRank: number
-  specialTeamsRank?: number
+  overallRank: number
 }
 
-export interface GameData {
-  gameId: string
-  week: number
-  dateTime: string
-  status: 'scheduled' | 'in_progress' | 'final' | 'postponed'
-  home: {
-    teamId: string
-    name: string
-    abbrev: string
-    record: string
-    overallRecord: string
-    homeRecord: string
-    roadRecord: string
-    stats: PFRTeamStats | null
-    roster: Array<{ playerId: string; name: string; position?: string }>
-  }
-  away: {
-    teamId: string
-    name: string
-    abbrev: string
-    record: string
-    overallRecord: string
-    homeRecord: string
-    roadRecord: string
-    stats: PFRTeamStats | null
-    roster: Array<{ playerId: string; name: string; position?: string }>
-  }
-  venue: { name: string; city: string; state: string } | undefined
-  leaders?: {
-    passing?: { name: string; stats: string; value: number }
-    rushing?: { name: string; stats: string; value: number }
-    receiving?: { name: string; stats: string; value: number }
-  }
+// ===== ODDS (mirrors functions/src/providers/odds/client.ts) =====
+export interface OddsSnapshot {
+  eventId: string
+  bookmaker: string
+  bookmakerKey: string
+  lastUpdate: string
+  spread: { line: number; homePrice: number; awayPrice: number } | null
+  total: { line: number; overPrice: number; underPrice: number } | null
+  moneyline: { home: number; away: number } | null
 }
 
-// ===== BET TYPES =====
+// ===== PARLAY =====
 export type BetType =
   | 'spread'
   | 'moneyline'
   | 'total'
   | 'team_total_points'
-  | 'team_total_points_over'
-  | 'team_total_points_under'
   | 'first_half_spread'
   | 'first_half_total'
-  | 'second_half_spread'
-  | 'second_half_total'
-  | 'first_quarter_spread'
-  | 'first_quarter_total'
   | 'player_passing_yards'
   | 'player_passing_attempts'
   | 'player_passing_completions'
@@ -173,118 +99,25 @@ export type BetType =
   | 'player_receiving_tds'
   | 'player_longest_reception'
   | 'player_rush_rec_yards'
-  | 'player_pass_rush_yards'
-  | 'player_pass_rec_yards'
-  | 'player_pass_rush_rec_yards'
   | 'player_anytime_td'
   | 'player_first_td'
-  | 'player_last_td'
   | 'team_total_tds'
   | 'field_goals_made'
-  | 'field_goals_attempted'
-  | 'longest_field_goal'
   | 'kicking_points'
-  | 'extra_points_made'
   | 'defensive_sacks'
-  | 'defensive_tackles'
   | 'defensive_interceptions'
-  | 'defensive_forced_fumbles'
-  | 'defensive_touchdowns'
-  | 'special_teams_touchdowns'
-  | 'defensive_turnovers'
-  | 'alt_spread'
-  | 'alt_total'
-  | 'player_alt_rushing_yards'
-  | 'player_alt_receiving_yards'
-  | 'player_alt_passing_yards'
 
-// ===== NFL TYPES =====
-export interface NFLTeam {
-  id: string
-  name: string
-  displayName: string
-  abbreviation: string
-  color: string
-  alternateColor: string
-  logo: string
-}
+export type RiskLevel = 'conservative' | 'moderate' | 'aggressive'
 
-// ===== PARLAY TYPES =====
 export interface ParlayLeg {
   betType: BetType
+  team: string
   selection: string
+  line: number | null
+  side: 'over' | 'under' | null
   odds: number
   confidence: number
   reasoning: string
-  team: string
-}
-
-export interface ToolResponses {
-  weather?: {
-    condition: string
-    temperatureF: number
-    windMph: number
-  }
-  odds?: {
-    moneylineHome: number
-    moneylineAway: number
-    totalPoints: number
-    spreadHome: number
-  }
-}
-
-export interface GameContext {
-  gameId: string
-  week: number
-  dateTime: string
-  status: 'scheduled' | 'in_progress' | 'final' | 'postponed'
-  home: {
-    teamId: string
-    name: string
-    abbrev: string
-    record?: string
-    overallRecord?: string
-    homeRecord?: string
-    roadRecord?: string
-  }
-  away: {
-    teamId: string
-    name: string
-    abbrev: string
-    record?: string
-    overallRecord?: string
-    homeRecord?: string
-    roadRecord?: string
-  }
-  venue?: {
-    name: string
-    city: string
-    state: string
-  }
-}
-
-export interface ParlayGenerationResult {
-  parlay: GeneratedParlay
-  gameData: GameData
-  toolResponses?: ToolResponses
-  rateLimitInfo?: {
-    remaining: number
-    total: number
-    resetTime: string
-    currentCount: number
-  }
-  metadata?: {
-    provider: string
-    model: string
-    tokens?: number
-    latency: number
-    confidence: number
-    fallbackUsed: boolean
-    attemptCount: number
-    serviceMode?: 'mock' | 'agent'
-    environment?: string
-    runId?: string
-  }
 }
 
 export interface GameSummary {
@@ -305,82 +138,89 @@ export interface GeneratedParlay {
   combinedOdds: number
   parlayConfidence: number
   gameSummary: GameSummary
+  model: string
 }
 
-// New response type to match backend schema
-export interface GenerateParlayResponse {
+export type SourceStatus = 'ok' | 'unavailable' | 'indoor'
+
+export interface DataSources {
+  stats: SourceStatus
+  odds: SourceStatus
+  weather: SourceStatus
+}
+
+// ===== AGENT RUN (mirrors functions/src/agent/shared/schemas.ts) =====
+export type RunStatus = 'queued' | 'running' | 'succeeded' | 'canceled' | 'failed'
+export type AgentStepType = 'plan' | 'tool' | 'draft' | 'validate'
+export type AgentToolName = 'espn_game' | 'espn_team_stats' | 'odds'
+export type StepStatus = 'running' | 'ok' | 'failed'
+
+export interface AgentStep {
+  id: string
+  type: AgentStepType
+  tool?: AgentToolName
+  status: StepStatus
+  startedAt: string
+  finishedAt?: string
+  durationMs?: number
+  notes?: string
+  tokensInput?: number
+  tokensOutput?: number
+  error?: { code: string; message: string }
+}
+
+export interface AgentResult {
   parlay: {
-    parlayId: string
-    gameId: string
-    gameContext: string
-    legs: Array<{
-      betType: BetType
-      selection: string
-      odds: number
-      confidence: number
-      reasoning: string
-      team: string
-    }>
+    legs: ParlayLeg[]
     combinedOdds: number
     parlayConfidence: number
-    gameSummary: {
-      matchupSummary: string
-      keyFactors: string[]
-      gamePrediction: {
-        winner: string
-        projectedScore: { home: number; away: number }
-        winProbability: number
-      }
-    }
+    gameSummary: GameSummary
   }
-  gameData: GameData
-  rateLimitInfo: {
-    remaining: number
-    total: number
-    resetTime: string // ISO string format
-    currentCount: number
-  }
+  game: Game
+  homeStats: TeamStats | null
+  awayStats: TeamStats | null
+  odds: OddsSnapshot | null
+  sources: DataSources
+  model: string
 }
 
-export interface GenerateParlayRequest {
-  gameId: string
-  numLegs: 3
-  week: number
-  riskLevel?: 'conservative' | 'moderate' | 'aggressive'
-  betTypes?: 'all' | string[]
+export interface RunError {
+  code: string
+  message: string
+  details?: unknown
 }
 
-// ===== PARLAY GENERATION TYPES =====
-export interface StrategyConfig {
-  name: string
-  description: string
-  temperature: number
-  riskProfile: 'low' | 'medium' | 'high'
-  confidenceRange: [number, number]
+export interface RateLimitInfo {
+  remaining: number
+  total: number
+  resetTime: string
+  currentCount: number
 }
 
-export interface VarietyFactors {
-  strategy: string
-  focusArea: string
-  playerTier: string
-  gameScript: string
-  marketBias: string
+export interface ParlayGenerationResult {
+  parlay: GeneratedParlay
+  game: Game
+  homeStats: TeamStats | null
+  awayStats: TeamStats | null
+  odds: OddsSnapshot | null
+  sources: DataSources
+  rateLimitInfo?: RateLimitInfo
+  runId?: string
+  serviceMode: 'mock' | 'agent'
 }
 
 export interface ParlayGenerationOptions {
-  temperature?: number
-  strategy?: StrategyConfig
-  varietyFactors?: VarietyFactors
-  debugMode?: boolean
-  onLoadingUpdate?: (update: LoadingPhaseUpdate) => void
+  riskLevel: RiskLevel
+  onStep?: (step: AgentStep) => void
+  signal?: AbortSignal
 }
 
-// ===== AUTH TYPES =====
+// ===== AUTH =====
 export interface UserProfile {
   uid: string
   displayName: string
   email: string
   photoURL?: string
   createdAt: Timestamp
-  savedParlays?: string[] // Array of parlay IDs
+  savedParlays?: string[]
 }

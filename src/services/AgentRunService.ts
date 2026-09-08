@@ -1,194 +1,101 @@
 import { API_CONFIG } from '../config/api'
-import { GameContext } from '../types'
+import type {
+  AgentResult,
+  AgentStep,
+  RateLimitInfo,
+  RiskLevel,
+  RunError,
+  RunStatus,
+} from '../types'
 import { SSEClient } from './SSEClient'
 
-export type AgentRun = {
+export interface AgentRunRecord {
   id: string
-  status: 'queued' | 'running' | 'succeeded' | 'canceled' | 'failed'
-  result?: {
-    legs: Array<{
-      betType: string
-      selection: string
-      odds: number
-      confidence: number
-      reasoning: string
-      team: string
-    }>
-    analysisSummary: {
-      matchupSummary: string
-      keyFactors: string[]
-      gamePrediction: {
-        winner: string
-        projectedScore: { home: number; away: number }
-        winProbability: number
-      }
-    }
-  }
-  error?: {
-    code: string
-    message: string
-    details?:
-      | string
-      | number
-      | boolean
-      | null
-      | string[]
-      | { [k: string]: string | number | boolean | null | string[] }
-  }
+  status: RunStatus
+  result?: AgentResult
+  error?: RunError
 }
 
-export class AgentRunService {
-  private sse = new SSEClient<
-    {
-      id: string
-      type: string
-      startedAt: string
-      finishedAt?: string
-      notes?: string
-    },
-    AgentRun['result'],
-    { code: string; message?: string; raw?: string }
-  >()
+export type RunStreamEvent =
+  | { type: 'step'; data: AgentStep }
+  | { type: 'status'; data: { status: RunStatus } }
+  | { type: 'final'; data: AgentResult }
+  | { type: 'error'; data: RunError }
 
+export class AgentRunService {
   private base(): string {
     return `${API_CONFIG.CLOUD_FUNCTIONS.baseURL}/api`
   }
 
-  async getRateLimitStatus(auth?: {
-    token?: string
-    emulatorUid?: string
-  }): Promise<{
-    remaining: number
-    total: number
-    resetTime: string
-    currentCount: number
-  }> {
-    const headers: Record<string, string> = {}
-    if (auth?.token) {
-      headers['Authorization'] = `Bearer ${auth.token}`
-    }
-    if (auth?.emulatorUid) {
-      headers['X-Emulator-Auth-UID'] = auth.emulatorUid
-    }
-    const res = await fetch(`${this.base()}/agent/rate-limit`, { headers })
+  private async request<T>(
+    path: string,
+    token: string,
+    init: RequestInit = {}
+  ): Promise<T> {
+    const res = await fetch(`${this.base()}${path}`, {
+      ...init,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        ...init.headers,
+      },
+    })
     if (!res.ok) {
-      if (res.status === 401) {
-        throw new Error('Authentication failed. Please log in again.')
-      } else {
-        throw new Error(`Failed to get rate limit status: ${res.status}`)
+      const body = (await res.json().catch(() => null)) as {
+        message?: string
+      } | null
+      if (res.status === 429) {
+        throw new Error(
+          'Rate limit exceeded. You have used all your parlay generations for this hour.'
+        )
       }
+      if (res.status === 401) {
+        throw new Error('Authentication failed. Please sign in again.')
+      }
+      throw new Error(body?.message ?? `Request failed (${res.status})`)
     }
-    return res.json()
+    return res.json() as Promise<T>
   }
 
-  async createRun(params: {
+  getRateLimitStatus(token: string): Promise<RateLimitInfo> {
+    return this.request('/agent/rate-limit', token)
+  }
+
+  createRun(params: {
     gameId: string
-    gameContext?: GameContext
-    numLegs: number
-    riskLevel: 'conservative' | 'moderate' | 'aggressive'
-    authToken?: string
-    emulatorUid?: string
-  }): Promise<{
-    runId: string
-    rateLimitInfo?: {
-      remaining: number
-      total: number
-      resetTime: string
-      currentCount: number
-    }
-  }> {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    }
-    if (params.authToken) {
-      headers['Authorization'] = `Bearer ${params.authToken}`
-    }
-    if (params.emulatorUid) {
-      headers['X-Emulator-Auth-UID'] = params.emulatorUid
-    }
-    const res = await fetch(`${this.base()}/agent/runs`, {
+    riskLevel: RiskLevel
+    token: string
+  }): Promise<{ runId: string; rateLimitInfo: RateLimitInfo }> {
+    return this.request('/agent/runs', params.token, {
       method: 'POST',
-      headers,
       body: JSON.stringify({
         gameId: params.gameId,
-        gameContext: params.gameContext, // Rich game context
-        numLegs: params.numLegs,
         riskLevel: params.riskLevel,
       }),
     })
-    if (!res.ok) {
-      if (res.status === 429) {
-        throw new Error(
-          'Rate limit exceeded. You have used all your parlay generations for this hour. Please wait before generating more parlays.'
-        )
-      } else if (res.status === 401) {
-        throw new Error(
-          'Authentication failed. Please log in again to generate parlays.'
-        )
-      } else {
-        throw new Error(`Failed to create parlay: ${res.status}`)
-      }
-    }
-    return res.json()
   }
 
-  async getRun(
-    runId: string,
-    auth?: { token?: string; emulatorUid?: string }
-  ): Promise<AgentRun> {
-    const headers: Record<string, string> = {}
-    if (auth?.token) {
-      headers['Authorization'] = `Bearer ${auth.token}`
-    }
-    if (auth?.emulatorUid) {
-      headers['X-Emulator-Auth-UID'] = auth.emulatorUid
-    }
-    const res = await fetch(`${this.base()}/agent/runs/${runId}`, { headers })
-    if (!res.ok) {
-      if (res.status === 401) {
-        throw new Error('Authentication failed. Please log in again.')
-      } else if (res.status === 404) {
-        throw new Error('Parlay run not found.')
-      } else {
-        throw new Error(`Failed to get parlay run: ${res.status}`)
-      }
-    }
-    return res.json()
+  getRun(runId: string, token: string): Promise<AgentRunRecord> {
+    return this.request(`/agent/runs/${runId}`, token)
+  }
+
+  cancelRun(runId: string, token: string): Promise<{ ok: boolean }> {
+    return this.request(`/agent/runs/${runId}/cancel`, token, {
+      method: 'POST',
+    })
   }
 
   streamRun(
     runId: string,
-    auth: { token?: string; emulatorUid?: string },
-    onEvent: (
-      evt:
-        | {
-            type: 'step'
-            data: {
-              id: string
-              type: string
-              startedAt: string
-              finishedAt?: string
-              notes?: string
-            }
-          }
-        | { type: 'final'; data: AgentRun['result'] }
-        | {
-            type: 'error'
-            data: { code: string; message?: string; raw?: string }
-          }
-    ) => void
+    token: string,
+    onEvent: (evt: RunStreamEvent) => void,
+    onClose: (reason?: string) => void
   ): () => void {
-    const headers: Record<string, string> = {}
-    if (auth?.token) {
-      headers['Authorization'] = `Bearer ${auth.token}`
-    }
-    if (auth?.emulatorUid) {
-      headers['X-Emulator-Auth-UID'] = auth.emulatorUid
-    }
-    return this.sse.start({
+    return new SSEClient<RunStreamEvent>().start({
       url: `${this.base()}/agent/runs/${runId}/stream`,
-      headers,
+      headers: { Authorization: `Bearer ${token}` },
       onEvent,
+      onClose,
     })
   }
 }

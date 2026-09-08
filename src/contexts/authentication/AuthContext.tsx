@@ -6,7 +6,6 @@ import {
   getUserProfile,
   UserProfile,
 } from '../../config/firebase'
-import { FrontendRateLimiter } from '../../services/FrontendRateLimiter'
 import { AuthContext } from './auth'
 
 const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
@@ -30,9 +29,7 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           setProfileLoading(false)
         }
       } else {
-        // User logged out - clear rate limits for session strategy
         setUserProfile(null)
-        FrontendRateLimiter.clearForUser(null) // Clear for current session
       }
     }
 

@@ -13,95 +13,54 @@ import {
   Divider,
   Grid,
   Typography,
-  useMediaQuery,
-  useTheme,
 } from '@mui/material'
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import { saveParlayToUser } from '../../config/firebase'
 import { useAuth } from '../../hooks/useAuth'
 import useModalStore from '../../store/modalStore'
 import useParlayStore from '../../store/parlayStore'
-import type { GameData, GeneratedParlay } from '../../types'
+import { formatOdds } from '../../utils'
 import { AuthModal } from '../auth/AuthModal'
 import ErrorBanner from '../ErrorBanner'
-import DynamicParlayLoading from './DynamicParlayLoading'
+import AgentProgress from './AgentProgress'
 import GameSummaryView from './GameSummaryView'
 import ParlayDisplayFooter from './ParlayDisplayFooter'
-import ParlayLanding from './ParlayLanding'
 import ParlayLegView from './ParlayLegView'
 
 interface ParlayDisplayProps {
-  parlay?: GeneratedParlay & { gameData?: GameData }
   loading: boolean
-  isMockMode?: boolean
+  isMockMode: boolean
+  onCancel: () => void
 }
 
 const ParlayDisplay: React.FC<ParlayDisplayProps> = ({
-  parlay,
   loading,
-  isMockMode = false,
+  isMockMode,
+  onCancel,
 }) => {
   const { user } = useAuth()
   const [saving, setSaving] = useState(false)
-  const theme = useTheme()
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
-
-  const gameData = useParlayStore(state => state.gameData)
-  const setParlay = useParlayStore(state => state.setParlay)
+  const parlay = useParlayStore(state => state.parlay)
+  const steps = useParlayStore(state => state.steps)
+  const sources = useParlayStore(state => state.sources)
   const authModalOpen = useModalStore(state => state.authModalOpen)
   const setAuthModalOpen = useModalStore(state => state.setAuthModalOpen)
   const saveParlaySuccess = useParlayStore(state => state.saveParlaySuccess)
   const saveParlayError = useParlayStore(state => state.saveParlayError)
-  const setSaveParlaySuccess = useParlayStore(
-    state => state.setSaveParlaySuccess
-  )
+  const setSaveParlaySuccess = useParlayStore(state => state.setSaveParlaySuccess)
   const setSaveParlayError = useParlayStore(state => state.setSaveParlayError)
-
-  useEffect(() => {
-    setParlay(parlay || null)
-  }, [parlay, setParlay])
-
-  // Scroll to game stats panel when loading completes on mobile
-  useEffect(() => {
-    if (isMobile && !loading && parlay && gameData) {
-      // Small delay to ensure the game stats panel is rendered
-      const timer = setTimeout(() => {
-        const gameStatsPanel =
-          document.querySelector('[data-testid="game-stats-panel"]') ||
-          document.querySelector('h2') // Fallback to first h2 (likely game stats title)
-
-        if (gameStatsPanel) {
-          // Get the element's position and add padding
-          const elementRect = gameStatsPanel.getBoundingClientRect()
-          const padding = 20 // 20px padding from top
-          const scrollTop = window.pageYOffset + elementRect.top - padding
-
-          // Smooth scroll to position the element at the top with padding
-          window.scrollTo({
-            top: Math.max(0, scrollTop),
-            behavior: 'smooth',
-          })
-        }
-      }, 100)
-
-      return () => clearTimeout(timer)
-    }
-  }, [loading, parlay, gameData, isMobile])
 
   const handleSaveParlay = async () => {
     if (!user) {
       setAuthModalOpen(true)
       return
     }
-
     if (!parlay) {
       return
     }
-
     setSaving(true)
     setSaveParlayError('')
     setSaveParlaySuccess(false)
-
     try {
       await saveParlayToUser(user.uid, parlay)
       setSaveParlaySuccess(true)
@@ -114,91 +73,81 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({
   }
 
   if (loading) {
-    return <DynamicParlayLoading isMockMode={isMockMode} />
+    return (
+      <AgentProgress steps={steps} isMockMode={isMockMode} onCancel={onCancel} />
+    )
   }
 
   if (!parlay) {
-    return <ParlayLanding />
+    return (
+      <Card variant="outlined">
+        <CardContent sx={{ textAlign: 'center', py: 5 }}>
+          <Typography variant="body1" color="text.secondary">
+            Pick a game above, choose a risk level, and create a 3-leg parlay.
+          </Typography>
+        </CardContent>
+      </Card>
+    )
   }
 
   return (
     <>
-      {parlay.gameSummary && (
-        <GameSummaryView
-          gameSummary={parlay.gameSummary}
-          gameContext={parlay.gameContext}
-        />
-      )}
+      <GameSummaryView gameSummary={parlay.gameSummary} gameContext={parlay.gameContext} />
 
-      <Card>
-        <CardContent>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-            <PsychologyIcon sx={{ mr: 1, color: 'primary.main' }} />
-            <Typography variant="h6">AI Agent Generated Parlay</Typography>
-            <Box
-              sx={{ ml: 'auto', display: 'flex', gap: 1, alignItems: 'center' }}
-            >
-              <Chip
-                label="Agentic"
-                color="primary"
-                variant="outlined"
-                size="small"
-                icon={<PsychologyIcon />}
-              />
-              <Chip
-                label={`${parlay.combinedOdds > 0 ? '+' : ''}${parlay.combinedOdds}`}
-                color="primary"
-                variant="outlined"
-                size="small"
-              />
-            </Box>
+      <Card variant="outlined">
+        <CardContent sx={{ p: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+            <PsychologyIcon sx={{ color: 'primary.main' }} />
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              3-leg parlay
+            </Typography>
+            <Chip
+              label={formatOdds(parlay.combinedOdds)}
+              color="primary"
+              size="small"
+              sx={{ ml: 'auto', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}
+            />
           </Box>
+
+          {sources?.odds !== 'ok' && (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              Book lines were unavailable for this game, so any spread, total, or
+              moneyline prices below are AI estimates rather than posted odds.
+            </Alert>
+          )}
 
           <Grid container spacing={2} sx={{ mb: 3 }}>
             {parlay.legs.map((leg, index) => (
               <ParlayLegView
-                key={`${parlay.parlayId}-${leg.betType}-${leg.selection}-${leg.odds}-${leg.confidence}`}
+                key={`${parlay.parlayId}-${leg.betType}-${leg.selection}`}
                 leg={leg}
                 index={index}
               />
             ))}
           </Grid>
 
-          {/* Success/Error Messages */}
           {saveParlaySuccess && (
             <Alert severity="success" sx={{ mb: 2 }}>
-              Parlay saved successfully! Check your history to view it again.
+              Parlay saved. Find it under Parlay History.
             </Alert>
           )}
-
           {saveParlayError && (
-            <ErrorBanner
-              type="error"
-              title="Failed to save parlay"
-              message={saveParlayError}
-            />
+            <ErrorBanner type="error" title="Failed to save parlay" message={saveParlayError} />
           )}
 
-          {/* Save Button */}
-          <Box sx={{ display: 'flex', justifyContent: 'center', my: 3 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'center', my: 2 }}>
             <Button
               variant="outlined"
               startIcon={user ? <SaveIcon /> : <LoginIcon />}
               onClick={handleSaveParlay}
               disabled={saving}
-              sx={{
-                px: 3,
-                py: 1,
-                textTransform: 'none',
-              }}
+              sx={{ px: 3 }}
             >
-              {saving ? 'Saving...' : user ? 'Save Parlay' : 'Sign In to Save'}
+              {saving ? 'Saving…' : user ? 'Save parlay' : 'Sign in to save'}
             </Button>
           </Box>
 
           <Divider sx={{ my: 2 }} />
-
-          {/* Footer */}
           <ParlayDisplayFooter />
         </CardContent>
       </Card>
