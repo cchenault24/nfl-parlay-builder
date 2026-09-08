@@ -30,6 +30,28 @@ const isEmulator = () =>
 
 const persist = { upsertStep, updateRun, getRun }
 
+type Handler = (req: AuthedRequest, res: express.Response) => Promise<unknown>
+
+// Express 4 drops async rejections; turn them into a JSON 500 instead.
+const route =
+  (handler: Handler): express.RequestHandler =>
+  async (req, res) => {
+    const authed = req as AuthedRequest
+    try {
+      await handler(authed, res)
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e)
+      log.error('api.agent.unhandled', {
+        correlationId: authed.correlationId,
+        path: req.path,
+        error: { code: 'internal_error', message },
+      })
+      if (!res.headersSent) {
+        errorResponse(res, 500, 'internal_error', message, authed.correlationId)
+      }
+    }
+  }
+
 function rateLimitFor(uid: string) {
   return isEmulator()
     ? Promise.resolve({
@@ -41,12 +63,21 @@ function rateLimitFor(uid: string) {
     : getUserRateLimitStatus(uid, '/agent/runs', RUNS_PER_HOUR, RATE_WINDOW_MS)
 }
 
+async function ownedRun(req: AuthedRequest, res: express.Response) {
+  const run = await getRun(req.params.id)
+  if (!run || run.userId !== req.user?.uid) {
+    errorResponse(res, 404, 'not_found', 'Run not found', req.correlationId)
+    return null
+  }
+  return run
+}
+
 agentRouter.post(
   '/agent/runs',
   verifyAuth,
   ...(isEmulator() ? [] : [rateLimitByUser(RUNS_PER_HOUR, RATE_WINDOW_MS)]),
-  async (req: express.Request, res: express.Response) => {
-    const { correlationId, user } = req as AuthedRequest
+  route(async (req, res) => {
+    const { correlationId, user } = req
     if (!user) {
       return errorResponse(res, 401, 'unauthorized', 'Missing user', correlationId)
     }
@@ -90,95 +121,108 @@ agentRouter.post(
           error: { code: 'orchestrator_error', message: String(e) },
         })
       })
-  }
+  })
 )
 
-agentRouter.get('/agent/runs/:id', verifyAuth, async (req, res) => {
-  const { correlationId, user } = req as AuthedRequest
-  const run = await getRun(req.params.id)
-  if (!run || run.userId !== user?.uid) {
-    return errorResponse(res, 404, 'not_found', 'Run not found', correlationId)
-  }
-  res.json(run)
-})
-
-agentRouter.get('/agent/runs/:id/stream', verifyAuth, async (req, res) => {
-  const { correlationId, user } = req as AuthedRequest
-  const runId = req.params.id
-  const run = await getRun(runId)
-  if (!run || run.userId !== user?.uid) {
-    return errorResponse(res, 404, 'not_found', 'Run not found', correlationId)
-  }
-  log.info('api.agent.stream.start', { correlationId, runId })
-
-  res.setHeader('Content-Type', 'text/event-stream')
-  res.setHeader('Cache-Control', 'no-cache, no-transform')
-  res.setHeader('Connection', 'keep-alive')
-  res.flushHeaders?.()
-
-  const send = (event: string, data: unknown) =>
-    res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
-  const sentSteps = new Map<string, string>()
-  let lastStatus: string | undefined
-
-  const finish = () => {
-    clearInterval(interval)
-    res.end()
-  }
-  req.on('close', () => clearInterval(interval))
-
-  const interval = setInterval(async () => {
-    try {
-      const steps = await listSteps(runId)
-      for (const step of steps) {
-        const json = JSON.stringify(step)
-        if (sentSteps.get(step.id) !== json) {
-          sentSteps.set(step.id, json)
-          send('step', step)
-        }
-      }
-      const latest = await getRun(runId)
-      if (!latest) {
-        return finish()
-      }
-      if (latest.status !== lastStatus) {
-        lastStatus = latest.status
-        send('status', { status: latest.status })
-      }
-      if (latest.status === 'succeeded') {
-        send('final', latest.result)
-        finish()
-      } else if (latest.status === 'failed' || latest.status === 'canceled') {
-        send('error', latest.error ?? { code: latest.status, message: 'Run ended' })
-        finish()
-      }
-    } catch (e) {
-      log.warn('api.agent.stream.error', {
-        correlationId,
-        runId,
-        error: { code: 'stream_error', message: String(e) },
-      })
-      finish()
+agentRouter.get(
+  '/agent/runs/:id',
+  verifyAuth,
+  route(async (req, res) => {
+    const run = await ownedRun(req, res)
+    if (run) {
+      res.json(run)
     }
-  }, 500)
-})
+  })
+)
 
-agentRouter.post('/agent/runs/:id/cancel', verifyAuth, async (req, res) => {
-  const { correlationId, user } = req as AuthedRequest
-  const run = await getRun(req.params.id)
-  if (!run || run.userId !== user?.uid) {
-    return errorResponse(res, 404, 'not_found', 'Run not found', correlationId)
-  }
-  if (run.status === 'queued' || run.status === 'running') {
-    await updateRun(run.id, { status: 'canceled' })
-  }
-  res.json({ ok: true })
-})
+agentRouter.get(
+  '/agent/runs/:id/stream',
+  verifyAuth,
+  route(async (req, res) => {
+    const run = await ownedRun(req, res)
+    if (!run) {
+      return
+    }
+    const { correlationId } = req
+    const runId = run.id
+    log.info('api.agent.stream.start', { correlationId, runId })
 
-agentRouter.get('/agent/rate-limit', verifyAuth, async (req, res) => {
-  const { correlationId, user } = req as AuthedRequest
-  if (!user) {
-    return errorResponse(res, 401, 'unauthorized', 'Missing user', correlationId)
-  }
-  res.json(await rateLimitFor(user.uid))
-})
+    res.setHeader('Content-Type', 'text/event-stream')
+    res.setHeader('Cache-Control', 'no-cache, no-transform')
+    res.setHeader('Connection', 'keep-alive')
+    res.flushHeaders?.()
+
+    const send = (event: string, data: unknown) =>
+      res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+    const sentSteps = new Map<string, string>()
+    let lastStatus: string | undefined
+
+    const finish = () => {
+      clearInterval(interval)
+      res.end()
+    }
+    req.on('close', () => clearInterval(interval))
+
+    const interval = setInterval(async () => {
+      try {
+        const steps = await listSteps(runId)
+        for (const step of steps) {
+          const json = JSON.stringify(step)
+          if (sentSteps.get(step.id) !== json) {
+            sentSteps.set(step.id, json)
+            send('step', step)
+          }
+        }
+        const latest = await getRun(runId)
+        if (!latest) {
+          return finish()
+        }
+        if (latest.status !== lastStatus) {
+          lastStatus = latest.status
+          send('status', { status: latest.status })
+        }
+        if (latest.status === 'succeeded') {
+          send('final', latest.result)
+          finish()
+        } else if (latest.status === 'failed' || latest.status === 'canceled') {
+          send('error', latest.error ?? { code: latest.status, message: 'Run ended' })
+          finish()
+        }
+      } catch (e) {
+        log.warn('api.agent.stream.error', {
+          correlationId,
+          runId,
+          error: { code: 'stream_error', message: String(e) },
+        })
+        finish()
+      }
+    }, 500)
+  })
+)
+
+agentRouter.post(
+  '/agent/runs/:id/cancel',
+  verifyAuth,
+  route(async (req, res) => {
+    const run = await ownedRun(req, res)
+    if (!run) {
+      return
+    }
+    if (run.status === 'queued' || run.status === 'running') {
+      await updateRun(run.id, { status: 'canceled' })
+    }
+    res.json({ ok: true })
+  })
+)
+
+agentRouter.get(
+  '/agent/rate-limit',
+  verifyAuth,
+  route(async (req, res) => {
+    const { correlationId, user } = req
+    if (!user) {
+      return errorResponse(res, 401, 'unauthorized', 'Missing user', correlationId)
+    }
+    res.json(await rateLimitFor(user.uid))
+  })
+)
