@@ -4,7 +4,7 @@ import Container from '@mui/material/Container'
 import CssBaseline from '@mui/material/CssBaseline'
 import { ThemeProvider } from '@mui/material/styles'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { AuthGate } from './components/auth/AuthGate'
 import { UserMenu } from './components/auth/UserMenu'
 import DevStatus from './components/DevStatus'
@@ -59,13 +59,6 @@ function AppContent() {
     },
     [setSelectedGame, reset]
   )
-
-  useEffect(() => {
-    if (!isPending) {
-      return
-    }
-    return () => cancel()
-  }, [isPending, cancel])
 
   const handleWeekChange = (week: number) => {
     setSelectedWeek(week)

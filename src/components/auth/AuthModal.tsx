@@ -115,7 +115,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ open, onClose }) => {
           justifyContent: 'space-between',
         }}
       >
-        <Typography variant="h6">
+        <Typography variant="h6" component="span">
           {isSignUp ? 'Create Account' : 'Sign In'}
         </Typography>
         <IconButton onClick={handleClose} size="small">
