@@ -1,6 +1,7 @@
 import {
   Close as CloseIcon,
   Email as EmailIcon,
+  Google as GoogleIcon,
   Lock as LockIcon,
 } from '@mui/icons-material'
 import {
@@ -11,12 +12,17 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Divider,
   IconButton,
   TextField,
   Typography,
 } from '@mui/material'
 import React, { useState } from 'react'
-import { signInWithEmail, signUpWithEmail } from '../../config/firebase'
+import {
+  signInWithEmail,
+  signInWithGoogle,
+  signUpWithEmail,
+} from '../../config/firebase'
 
 interface FirebaseAuthError {
   code?: string
@@ -67,6 +73,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({ open, onClose }) => {
     }
   }
 
+  const handleGoogle = async () => {
+    setLoading(true)
+    setError('')
+    try {
+      await signInWithGoogle()
+      onClose()
+      resetForm()
+    } catch (error) {
+      const authError = error as FirebaseAuthError
+      if (authError.code !== 'auth/popup-closed-by-user') {
+        setError(
+          authError.code?.replace('auth/', '').replace(/-/g, ' ') ||
+            'Google sign-in failed'
+        )
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const resetForm = () => {
     setEmail('')
     setPassword('')
@@ -104,6 +130,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({ open, onClose }) => {
               {error}
             </Alert>
           )}
+
+          <Button
+            variant="outlined"
+            size="large"
+            startIcon={<GoogleIcon />}
+            onClick={handleGoogle}
+            disabled={loading}
+            sx={{ py: 1.5 }}
+          >
+            Continue with Google
+          </Button>
+          <Divider>
+            <Typography variant="caption" color="text.secondary">
+              or with email
+            </Typography>
+          </Divider>
 
           {/* Email Form */}
           <Box
