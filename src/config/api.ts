@@ -25,7 +25,7 @@ const resolveProjectId = () => {
   const match = window.location.host.match(
     /^(?<projectId>[a-z0-9-]+?)(?:--[a-z0-9-]+)?\.(?:web\.app|firebaseapp\.com)$/
   )
-  return match?.groups?.projectId ?? 'nfl-parlay-builder-dev'
+  return match?.groups?.projectId ?? 'nfl-parlay-builder'
 }
 
 const projectId = resolveProjectId()

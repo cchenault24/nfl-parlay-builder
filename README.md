@@ -52,7 +52,7 @@ Checks: `npm run type-check`, `npm run lint`, `npm run build`, and in `functions
 firebase deploy --project prod   # functions + hosting + firestore rules
 ```
 
-Projects: `nfl-parlay-builder` (prod, `main`) and `nfl-parlay-builder-dev` (dev).
+Merging to `main` runs `deploy-production.yml`, which deploys functions + Firestore rules and then Hosting. Every PR to `main` gets a prod-backed preview channel (`deploy-main-pr.yml`). `nfl-parlay-builder-dev` (Spark plan) only provides Auth/Firestore for local development; it has no API.
 
 ## Endpoints
 

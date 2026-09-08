@@ -1,14 +1,12 @@
 import cors from 'cors'
 import express from 'express'
-import * as admin from 'firebase-admin'
 import { defineSecret } from 'firebase-functions/params'
 import { onRequest } from 'firebase-functions/v2/https'
+import { app as firebaseApp } from './firebase'
 import type { AuthedRequest } from './middleware/auth'
 import { agentRouter, metricsRouter, publicRouter } from './routes'
 
-if (admin.apps.length === 0) {
-  admin.initializeApp()
-}
+firebaseApp()
 
 const REGION = 'us-central1'
 const CORS_ALLOWLIST: Array<string | RegExp> = [

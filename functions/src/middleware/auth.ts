@@ -1,10 +1,11 @@
 import express from 'express'
-import * as admin from 'firebase-admin'
+import type { DecodedIdToken } from 'firebase-admin/auth'
+import { auth } from '../firebase'
 import { errorResponse } from '../utils/errors'
 
 export type AuthedRequest = express.Request & {
   correlationId: string
-  user?: admin.auth.DecodedIdToken
+  user?: Pick<DecodedIdToken, 'uid'>
 }
 
 export async function verifyAuth(
@@ -23,9 +24,7 @@ export async function verifyAuth(
       !!process.env.FIREBASE_AUTH_EMULATOR_HOST
     const emulatorUid = (req.headers['x-emulator-auth-uid'] as string) || ''
     if (isEmulator && emulatorUid) {
-      ;(req as AuthedRequest).user = {
-        uid: emulatorUid,
-      } as admin.auth.DecodedIdToken
+      ;(req as AuthedRequest).user = { uid: emulatorUid }
       return next()
     }
 
@@ -41,10 +40,8 @@ export async function verifyAuth(
       )
     }
 
-    const decoded = await admin.auth().verifyIdToken(token)
-    ;(req as AuthedRequest).user = {
-      uid: decoded.uid,
-    } as admin.auth.DecodedIdToken
+    const decoded = await auth().verifyIdToken(token)
+    ;(req as AuthedRequest).user = { uid: decoded.uid }
     return next()
   } catch {
     return errorResponse(

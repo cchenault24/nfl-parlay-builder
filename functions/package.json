@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "main": "lib/index.js",
   "scripts": {
@@ -18,8 +18,8 @@
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.19.2",
-    "firebase-admin": "^12.6.0",
-    "firebase-functions": "^5.0.0",
+    "firebase-admin": "^14.3.0",
+    "firebase-functions": "^7.3.2",
     "openai": "^7.10.0",
     "zod": "^3.23.8"
   },

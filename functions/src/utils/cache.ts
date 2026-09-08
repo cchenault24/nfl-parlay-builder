@@ -1,30 +1,15 @@
-import * as admin from 'firebase-admin'
+import type { QueryDocumentSnapshot } from 'firebase-admin/firestore'
+import { db } from '../firebase'
 
 type CacheEntry<T> = { value: T; updatedAt: number }
 
-function getDb(): FirebaseFirestore.Firestore {
-  // Lazily ensure admin app exists before accessing Firestore
-  // Safe in emulator and prod; no-ops if already initialized
-  // admin.apps is available across admin versions
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const apps = (admin as any).apps as unknown[] | undefined
-  if (!apps || apps.length === 0) {
-    try {
-      admin.initializeApp()
-    } catch {
-      // If another module initialized concurrently, ignore
-    }
-  }
-  return admin.firestore()
-}
-
 function cacheDocRef<T>(key: string) {
-  return getDb()
+  return db()
     .collection('cache')
     .doc(key)
     .withConverter<CacheEntry<T>>({
       toFirestore: (data: CacheEntry<T>) => data,
-      fromFirestore: (snap: FirebaseFirestore.QueryDocumentSnapshot) =>
+      fromFirestore: (snap: QueryDocumentSnapshot) =>
         snap.data() as CacheEntry<T>,
     })
 }
@@ -38,8 +23,7 @@ export async function getCached<T>(
     return null
   }
   const data = docSnap.data() as CacheEntry<T>
-  const now = Date.now()
-  if (now - data.updatedAt > ttlMs) {
+  if (Date.now() - data.updatedAt > ttlMs) {
     return null
   }
   return data.value
