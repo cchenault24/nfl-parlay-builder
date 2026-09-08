@@ -1,8 +1,8 @@
-import * as admin from 'firebase-admin'
+import { db } from '../../firebase'
 import { AgentRun, AgentRunSchema, AgentStep } from '../shared/schemas'
 
 function runs() {
-  return admin.firestore().collection('agentRuns')
+  return db().collection('agentRuns')
 }
 
 function stripUndefined<T extends object>(value: T): T {

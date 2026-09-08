@@ -1,28 +1,20 @@
 import { createHash } from 'crypto'
 import express from 'express'
-import * as admin from 'firebase-admin'
+import type { QueryDocumentSnapshot, Transaction } from 'firebase-admin/firestore'
+import { db } from '../firebase'
 import { errorResponse } from '../utils/errors'
 import type { AuthedRequest } from './auth'
-
-// Ensure Firebase Admin is initialized before using Firestore.
-try {
-  admin.app()
-} catch {
-  admin.initializeApp()
-}
-
-const db = admin.firestore()
 
 export type RateLimitRecord = { count: number; windowStart: number }
 
 function rateLimitDocRef(key: string) {
   const id = createHash('sha256').update(key).digest('hex')
-  return db
+  return db()
     .collection('rate_limits')
     .doc(id)
     .withConverter<RateLimitRecord>({
       toFirestore: (data: RateLimitRecord) => data,
-      fromFirestore: (snap: FirebaseFirestore.QueryDocumentSnapshot) =>
+      fromFirestore: (snap: QueryDocumentSnapshot) =>
         snap.data() as RateLimitRecord,
     })
 }
@@ -33,7 +25,7 @@ async function checkAndIncrementRateLimit(
   windowMs: number
 ): Promise<boolean> {
   const now = Date.now()
-  return await db.runTransaction(async (tx: FirebaseFirestore.Transaction) => {
+  return await db().runTransaction(async (tx: Transaction) => {
     const ref = rateLimitDocRef(key)
     const snap = await tx.get(ref)
     if (!snap.exists) {
