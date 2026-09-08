@@ -1,8 +1,5 @@
-import pLimit from 'p-limit'
-
 type CircuitState = {
   failures: number
-  lastFailureAt?: number
   openUntil?: number
 }
 
@@ -19,31 +16,34 @@ export async function withResilience<T>(
   fn: () => Promise<T>,
   opts: { timeoutMs: number; retries?: number; backoffMs?: number }
 ): Promise<T> {
-  const { timeoutMs, retries = 1, backoffMs = 200 } = opts
+  const { timeoutMs, retries = 0, backoffMs = 200 } = opts
   const circuit = getCircuit(key)
-  const now = Date.now()
-  if (circuit.openUntil && circuit.openUntil > now) {
-    throw Object.assign(new Error('circuit_open'), {
+  if (circuit.openUntil && circuit.openUntil > Date.now()) {
+    throw Object.assign(new Error(`${key} circuit open`), {
       code: 'circuit_open',
-      retriable: true,
     })
   }
 
   let attempt = 0
   while (true) {
+    let timer: NodeJS.Timeout | undefined
     try {
       const result = await Promise.race([
         fn(),
-        new Promise<never>((_, reject) =>
-          setTimeout(
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(
             () =>
-              reject(Object.assign(new Error('timeout'), { code: 'timeout' })),
+              reject(
+                Object.assign(new Error(`${key} timed out after ${timeoutMs}ms`), {
+                  code: 'timeout',
+                })
+              ),
             timeoutMs
           )
-        ),
+        }),
       ])
       circuit.failures = 0
-      return result as T
+      return result
     } catch (err) {
       attempt += 1
       circuit.failures += 1
@@ -54,8 +54,8 @@ export async function withResilience<T>(
         throw err
       }
       await new Promise(r => setTimeout(r, backoffMs * attempt))
+    } finally {
+      clearTimeout(timer)
     }
   }
 }
-
-export const parallelLimit = pLimit(4)

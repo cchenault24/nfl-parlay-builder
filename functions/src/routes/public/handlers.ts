@@ -1,421 +1,68 @@
-import axios from 'axios'
-import * as cheerio from 'cheerio'
 import express from 'express'
 import { log } from '../../observability/logger'
-import {
-  fetchPFRDataForTeams,
-  fetchPFRSeasonSchedule,
-} from '../../providers/pfr'
-import { PFRGameItem } from '../../providers/pfr/types'
-import { PFR_BASE, getPFRHeaders } from '../../providers/pfr/utils'
-import { getCached, setCached } from '../../utils/cache'
+import { getSeasonSchedule } from '../../providers/espn/client'
 import { errorResponse } from '../../utils/errors'
-import { GameData } from './schema'
+import { REGULAR_SEASON_WEEKS, getCurrentSeason } from '../../utils/season'
 
-// Extended request type with correlation ID
-interface CorrelatedRequest extends express.Request {
-  correlationId: string
-}
+type CorrelatedRequest = express.Request & { correlationId: string }
 
-const CACHE_TTL_MS = 10 * 60 * 1000
-
-export const getGamesHandler = async (
+export const getScheduleHandler = async (
   req: express.Request,
   res: express.Response
 ) => {
-  const correlatedReq = req as CorrelatedRequest
-  const correlationId = correlatedReq.correlationId
-  const weekStr = req.query.week as string | undefined
-  if (!weekStr) {
-    return errorResponse(
-      res,
-      400,
-      'validation_error',
-      'Missing query param: week',
-      correlationId
-    )
-  }
-  const week = Number(weekStr)
-  if (!Number.isInteger(week) || week <= 0) {
-    return errorResponse(
-      res,
-      400,
-      'validation_error',
-      'Invalid week',
-      correlationId
-    )
-  }
+  const { correlationId } = req as CorrelatedRequest
   try {
-    const cacheKey = `games:pfr:week:${week}:withStats:v4`
-    const cached = await getCached<GameData[]>(cacheKey, CACHE_TTL_MS)
-    if (cached) {
-      return res.json(cached)
-    }
-
-    // For PFR, we need specific team codes to scrape
-    // Return empty array - frontend will provide team codes
-    const games: GameData[] = []
-
-    await setCached(cacheKey, games)
-    res.json(games)
-  } catch {
-    return errorResponse(
-      res,
-      500,
-      'internal_error',
-      'Failed to fetch games',
-      correlationId
-    )
-  }
-}
-
-// New endpoint to fetch PFR data for frontend-selected teams
-export const getPFRDataForTeamsHandler = async (
-  req: express.Request,
-  res: express.Response
-) => {
-  const correlatedReq = req as CorrelatedRequest
-  const correlationId = correlatedReq.correlationId
-
-  try {
-    const { teams, season, week } = req.body
-
-    // Validate required parameters
-    if (!teams || !Array.isArray(teams) || teams.length === 0) {
-      return errorResponse(
-        res,
-        400,
-        'validation_error',
-        'Teams array is required',
-        correlationId
-      )
-    }
-
-    if (!season || !week) {
-      return errorResponse(
-        res,
-        400,
-        'validation_error',
-        'Season and week are required',
-        correlationId
-      )
-    }
-
-    // Validate team structure
-    for (const team of teams) {
-      if (!team.teamId || !team.teamName) {
-        return errorResponse(
-          res,
-          400,
-          'validation_error',
-          'Each team must have teamId and teamName',
-          correlationId
-        )
-      }
-    }
-
-    // Fetch PFR data for all teams
-    const teamData = await fetchPFRDataForTeams(
-      teams,
-      parseInt(season),
-      parseInt(week)
-    )
-
-    res.json({
-      success: true,
-      message: `PFR data fetched for ${teams.length} teams`,
-      season: parseInt(season),
-      week: parseInt(week),
-      teams: teamData,
-    })
+    res.json(await getSeasonSchedule(getCurrentSeason()))
   } catch (error) {
-    log.error('pfr.teams.fetch.error', {
+    log.error('api.schedule.error', {
+      correlationId,
       error: {
-        code: 'fetch_error',
+        code: 'schedule_error',
         message: error instanceof Error ? error.message : String(error),
       },
     })
     return errorResponse(
       res,
-      500,
-      'internal_error',
-      'Failed to fetch PFR data for teams',
-      correlationId
-    )
-  }
-}
-
-// New endpoint to fetch entire NFL schedule from PFR
-export const getPFRScheduleHandler = async (
-  req: express.Request,
-  res: express.Response
-) => {
-  const correlatedReq = req as CorrelatedRequest
-  const correlationId = correlatedReq.correlationId
-
-  try {
-    // Fetch entire season schedule from PFR in one call
-    const allGames: PFRGameItem[] = await fetchPFRSeasonSchedule()
-
-    // Convert PFRGameItem to the format expected by frontend
-    const games = allGames.map(game => {
-      // Only include venue if we have valid data
-      const venue =
-        game.venue &&
-        game.venue.name?.trim() !== '' &&
-        game.venue.city?.trim() !== '' &&
-        game.venue.state?.trim() !== ''
-          ? {
-              name: game.venue.name,
-              city: game.venue.city,
-              state: game.venue.state,
-            }
-          : undefined
-
-      return {
-        gameId: game.id,
-        week: game.week,
-        dateTime: game.dateTime,
-        status: game.status,
-        home: {
-          teamId: game.homeTeam.id,
-          name: game.homeTeam.name,
-          abbrev: game.homeTeam.abbreviation,
-          record: '0-0',
-          overallRecord: '0-0',
-          homeRecord: '0-0',
-          roadRecord: '0-0',
-          stats: null,
-        },
-        away: {
-          teamId: game.awayTeam.id,
-          name: game.awayTeam.name,
-          abbrev: game.awayTeam.abbreviation,
-          record: '0-0',
-          overallRecord: '0-0',
-          homeRecord: '0-0',
-          roadRecord: '0-0',
-          stats: null,
-        },
-        venue,
-        leaders: {},
-      }
-    })
-
-    res.json(games)
-  } catch {
-    return errorResponse(
-      res,
-      500,
-      'internal_error',
+      502,
+      'schedule_unavailable',
       'Failed to fetch NFL schedule',
       correlationId
     )
   }
 }
 
-// New endpoint to fetch games for a specific week
-export const getPFRGamesForWeekHandler = async (
+export const getGamesForWeekHandler = async (
   req: express.Request,
   res: express.Response
 ) => {
-  const correlatedReq = req as CorrelatedRequest
-  const correlationId = correlatedReq.correlationId
-  const weekStr = req.query.week as string | undefined
-
-  if (!weekStr) {
+  const { correlationId } = req as CorrelatedRequest
+  const week = Number(req.query.week)
+  if (!Number.isInteger(week) || week < 1 || week > REGULAR_SEASON_WEEKS) {
     return errorResponse(
       res,
       400,
       'validation_error',
-      'Missing query param: week',
+      `week must be an integer 1-${REGULAR_SEASON_WEEKS}`,
       correlationId
     )
   }
-
-  const week = Number(weekStr)
-  if (!Number.isInteger(week) || week <= 0 || week > 18) {
-    return errorResponse(
-      res,
-      400,
-      'validation_error',
-      'Invalid week (must be 1-18)',
-      correlationId
-    )
-  }
-
   try {
-    // Fetch entire season schedule from PFR (cached)
-    const allGames: PFRGameItem[] = await fetchPFRSeasonSchedule()
-
-    // Filter to specific week
-    const weekGames = allGames.filter(game => game.week === week)
-
-    // Convert PFRGameItem to the format expected by frontend
-    const games = weekGames.map(game => {
-      // Only include venue if we have valid data
-      const venue =
-        game.venue &&
-        game.venue.name?.trim() !== '' &&
-        game.venue.city?.trim() !== '' &&
-        game.venue.state?.trim() !== ''
-          ? {
-              name: game.venue.name,
-              city: game.venue.city,
-              state: game.venue.state,
-            }
-          : undefined
-
-      return {
-        gameId: game.id,
-        week: game.week,
-        dateTime: game.dateTime,
-        status: game.status,
-        home: {
-          teamId: game.homeTeam.id,
-          name: game.homeTeam.name,
-          abbrev: game.homeTeam.abbreviation,
-          record: '0-0',
-          overallRecord: '0-0',
-          homeRecord: '0-0',
-          roadRecord: '0-0',
-          stats: null,
-        },
-        away: {
-          teamId: game.awayTeam.id,
-          name: game.awayTeam.name,
-          abbrev: game.awayTeam.abbreviation,
-          record: '0-0',
-          overallRecord: '0-0',
-          homeRecord: '0-0',
-          roadRecord: '0-0',
-          stats: null,
-        },
-        venue,
-        leaders: {},
-      }
+    const games = await getSeasonSchedule(getCurrentSeason())
+    res.json(games.filter(g => g.week === week))
+  } catch (error) {
+    log.error('api.games.error', {
+      correlationId,
+      week,
+      error: {
+        code: 'schedule_error',
+        message: error instanceof Error ? error.message : String(error),
+      },
     })
-
-    res.json(games)
-  } catch {
     return errorResponse(
       res,
-      500,
-      'internal_error',
+      502,
+      'schedule_unavailable',
       'Failed to fetch games for week',
-      correlationId
-    )
-  }
-}
-
-export const getNFLWeeksHandler = async (
-  req: express.Request,
-  res: express.Response
-) => {
-  const correlatedReq = req as CorrelatedRequest
-  const correlationId = correlatedReq.correlationId
-
-  try {
-    const season = parseInt(req.query.season as string) || 2025
-
-    // Scrape PFR schedule
-    const url = `${PFR_BASE}/years/${season}/games.htm`
-
-    const response = await axios.get(url, {
-      headers: getPFRHeaders(),
-      decompress: true,
-    })
-
-    const $ = cheerio.load(response.data)
-    const scheduleTable = $('table#games').first()
-
-    if (scheduleTable.length === 0) {
-      throw new Error('No games table found')
-    }
-
-    const weekSchedule: Record<
-      number,
-      Array<{
-        day: string
-        date: string
-        time: string
-        away: string
-        home: string
-      }>
-    > = {}
-
-    // Process each row in the schedule table
-    scheduleTable.find('tbody tr').each((index, row) => {
-      const $row = $(row)
-
-      // Get week number from th element
-      const weekCell = $row.find('th[data-stat="week_num"]').text().trim()
-      const currentWeek = parseInt(weekCell, 10)
-
-      // Skip if not a valid week number
-      if (isNaN(currentWeek) || currentWeek < 1 || currentWeek > 18) {
-        return
-      }
-
-      // Extract game data using the correct data-stat attributes
-      const day = $row.find('td[data-stat="game_day_of_week"]').text().trim()
-      const date = $row.find('td[data-stat="game_date"]').text().trim()
-      const time = $row.find('td[data-stat="gametime"]').text().trim()
-      const winnerCell = $row.find('td[data-stat="winner"]')
-      const awayIndicator = $row.find('td[data-stat="game_location"]')
-      const loserCell = $row.find('td[data-stat="loser"]')
-
-      // Extract team names from links
-      const winnerName = winnerCell.find('a').text().trim()
-      const loserName = loserCell.find('a').text().trim()
-
-      if (!winnerName || !loserName) {
-        return
-      }
-
-      // Determine home/away teams based on @ symbol
-      const isWinnerAway = awayIndicator.text().trim() === '@'
-
-      let homeTeam: string
-      let awayTeam: string
-
-      if (isWinnerAway) {
-        // Winner is away, loser is home
-        awayTeam = winnerName
-        homeTeam = loserName
-      } else {
-        // Winner is home, loser is away
-        homeTeam = winnerName
-        awayTeam = loserName
-      }
-
-      // Initialize week array if it doesn't exist
-      if (!weekSchedule[currentWeek]) {
-        weekSchedule[currentWeek] = []
-      }
-
-      // Add game to the week
-      weekSchedule[currentWeek].push({
-        day,
-        date,
-        time,
-        away: awayTeam,
-        home: homeTeam,
-      })
-    })
-
-    res.json({
-      success: true,
-      message: 'NFL weeks retrieved successfully',
-      season,
-      data: weekSchedule,
-    })
-  } catch {
-    return errorResponse(
-      res,
-      500,
-      'internal_error',
-      'Failed to get NFL weeks',
       correlationId
     )
   }

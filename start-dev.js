@@ -1,194 +1,106 @@
 #!/usr/bin/env node
 
 import { execSync, spawn } from 'child_process'
+import { readFileSync } from 'fs'
 
-/**
- * Start development environment with fallback to deployed functions
- */
+const SECRETS = ['OPENAI_API_KEY', 'ODDS_API_KEY']
 
-console.log('🚀 Starting development environment...')
-
-let emulatorProcess = null
-let frontendProcess = null
-let isEmulatorReady = false
-let emulatorStartAttempted = false
-
-/**
- * Check if the Firebase emulator is running and ready
- */
-async function checkEmulatorHealth() {
+function readProjectId() {
   try {
-    execSync(
-      'curl -s http://localhost:5001/nfl-parlay-builder-dev/us-central1/v2/health',
-      { stdio: 'pipe' }
-    )
-    return true
-  } catch (error) {
-    return false
+    const env = readFileSync('.env.local', 'utf8')
+    const match = env.match(/^VITE_FIREBASE_PROJECT_ID=(.+)$/m)
+    if (match) {
+      return match[1].trim()
+    }
+  } catch {
+    // fall through
   }
+  return 'nfl-parlay-builder-dev'
 }
 
-/**
- * Wait for emulator to be ready with retries
- */
-async function waitForEmulator(
-  initialWaitMs = 15000,
-  retryDelay = 2000,
-  maxRetries = 30
-) {
-  console.log('⏳ Waiting for Firebase emulator to be ready...')
+const projectId = readProjectId()
+const healthUrl = `http://localhost:5001/${projectId}/us-central1/api/health`
 
-  // Initial wait period
-  console.log(`⏳ Initial wait period: ${initialWaitMs / 1000}s...`)
-  await new Promise(resolve => setTimeout(resolve, initialWaitMs))
+let emulator = null
+let frontend = null
 
-  // Check if emulator is ready after initial wait
-  if (await checkEmulatorHealth()) {
-    console.log('✅ Firebase emulator is ready!')
-    return true
-  }
-
-  // Start retrying every 2 seconds
-  console.log('⏳ Initial wait complete, starting retry attempts...')
-
-  for (let i = 0; i < maxRetries; i++) {
-    if (await checkEmulatorHealth()) {
-      console.log('✅ Firebase emulator is ready!')
-      return true
-    }
-
-    if (i < maxRetries - 1) {
-      console.log(
-        `⏳ Emulator not ready yet, retrying in ${retryDelay / 1000}s... (${i + 1}/${maxRetries})`
-      )
-      await new Promise(resolve => setTimeout(resolve, retryDelay))
+function loadSecrets() {
+  const missing = []
+  for (const name of SECRETS) {
+    try {
+      const value = execSync(
+        `firebase functions:secrets:access ${name} --project ${projectId}`,
+        { encoding: 'utf8', stdio: 'pipe' }
+      ).trim()
+      if (value) {
+        process.env[name] = value
+      } else {
+        missing.push(name)
+      }
+    } catch {
+      missing.push(name)
     }
   }
+  return missing
+}
 
-  console.log(
-    '⚠️  Firebase emulator did not become ready within the timeout period'
-  )
+async function waitForEmulator(timeoutMs = 60_000) {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    try {
+      const res = await fetch(healthUrl)
+      if (res.ok) {
+        return true
+      }
+    } catch {
+      // not up yet
+    }
+    await new Promise(r => setTimeout(r, 1500))
+  }
   return false
 }
 
-/**
- * Start the frontend application
- */
 function startFrontend() {
-  console.log('🌐 Starting frontend...')
-  frontendProcess = spawn('npm', ['run', 'dev:frontend'], {
-    stdio: 'inherit',
-    shell: true,
-  })
-
-  frontendProcess.on('error', error => {
-    console.error('❌ Failed to start frontend:', error.message)
-    process.exit(1)
-  })
-
-  frontendProcess.on('exit', code => {
-    if (code !== 0) {
+  frontend = spawn('npm', ['run', 'dev:frontend'], { stdio: 'inherit', shell: true })
+  frontend.on('exit', code => {
+    if (code) {
       console.log(`Frontend exited with code ${code}`)
     }
   })
 }
 
-/**
- * Handle process termination
- */
-function setupProcessHandlers() {
-  process.on('SIGINT', () => {
-    console.log('\n🛑 Stopping development environment...')
-    if (frontendProcess) {
-      frontendProcess.kill('SIGINT')
-    }
-    if (emulatorProcess) {
-      emulatorProcess.kill('SIGINT')
-    }
-    process.exit(0)
-  })
-
-  process.on('SIGTERM', () => {
-    console.log('\n🛑 Stopping development environment...')
-    if (frontendProcess) {
-      frontendProcess.kill('SIGTERM')
-    }
-    if (emulatorProcess) {
-      emulatorProcess.kill('SIGTERM')
-    }
+for (const signal of ['SIGINT', 'SIGTERM']) {
+  process.on(signal, () => {
+    frontend?.kill(signal)
+    emulator?.kill(signal)
     process.exit(0)
   })
 }
 
-/**
- * Main startup sequence
- */
-async function startDevelopmentEnvironment() {
-  setupProcessHandlers()
+console.log(`Project: ${projectId}`)
+const missing = loadSecrets()
+if (missing.length > 0) {
+  console.log(
+    `Missing secrets: ${missing.join(', ')} — the emulator will run, but runs needing them will fail.`
+  )
+}
 
-  try {
-    // Get the OpenAI API key from Firebase Secret Manager
-    console.log('🔑 Loading OpenAI API key...')
-    const openaiApiKey = execSync(
-      'firebase functions:secrets:access OPENAI_API_KEY',
-      {
-        encoding: 'utf8',
-        stdio: 'pipe',
-      }
-    ).trim()
-
-    if (openaiApiKey) {
-      // Set the environment variable
-      process.env.OPENAI_API_KEY = openaiApiKey
-      console.log('✅ OpenAI API key loaded successfully')
-
-      // Start the Firebase emulator
-      console.log('🚀 Starting Firebase emulator...')
-      emulatorProcess = spawn(
-        'firebase',
-        ['emulators:start', '--only', 'functions'],
-        {
-          stdio: 'inherit',
-          shell: true,
-        }
-      )
-
-      emulatorProcess.on('error', error => {
-        console.log('⚠️  Emulator failed to start:', error.message)
-        console.log('📡 Will use deployed functions instead')
-        emulatorStartAttempted = true
-        startFrontend()
-      })
-
-      emulatorProcess.on('exit', code => {
-        if (code !== 0) {
-          console.log(`⚠️  Emulator exited with code ${code}`)
-          console.log('📡 Will use deployed functions instead')
-        }
-        emulatorStartAttempted = true
-      })
-
-      // Wait for emulator to be ready
-      emulatorStartAttempted = true
-      isEmulatorReady = await waitForEmulator(15000, 2000, 30)
-
-      if (isEmulatorReady) {
-        console.log('✅ Using local Firebase functions')
-      } else {
-        console.log('📡 Using deployed Firebase functions')
-      }
-    } else {
-      console.log('⚠️  No OpenAI API key found')
-      console.log('📡 Will use deployed functions instead')
-    }
-  } catch (error) {
-    console.log('⚠️  Error getting OpenAI API key:', error.message)
-    console.log('📡 Will use deployed functions instead')
+// Firestore runs in the emulator too so agent runs and rate limits stay local.
+emulator = spawn(
+  'firebase',
+  ['emulators:start', '--only', 'functions,firestore', '--project', projectId],
+  { stdio: 'inherit', shell: true }
+)
+emulator.on('exit', code => {
+  if (code) {
+    console.log(`Emulator exited with code ${code}`)
   }
+})
 
-  // Start the frontend after emulator status is determined
-  startFrontend()
-}
-
-// Start the development environment
-startDevelopmentEnvironment()
+const ready = await waitForEmulator()
+console.log(
+  ready
+    ? `Functions emulator ready at ${healthUrl}`
+    : 'Functions emulator did not become ready; the app will fail to load games until it does.'
+)
+startFrontend()

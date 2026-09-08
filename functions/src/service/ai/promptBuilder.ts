@@ -1,185 +1,160 @@
-import { GameItem } from './generateParlay'
+import type { ScheduleGame, TeamStats } from '../../providers/espn/types'
+import type { OddsSnapshot } from '../../providers/odds/client'
+import { formatAmerican } from '../../utils/odds'
 import { BetTypeEnum } from './schemas'
 
-// All available bet types - will be filtered by gameData.betType in the future
-const ALL_BET_TYPES = BetTypeEnum.options
+export type RiskLevel = 'conservative' | 'moderate' | 'aggressive'
 
-function getAvailableBetTypes(_gameData: GameItem): string {
-  return ALL_BET_TYPES.join(', ')
+export interface PromptInput {
+  game: ScheduleGame
+  homeStats: TeamStats | null
+  awayStats: TeamStats | null
+  odds: OddsSnapshot | null
+  riskLevel: RiskLevel
 }
 
-function getRiskLevelGuidance(
-  riskLevel: 'conservative' | 'moderate' | 'aggressive'
-): string {
-  switch (riskLevel) {
-    case 'conservative':
-      return 'Focus on safer bets with higher probability (60-75% confidence). Prefer spreads, totals, and established player props. Avoid long-shot bets.'
-    case 'moderate':
-      return 'Balance between safety and value. Mix of spreads, totals, and player props with 50-70% confidence. Include some moderate risk/reward bets.'
-    case 'aggressive':
-      return 'Higher risk/reward bets acceptable. Include player props, anytime TDs, and longer odds. Confidence can range 40-65% for higher payout potential.'
-    default:
-      return 'Balance safety with value in your selections.'
+const RISK_GUIDANCE: Record<RiskLevel, string> = {
+  conservative:
+    'Prefer higher-probability legs (confidence 0.6-0.75): spreads, totals, and established player props. No long shots.',
+  moderate:
+    'Balance safety and value (confidence 0.5-0.7). Mix a market leg with player props; one moderate-payout leg is fine.',
+  aggressive:
+    'Higher risk/reward is acceptable (confidence 0.4-0.65). Anytime TDs, longer player props, and plus-money legs are welcome.',
+}
+
+function formatKickoff(iso: string): string {
+  return new Date(iso).toLocaleString('en-US', {
+    timeZone: 'America/New_York',
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+}
+
+function venueLine(game: ScheduleGame): string {
+  if (!game.venue) {
+    return 'Venue: not available'
   }
+  const { name, city, state, indoor } = game.venue
+  const flags = [indoor ? 'indoor' : 'outdoor', game.neutralSite && 'neutral site']
+    .filter(Boolean)
+    .join(', ')
+  return `Venue: ${name}, ${city}, ${state} (${flags})`
 }
 
-function buildGameContext(gameData: GameItem): string {
-  let context =
-    `\nGame Context:` +
-    `\n- Away Team: ${gameData.away.name} (${gameData.away.abbrev}) - Record: ${gameData.away.overallRecord} (Home: ${gameData.away.homeRecord}, Road: ${gameData.away.roadRecord})` +
-    `\n- Home Team: ${gameData.home.name} (${gameData.home.abbrev}) - Record: ${gameData.home.overallRecord} (Home: ${gameData.home.homeRecord}, Road: ${gameData.home.roadRecord})` +
-    `\n- Venue: ${gameData.venue ? `${gameData.venue.name}, ${gameData.venue.city}, ${gameData.venue.state}` : 'Not available'}` +
-    `\n- Week: ${gameData.week}` +
-    `\n- Game Status: ${gameData.status}` +
-    `\n- Weather: ${gameData.weather ? `${gameData.weather.condition}, ${gameData.weather.temperatureF}°F, ${gameData.weather.windMph} mph winds` : 'Not available'}` +
-    `\n- Game Leaders: ${
-      gameData.leaders
-        ? `Passing: ${gameData.leaders.passing?.name || 'N/A'} (${gameData.leaders.passing?.stats || 'N/A'}), ` +
-          `Rushing: ${gameData.leaders.rushing?.name || 'N/A'} (${gameData.leaders.rushing?.stats || 'N/A'}), ` +
-          `Receiving: ${gameData.leaders.receiving?.name || 'N/A'} (${gameData.leaders.receiving?.stats || 'N/A'})`
-        : 'Not available'
-    }`
-
-  // Add detailed team statistics if available
-  if (gameData.home.stats && gameData.away.stats) {
-    const homeStats = gameData.home.stats
-    const awayStats = gameData.away.stats
-
-    // PFR format - use ranks and include numeric values when available
-    const getOffenseStats = (stats: GameItem['home']['stats']) => ({
-      totalYards: {
-        rank: stats?.offense?.rankings.totalYardsRank || 0,
-        yardsPerGame: stats?.offense?.values?.totalYards || 0,
-      },
-      passingYards: {
-        rank: stats?.offense?.rankings.passingYardsRank || 0,
-        yardsPerGame: stats?.offense?.values?.passingYards || 0,
-      },
-      rushingYards: {
-        rank: stats?.offense?.rankings.rushingYardsRank || 0,
-        yardsPerGame: stats?.offense?.values?.rushingYards || 0,
-      },
-      pointsScored: {
-        rank: stats?.offense?.rankings.pointsScoredRank || 0,
-        yardsPerGame: stats?.offense?.values?.pointsPerGame || 0,
-      },
-    })
-
-    const getDefenseStats = (stats: GameItem['home']['stats']) => ({
-      pointsAllowed: {
-        rank: stats?.defense?.rankings.pointsAllowedRank || 0,
-        yardsPerGame: stats?.defense?.values?.pointsAllowed || 0,
-      },
-      totalYardsAllowed: {
-        rank: stats?.defense?.rankings.totalYardsAllowedRank || 0,
-        yardsPerGame: stats?.defense?.values?.totalYardsAllowed || 0,
-      },
-      turnovers: {
-        rank: stats?.defense?.rankings.turnoversRank || 0,
-        total: stats?.defense?.values?.takeaways || 0,
-      },
-    })
-
-    const homeOffense = getOffenseStats(homeStats)
-    const homeDefense = getDefenseStats(homeStats)
-    const awayOffense = getOffenseStats(awayStats)
-    const awayDefense = getDefenseStats(awayStats)
-
-    context +=
-      `\n\nDetailed Team Statistics:` +
-      `\n\nHome Team (${gameData.home.name}) Season Performance:` +
-      `\n- Offensive Rankings: Total Yards #${homeOffense.totalYards.rank} (${homeOffense.totalYards.yardsPerGame.toFixed(1)} YPG), ` +
-      `Passing #${homeOffense.passingYards.rank} (${homeOffense.passingYards.yardsPerGame.toFixed(1)} YPG), ` +
-      `Rushing #${homeOffense.rushingYards.rank} (${homeOffense.rushingYards.yardsPerGame.toFixed(1)} YPG), ` +
-      `Points #${homeOffense.pointsScored.rank} (${homeOffense.pointsScored.yardsPerGame.toFixed(1)} PPG)` +
-      `\n- Defensive Rankings: Points Allowed #${homeDefense.pointsAllowed.rank} (${homeDefense.pointsAllowed.yardsPerGame.toFixed(1)} PPG), ` +
-      `Total Yards Allowed #${homeDefense.totalYardsAllowed.rank} (${homeDefense.totalYardsAllowed.yardsPerGame.toFixed(1)} YPG), ` +
-      `Turnovers #${homeDefense.turnovers.rank} (${homeDefense.turnovers.total} total)` +
-      `\n\nAway Team (${gameData.away.name}) Season Performance:` +
-      `\n- Offensive Rankings: Total Yards #${awayOffense.totalYards.rank} (${awayOffense.totalYards.yardsPerGame.toFixed(1)} YPG), ` +
-      `Passing #${awayOffense.passingYards.rank} (${awayOffense.passingYards.yardsPerGame.toFixed(1)} YPG), ` +
-      `Rushing #${awayOffense.rushingYards.rank} (${awayOffense.rushingYards.yardsPerGame.toFixed(1)} YPG), ` +
-      `Points #${awayOffense.pointsScored.rank} (${awayOffense.pointsScored.yardsPerGame.toFixed(1)} PPG)` +
-      `\n- Defensive Rankings: Points Allowed #${awayDefense.pointsAllowed.rank} (${awayDefense.pointsAllowed.yardsPerGame.toFixed(1)} PPG), ` +
-      `Total Yards Allowed #${awayDefense.totalYardsAllowed.rank} (${awayDefense.totalYardsAllowed.yardsPerGame.toFixed(1)} YPG), ` +
-      `Turnovers #${awayDefense.turnovers.rank} (${awayDefense.turnovers.total} total)`
+function weatherLine(game: ScheduleGame): string {
+  if (game.venue?.indoor) {
+    return 'Weather: indoor stadium, not a factor'
   }
-
-  return context
+  if (!game.weather) {
+    return 'Weather: not available'
+  }
+  return `Weather at kickoff: ${game.weather.condition}, ${game.weather.temperatureF}°F`
 }
 
-function buildAnalysisGuidance(): string {
+function statLine(label: string, s: { value: number; rank: number }): string {
+  const rank = s.rank > 0 ? ` (#${s.rank})` : ''
+  return `${label} ${s.value.toFixed(1)}${rank}`
+}
+
+function teamStatsBlock(name: string, stats: TeamStats | null): string {
+  if (!stats) {
+    return `${name}: statistics not available`
+  }
+  const o = stats.offense
+  const d = stats.defense
   return (
-    `\n\nProvide a comprehensive matchup analysis considering:` +
-    `\n- Team records, recent form, and head-to-head history` +
-    `\n- Venue factors (home field advantage, weather impact)` +
-    `\n- Key player matchups and injury reports` +
-    `\n- Offensive/defensive strengths and weaknesses` +
-    `\n- Coaching strategies and game plan tendencies` +
-    `\n- Weather conditions and their impact on gameplay` +
-    `\n- Recent performance trends and momentum` +
-    `\n- Statistical advantages and situational factors` +
-    `\n- Player usage patterns and target distribution` +
-    `\n- Defensive schemes and how they match up against offensive strengths` +
-    `\n- Red zone efficiency and goal line situations` +
-    `\n- Time of possession and pace of play factors`
+    `${name} (${stats.season} season, ${stats.gamesPlayed} games)\n` +
+    `- Offense per game: ${[
+      statLine('total yards', o.totalYardsPerGame),
+      statLine('passing', o.passingYardsPerGame),
+      statLine('rushing', o.rushingYardsPerGame),
+      statLine('points', o.pointsPerGame),
+    ].join(', ')}\n` +
+    `- Defense per game: ${[
+      statLine('yards allowed', d.yardsAllowedPerGame),
+      statLine('pass yards allowed', d.passingYardsAllowedPerGame),
+      statLine('rush yards allowed', d.rushingYardsAllowedPerGame),
+      statLine('points allowed', d.pointsAllowedPerGame),
+    ].join(', ')}, takeaways ${d.takeaways.value} (#${d.takeaways.rank})`
   )
 }
 
-function buildLegGenerationRequirements(
-  riskLevel: 'conservative' | 'moderate' | 'aggressive'
-): string {
+function statsSection(input: PromptInput): string {
+  const { game, homeStats, awayStats } = input
+  const priorSeason = [homeStats, awayStats].some(
+    s => s && s.season < game.season
+  )
+  const note = priorSeason
+    ? ` Note: ${game.season} games have not been played yet, so prior-season numbers are shown.`
+    : ''
   return (
-    `\n\nCRITICAL REQUIREMENTS FOR PARLAY LEGS - DATA-DRIVEN SELECTION:` +
-    `\n- Each leg MUST be directly supported by the specific stats and data provided above` +
-    `\n- Risk level ${riskLevel}: ${getRiskLevelGuidance(riskLevel)}` +
-    `\n- Base selections on the actual team records, player stats, and venue data shown` +
-    `\n- Use the game leaders' performance data to inform player prop selections` +
-    `\n- Consider the weather conditions and venue factors in your bet choices` +
-    `\n- Match bet types to the specific strengths/weaknesses identified in the data` +
-    `\n- If a team has strong home/road records, factor that into spread/total bets` +
-    `\n- Use the actual player names and stats from the game leaders section` +
-    `\n- Ensure all 3 legs work together based on the same analytical foundation` +
-    `\n- Avoid contradictory bets (e.g., don't bet over total AND under total)` +
-    `\n- Base odds on realistic expectations given the specific matchup data` +
-    `\n- Confidence levels should reflect the strength of the supporting data` +
-    `\n- If weather data shows wind/conditions, factor into passing/rushing bets` +
-    `\n- Use venue-specific advantages (home field, altitude, etc.) in selections` +
-    `\n\nSELECTION FORMAT EXAMPLES:` +
-    `\n- Team bets: "Seahawks -3.5", "Bills Over 24.5 Points", "Chiefs Moneyline"` +
-    `\n- Player props: "Josh Allen Over 250 Passing Yards", "Derrick Henry Under 100 Rushing Yards", "Travis Kelce Anytime TD"` +
-    `\n- Game totals: "Over 47.5 Total Points", "Under 21.5 First Half Points"` +
-    `\n- ALWAYS use descriptive strings, never objects or numbers for selection field`
+    `Team statistics (league rank in parentheses, 1 = best).${note}\n` +
+    `${teamStatsBlock(game.home.name, homeStats)}\n` +
+    `${teamStatsBlock(game.away.name, awayStats)}`
   )
 }
 
-function buildOutputFormat(gameData: GameItem): string {
+function linesSection(input: PromptInput): string {
+  const { game, odds } = input
+  if (!odds) {
+    return (
+      'Betting lines: NOT AVAILABLE. Any spread, total, or moneyline leg is therefore an estimate: ' +
+      'say so explicitly in its reasoning and keep its confidence at or below 0.6.'
+    )
+  }
+  const rows: string[] = []
+  if (odds.spread) {
+    const { line, homePrice, awayPrice } = odds.spread
+    rows.push(
+      `- Spread: ${game.home.name} ${formatAmerican(line)} (${formatAmerican(homePrice)}) / ${game.away.name} ${formatAmerican(-line)} (${formatAmerican(awayPrice)})`
+    )
+  }
+  if (odds.total) {
+    const { line, overPrice, underPrice } = odds.total
+    rows.push(
+      `- Total: ${line} — Over (${formatAmerican(overPrice)}) / Under (${formatAmerican(underPrice)})`
+    )
+  }
+  if (odds.moneyline) {
+    rows.push(
+      `- Moneyline: ${game.home.name} (${formatAmerican(odds.moneyline.home)}) / ${game.away.name} (${formatAmerican(odds.moneyline.away)})`
+    )
+  }
   return (
-    `\n\nOutput JSON with fields: ` +
-    `"legs" (array of 3) with objects {betType,selection(STRING describing the bet),odds(AS NUMBER),confidence(0..1),reasoning(2-3 sentences explaining why this bet was chosen, citing specific stats, records, or data points from the game context),team(STRING with the team name for this bet - use either "${gameData.home.name}" or "${gameData.away.name}")} and ` +
-    `"analysisSummary" {matchupSummary(detailed 5-7 sentences with comprehensive analysis),keyFactors[](3-5 specific factors),gamePrediction{winner,projectedScore{home,away},winProbability}}. ` +
-    `\n\nUse these bet types: ${getAvailableBetTypes(gameData)} ` +
-    `\n\nIMPORTANT: ` +
-    `- odds must be numbers (e.g., -110, not "-110")` +
-    `- selection must be a STRING describing the bet (e.g., "Seahawks Over 24.5 Points", "Josh Allen Over 250 Passing Yards", "Bills -3.5")` +
-    `- team must be a STRING with the exact team name: "${gameData.home.name}" or "${gameData.away.name}"` +
-    `- Do NOT use objects or numbers for selection field` +
-    `\n\nReturn ONLY JSON, no prose.`
+    `Betting lines from ${odds.bookmaker} (updated ${odds.lastUpdate}):\n${rows.join('\n')}\n` +
+    'LINE RULES: a spread leg must use exactly this spread and price for the chosen team; a total leg must use exactly this total ' +
+    'and the matching over/under price; a moneyline leg must use exactly this price. Never create alternate lines. ' +
+    'Player props have no lines provided: set a realistic line and price yourself and keep confidence modest.'
   )
 }
 
-export function buildParlayPrompt(params: {
-  gameData: GameItem
-  riskLevel: 'conservative' | 'moderate' | 'aggressive'
-}): string {
-  const { gameData, riskLevel } = params
-
-  const startTime = gameData.dateTime
-    ? new Date(gameData.dateTime).toLocaleDateString()
-    : 'TBD'
-  const venueName = gameData.venue?.name || 'TBD'
-  const venueCity = gameData.venue?.city || 'TBD'
-  const venueState = gameData.venue?.state || 'TBD'
-
-  return `Generate a 3-leg NFL parlay for this game: ${gameData.away.name} @ ${gameData.home.name} (Week ${gameData.week}, ${startTime}) at ${venueName} in ${venueCity}, ${venueState}.${buildGameContext(gameData)}\n\nRisk level: ${riskLevel}.${buildAnalysisGuidance()}\n\nGenerate realistic betting lines and selections based on this deep analysis.${buildLegGenerationRequirements(riskLevel)}${buildOutputFormat(gameData)}`
+export function buildParlayPrompt(input: PromptInput): string {
+  const { game, riskLevel } = input
+  return [
+    `Generate a 3-leg NFL parlay for ${game.away.name} @ ${game.home.name} — Week ${game.week}, ${game.season} season, kickoff ${formatKickoff(game.dateTime)} ET.`,
+    venueLine(game),
+    weatherLine(game),
+    `Records: ${game.home.name} ${game.home.record} (home ${game.home.homeRecord}); ${game.away.name} ${game.away.record} (road ${game.away.roadRecord}).`,
+    '',
+    statsSection(input),
+    '',
+    linesSection(input),
+    '',
+    `Risk level: ${riskLevel}. ${RISK_GUIDANCE[riskLevel]}`,
+    '',
+    'Leg requirements:',
+    '- Every leg must cite specific numbers from the data above in its reasoning (2-3 sentences).',
+    '- No contradictory legs: at most one spread leg, one total leg, and one moneyline leg; never both sides of a market.',
+    `- "team" must be exactly "${game.home.name}" or "${game.away.name}" (for a total, use the team the leg leans on).`,
+    '- "line": for a spread, the chosen team\'s spread from that team\'s perspective (negative = favorite); for a total or player prop, the threshold number; null for a moneyline or anytime/first TD.',
+    '- "side": "over" or "under" for totals and yardage/reception props; null otherwise.',
+    '- "odds": American price as an integer (e.g. -110, 145).',
+    '- "selection": a short human-readable description, e.g. "Chiefs -3.5", "Over 44.5", "Patrick Mahomes Over 262.5 Passing Yards".',
+    `- Available bet types: ${BetTypeEnum.options.join(', ')}.`,
+    '',
+    'Analysis: matchupSummary of 5-7 sentences citing the data; 3-5 keyFactors; gamePrediction with the winner\'s exact team name, a projected score, and the winner\'s win probability.',
+  ].join('\n')
 }

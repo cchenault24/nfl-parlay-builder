@@ -150,6 +150,7 @@ export class CacheClient {
     const requestPromise = this.executeWithCollapse(
       key,
       provider,
+      params,
       factory,
       options
     )
@@ -169,13 +170,14 @@ export class CacheClient {
   private async executeWithCollapse<T>(
     key: string,
     provider: string,
+    params: Record<string, unknown>,
     factory: () => Promise<T>,
     options: CacheOptions
   ): Promise<T> {
     const startTime = Date.now()
     try {
       const result = await factory()
-      await this.set(provider, {}, result, options) // params will be extracted from key
+      await this.set(provider, params, result, options)
       observe('provider_duration_ms', Date.now() - startTime)
       inc('provider_calls_success')
       return result

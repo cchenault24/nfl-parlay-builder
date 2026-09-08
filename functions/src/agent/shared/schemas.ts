@@ -1,37 +1,29 @@
 import { z } from 'zod'
-import { AIGenerateResponseSchema } from '../../service/ai/schemas'
+import type { ScheduleGame, TeamStats } from '../../providers/espn/types'
+import type { OddsSnapshot } from '../../providers/odds/client'
+import type { AIAnalysis, AILeg } from '../../service/ai/schemas'
 
-export const AgentToolInputSchema = z.object({
-  name: z.string(),
-  params: z.record(z.any()).default({}),
-})
-
-export const AgentToolResultSchema = z.object({
-  name: z.string(),
-  ok: z.boolean(),
-  durationMs: z.number().nonnegative(),
-  data: z.unknown().optional(),
-  error: z
-    .object({ code: z.string(), message: z.string(), retriable: z.boolean() })
-    .optional(),
-})
+export const AgentStepTypeSchema = z.enum(['plan', 'tool', 'draft', 'validate'])
+export const AgentToolNameSchema = z.enum(['espn_game', 'espn_team_stats', 'odds'])
+export const StepStatusSchema = z.enum(['running', 'ok', 'failed'])
 
 export const AgentStepSchema = z.object({
   id: z.string(),
-  type: z.enum(['plan', 'tool', 'draft', 'validate', 'refine', 'final']),
+  type: AgentStepTypeSchema,
+  tool: AgentToolNameSchema.optional(),
+  status: StepStatusSchema,
   startedAt: z.string(),
   finishedAt: z.string().optional(),
-  tools: z.array(AgentToolResultSchema).optional(),
-  tokensInput: z.number().int().nonnegative().default(0),
-  tokensOutput: z.number().int().nonnegative().default(0),
+  durationMs: z.number().nonnegative().optional(),
   notes: z.string().optional(),
+  tokensInput: z.number().int().nonnegative().optional(),
+  tokensOutput: z.number().int().nonnegative().optional(),
+  error: z.object({ code: z.string(), message: z.string() }).optional(),
 })
 
 export const AgentBudgetSchema = z.object({
   maxRunMs: z.number().int().positive().default(90_000),
-  maxModelTokens: z.number().int().positive().default(20_000),
-  maxSteps: z.number().int().positive().default(8),
-  perToolTimeoutMs: z.number().int().positive().default(2_000),
+  perToolTimeoutMs: z.number().int().positive().default(15_000),
 })
 
 export const AgentRunStatusSchema = z.enum([
@@ -42,127 +34,24 @@ export const AgentRunStatusSchema = z.enum([
   'failed',
 ])
 
-// Enhanced game context schema for agent input
-export const GameContextSchema = z.object({
-  gameId: z.string(),
-  week: z.number().int().positive(),
-  dateTime: z.string(),
-  status: z.enum(['scheduled', 'in_progress', 'final', 'postponed']),
-  home: z.object({
-    teamId: z.string(),
-    name: z.string(),
-    abbrev: z.string(),
-    record: z.string().optional(),
-    overallRecord: z.string().optional(),
-    homeRecord: z.string().optional(),
-    roadRecord: z.string().optional(),
-  }),
-  away: z.object({
-    teamId: z.string(),
-    name: z.string(),
-    abbrev: z.string(),
-    record: z.string().optional(),
-    overallRecord: z.string().optional(),
-    homeRecord: z.string().optional(),
-    roadRecord: z.string().optional(),
-  }),
-  venue: z
-    .object({
-      name: z.string(),
-      city: z.string(),
-      state: z.string(),
-    })
-    .optional(),
-})
+export const RiskLevelSchema = z.enum(['conservative', 'moderate', 'aggressive'])
 
-// Enhanced result schema for agent runs with tool responses
-export const AgentResultSchema = z.object({
-  parlay: AIGenerateResponseSchema,
-  gameData: z.object({
-    gameId: z.string(),
-    week: z.number().int().positive(),
-    dateTime: z.string(),
-    status: z.enum(['scheduled', 'in_progress', 'final', 'postponed']),
-    home: z.object({
-      teamId: z.string(),
-      name: z.string(),
-      abbrev: z.string(),
-      record: z.string(),
-      overallRecord: z.string(),
-      homeRecord: z.string(),
-      roadRecord: z.string(),
-      stats: z.any().nullable(),
-    }),
-    away: z.object({
-      teamId: z.string(),
-      name: z.string(),
-      abbrev: z.string(),
-      record: z.string(),
-      overallRecord: z.string(),
-      homeRecord: z.string(),
-      roadRecord: z.string(),
-      stats: z.any().nullable(),
-    }),
-    venue: z
-      .object({
-        name: z.string(),
-        city: z.string(),
-        state: z.string(),
-      })
-      .optional(),
-    weather: z
-      .object({
-        condition: z.string(),
-        temperatureF: z.number(),
-        windMph: z.number(),
-      })
-      .nullable(),
-    leaders: z
-      .object({
-        passing: z
-          .object({
-            name: z.string(),
-            stats: z.string(),
-            value: z.number(),
-          })
-          .optional(),
-        rushing: z
-          .object({
-            name: z.string(),
-            stats: z.string(),
-            value: z.number(),
-          })
-          .optional(),
-        receiving: z
-          .object({
-            name: z.string(),
-            stats: z.string(),
-            value: z.number(),
-          })
-          .optional(),
-      })
-      .optional(),
-  }),
-  toolResponses: z
-    .object({
-      weather: z
-        .object({
-          condition: z.string(),
-          temperatureF: z.number(),
-          windMph: z.number(),
-        })
-        .optional(),
-      odds: z
-        .object({
-          moneylineHome: z.number(),
-          moneylineAway: z.number(),
-          totalPoints: z.number(),
-          spreadHome: z.number(),
-        })
-        .optional(),
-    })
-    .optional(),
-})
+export type SourceStatus = 'ok' | 'unavailable' | 'indoor'
+
+export interface AgentResult {
+  parlay: {
+    legs: AILeg[]
+    combinedOdds: number
+    parlayConfidence: number
+    gameSummary: AIAnalysis
+  }
+  game: ScheduleGame
+  homeStats: TeamStats | null
+  awayStats: TeamStats | null
+  odds: OddsSnapshot | null
+  sources: { stats: SourceStatus; odds: SourceStatus; weather: SourceStatus }
+  model: string
+}
 
 export const AgentRunSchema = z.object({
   id: z.string(),
@@ -173,71 +62,23 @@ export const AgentRunSchema = z.object({
   correlationId: z.string(),
   budget: AgentBudgetSchema,
   input: z.object({
-    gameId: z.string(),
-    gameContext: GameContextSchema.optional(), // Rich game context
-    numLegs: z.number().int().positive(),
-    riskLevel: z.enum(['low', 'medium', 'high']).optional(),
+    gameId: z.string().min(1),
+    riskLevel: RiskLevelSchema,
   }),
   tokensInput: z.number().int().nonnegative().default(0),
   tokensOutput: z.number().int().nonnegative().default(0),
-  steps: z.array(AgentStepSchema).default([]),
-  result: AgentResultSchema.optional(),
+  result: z.custom<AgentResult>().optional(),
   error: z
     .object({
       code: z.string(),
       message: z.string(),
-      details: z.any().optional(),
+      details: z.unknown().optional(),
     })
     .optional(),
 })
 
 export type AgentRun = z.infer<typeof AgentRunSchema>
 export type AgentBudget = z.infer<typeof AgentBudgetSchema>
-export type AgentToolResult = z.infer<typeof AgentToolResultSchema>
 export type AgentStep = z.infer<typeof AgentStepSchema>
+export type AgentToolName = z.infer<typeof AgentToolNameSchema>
 export type AgentRunStatus = z.infer<typeof AgentRunStatusSchema>
-export type GameContext = z.infer<typeof GameContextSchema>
-export type AgentResult = z.infer<typeof AgentResultSchema>
-
-export const AIGenerateResponseStrictSchema =
-  AIGenerateResponseSchema.superRefine((val, ctx) => {
-    try {
-      if (!Array.isArray(val.legs) || val.legs.length !== 3) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'legs must have length 3',
-          path: ['legs'],
-        })
-      }
-      for (let i = 0; i < val.legs.length; i++) {
-        const leg = val.legs[i]
-        const absOdds = Math.abs(leg.odds)
-        if (absOdds < 100 || absOdds > 20000) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: 'leg odds out of sane bounds',
-            path: ['legs', i, 'odds'],
-          })
-        }
-        if (!leg.selection || typeof leg.selection !== 'string') {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: 'selection must be non-empty string',
-            path: ['legs', i, 'selection'],
-          })
-        }
-        if (!leg.team || typeof leg.team !== 'string') {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: 'team must be non-empty string',
-            path: ['legs', i, 'team'],
-          })
-        }
-      }
-    } catch {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'sanity checks failed',
-      })
-    }
-  })

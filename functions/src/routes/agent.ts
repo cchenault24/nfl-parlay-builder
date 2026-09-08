@@ -4,13 +4,14 @@ import {
   AgentBudgetSchema,
   AgentRun,
   AgentRunSchema,
+  RiskLevelSchema,
 } from '../agent/shared/schemas'
 import {
-  appendStep,
   createRun,
   getRun,
   listSteps,
   updateRun,
+  upsertStep,
 } from '../agent/store/firestore'
 import { verifyAuth, type AuthedRequest } from '../middleware/auth'
 import {
@@ -18,236 +19,166 @@ import {
   rateLimitByUser,
 } from '../middleware/rateLimit'
 import { log } from '../observability/logger'
-import { inc, observe } from '../observability/metrics'
 import { errorResponse } from '../utils/errors'
 
 export const agentRouter = express.Router()
 
-// POST /agent/runs -> { runId, rateLimitInfo? }
+const RUNS_PER_HOUR = 20
+const RATE_WINDOW_MS = 60 * 60_000
+const isEmulator = () =>
+  !!process.env.FUNCTIONS_EMULATOR || !!process.env.FIREBASE_AUTH_EMULATOR_HOST
+
+const persist = { upsertStep, updateRun, getRun }
+
+function rateLimitFor(uid: string) {
+  return isEmulator()
+    ? Promise.resolve({
+        remaining: 9999,
+        total: 9999,
+        resetTime: new Date(),
+        currentCount: 0,
+      })
+    : getUserRateLimitStatus(uid, '/agent/runs', RUNS_PER_HOUR, RATE_WINDOW_MS)
+}
+
 agentRouter.post(
   '/agent/runs',
   verifyAuth,
-  ...(process.env.FUNCTIONS_EMULATOR || process.env.FIREBASE_AUTH_EMULATOR_HOST
-    ? []
-    : [rateLimitByUser(20, 60 * 60_000)]),
+  ...(isEmulator() ? [] : [rateLimitByUser(RUNS_PER_HOUR, RATE_WINDOW_MS)]),
   async (req: express.Request, res: express.Response) => {
-    const auth = req as AuthedRequest
-    const correlationId = auth.correlationId
-    const user = auth.user
-    log.info('api.agent.create', { correlationId, userId: user?.uid })
+    const { correlationId, user } = req as AuthedRequest
     if (!user) {
-      return errorResponse(
-        res,
-        401,
-        'unauthorized',
-        'Missing user',
-        correlationId
-      )
+      return errorResponse(res, 401, 'unauthorized', 'Missing user', correlationId)
     }
-
-    const budget = AgentBudgetSchema.partial().parse(req.body?.budget || {})
-    const rlRaw = String(req.body?.riskLevel || 'medium').toLowerCase()
-    const normalizedRisk = ((): 'low' | 'medium' | 'high' => {
-      if (rlRaw === 'conservative' || rlRaw === 'low') {
-        return 'low'
-      }
-      if (rlRaw === 'aggressive' || rlRaw === 'high') {
-        return 'high'
-      }
-      return 'medium'
-    })()
-
-    const run: AgentRun = AgentRunSchema.parse({
-      id: `run_${Math.random().toString(36).slice(2)}`,
-      userId: user.uid,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      status: 'queued',
-      correlationId,
-      budget: {
-        maxRunMs: budget.maxRunMs ?? 90_000,
-        maxModelTokens: budget.maxModelTokens ?? 20_000,
-        maxSteps: budget.maxSteps ?? 8,
-        perToolTimeoutMs: budget.perToolTimeoutMs ?? 2_000,
-      },
-      input: {
-        gameId: String(req.body?.gameId || ''),
-        ...(req.body?.gameContext && { gameContext: req.body.gameContext }), // Only include if defined
-        numLegs: Number(req.body?.numLegs || 3),
-        riskLevel: normalizedRisk,
-      },
-      tokensInput: 0,
-      tokensOutput: 0,
-      steps: [],
-    })
-
-    if (!run.input.gameId || run.input.numLegs !== 3) {
+    const gameId = String(req.body?.gameId ?? '').trim()
+    const risk = RiskLevelSchema.safeParse(req.body?.riskLevel ?? 'moderate')
+    if (!gameId || !risk.success) {
       return errorResponse(
         res,
         400,
         'validation_error',
-        'gameId required and numLegs must be 3',
+        'gameId is required and riskLevel must be conservative, moderate, or aggressive',
         correlationId
       )
     }
+
+    const now = new Date().toISOString()
+    const run: AgentRun = AgentRunSchema.parse({
+      id: `run_${Math.random().toString(36).slice(2)}`,
+      userId: user.uid,
+      createdAt: now,
+      updatedAt: now,
+      status: 'queued',
+      correlationId,
+      budget: AgentBudgetSchema.parse({}),
+      input: { gameId, riskLevel: risk.data },
+    })
     await createRun(run)
+    log.info('api.agent.create', { correlationId, runId: run.id, userId: user.uid })
+    res.json({ runId: run.id, rateLimitInfo: await rateLimitFor(user.uid) })
 
-    // Include current rate limit status in response for frontend UX
-    if (
-      process.env.FUNCTIONS_EMULATOR ||
-      process.env.FIREBASE_AUTH_EMULATOR_HOST
-    ) {
-      res.json({ runId: run.id })
-    } else {
-      const rateLimitInfo = await getUserRateLimitStatus(
-        user.uid,
-        '/agent/runs',
-        20,
-        60 * 60_000
-      )
-      res.json({ runId: run.id, rateLimitInfo })
-    }
-
-    // Fire and forget execution
-    ;(async () => {
-      try {
-        const t0 = Date.now()
-        await updateRun(run.id, {
-          status: 'running',
-          updatedAt: new Date().toISOString(),
+    updateRun(run.id, { status: 'running' })
+      .then(() => runAgent(run, persist))
+      .catch(async e => {
+        log.error('api.agent.orchestrator_error', {
+          correlationId,
+          runId: run.id,
+          error: { code: 'orchestrator_error', message: String(e) },
         })
-        await runAgent(run, { appendStep, updateRun })
-        observe('api_create_to_finish_ms', Date.now() - t0)
-      } catch (e) {
         await updateRun(run.id, {
           status: 'failed',
-          updatedAt: new Date().toISOString(),
-          error: {
-            code: 'orchestrator_error',
-            message: e instanceof Error ? e.message : String(e),
-          },
+          error: { code: 'orchestrator_error', message: String(e) },
         })
-        inc('runs_failed')
-      }
-    })()
+      })
   }
 )
 
-// GET /agent/runs/:id
 agentRouter.get('/agent/runs/:id', verifyAuth, async (req, res) => {
-  const auth = req as AuthedRequest
-  const correlationId = auth.correlationId
+  const { correlationId, user } = req as AuthedRequest
   const run = await getRun(req.params.id)
-  if (!run) {
+  if (!run || run.userId !== user?.uid) {
     return errorResponse(res, 404, 'not_found', 'Run not found', correlationId)
   }
   res.json(run)
 })
 
-// GET /agent/runs/:id/stream (SSE)
 agentRouter.get('/agent/runs/:id/stream', verifyAuth, async (req, res) => {
-  const auth = req as AuthedRequest
-  const correlationId = auth.correlationId
+  const { correlationId, user } = req as AuthedRequest
   const runId = req.params.id
-  log.info('api.agent.stream.start', { correlationId, runId })
   const run = await getRun(runId)
-  if (!run) {
+  if (!run || run.userId !== user?.uid) {
     return errorResponse(res, 404, 'not_found', 'Run not found', correlationId)
   }
+  log.info('api.agent.stream.start', { correlationId, runId })
 
   res.setHeader('Content-Type', 'text/event-stream')
   res.setHeader('Cache-Control', 'no-cache, no-transform')
   res.setHeader('Connection', 'keep-alive')
   res.flushHeaders?.()
 
-  let lastSent = 0
+  const send = (event: string, data: unknown) =>
+    res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+  const sentSteps = new Map<string, string>()
+  let lastStatus: string | undefined
+
+  const finish = () => {
+    clearInterval(interval)
+    res.end()
+  }
+  req.on('close', () => clearInterval(interval))
+
   const interval = setInterval(async () => {
     try {
       const steps = await listSteps(runId)
-      const toSend = steps.slice(lastSent)
-      for (const s of toSend) {
-        res.write(`event: step\n`)
-        res.write(`data: ${JSON.stringify(s)}\n\n`)
+      for (const step of steps) {
+        const json = JSON.stringify(step)
+        if (sentSteps.get(step.id) !== json) {
+          sentSteps.set(step.id, json)
+          send('step', step)
+        }
       }
-      lastSent = steps.length
       const latest = await getRun(runId)
       if (!latest) {
-        clearInterval(interval)
-        res.end()
-        return
+        return finish()
+      }
+      if (latest.status !== lastStatus) {
+        lastStatus = latest.status
+        send('status', { status: latest.status })
       }
       if (latest.status === 'succeeded') {
-        res.write(`event: final\n`)
-        res.write(`data: ${JSON.stringify(latest.result)}\n\n`)
-        clearInterval(interval)
-        res.end()
+        send('final', latest.result)
+        finish()
+      } else if (latest.status === 'failed' || latest.status === 'canceled') {
+        send('error', latest.error ?? { code: latest.status, message: 'Run ended' })
+        finish()
       }
-      if (latest.status === 'failed' || latest.status === 'canceled') {
-        res.write(`event: error\n`)
-        res.write(
-          `data: ${JSON.stringify(latest.error || { code: latest.status })}\n\n`
-        )
-        clearInterval(interval)
-        res.end()
-      }
-    } catch {
-      clearInterval(interval)
-      try {
-        res.end()
-      } catch {
-        void 0
-      }
-      log.warn('api.agent.stream.error', { correlationId, runId })
+    } catch (e) {
+      log.warn('api.agent.stream.error', {
+        correlationId,
+        runId,
+        error: { code: 'stream_error', message: String(e) },
+      })
+      finish()
     }
-  }, 750)
+  }, 500)
 })
 
-// POST /agent/runs/:id/cancel
 agentRouter.post('/agent/runs/:id/cancel', verifyAuth, async (req, res) => {
-  const auth = req as AuthedRequest
-  const correlationId = auth.correlationId
-  const runId = req.params.id
-  const run = await getRun(runId)
-  if (!run) {
+  const { correlationId, user } = req as AuthedRequest
+  const run = await getRun(req.params.id)
+  if (!run || run.userId !== user?.uid) {
     return errorResponse(res, 404, 'not_found', 'Run not found', correlationId)
   }
-  await updateRun(runId, {
-    status: 'canceled',
-    updatedAt: new Date().toISOString(),
-  })
+  if (run.status === 'queued' || run.status === 'running') {
+    await updateRun(run.id, { status: 'canceled' })
+  }
   res.json({ ok: true })
 })
 
-// GET /agent/rate-limit -> current user's rate limit status for agent runs
 agentRouter.get('/agent/rate-limit', verifyAuth, async (req, res) => {
-  const auth = req as AuthedRequest
-  const user = auth.user
-  const correlationId = auth.correlationId
+  const { correlationId, user } = req as AuthedRequest
   if (!user) {
-    return errorResponse(
-      res,
-      401,
-      'unauthorized',
-      'Missing user',
-      correlationId
-    )
+    return errorResponse(res, 401, 'unauthorized', 'Missing user', correlationId)
   }
-  if (
-    process.env.FUNCTIONS_EMULATOR ||
-    process.env.FIREBASE_AUTH_EMULATOR_HOST
-  ) {
-    return res.json({
-      remaining: 9999,
-      total: 9999,
-      resetTime: new Date().toISOString(),
-      currentCount: 0,
-    })
-  }
-  const status = await getUserRateLimitStatus(
-    user.uid,
-    '/agent/runs',
-    20,
-    60 * 60_000
-  )
-  res.json(status)
+  res.json(await rateLimitFor(user.uid))
 })
