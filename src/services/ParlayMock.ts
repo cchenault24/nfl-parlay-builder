@@ -23,12 +23,19 @@ function seededRandom(seed: string): () => number {
 
 const between = (r: () => number, min: number, max: number) =>
   min + r() * (max - min)
-const price = (r: () => number) => Math.round(between(r, -140, 130) / 5) * 5 || -110
+const PRICES = [-135, -125, -118, -115, -110, -105, 100, 105, 110, 118, 125]
+const price = (r: () => number) => PRICES[Math.floor(r() * PRICES.length)]
 const half = (n: number) => Math.round(n * 2) / 2
 
-function stat(r: () => number, min: number, max: number): RankedStat {
+function stat(
+  r: () => number,
+  min: number,
+  max: number,
+  integer = false
+): RankedStat {
+  const raw = between(r, min, max)
   return {
-    value: Math.round(between(r, min, max) * 10) / 10,
+    value: integer ? Math.round(raw) : Math.round(raw * 10) / 10,
     rank: Math.ceil(between(r, 1, 32)),
   }
 }
@@ -45,7 +52,7 @@ function teamStats(r: () => number, team: Game['home'], season: number): TeamSta
     passingYardsAllowedPerGame: stat(r, 180, 280),
     rushingYardsAllowedPerGame: stat(r, 85, 150),
     pointsAllowedPerGame: stat(r, 16, 29),
-    takeaways: stat(r, 8, 30),
+    takeaways: stat(r, 8, 30, true),
   }
   const mean = (s: RankedStat[]) =>
     Math.round(s.reduce((a, b) => a + b.rank, 0) / s.length)

@@ -15,7 +15,9 @@ const StatRow: React.FC<{ label: string; stat?: RankedStat; unit?: string }> = (
     </Typography>
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
       <Typography variant="body2" sx={{ fontVariantNumeric: 'tabular-nums' }}>
-        {stat ? `${stat.value.toFixed(1)}${unit}` : '—'}
+        {stat
+          ? `${Number.isInteger(stat.value) ? stat.value : stat.value.toFixed(1)}${unit}`
+          : '—'}
       </Typography>
       <RankChip rank={stat?.rank} />
     </Box>
