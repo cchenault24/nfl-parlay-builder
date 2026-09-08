@@ -13,24 +13,8 @@ export const LegalDisclaimer: React.FC<LegalDisclaimerProps> = ({
 }) => {
   if (variant === 'inline') {
     return (
-      <Typography
-        variant="caption"
-        color="text.secondary"
-        sx={{ fontStyle: 'italic' }}
-      >
+      <Typography variant="caption" color="text.secondary">
         For entertainment purposes only. 18+ only.
-        {showResponsibleGamblingLink && (
-          <Link
-            href="#responsible-gambling"
-            onClick={e => {
-              e.preventDefault()
-              // This will be handled by the parent component
-            }}
-            sx={{ color: '#ff9800' }}
-          >
-            Gambling Problem? Get Help.
-          </Link>
-        )}
       </Typography>
     )
   }

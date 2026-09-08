@@ -20,7 +20,7 @@ export const termsOfServiceConfig: Omit<
   'open' | 'onClose'
 > = {
   title: 'Terms of Service',
-  subtitle: `Last Updated: ${new Date().toLocaleDateString()}`,
+  subtitle: 'Last updated September 8, 2026',
   icon: <GavelIcon />,
   themeColor: '#2e7d32',
   gradientColor: 'rgba(46, 125, 50, 0.1)',
@@ -74,7 +74,7 @@ export const termsOfServiceConfig: Omit<
     title: 'Contact Information',
     description:
       'If you have questions about these terms, please contact us at',
-    contactInfo: 'legal@example.com',
+    contactInfo: 'admin@debugdad.com',
     bgColor: 'rgba(46, 125, 50, 0.05)',
     borderColor: 'rgba(46, 125, 50, 0.2)',
     titleColor: '#2e7d32',
@@ -87,7 +87,7 @@ export const privacyPolicyConfig: Omit<
   'open' | 'onClose'
 > = {
   title: 'Privacy Policy',
-  subtitle: `Last Updated: ${new Date().toLocaleDateString()}`,
+  subtitle: 'Last updated September 8, 2026',
   icon: <SecurityIcon />,
   themeColor: '#1976d2',
   gradientColor: 'rgba(25, 118, 210, 0.1)',
@@ -135,7 +135,7 @@ export const privacyPolicyConfig: Omit<
     title: 'Your Rights',
     description:
       'You have the right to access, update, or delete your personal information at any time. You can also export your data or request account deletion. For privacy-related questions or requests, contact us at',
-    contactInfo: 'privacy@example.com',
+    contactInfo: 'admin@debugdad.com',
     bgColor: 'rgba(46, 125, 50, 0.05)',
     borderColor: 'rgba(46, 125, 50, 0.2)',
     titleColor: '#2e7d32',

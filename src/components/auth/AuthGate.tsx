@@ -322,7 +322,7 @@ export const AuthGate: React.FC = () => {
       <Box sx={{ py: 3, borderTop: '1px solid rgba(255, 255, 255, 0.1)' }}>
         <Container maxWidth="lg">
           <Typography variant="body2" color="text.secondary" textAlign="center">
-            © 2024 NFL Parlay Builder. AI-powered sports betting insights.
+            © {new Date().getFullYear()} ParlAId. AI-generated parlays for entertainment only.
           </Typography>
         </Container>
       </Box>

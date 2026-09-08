@@ -1,75 +1,57 @@
-// src/hooks/useParlayGenerator.ts - Fixed version
 import { useMutation } from '@tanstack/react-query'
-import { ServiceContainer } from '../services/container'
+import { useEffect, useRef } from 'react'
+import { getParlayService } from '../services/container'
 import useParlayStore from '../store/parlayStore'
-import { NFLGame } from '../types'
-import { RateLimitError } from '../types/errors'
+import type { Game } from '../types'
 import { useRateLimit } from './useRateLimit'
 
+// One attempt per click: agent failures are surfaced, never retried.
 export const useParlayGenerator = () => {
-  const setParlay = useParlayStore(state => state.setParlay)
-  const parlayService = ServiceContainer.instance.getParlayService()
+  const riskLevel = useParlayStore(state => state.riskLevel)
+  const upsertStep = useParlayStore(state => state.upsertStep)
+  const clearSteps = useParlayStore(state => state.clearSteps)
+  const setResult = useParlayStore(state => state.setResult)
+  const clearResult = useParlayStore(state => state.clearResult)
   const { updateFromResponse } = useRateLimit()
+  const abortRef = useRef<AbortController | null>(null)
+
+  useEffect(() => () => abortRef.current?.abort(), [])
 
   const mutation = useMutation({
-    mutationFn: async ({
-      game,
-      shouldUseMock,
-    }: {
-      game: NFLGame
-      shouldUseMock: boolean | null
-    }) => {
-      const provider = shouldUseMock === true ? 'mock' : 'openai'
-      return await parlayService.generateParlay(game, { provider })
-    },
-    onError: error => {
-      console.error('Error generating parlay:', error)
-
-      // Handle authentication errors specifically
-      if (
-        error instanceof Error &&
-        error.message.includes('not authenticated')
-      ) {
-        console.error('Authentication required - user needs to log in')
-        // You could trigger a re-authentication flow here if needed
-      }
-
-      if (error instanceof RateLimitError) {
-        console.warn('Rate limit exceeded:', error.rateLimitInfo)
-        updateFromResponse({ rateLimitInfo: error.rateLimitInfo })
-      }
-
-      setParlay(null)
+    mutationFn: async ({ game, useMock }: { game: Game; useMock: boolean }) => {
+      abortRef.current?.abort()
+      const controller = new AbortController()
+      abortRef.current = controller
+      clearSteps()
+      clearResult()
+      return getParlayService(useMock ? 'mock' : 'agent').generateParlay(game, {
+        riskLevel,
+        onStep: upsertStep,
+        signal: controller.signal,
+      })
     },
     onSuccess: data => {
       if (data.rateLimitInfo) {
-        updateFromResponse({
-          rateLimitInfo: {
-            remaining: data.rateLimitInfo.remaining,
-            total: data.rateLimitInfo.total || 10,
-            resetTime:
-              typeof data.rateLimitInfo.resetTime === 'string'
-                ? new Date(data.rateLimitInfo.resetTime)
-                : data.rateLimitInfo.resetTime,
-            currentCount: data.rateLimitInfo.currentCount,
-          },
-        })
+        updateFromResponse(data.rateLimitInfo)
       }
-
-      setParlay(data.parlay)
+      setResult(data)
     },
   })
 
+  const cancel = () => {
+    abortRef.current?.abort()
+    mutation.reset()
+  }
+
   return {
-    mutate: mutation.mutate, // Return 'mutate' to match App.tsx expectations
-    data: mutation.data?.parlay,
-    isPending: mutation.isPending, // Return 'isPending' to match App.tsx expectations
-    isError: mutation.isError,
+    generate: mutation.mutate,
+    isPending: mutation.isPending,
     error: mutation.error,
-    reset: mutation.reset,
-    isSuccess: mutation.isSuccess,
+    cancel,
+    reset: () => {
+      cancel()
+      clearSteps()
+      clearResult()
+    },
   }
 }
-
-// Also update the export to match the expected interface
-export const useParlayGeneratorReal = useParlayGenerator // Keep for backwards compatibility

@@ -3,12 +3,12 @@ import Box from '@mui/material/Box'
 import Container from '@mui/material/Container'
 import CssBaseline from '@mui/material/CssBaseline'
 import { ThemeProvider } from '@mui/material/styles'
-import Typography from '@mui/material/Typography'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { AuthGate } from './components/auth/AuthGate'
 import { UserMenu } from './components/auth/UserMenu'
 import DevStatus from './components/DevStatus'
+import GameStatsPanel from './components/display/GameStatsPanel'
 import ParlayDisplay from './components/display/ParlayDisplay'
 import GameSelector from './components/GameSelector'
 import { AgeVerificationModal } from './components/legal/AgeVerificationModal'
@@ -20,210 +20,121 @@ import { ParlayHistory } from './components/ParlayHistory'
 import AuthProvider from './contexts/authentication/AuthContext'
 import { useAgeVerification } from './hooks/useAgeVerification'
 import { useAuth } from './hooks/useAuth'
-import { useAvailableWeeks } from './hooks/useAvailableWeek'
-import { useCurrentWeek } from './hooks/useCurrentWeek'
-import { useNFLGames } from './hooks/useNFLGames'
-import { useParlayGeneratorSelector } from './hooks/useParlayGeneratorSelector'
-import useGeneralStore from './store/generalStore'
+import { useDerivedCurrentWeek } from './hooks/useDerivedCurrentWeek'
+import { useParlayService } from './hooks/useParlayService'
+import { useSchedule } from './hooks/useSchedule'
 import useParlayStore from './store/parlayStore'
 import { theme } from './theme'
+import type { Game } from './types'
 
 const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 5 * 60 * 1000,
-      retry: 1,
-    },
-  },
+  defaultOptions: { queries: { staleTime: 5 * 60 * 1000, retry: 1 } },
 })
 
 function AppContent() {
   const selectedGame = useParlayStore(state => state.selectedGame)
   const setSelectedGame = useParlayStore(state => state.setSelectedGame)
   const parlay = useParlayStore(state => state.parlay)
-  const devMockOverride = useGeneralStore(state => state.devMockOverride)
 
   const { user, loading } = useAuth()
   const [historyOpen, setHistoryOpen] = useState(false)
-
-  // Legal compliance state
-  const {
-    isVerified,
-    isLoading: ageLoading,
-    setVerified,
-  } = useAgeVerification()
+  const { isVerified, isLoading: ageLoading, setVerified } = useAgeVerification()
   const [showResponsibleGambling, setShowResponsibleGambling] = useState(false)
-  const [ageVerificationOpen, setAgeVerificationOpen] = useState(false)
 
-  // Get current week from API
-  const { currentWeek, isLoading: weekLoading } = useCurrentWeek()
-  const { availableWeeks } = useAvailableWeeks()
+  const { currentWeek, isLoading: currentWeekLoading } = useDerivedCurrentWeek()
+  const { data: allGames, isLoading: gamesLoading } = useSchedule()
+  const availableWeeks = allGames
+    ? Array.from(new Set(allGames.map(g => g.week))).sort((a, b) => a - b)
+    : []
 
-  // Initialize selectedWeek with currentWeek
-  const [selectedWeek, setSelectedWeek] = useState<number>(currentWeek || 1)
+  const [selectedWeek, setSelectedWeek] = useState<number | null>(null)
+  const activeWeek = selectedWeek ?? currentWeek
 
-  // Keep selectedWeek in sync with currentWeek when it changes
-  useEffect(() => {
-    if (currentWeek && currentWeek !== selectedWeek) {
-      setSelectedWeek(currentWeek)
-    }
-  }, [currentWeek])
+  const { generate, isPending, error, reset, cancel, usingMock } = useParlayService()
 
-  // Always use selectedWeek (which defaults to currentWeek)
-  const weekToFetch = selectedWeek
-  const { data: games, isLoading: gamesLoading } = useNFLGames(weekToFetch)
-
-  const {
-    mutate: generateParlay,
-    isPending: parlayLoading,
-    error: parlayError,
-    reset: resetParlay,
-  } = useParlayGeneratorSelector()
-
-  // Check age verification status
-  useEffect(() => {
-    if (!ageLoading && !isVerified) {
-      setAgeVerificationOpen(true)
-    }
-  }, [ageLoading, isVerified])
+  const handleGameChange = useCallback(
+    (game: Game | null) => {
+      setSelectedGame(game)
+      reset()
+    },
+    [setSelectedGame, reset]
+  )
 
   const handleWeekChange = (week: number) => {
     setSelectedWeek(week)
-    setSelectedGame(null)
-    resetParlay()
+    handleGameChange(null)
   }
 
   const handleGenerateParlay = () => {
     if (selectedGame) {
-      generateParlay({
-        game: selectedGame,
-        shouldUseMock: devMockOverride,
-      })
+      generate({ game: selectedGame, useMock: usingMock })
     }
   }
 
-  const handleAgeVerified = () => {
-    setVerified()
-    setAgeVerificationOpen(false)
-  }
-
   const handleAgeDeclined = () => {
-    alert(
-      'You must be 18 or older to use this service. You will be redirected away from this site.'
-    )
-    window.location.href = 'https://www.google.com'
+    window.location.href = 'https://www.ncpgambling.org/'
   }
 
-  const handleResponsibleGamblingClick = () => {
-    setShowResponsibleGambling(true)
-  }
-
-  const handleBackFromResponsibleGambling = () => {
-    setShowResponsibleGambling(false)
-  }
-
-  // Show loading screen while checking authentication or age verification
-  if (loading || ageLoading) {
+  if (loading || ageLoading || currentWeekLoading) {
     return <LoadingScreen />
   }
 
-  // Show age verification modal if not verified (this blocks everything else)
   if (!isVerified) {
     return (
-      <AgeVerificationModal
-        open={ageVerificationOpen}
-        onVerified={handleAgeVerified}
-        onDeclined={handleAgeDeclined}
-      />
+      <AgeVerificationModal open onVerified={setVerified} onDeclined={handleAgeDeclined} />
     )
   }
 
-  // Show responsible gambling page
   if (showResponsibleGambling) {
-    return <ResponsibleGambling onBack={handleBackFromResponsibleGambling} />
+    return <ResponsibleGambling onBack={() => setShowResponsibleGambling(false)} />
   }
 
-  // Show authentication gate if not authenticated
   if (!user) {
     return (
-      <Box
-        sx={{
-          minHeight: '100vh',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
+      <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
         <Box sx={{ flex: 1 }}>
           <AuthGate />
         </Box>
-        <LegalFooter
-          onResponsibleGamblingClick={handleResponsibleGamblingClick}
-        />
+        <LegalFooter onResponsibleGamblingClick={() => setShowResponsibleGambling(true)} />
       </Box>
     )
   }
 
   return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-      }}
-    >
-      {/* Main Content Area */}
+    <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ flex: 1 }}>
-        <AppBar position="static" sx={{ mb: 4 }}>
+        <AppBar position="static" color="transparent" elevation={0} sx={{ borderBottom: '1px solid', borderColor: 'divider', mb: 4 }}>
           <Toolbar>
-            <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1 }}>
-              <ParlAIdLogo variant="h6" showIcon={true} size="small" />
+            <Box sx={{ flexGrow: 1 }}>
+              <ParlAIdLogo variant="h6" />
             </Box>
             <UserMenu onViewHistory={() => setHistoryOpen(true)} />
           </Toolbar>
         </AppBar>
 
-        <Container maxWidth="lg" sx={{ py: 4 }}>
-          <Typography variant="h4" component="h1" gutterBottom align="center">
-            NFL Parlay Builder
-          </Typography>
-
+        <Container maxWidth="md" sx={{ pb: 6 }}>
           <GameSelector
-            games={games || []}
-            loading={gamesLoading || weekLoading}
             onGenerateParlay={handleGenerateParlay}
-            canGenerate={!!selectedGame && !parlayLoading}
-            currentWeek={selectedWeek}
+            onGameChange={handleGameChange}
+            canGenerate={!!selectedGame && !isPending}
+            currentWeek={activeWeek}
             onWeekChange={handleWeekChange}
             availableWeeks={availableWeeks}
-            weekLoading={weekLoading}
+            weekLoading={gamesLoading}
+            parlayError={error}
           />
 
-          {/* Show any parlay errors */}
-          {parlayError && (
-            <Box sx={{ mb: 2 }}>
-              <Typography color="error">
-                Error: {parlayError.message}
-              </Typography>
-            </Box>
-          )}
+          {parlay && !isPending && <GameStatsPanel />}
 
-          {/* ParlayDisplay gets parlay from store */}
-          <ParlayDisplay parlay={parlay || undefined} loading={parlayLoading} />
+          <ParlayDisplay loading={isPending} isMockMode={usingMock} onCancel={cancel} />
 
-          <ParlayHistory
-            open={historyOpen}
-            onClose={() => setHistoryOpen(false)}
-          />
+          <ParlayHistory open={historyOpen} onClose={() => setHistoryOpen(false)} />
         </Container>
 
-        {/* Add the dev status component */}
         <DevStatus />
       </Box>
 
-      {/* Footer - Fixed to bottom of content, not overlapping */}
-      <LegalFooter
-        onResponsibleGamblingClick={handleResponsibleGamblingClick}
-      />
+      <LegalFooter onResponsibleGamblingClick={() => setShowResponsibleGambling(true)} />
     </Box>
   )
 }

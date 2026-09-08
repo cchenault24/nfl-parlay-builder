@@ -1,85 +1,43 @@
 import { getEnvVar } from '../utils'
 
-/**
- * Environment variables with validation
- */
 export const ENV = {
-  FIREBASE_API_KEY: getEnvVar('VITE_FIREBASE_API_KEY'),
-  FIREBASE_AUTH_DOMAIN: getEnvVar('VITE_FIREBASE_AUTH_DOMAIN'),
   FIREBASE_PROJECT_ID: getEnvVar('VITE_FIREBASE_PROJECT_ID'),
-  FIREBASE_STORAGE_BUCKET: getEnvVar('VITE_FIREBASE_STORAGE_BUCKET'),
-  FIREBASE_MESSAGING_SENDER_ID: getEnvVar('VITE_FIREBASE_MESSAGING_SENDER_ID'),
-  FIREBASE_APP_ID: getEnvVar('VITE_FIREBASE_APP_ID'),
   NODE_ENV: getEnvVar('NODE_ENV') || 'development',
 } as const
 
-/**
- * Validate required environment variables
- */
-export const validateEnvironment = (): void => {
-  const requiredVars = {
-    FIREBASE_PROJECT_ID: ENV.FIREBASE_PROJECT_ID,
-  }
-
-  const missing = Object.entries(requiredVars)
-    .filter(([_, value]) => !value)
-    .map(([key]) => key)
-
-  if (missing.length > 0) {
-    throw new Error(
-      `Missing required environment variables: ${missing.join(', ')}`
-    )
-  }
-}
-
-/**
- * Determine if we're in a local development environment
- */
 const isLocalDevelopment = () => {
-  // Check if we're running locally
-  if (typeof window !== 'undefined') {
-    const hostname = window.location.hostname
-    const isLocal =
-      hostname === 'localhost' ||
-      hostname === '127.0.0.1' ||
-      hostname.includes('192.168.')
-
-    // FORCE PRODUCTION: If we're on Firebase hosting domains, never use localhost
-    const isFirebaseHosting =
-      hostname.includes('.web.app') || hostname.includes('.firebaseapp.com')
-    if (isFirebaseHosting) {
-      return false
-    }
-
-    // console.log('🔧 Hostname check:', { hostname, isLocal })
-    return isLocal
+  if (typeof window === 'undefined') {
+    return ENV.NODE_ENV === 'development'
   }
-  return ENV.NODE_ENV === 'development'
+  const { hostname } = window.location
+  return (
+    hostname === 'localhost' ||
+    hostname === '127.0.0.1' ||
+    hostname.startsWith('192.168.')
+  )
 }
 
-/**
- * API Configuration with environment-based settings
- */
+// On Firebase Hosting (including preview channels) the project id is in the host.
+const resolveProjectId = () => {
+  if (ENV.FIREBASE_PROJECT_ID.trim()) {
+    return ENV.FIREBASE_PROJECT_ID
+  }
+  const match = window.location.host.match(
+    /^(?<projectId>[a-z0-9-]+?)(?:--[a-z0-9-]+)?\.(?:web\.app|firebaseapp\.com)$/
+  )
+  return match?.groups?.projectId ?? 'nfl-parlay-builder-dev'
+}
+
+const projectId = resolveProjectId()
+
 export const API_CONFIG = {
   CLOUD_FUNCTIONS: {
     baseURL: isLocalDevelopment()
-      ? `http://localhost:5001/nfl-parlay-builder-dev/us-central1`
-      : `https://us-central1-nfl-parlay-builder-dev.cloudfunctions.net`,
-    timeout: isLocalDevelopment() ? 60000 : 45000,
-    retryAttempts: 2,
-    retryDelay: 2000,
+      ? `http://localhost:5001/${projectId}/us-central1`
+      : `https://us-central1-${projectId}.cloudfunctions.net`,
     endpoints: {
-      v2: {
-        health: '/api/v2/health',
-        currentWeek: '/api/v2/weeks/current',
-        games: (week: number) => `/api/v2/games?week=${week}`,
-        generateParlay: '/api/v2/parlays/generate',
-      },
+      schedule: '/api/schedule',
+      games: (week: number) => `/api/games?week=${week}`,
     },
   },
 } as const
-
-// Initialize environment validation in non-test environments
-if (ENV.NODE_ENV !== 'test') {
-  validateEnvironment()
-}
