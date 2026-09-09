@@ -34,6 +34,9 @@ export const BetTypeEnum = z.enum([
 export const AILegSchema = z.object({
   betType: BetTypeEnum,
   team: z.string(),
+  // Exact player name for a player_* bet type (needed to grade the leg
+  // against a box score later); null for every other bet type.
+  player: z.string().nullable(),
   selection: z.string(),
   line: z.number().nullable(),
   side: z.enum(['over', 'under']).nullable(),

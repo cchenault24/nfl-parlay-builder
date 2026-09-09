@@ -38,9 +38,15 @@ export const RiskLevelSchema = z.enum(['conservative', 'moderate', 'aggressive']
 
 export type SourceStatus = 'ok' | 'unavailable' | 'indoor'
 
+// A drafted leg after the orchestrator has snapped its line/price to the
+// book (for spread/total/moneyline, when available) and recorded whether
+// that snap actually happened — the model's own numbers for those fields are
+// discarded once `anchored` is true.
+export type ProcessedLeg = AILeg & { anchored: boolean }
+
 export interface AgentResult {
   parlay: {
-    legs: AILeg[]
+    legs: ProcessedLeg[]
     combinedOdds: number
     parlayConfidence: number
     gameSummary: AIAnalysis
