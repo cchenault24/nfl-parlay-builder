@@ -2,9 +2,12 @@ import { cache } from '../../cache/CacheClient'
 import { log } from '../../observability/logger'
 import { inc } from '../../observability/metrics'
 import type {
+  BoxScoreAthlete,
+  GameBoxScore,
   GameStatus,
   RankedStat,
   ScheduleGame,
+  TeamBoxScore,
   TeamRef,
   TeamStats,
 } from './types'
@@ -40,6 +43,7 @@ type ScoreboardEvent = {
       homeAway: 'home' | 'away'
       team: { id: string; abbreviation: string; displayName: string }
       records?: Array<{ type: string; summary: string }>
+      score?: string
     }>
   }>
 }
@@ -106,6 +110,8 @@ function toScheduleGame(event: ScoreboardEvent): ScheduleGame | null {
           temperatureF: event.weather.temperature,
         }
       : null,
+    homeScore: home.score !== undefined ? parseInt(home.score, 10) : null,
+    awayScore: away.score !== undefined ? parseInt(away.score, 10) : null,
   }
 }
 
@@ -137,6 +143,66 @@ export async function getGame(
 ): Promise<ScheduleGame | null> {
   const games = await getSeasonSchedule(season)
   return games.find(g => g.gameId === gameId) ?? null
+}
+
+type SummaryStatCategory = {
+  name: string
+  keys: string[]
+  athletes: Array<{ athlete: { id: string; displayName: string }; stats: string[] }>
+}
+type SummaryTeamPlayers = { team: { id: string }; statistics: SummaryStatCategory[] }
+type SummaryResponse = {
+  header?: {
+    competitions?: Array<{
+      competitors?: Array<{ homeAway: 'home' | 'away'; team: { id: string } }>
+    }>
+  }
+  boxscore?: { players?: SummaryTeamPlayers[] }
+}
+
+function toTeamBoxScore(entry: SummaryTeamPlayers): TeamBoxScore {
+  const categories: Record<string, BoxScoreAthlete[]> = {}
+  for (const category of entry.statistics) {
+    categories[category.name] = category.athletes.map(a => ({
+      id: a.athlete.id,
+      name: a.athlete.displayName,
+      stats: Object.fromEntries(
+        category.keys.map((key, i) => [key, a.stats[i] ?? ''])
+      ),
+    }))
+  }
+  return { teamId: entry.team.id, categories }
+}
+
+// Only meaningful once a game is final; used solely for grading saved
+// parlays, so it's cached for a full day rather than the 5-minute TTL
+// everything else uses — a final result never changes.
+export async function getBoxScore(gameId: string): Promise<GameBoxScore | null> {
+  return cache.getOrSet(
+    'espn_boxscore',
+    { gameId },
+    async () => {
+      inc('provider_calls_espn_boxscore')
+      const data = await fetchJson<SummaryResponse>(
+        `${SITE}/summary?event=${gameId}`,
+        10_000
+      )
+      const players = data.boxscore?.players
+      const competitors = data.header?.competitions?.[0]?.competitors
+      if (!players || players.length < 2 || !competitors) {
+        return null
+      }
+      const homeTeamId = competitors.find(c => c.homeAway === 'home')?.team.id
+      const awayTeamId = competitors.find(c => c.homeAway === 'away')?.team.id
+      const home = players.find(p => p.team.id === homeTeamId)
+      const away = players.find(p => p.team.id === awayTeamId)
+      if (!home || !away) {
+        return null
+      }
+      return { home: toTeamBoxScore(home), away: toTeamBoxScore(away) }
+    },
+    { ttlMs: 24 * 60 * 60 * 1000 }
+  )
 }
 
 function pickStat(

@@ -1,3 +1,4 @@
 export { agentRouter } from './agent'
+export { gradingRouter } from './grading'
 export { metricsRouter } from './metrics'
 export { publicRouter } from './public'
