@@ -113,6 +113,8 @@ function normalizeParlay(data: StoredParlay, docId: string): GeneratedParlay {
     parlayId: docId,
     gameId: data.gameId ?? '',
     gameContext: data.gameContext ?? '',
+    week: typeof data.week === 'number' ? data.week : 0,
+    gameDateTime: data.gameDateTime ?? '',
     legs: (data.legs ?? []).map(leg => ({
       betType: leg.betType ?? leg.type ?? 'moneyline',
       team: leg.team ?? '',
