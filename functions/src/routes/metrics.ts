@@ -100,3 +100,45 @@ metricsRouter.get(
     }
   }
 )
+
+// TEMPORARY diagnostic — remove once the ESPN -> BallsData provider decision
+// is settled. Answers one question: can Cloud Run reach these hosts at all,
+// or is something in front of them refusing datacenter traffic? Deliberately
+// unauthenticated so it can be read without a signed-in session, and it
+// returns nothing but reachability: no keys, no payloads. Probing both hosts
+// in the same request makes the comparison same-host, same-moment.
+metricsRouter.get(
+  '/_probe/egress',
+  rateLimitByIp(10, 60_000, 'probe_egress'),
+  async (_req: express.Request, res: express.Response) => {
+    const probe = async (name: string, url: string) => {
+      const startedAt = Date.now()
+      try {
+        const response = await fetch(url, { signal: AbortSignal.timeout(8_000) })
+        return {
+          name,
+          status: response.status,
+          // Names the edge that answered, which is what identifies a block.
+          server: response.headers.get('server'),
+          ms: Date.now() - startedAt,
+        }
+      } catch (err) {
+        return {
+          name,
+          error: err instanceof Error ? err.message : String(err),
+          ms: Date.now() - startedAt,
+        }
+      }
+    }
+    const results = await Promise.all([
+      // No API key: a 401 still proves the request arrived.
+      probe('ballsdata', 'https://api.bigballsdata.com/v1/health'),
+      probe(
+        'espn',
+        'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?limit=1'
+      ),
+    ])
+    log.info('probe.egress', { results })
+    res.json({ results })
+  }
+)
