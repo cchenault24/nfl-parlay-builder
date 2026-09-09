@@ -126,12 +126,30 @@ export type RiskLevel = 'conservative' | 'moderate' | 'aggressive'
 export interface ParlayLeg {
   betType: BetType
   team: string
+  // The player a player_* bet type is about; null otherwise. Needed to grade
+  // the leg against a box score once the game is final.
+  player: string | null
   selection: string
   line: number | null
   side: 'over' | 'under' | null
   odds: number
   confidence: number
   reasoning: string
+  // Whether line/odds are the book's exact posted number (true) or an AI
+  // estimate because that market wasn't posted (false) — always false for
+  // player props, which this app never gets book lines for.
+  anchored: boolean
+}
+
+// Mirrors functions/src/grading/types.ts.
+export type LegOutcome = 'won' | 'lost' | 'push' | 'ungraded'
+export type ParlayOutcome = 'won' | 'lost' | 'push' | 'partial'
+
+export interface ParlayGrading {
+  status: 'pending' | 'graded'
+  gradedAt?: string
+  legOutcomes?: LegOutcome[]
+  parlayOutcome?: ParlayOutcome
 }
 
 export interface GameSummary {
@@ -157,6 +175,8 @@ export interface GeneratedParlay {
   parlayConfidence: number
   gameSummary: GameSummary
   model: string
+  // Absent = never checked. Populated by POST /parlays/grade.
+  grading?: ParlayGrading
 }
 
 export type SourceStatus = 'ok' | 'unavailable' | 'indoor'

@@ -131,8 +131,9 @@ function linesSection(input: PromptInput): string {
   }
   return (
     `Betting lines from ${odds.bookmaker} (updated ${odds.lastUpdate}):\n${rows.join('\n')}\n` +
-    'LINE RULES: a spread leg must use exactly this spread and price for the chosen team; a total leg must use exactly this total ' +
-    'and the matching over/under price; a moneyline leg must use exactly this price. Never create alternate lines. ' +
+    'LINE RULES: your line and price for a spread/total/moneyline leg will be automatically replaced with the exact number ' +
+    "shown above before this parlay is shown — focus on picking the right team/side and writing reasoning consistent with " +
+    "the book's actual number, not on matching the price exactly. " +
     'Do not create a spread, total, or moneyline leg for a market marked NOT AVAILABLE above — use a player prop instead. ' +
     'Player props have no lines provided: set a realistic line and price yourself and keep confidence modest.'
   )
@@ -156,6 +157,7 @@ export function buildParlayPrompt(input: PromptInput): string {
     '- Every leg must cite specific numbers from the data above in its reasoning (2-3 sentences).',
     '- No contradictory legs: at most one spread leg, one total leg, and one moneyline leg; never both sides of a market.',
     `- "team" must be exactly "${game.home.name}" or "${game.away.name}" (for a total, use the team the leg leans on).`,
+    '- "player": for a player_* bet type, the player\'s full name exactly as it would appear in an NFL box score (e.g. "Patrick Mahomes"); null for every other bet type.',
     '- "line": for a spread, the chosen team\'s spread from that team\'s perspective (negative = favorite); for a total or player prop, the threshold number; null for a moneyline or anytime/first TD.',
     '- "side": "over" or "under" for totals and yardage/reception props; null otherwise.',
     '- "odds": American price as an integer (e.g. -110, 145).',

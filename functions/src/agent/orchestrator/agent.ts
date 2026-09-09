@@ -18,9 +18,11 @@ import {
   AgentRun,
   AgentStep,
   AgentToolName,
+  ProcessedLeg,
 } from '../shared/schemas'
 import { withResilience } from '../tools'
 import { validateDraft } from '../validate'
+import type { AILeg } from '../../service/ai/schemas'
 
 export type Persist = {
   upsertStep: (runId: string, step: AgentStep) => Promise<void>
@@ -35,6 +37,48 @@ export type RunAgentOptions = {
   // Called whenever a step is written, so a live caller (the SSE stream) can
   // push it straight to the client instead of polling Firestore for it.
   onStep?: (step: AgentStep) => void
+}
+
+// Replaces a spread/total/moneyline leg's line and price with the book's
+// exact number whenever that market was actually posted, discarding
+// whatever the model wrote for those two fields — a near-miss number can
+// never fail validation once it's authoritative by construction. A leg for
+// a market the book didn't post (or a player prop, which has none) is left
+// with the model's own numbers and marked unanchored.
+function snapLegToBook(
+  rawLeg: AILeg,
+  game: ScheduleGame,
+  odds: OddsSnapshot | null
+): ProcessedLeg {
+  // The model doesn't reliably emit a literal null here — normalize an
+  // empty string to null once, up front.
+  const leg = { ...rawLeg, player: rawLeg.player?.trim() ? rawLeg.player : null }
+  const isHome = leg.team === game.home.name
+  if (leg.betType === 'spread' && odds?.spread) {
+    return {
+      ...leg,
+      line: isHome ? odds.spread.line : -odds.spread.line,
+      odds: isHome ? odds.spread.homePrice : odds.spread.awayPrice,
+      anchored: true,
+    }
+  }
+  if (leg.betType === 'moneyline' && odds?.moneyline) {
+    return {
+      ...leg,
+      line: null,
+      odds: isHome ? odds.moneyline.home : odds.moneyline.away,
+      anchored: true,
+    }
+  }
+  if (leg.betType === 'total' && odds?.total && leg.side) {
+    return {
+      ...leg,
+      line: odds.total.line,
+      odds: leg.side === 'over' ? odds.total.overPrice : odds.total.underPrice,
+      anchored: true,
+    }
+  }
+  return { ...leg, anchored: false }
 }
 
 class RunError extends Error {
@@ -218,26 +262,36 @@ export async function runAgent(
     const { draft, tokensInput, tokensOutput } = draftStep.data
     await persist.upsertStep(runId, { ...draftStep.step, tokensInput, tokensOutput })
 
+    const snappedLegs = draft.legs.map(leg => snapLegToBook(leg, game, odds))
+
+    let validationIssues: string[] = []
     const validation = await step('validate', async () => {
-      const issues = validateDraft(draft, game, odds)
-      if (issues.length > 0) {
-        throw new RunError('validation_error', 'Draft failed validation', issues)
+      validationIssues = validateDraft(
+        { legs: snappedLegs, analysisSummary: draft.analysisSummary },
+        game
+      )
+      if (validationIssues.length > 0) {
+        throw new RunError(
+          'validation_error',
+          `Draft failed validation: ${validationIssues.join('; ')}`,
+          validationIssues
+        )
       }
-      return issues
+      return validationIssues
     })
     if (!validation.data) {
       throw new RunError(
         'validation_error',
-        'The model produced legs that do not match the book lines',
-        validation.step.error?.message
+        'The model produced an invalid parlay',
+        validationIssues
       )
     }
 
     const result: AgentResult = {
       parlay: {
-        legs: draft.legs,
-        combinedOdds: combineAmericanOdds(draft.legs.map(l => l.odds)),
-        parlayConfidence: Math.min(...draft.legs.map(l => l.confidence)),
+        legs: snappedLegs,
+        combinedOdds: combineAmericanOdds(snappedLegs.map(l => l.odds)),
+        parlayConfidence: Math.min(...snappedLegs.map(l => l.confidence)),
         gameSummary: draft.analysisSummary,
       },
       game: game satisfies ScheduleGame,
@@ -246,7 +300,7 @@ export async function runAgent(
       odds,
       sources: {
         stats: homeStats && awayStats ? 'ok' : 'unavailable',
-        odds: odds && odds.spread && odds.total && odds.moneyline ? 'ok' : 'unavailable',
+        odds: odds ? 'ok' : 'unavailable',
         weather: game.weather ? 'ok' : game.venue?.indoor ? 'indoor' : 'unavailable',
       },
       model: PARLAY_MODEL,

@@ -32,6 +32,30 @@ export interface ScheduleGame {
   away: TeamRef
   venue: Venue | null
   weather: GameWeather | null
+  // Only meaningful once status is 'final' or 'in_progress'.
+  homeScore: number | null
+  awayScore: number | null
+}
+
+// A per-team box score, used only for grading saved parlays against a final
+// result. `categories` is keyed by ESPN's own category name (passing,
+// rushing, receiving, defensive, interceptions, kicking, ...); each athlete's
+// `stats` is keyed by that category's own stat key names, verbatim as ESPN
+// returns them (including "made/attempted"-style combined values).
+export interface BoxScoreAthlete {
+  id: string
+  name: string
+  stats: Record<string, string>
+}
+
+export interface TeamBoxScore {
+  teamId: string
+  categories: Record<string, BoxScoreAthlete[]>
+}
+
+export interface GameBoxScore {
+  home: TeamBoxScore
+  away: TeamBoxScore
 }
 
 export interface RankedStat {

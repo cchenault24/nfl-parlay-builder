@@ -1,73 +1,21 @@
 import type { ScheduleGame } from '../providers/espn/types'
-import type { OddsSnapshot } from '../providers/odds/client'
-import type { AIGenerateResponse, AILeg } from '../service/ai/schemas'
+import type { AIAnalysis } from '../service/ai/schemas'
+import type { ProcessedLeg } from './shared/schemas'
 
 const MIN_ABS_ODDS = 100
 const MAX_ABS_ODDS = 20_000
-const EPSILON = 1e-6
 
-function same(a: number, b: number): boolean {
-  return Math.abs(a - b) < EPSILON
+export interface ValidatableDraft {
+  legs: ProcessedLeg[]
+  analysisSummary: AIAnalysis
 }
 
-function anchorIssues(
-  leg: AILeg,
-  index: number,
-  game: ScheduleGame,
-  odds: OddsSnapshot
-): string[] {
-  const isHome = leg.team === game.home.name
-  const at = `leg ${index + 1}`
-  const issues: string[] = []
-
-  if (leg.betType === 'spread') {
-    if (!odds.spread) {
-      issues.push(`${at}: spread market has no book line for this game`)
-    } else {
-      const expectedLine = isHome ? odds.spread.line : -odds.spread.line
-      const expectedPrice = isHome ? odds.spread.homePrice : odds.spread.awayPrice
-      if (leg.line === null || !same(leg.line, expectedLine)) {
-        issues.push(`${at}: spread line ${leg.line} != book ${expectedLine}`)
-      }
-      if (leg.odds !== expectedPrice) {
-        issues.push(`${at}: spread price ${leg.odds} != book ${expectedPrice}`)
-      }
-    }
-  }
-  if (leg.betType === 'moneyline') {
-    if (!odds.moneyline) {
-      issues.push(`${at}: moneyline market has no book line for this game`)
-    } else {
-      const expectedPrice = isHome ? odds.moneyline.home : odds.moneyline.away
-      if (leg.odds !== expectedPrice) {
-        issues.push(`${at}: moneyline ${leg.odds} != book ${expectedPrice}`)
-      }
-    }
-  }
-  if (leg.betType === 'total') {
-    if (!odds.total) {
-      issues.push(`${at}: total market has no book line for this game`)
-    } else if (!leg.side) {
-      issues.push(`${at}: total leg needs a side`)
-    } else {
-      if (leg.line === null || !same(leg.line, odds.total.line)) {
-        issues.push(`${at}: total ${leg.line} != book ${odds.total.line}`)
-      }
-      const expectedPrice =
-        leg.side === 'over' ? odds.total.overPrice : odds.total.underPrice
-      if (leg.odds !== expectedPrice) {
-        issues.push(`${at}: total price ${leg.odds} != book ${expectedPrice}`)
-      }
-    }
-  }
-  return issues
-}
-
-export function validateDraft(
-  draft: AIGenerateResponse,
-  game: ScheduleGame,
-  odds: OddsSnapshot | null
-): string[] {
+// Numbers are no longer checked against the book here — the orchestrator
+// snaps a spread/total/moneyline leg's line and price to the book before
+// this runs, so they're correct by construction whenever `anchored` is true.
+// This checks structure only: is the leg internally sane, and did the model
+// follow the player-name rule needed to grade the leg later.
+export function validateDraft(draft: ValidatableDraft, game: ScheduleGame): string[] {
   const issues: string[] = []
   const teams = [game.home.name, game.away.name]
 
@@ -87,12 +35,15 @@ export function validateDraft(
     if (abs < MIN_ABS_ODDS || abs > MAX_ABS_ODDS) {
       issues.push(`${at}: odds ${leg.odds} outside sane range`)
     }
-    // Anchor a market leg to its book line whenever any book data exists for
-    // this game — a leg using a market the book hasn't posted (e.g. total
-    // missing while spread/moneyline are live) is exactly as invented as a
-    // leg contradicting a line the book did post, so both are rejected here.
-    if (odds && teams.includes(leg.team)) {
-      issues.push(...anchorIssues(leg, i, game, odds))
+    // The model doesn't reliably emit a literal null here — an empty string
+    // is common too — so treat both as "no player" in both directions.
+    const isPlayerBet = leg.betType.startsWith('player_')
+    const hasPlayer = !!leg.player?.trim()
+    if (isPlayerBet && !hasPlayer) {
+      issues.push(`${at}: ${leg.betType} requires a player name`)
+    }
+    if (!isPlayerBet && hasPlayer) {
+      issues.push(`${at}: player must be empty for ${leg.betType}`)
     }
   })
 
