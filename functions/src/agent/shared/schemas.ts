@@ -8,6 +8,7 @@ export const AgentToolNameSchema = z.enum([
   'espn_game',
   'espn_team_stats',
   'espn_pregame',
+  'nflverse_epa',
   'odds',
 ])
 export const StepStatusSchema = z.enum(['running', 'ok', 'failed'])
