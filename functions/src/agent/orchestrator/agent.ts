@@ -50,6 +50,14 @@ export type RunAgentOptions = {
 // never fail validation once it's authoritative by construction. A leg for
 // a market the book didn't post (or a player prop, which has none) is left
 // with the model's own numbers and marked unanchored.
+//
+// Anchoring also clears any player name the model attached to a market leg.
+// Once the line and price come from the book the leg is a well-formed market
+// bet whatever the model meant by that name, so failing the whole run over it
+// would cost the user a parlay to protect intent the snap has already
+// discarded. An unanchored leg keeps the name, so validation can still reject
+// a player prop mislabelled as a market bet, where the numbers are still the
+// model's own and the ambiguity is real.
 function snapLegToBook(
   rawLeg: AILeg,
   game: ScheduleGame,
@@ -62,6 +70,7 @@ function snapLegToBook(
   if (leg.betType === 'spread' && odds?.spread) {
     return {
       ...leg,
+      player: null,
       line: isHome ? odds.spread.line : -odds.spread.line,
       odds: isHome ? odds.spread.homePrice : odds.spread.awayPrice,
       anchored: true,
@@ -70,6 +79,7 @@ function snapLegToBook(
   if (leg.betType === 'moneyline' && odds?.moneyline) {
     return {
       ...leg,
+      player: null,
       line: null,
       odds: isHome ? odds.moneyline.home : odds.moneyline.away,
       anchored: true,
@@ -78,6 +88,7 @@ function snapLegToBook(
   if (leg.betType === 'total' && odds?.total && leg.side) {
     return {
       ...leg,
+      player: null,
       line: odds.total.line,
       odds: leg.side === 'over' ? odds.total.overPrice : odds.total.underPrice,
       anchored: true,
