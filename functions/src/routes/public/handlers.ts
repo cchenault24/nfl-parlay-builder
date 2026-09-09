@@ -6,15 +6,48 @@ import { REGULAR_SEASON_WEEKS, getCurrentSeason } from '../../utils/season'
 
 type CorrelatedRequest = express.Request & { correlationId: string }
 
-export const getScheduleHandler = async (
+export interface WeekSummary {
+  week: number
+  lastKickoff: string
+  allFinal: boolean
+}
+
+export interface SeasonSummary {
+  season: number
+  weeks: WeekSummary[]
+}
+
+// A per-week summary, not the full ~270-game schedule — this is all the
+// week picker and "what's the current week" logic need, at a fraction of
+// the payload size.
+export const getSeasonSummaryHandler = async (
   req: express.Request,
   res: express.Response
 ) => {
   const { correlationId } = req as CorrelatedRequest
   try {
-    res.json(await getSeasonSchedule(getCurrentSeason()))
+    const season = getCurrentSeason()
+    const games = await getSeasonSchedule(season)
+    const byWeek = new Map<number, typeof games>()
+    for (const game of games) {
+      const list = byWeek.get(game.week) ?? []
+      list.push(game)
+      byWeek.set(game.week, list)
+    }
+    const weeks: WeekSummary[] = Array.from(byWeek.entries())
+      .sort(([a], [b]) => a - b)
+      .map(([week, weekGames]) => ({
+        week,
+        lastKickoff: weekGames.reduce(
+          (latest, g) => (g.dateTime > latest ? g.dateTime : latest),
+          weekGames[0].dateTime
+        ),
+        allFinal: weekGames.every(g => g.status === 'final'),
+      }))
+    const summary: SeasonSummary = { season, weeks }
+    res.json(summary)
   } catch (error) {
-    log.error('api.schedule.error', {
+    log.error('api.season.error', {
       correlationId,
       error: {
         code: 'schedule_error',

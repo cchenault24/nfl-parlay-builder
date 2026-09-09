@@ -22,6 +22,8 @@ export abstract class BaseParlayService {
       parlayId,
       gameId: game.gameId,
       gameContext: `${game.away.name} @ ${game.home.name} — Week ${game.week}`,
+      week: game.week,
+      gameDateTime: game.dateTime,
       legs: result.legs,
       combinedOdds: result.combinedOdds,
       parlayConfidence: result.parlayConfidence,

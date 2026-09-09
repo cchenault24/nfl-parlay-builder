@@ -38,7 +38,7 @@ Secrets live in Firebase Secret Manager (`firebase functions:secrets:set NAME`).
 ## Stack
 
 - **Web** (`src/`): Vite, React 18, TypeScript, MUI, TanStack Query, Zustand, Firebase Auth/Firestore.
-- **API** (`functions/`): Firebase Functions v2 (`api`), Express, Zod, openai v7. In-memory + Firestore cache with request collapsing (`cache/CacheClient.ts`).
+- **API** (`functions/`): Firebase Functions v2 (`api`), Express, Zod, openai v7. In-memory + Firestore cache with request collapsing (`cache/CacheClient.ts`). On deployed Hosting, `/api/**` is rewritten same-origin straight to this function (`firebase.json`) — the Express app is mounted at both `/` and `/api` since Hosting forwards the original path unstripped, while a direct Cloud Functions URL consumes `api` (the function's name) as its own first segment. Local dev always hits the Functions emulator directly.
 - Firestore collections: `agentRuns/{id}/steps`, `cache`, `rate_limits` (server only); `users`, `parlays` (client, see `firestore.rules`).
 
 ## Local development
@@ -66,7 +66,7 @@ Merging to `main` runs `deploy-production.yml`, which deploys functions + Firest
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
 | GET | `/api/health` | — | liveness |
-| GET | `/api/schedule` | — | full regular-season schedule for the current season |
+| GET | `/api/season` | — | season + per-week summary (drives the week picker and current-week detection) |
 | GET | `/api/games?week=N` | — | games for one week |
 | POST | `/api/agent/runs` | Bearer | start a run `{ gameId, riskLevel }` (20/hour per user) |
 | GET | `/api/agent/runs/:id` | Bearer | run record |

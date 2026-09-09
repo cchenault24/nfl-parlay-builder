@@ -17,27 +17,21 @@ const isLocalDevelopment = () => {
   )
 }
 
-// On Firebase Hosting (including preview channels) the project id is in the host.
-const resolveProjectId = () => {
-  if (ENV.FIREBASE_PROJECT_ID.trim()) {
-    return ENV.FIREBASE_PROJECT_ID
-  }
-  const match = window.location.host.match(
-    /^(?<projectId>[a-z0-9-]+?)(?:--[a-z0-9-]+)?\.(?:web\.app|firebaseapp\.com)$/
-  )
-  return match?.groups?.projectId ?? 'nfl-parlay-builder'
+// Only used locally, where requests go straight to the Functions emulator.
+// Everywhere deployed (prod or a PR preview channel) `/api/**` is rewritten
+// same-origin to the function by firebase.json, so no project id or
+// cross-origin host needs to be known here at all.
+function localFunctionsBaseUrl(): string {
+  const projectId = ENV.FIREBASE_PROJECT_ID.trim() || 'nfl-parlay-builder-dev'
+  return `http://localhost:5001/${projectId}/us-central1/api`
 }
-
-const projectId = resolveProjectId()
 
 export const API_CONFIG = {
   CLOUD_FUNCTIONS: {
-    baseURL: isLocalDevelopment()
-      ? `http://localhost:5001/${projectId}/us-central1`
-      : `https://us-central1-${projectId}.cloudfunctions.net`,
+    baseURL: isLocalDevelopment() ? localFunctionsBaseUrl() : '/api',
     endpoints: {
-      schedule: '/api/schedule',
-      games: (week: number) => `/api/games?week=${week}`,
+      season: '/season',
+      games: (week: number) => `/games?week=${week}`,
     },
   },
 } as const

@@ -83,7 +83,7 @@ async function fetchNflOdds(): Promise<OddsEvent[]> {
       })
       return (await res.json()) as OddsEvent[]
     },
-    { ttlMs: CACHE_TTL_MS }
+    { ttlMs: CACHE_TTL_MS, skipFirestore: true }
   )
 }
 

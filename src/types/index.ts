@@ -37,6 +37,20 @@ export interface Game {
   weather: GameWeather | null
 }
 
+// A per-week summary (mirrors functions/src/routes/public/handlers.ts) —
+// used for the week picker and current-week derivation, without the cost of
+// fetching the full season's games just to compute those.
+export interface WeekSummary {
+  week: number
+  lastKickoff: string
+  allFinal: boolean
+}
+
+export interface SeasonSummary {
+  season: number
+  weeks: WeekSummary[]
+}
+
 export interface RankedStat {
   value: number
   rank: number
@@ -134,6 +148,10 @@ export interface GeneratedParlay {
   parlayId: string
   gameId: string
   gameContext: string
+  // Carried from the game so a saved parlay can be sorted/graded later
+  // without needing to look the game back up.
+  week: number
+  gameDateTime: string
   legs: ParlayLeg[]
   combinedOdds: number
   parlayConfidence: number

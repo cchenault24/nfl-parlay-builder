@@ -18,6 +18,12 @@ export interface CacheOptions {
   ttlMs?: number
   version?: string
   tags?: string[]
+  // Skip the Firestore tier entirely. Cross-instance sharing is worth a
+  // Firestore round-trip for slower-changing data (schedule, team stats),
+  // but for something like a 60s odds snapshot the entry is nearly always
+  // stale again before another instance would benefit from it — the write
+  // is pure overhead.
+  skipFirestore?: boolean
 }
 
 export class CacheClient {
@@ -75,6 +81,11 @@ export class CacheClient {
       return (await this.inflightRequests.get(key)) as T | null
     }
 
+    if (options.skipFirestore) {
+      inc('cache_misses')
+      return null
+    }
+
     // Try Firestore cache
     const firestoreEntry = await this.getFromFirestore<T>(key)
     if (firestoreEntry && !this.isExpired(firestoreEntry)) {
@@ -114,6 +125,10 @@ export class CacheClient {
 
     // Set in memory cache
     this.memoryCache.set(key, entry)
+
+    if (options.skipFirestore) {
+      return
+    }
 
     // Set in Firestore (async, don't wait)
     this.setInFirestore(key, entry).catch(err => {

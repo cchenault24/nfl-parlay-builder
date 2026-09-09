@@ -22,7 +22,7 @@ import { useAgeVerification } from './hooks/useAgeVerification'
 import { useAuth } from './hooks/useAuth'
 import { useDerivedCurrentWeek } from './hooks/useDerivedCurrentWeek'
 import { useParlayService } from './hooks/useParlayService'
-import { useSchedule } from './hooks/useSchedule'
+import { useSeasonSummary } from './hooks/useSeason'
 import useParlayStore from './store/parlayStore'
 import { theme } from './theme'
 import type { Game } from './types'
@@ -42,10 +42,8 @@ function AppContent() {
   const [showResponsibleGambling, setShowResponsibleGambling] = useState(false)
 
   const { currentWeek, isLoading: currentWeekLoading } = useDerivedCurrentWeek()
-  const { data: allGames, isLoading: gamesLoading } = useSchedule()
-  const availableWeeks = allGames
-    ? Array.from(new Set(allGames.map(g => g.week))).sort((a, b) => a - b)
-    : []
+  const { data: seasonSummary, isLoading: seasonLoading } = useSeasonSummary()
+  const availableWeeks = seasonSummary?.weeks.map(w => w.week) ?? []
 
   const [selectedWeek, setSelectedWeek] = useState<number | null>(null)
   const activeWeek = selectedWeek ?? currentWeek
@@ -120,7 +118,7 @@ function AppContent() {
             currentWeek={activeWeek}
             onWeekChange={handleWeekChange}
             availableWeeks={availableWeeks}
-            weekLoading={gamesLoading}
+            weekLoading={seasonLoading}
             parlayError={error}
           />
 
