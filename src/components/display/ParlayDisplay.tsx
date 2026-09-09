@@ -40,9 +40,9 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({
 }) => {
   const { user } = useAuth()
   const [saving, setSaving] = useState(false)
+  const [savedParlayId, setSavedParlayId] = useState<string | null>(null)
   const parlay = useParlayStore(state => state.parlay)
   const steps = useParlayStore(state => state.steps)
-  const sources = useParlayStore(state => state.sources)
   const authModalOpen = useModalStore(state => state.authModalOpen)
   const setAuthModalOpen = useModalStore(state => state.setAuthModalOpen)
   const saveParlaySuccess = useParlayStore(state => state.saveParlaySuccess)
@@ -63,6 +63,7 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({
     setSaveParlaySuccess(false)
     try {
       await saveParlayToUser(user.uid, parlay)
+      setSavedParlayId(parlay.parlayId)
       setSaveParlaySuccess(true)
       setTimeout(() => setSaveParlaySuccess(false), 3000)
     } catch {
@@ -109,10 +110,11 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({
             />
           </Box>
 
-          {sources?.odds !== 'ok' && (
+          {parlay.legs.some(leg => !leg.anchored) && (
             <Alert severity="warning" sx={{ mb: 2 }}>
-              Book lines were unavailable for this game, so any spread, total, or
-              moneyline prices below are AI estimates rather than posted odds.
+              One or more legs below are marked &ldquo;Estimate&rdquo; — the book hadn&apos;t
+              posted a line for that market, so the price is an AI estimate rather than a
+              real one.
             </Alert>
           )}
 
@@ -140,10 +142,16 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({
               variant="outlined"
               startIcon={user ? <SaveIcon /> : <LoginIcon />}
               onClick={handleSaveParlay}
-              disabled={saving}
+              disabled={saving || savedParlayId === parlay.parlayId}
               sx={{ px: 3 }}
             >
-              {saving ? 'Saving…' : user ? 'Save parlay' : 'Sign in to save'}
+              {saving
+                ? 'Saving…'
+                : savedParlayId === parlay.parlayId
+                  ? 'Saved'
+                  : user
+                    ? 'Save parlay'
+                    : 'Sign in to save'}
             </Button>
           </Box>
 
