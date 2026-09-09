@@ -43,12 +43,24 @@ app.use(
 )
 app.use(express.json({ limit: '100kb' }))
 
-app.get('/health', (_req, res) => {
+const apiRouter = express.Router()
+apiRouter.get('/health', (_req, res) => {
   res.json({ ok: true })
 })
-app.use('/', publicRouter)
-app.use('/', agentRouter)
-app.use('/', metricsRouter)
+apiRouter.use('/', publicRouter)
+apiRouter.use('/', agentRouter)
+apiRouter.use('/', metricsRouter)
+
+// Two mount points for the same routes: direct Cloud Functions access
+// (https://REGION-PROJECT.cloudfunctions.net/api/...) has "api" — this
+// function's name — consumed as the first path segment before Express ever
+// sees the request, leaving just "/...". Firebase Hosting's rewrite (see
+// firebase.json) instead forwards the original same-origin request straight
+// to the underlying Cloud Run service with "/api/..." intact, since there is
+// no function-name segment on that URL to strip. Mounting at both "/" and
+// "/api" serves both callers without either needing to know which one it is.
+app.use('/', apiRouter)
+app.use('/api', apiRouter)
 
 const OPENAI_API_KEY = defineSecret('OPENAI_API_KEY')
 const ODDS_API_KEY = defineSecret('ODDS_API_KEY')
