@@ -1,3 +1,4 @@
+import OpenAI from 'openai'
 import { log } from '../../observability/logger'
 import { inc, observe, setActiveRuns } from '../../observability/metrics'
 import { endSpan, startSpan } from '../../observability/tracing'
@@ -23,8 +24,17 @@ import { validateDraft } from '../validate'
 
 export type Persist = {
   upsertStep: (runId: string, step: AgentStep) => Promise<void>
-  updateRun: (runId: string, updates: Partial<AgentRun>) => Promise<void>
   getRun: (runId: string) => Promise<AgentRun | null>
+  finishRun: (runId: string, updates: Partial<AgentRun>) => Promise<boolean>
+}
+
+export type RunAgentOptions = {
+  // Aborted when the request driving this run disconnects (same-tab cancel)
+  // or the caller wants to interrupt a step early, e.g. mid-draft.
+  signal?: AbortSignal
+  // Called whenever a step is written, so a live caller (the SSE stream) can
+  // push it straight to the client instead of polling Firestore for it.
+  onStep?: (step: AgentStep) => void
 }
 
 class RunError extends Error {
@@ -38,6 +48,16 @@ class RunError extends Error {
 }
 
 function errorCode(err: unknown): string {
+  // A DOMException/fetch AbortError, or the OpenAI SDK's own
+  // APIUserAbortError — neither sets `.code`, and the SDK error's `.name`
+  // is inherited as plain "Error" (it never overrides it), so `instanceof`
+  // is the only reliable check for the latter.
+  if (err instanceof Error && err.name === 'AbortError') {
+    return 'canceled'
+  }
+  if (err instanceof OpenAI.APIUserAbortError) {
+    return 'canceled'
+  }
   return (err as { code?: string }).code ?? 'error'
 }
 
@@ -45,7 +65,12 @@ function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
 }
 
-export async function runAgent(run: AgentRun, persist: Persist): Promise<void> {
+export async function runAgent(
+  run: AgentRun,
+  persist: Persist,
+  opts: RunAgentOptions = {}
+): Promise<void> {
+  const { signal, onStep } = opts
   const startedAt = Date.now()
   const { id: runId, correlationId, budget } = run
   const ctx = { correlationId, runId }
@@ -61,6 +86,9 @@ export async function runAgent(run: AgentRun, persist: Persist): Promise<void> {
     fn: () => Promise<T>,
     opts: { tool?: AgentToolName; notes?: string } = {}
   ): Promise<{ data: T | undefined; step: AgentStep }> {
+    if (signal?.aborted) {
+      throw new RunError('canceled', 'Run was canceled')
+    }
     if (remainingMs() <= 0) {
       throw new RunError('budget_exceeded', 'Run exceeded its time budget')
     }
@@ -78,6 +106,7 @@ export async function runAgent(run: AgentRun, persist: Persist): Promise<void> {
       notes: opts.notes,
     }
     await persist.upsertStep(runId, record)
+    onStep?.(record)
     const span = startSpan(`agent.${record.id}`, { ...ctx, parent: rootSpan.ctx })
     try {
       const data = await fn()
@@ -87,6 +116,7 @@ export async function runAgent(run: AgentRun, persist: Persist): Promise<void> {
         durationMs: Date.now() - t0,
       })
       await persist.upsertStep(runId, record)
+      onStep?.(record)
       endSpan(span, ctx)
       return { data, step: record }
     } catch (err) {
@@ -97,18 +127,26 @@ export async function runAgent(run: AgentRun, persist: Persist): Promise<void> {
         error: { code: errorCode(err), message: errorMessage(err) },
       })
       await persist.upsertStep(runId, record)
+      onStep?.(record)
       endSpan(span, { ...ctx, status: 'error', errorMessage: errorMessage(err) })
       log.warn('agent.step.failed', { ...ctx, stepId: record.id, error: record.error })
       return { data: undefined, step: record }
     }
   }
 
-  const tool = <T>(name: AgentToolName, fn: () => Promise<T>, retries = 1) =>
-    step('tool', () =>
-      withResilience(name, fn, {
-        timeoutMs: Math.min(remainingMs(), budget.perToolTimeoutMs),
-        retries,
-      }),
+  const tool = <T>(
+    name: AgentToolName,
+    fn: () => Promise<T>,
+    toolOpts: { retries?: number; nonCircuitErrorCodes?: string[] } = {}
+  ) =>
+    step(
+      'tool',
+      () =>
+        withResilience(name, fn, {
+          timeoutMs: Math.min(remainingMs(), budget.perToolTimeoutMs),
+          retries: toolOpts.retries ?? 1,
+          nonCircuitErrorCodes: toolOpts.nonCircuitErrorCodes,
+        }),
       { tool: name }
     )
 
@@ -117,13 +155,16 @@ export async function runAgent(run: AgentRun, persist: Persist): Promise<void> {
       notes: 'Load game, gather team stats + book lines, draft, validate',
     })
 
-    const { data: game } = await tool('espn_game', () =>
-      getGame(getCurrentSeason(), run.input.gameId).then(g => {
-        if (!g) {
-          throw new RunError('game_not_found', `Game ${run.input.gameId} not found`)
-        }
-        return g
-      })
+    const { data: game } = await tool(
+      'espn_game',
+      () =>
+        getGame(getCurrentSeason(), run.input.gameId).then(g => {
+          if (!g) {
+            throw new RunError('game_not_found', `Game ${run.input.gameId} not found`)
+          }
+          return g
+        }),
+      { nonCircuitErrorCodes: ['game_not_found'] }
     )
     if (!game) {
       throw new RunError('game_not_found', 'Could not load the selected game')
@@ -139,7 +180,14 @@ export async function runAgent(run: AgentRun, persist: Persist): Promise<void> {
           getTeamStats(game.away.teamId, game.season),
         ])
       ),
-      tool('odds', () => getOddsForGame(game), 0),
+      tool('odds', () => getOddsForGame(game), {
+        retries: 0,
+        nonCircuitErrorCodes: [
+          'odds_not_found',
+          'odds_no_bookmaker',
+          'odds_not_configured',
+        ],
+      }),
     ])
     const [homeStats, awayStats]: [TeamStats | null, TeamStats | null] =
       statsResult.data ?? [null, null]
@@ -157,7 +205,7 @@ export async function runAgent(run: AgentRun, persist: Persist): Promise<void> {
       riskLevel: run.input.riskLevel,
     })
     const draftStep = await step('draft', async () => {
-      const result = await draftParlay(client, prompt)
+      const result = await draftParlay(client, prompt, signal)
       observe('draft_tokens_output', result.tokensOutput)
       return result
     })
@@ -198,12 +246,12 @@ export async function runAgent(run: AgentRun, persist: Persist): Promise<void> {
       odds,
       sources: {
         stats: homeStats && awayStats ? 'ok' : 'unavailable',
-        odds: odds ? 'ok' : 'unavailable',
+        odds: odds && odds.spread && odds.total && odds.moneyline ? 'ok' : 'unavailable',
         weather: game.weather ? 'ok' : game.venue?.indoor ? 'indoor' : 'unavailable',
       },
       model: PARLAY_MODEL,
     }
-    await persist.updateRun(runId, {
+    await persist.finishRun(runId, {
       status: 'succeeded',
       result,
       tokensInput,
@@ -217,12 +265,10 @@ export async function runAgent(run: AgentRun, persist: Persist): Promise<void> {
     const code = err instanceof RunError ? err.code : errorCode(err)
     const message = errorMessage(err)
     const details = err instanceof RunError ? err.details : undefined
-    if (code !== 'canceled') {
-      await persist.updateRun(runId, {
-        status: 'failed',
-        error: { code, message, details },
-      })
-    }
+    await persist.finishRun(runId, {
+      status: code === 'canceled' ? 'canceled' : 'failed',
+      error: { code, message, details },
+    })
     inc(code === 'canceled' ? 'runs_canceled' : 'runs_failed')
     log.warn('agent.run.failed', { ...ctx, error: { code, message } })
     endSpan(rootSpan, { ...ctx, status: 'error', errorMessage: message })

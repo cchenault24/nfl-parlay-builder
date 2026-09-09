@@ -15,6 +15,10 @@ const CORS_ALLOWLIST: Array<string | RegExp> = [
 ]
 
 const app = express()
+// Cloud Run sits behind exactly one Google Front End hop, so req.ip is the
+// real client address only once we trust that one hop — otherwise every
+// visitor shares the load balancer's IP and one shared rate-limit bucket.
+app.set('trust proxy', 1)
 app.use((req: express.Request, _res: express.Response, next: express.NextFunction) => {
   ;(req as AuthedRequest).correlationId =
     (req.headers['x-correlation-id'] as string) ||

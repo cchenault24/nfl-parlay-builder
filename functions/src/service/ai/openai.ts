@@ -29,17 +29,21 @@ function aiError(code: string, message: string): Error {
 
 export async function draftParlay(
   client: OpenAI,
-  prompt: string
+  prompt: string,
+  signal?: AbortSignal
 ): Promise<DraftResult> {
-  const response = await client.responses.parse({
-    model: PARLAY_MODEL,
-    input: [
-      { role: 'system', content: SYSTEM_PROMPT },
-      { role: 'user', content: prompt },
-    ],
-    text: { format: zodTextFormat(AIGenerateResponseSchema, 'parlay') },
-    max_output_tokens: 4000,
-  })
+  const response = await client.responses.parse(
+    {
+      model: PARLAY_MODEL,
+      input: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: prompt },
+      ],
+      text: { format: zodTextFormat(AIGenerateResponseSchema, 'parlay') },
+      max_output_tokens: 4000,
+    },
+    { signal }
+  )
 
   if (response.status === 'incomplete') {
     throw aiError(

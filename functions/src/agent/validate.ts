@@ -20,29 +20,39 @@ function anchorIssues(
   const at = `leg ${index + 1}`
   const issues: string[] = []
 
-  if (leg.betType === 'spread' && odds.spread) {
-    const expectedLine = isHome ? odds.spread.line : -odds.spread.line
-    const expectedPrice = isHome ? odds.spread.homePrice : odds.spread.awayPrice
-    if (leg.line === null || !same(leg.line, expectedLine)) {
-      issues.push(`${at}: spread line ${leg.line} != book ${expectedLine}`)
-    }
-    if (leg.odds !== expectedPrice) {
-      issues.push(`${at}: spread price ${leg.odds} != book ${expectedPrice}`)
-    }
-  }
-  if (leg.betType === 'moneyline' && odds.moneyline) {
-    const expectedPrice = isHome ? odds.moneyline.home : odds.moneyline.away
-    if (leg.odds !== expectedPrice) {
-      issues.push(`${at}: moneyline ${leg.odds} != book ${expectedPrice}`)
+  if (leg.betType === 'spread') {
+    if (!odds.spread) {
+      issues.push(`${at}: spread market has no book line for this game`)
+    } else {
+      const expectedLine = isHome ? odds.spread.line : -odds.spread.line
+      const expectedPrice = isHome ? odds.spread.homePrice : odds.spread.awayPrice
+      if (leg.line === null || !same(leg.line, expectedLine)) {
+        issues.push(`${at}: spread line ${leg.line} != book ${expectedLine}`)
+      }
+      if (leg.odds !== expectedPrice) {
+        issues.push(`${at}: spread price ${leg.odds} != book ${expectedPrice}`)
+      }
     }
   }
-  if (leg.betType === 'total' && odds.total) {
-    if (leg.line === null || !same(leg.line, odds.total.line)) {
-      issues.push(`${at}: total ${leg.line} != book ${odds.total.line}`)
+  if (leg.betType === 'moneyline') {
+    if (!odds.moneyline) {
+      issues.push(`${at}: moneyline market has no book line for this game`)
+    } else {
+      const expectedPrice = isHome ? odds.moneyline.home : odds.moneyline.away
+      if (leg.odds !== expectedPrice) {
+        issues.push(`${at}: moneyline ${leg.odds} != book ${expectedPrice}`)
+      }
     }
-    if (!leg.side) {
+  }
+  if (leg.betType === 'total') {
+    if (!odds.total) {
+      issues.push(`${at}: total market has no book line for this game`)
+    } else if (!leg.side) {
       issues.push(`${at}: total leg needs a side`)
     } else {
+      if (leg.line === null || !same(leg.line, odds.total.line)) {
+        issues.push(`${at}: total ${leg.line} != book ${odds.total.line}`)
+      }
       const expectedPrice =
         leg.side === 'over' ? odds.total.overPrice : odds.total.underPrice
       if (leg.odds !== expectedPrice) {
@@ -77,6 +87,10 @@ export function validateDraft(
     if (abs < MIN_ABS_ODDS || abs > MAX_ABS_ODDS) {
       issues.push(`${at}: odds ${leg.odds} outside sane range`)
     }
+    // Anchor a market leg to its book line whenever any book data exists for
+    // this game — a leg using a market the book hasn't posted (e.g. total
+    // missing while spread/moneyline are live) is exactly as invented as a
+    // leg contradicting a line the book did post, so both are rejected here.
     if (odds && teams.includes(leg.team)) {
       issues.push(...anchorIssues(leg, i, game, odds))
     }

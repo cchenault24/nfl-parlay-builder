@@ -4,13 +4,16 @@ import {
   AgentBudgetSchema,
   AgentRun,
   AgentRunSchema,
+  AgentStep,
   RiskLevelSchema,
 } from '../agent/shared/schemas'
 import {
+  cancelRun,
+  claimRun,
   createRun,
+  finishRun,
   getRun,
   listSteps,
-  updateRun,
   upsertStep,
 } from '../agent/store/firestore'
 import { verifyAuth, type AuthedRequest } from '../middleware/auth'
@@ -25,10 +28,11 @@ export const agentRouter = express.Router()
 
 const RUNS_PER_HOUR = 20
 const RATE_WINDOW_MS = 60 * 60_000
+const AGENT_RUNS_ROUTE = 'agent_runs_create'
 const isEmulator = () =>
   !!process.env.FUNCTIONS_EMULATOR || !!process.env.FIREBASE_AUTH_EMULATOR_HOST
 
-const persist = { upsertStep, updateRun, getRun }
+const persist = { upsertStep, getRun, finishRun }
 
 type Handler = (req: AuthedRequest, res: express.Response) => Promise<unknown>
 
@@ -60,7 +64,7 @@ function rateLimitFor(uid: string) {
         resetTime: new Date(),
         currentCount: 0,
       })
-    : getUserRateLimitStatus(uid, '/agent/runs', RUNS_PER_HOUR, RATE_WINDOW_MS)
+    : getUserRateLimitStatus(uid, AGENT_RUNS_ROUTE, RUNS_PER_HOUR, RATE_WINDOW_MS)
 }
 
 async function ownedRun(req: AuthedRequest, res: express.Response) {
@@ -75,7 +79,7 @@ async function ownedRun(req: AuthedRequest, res: express.Response) {
 agentRouter.post(
   '/agent/runs',
   verifyAuth,
-  ...(isEmulator() ? [] : [rateLimitByUser(RUNS_PER_HOUR, RATE_WINDOW_MS)]),
+  ...(isEmulator() ? [] : [rateLimitByUser(RUNS_PER_HOUR, RATE_WINDOW_MS, AGENT_RUNS_ROUTE)]),
   route(async (req, res) => {
     const { correlationId, user } = req
     if (!user) {
@@ -107,20 +111,6 @@ agentRouter.post(
     await createRun(run)
     log.info('api.agent.create', { correlationId, runId: run.id, userId: user.uid })
     res.json({ runId: run.id, rateLimitInfo: await rateLimitFor(user.uid) })
-
-    updateRun(run.id, { status: 'running' })
-      .then(() => runAgent(run, persist))
-      .catch(async e => {
-        log.error('api.agent.orchestrator_error', {
-          correlationId,
-          runId: run.id,
-          error: { code: 'orchestrator_error', message: String(e) },
-        })
-        await updateRun(run.id, {
-          status: 'failed',
-          error: { code: 'orchestrator_error', message: String(e) },
-        })
-      })
   })
 )
 
@@ -135,6 +125,15 @@ agentRouter.get(
   })
 )
 
+// Execution happens here, not in POST /agent/runs. A run only makes
+// progress while some request is actively held open on its instance — Cloud
+// Run throttles CPU to near-zero once a response has been sent, so kicking
+// the agent off from the POST handler and returning immediately left it
+// racing the platform for CPU with no guarantee it would ever get any. This
+// request claims the run (atomically, so only one caller ever executes it)
+// and drives it to completion itself, pushing each step straight to the
+// client as it happens. A second stream request for the same run (e.g. a
+// duplicate tab) loses the claim and just mirrors Firestore instead.
 agentRouter.get(
   '/agent/runs/:id/stream',
   verifyAuth,
@@ -152,18 +151,83 @@ agentRouter.get(
     res.setHeader('Connection', 'keep-alive')
     res.flushHeaders?.()
 
-    const send = (event: string, data: unknown) =>
-      res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+    let closed = false
+    const send = (event: string, data: unknown) => {
+      if (!closed) {
+        res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+      }
+    }
+    const finish = () => {
+      if (!closed) {
+        closed = true
+        res.end()
+      }
+    }
+
+    const claimed = await claimRun(runId)
+    if (claimed) {
+      const controller = new AbortController()
+      req.on('close', () => controller.abort())
+      // Belt-and-suspenders for cancellation: a cross-tab (or otherwise
+      // out-of-band) /cancel call only writes to Firestore, and relying on
+      // this same request's own connection actually closing to notice it
+      // isn't dependable through every proxy this request may sit behind.
+      // Polling directly makes a cancel take effect in ~2s regardless.
+      const cancelWatcher = setInterval(() => {
+        if (controller.signal.aborted) {
+          return
+        }
+        getRun(runId).then(latest => {
+          if (latest?.status === 'canceled') {
+            controller.abort()
+          }
+        })
+      }, 2000)
+
+      const sentSteps = new Set<string>()
+      send('status', { status: 'running' })
+      await runAgent(claimed, persist, {
+        signal: controller.signal,
+        onStep: (step: AgentStep) => {
+          sentSteps.add(step.id)
+          send('step', step)
+        },
+      })
+      clearInterval(cancelWatcher)
+
+      // Steps upserted directly by runAgent may have been missed if this
+      // exact step id was already sent mid-flight is fine (idempotent), but
+      // pick up anything the callback path didn't cover for completeness.
+      const finalSteps = await listSteps(runId)
+      for (const step of finalSteps) {
+        if (!sentSteps.has(step.id)) {
+          send('step', step)
+        }
+      }
+
+      const finalRun = await getRun(runId)
+      if (finalRun?.status === 'succeeded') {
+        send('final', finalRun.result)
+      } else {
+        send('error', finalRun?.error ?? { code: 'error', message: 'Run ended' })
+      }
+      return finish()
+    }
+
+    // Someone else is already executing this run (or it's already done) —
+    // fall back to mirroring Firestore until it reaches a terminal state.
     const sentSteps = new Map<string, string>()
     let lastStatus: string | undefined
+    let timer: NodeJS.Timeout | undefined
+    req.on('close', () => {
+      closed = true
+      clearTimeout(timer)
+    })
 
-    const finish = () => {
-      clearInterval(interval)
-      res.end()
-    }
-    req.on('close', () => clearInterval(interval))
-
-    const interval = setInterval(async () => {
+    const poll = async () => {
+      if (closed) {
+        return
+      }
       try {
         const steps = await listSteps(runId)
         for (const step of steps) {
@@ -183,10 +247,11 @@ agentRouter.get(
         }
         if (latest.status === 'succeeded') {
           send('final', latest.result)
-          finish()
-        } else if (latest.status === 'failed' || latest.status === 'canceled') {
+          return finish()
+        }
+        if (latest.status === 'failed' || latest.status === 'canceled') {
           send('error', latest.error ?? { code: latest.status, message: 'Run ended' })
-          finish()
+          return finish()
         }
       } catch (e) {
         log.warn('api.agent.stream.error', {
@@ -194,9 +259,13 @@ agentRouter.get(
           runId,
           error: { code: 'stream_error', message: String(e) },
         })
-        finish()
+        return finish()
       }
-    }, 500)
+      if (!closed) {
+        timer = setTimeout(poll, 500)
+      }
+    }
+    await poll()
   })
 )
 
@@ -208,9 +277,7 @@ agentRouter.post(
     if (!run) {
       return
     }
-    if (run.status === 'queued' || run.status === 'running') {
-      await updateRun(run.id, { status: 'canceled' })
-    }
+    await cancelRun(run.id)
     res.json({ ok: true })
   })
 )

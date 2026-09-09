@@ -79,10 +79,20 @@ const GameSelector: React.FC<GameSelectorProps> = ({
   }, [atLimit])
 
   React.useEffect(() => {
-    if (selectedGame && games && !games.some(g => g.gameId === selectedGame.gameId)) {
+    // Only clear the selection if it vanished from the week we're actually
+    // showing. If `currentWeek` itself ticked over in the background (the
+    // derived "current week" advancing as games go final), `games` is now a
+    // different week's list and won't contain the old selection either —
+    // that's not a reason to drop what the user is looking at.
+    if (
+      selectedGame &&
+      games &&
+      selectedGame.week === currentWeek &&
+      !games.some(g => g.gameId === selectedGame.gameId)
+    ) {
       onGameChange(null)
     }
-  }, [selectedGame, games, onGameChange])
+  }, [selectedGame, games, currentWeek, onGameChange])
 
   const handleGameChange = (event: SelectChangeEvent<string>) => {
     onGameChange(games?.find(g => g.gameId === event.target.value) ?? null)

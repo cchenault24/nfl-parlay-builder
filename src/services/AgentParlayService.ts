@@ -94,6 +94,11 @@ export class AgentParlayService extends BaseParlayService {
 
       options.signal?.addEventListener('abort', () => {
         settle(() => {
+          // Closing the stream is what actually stops the run — it's the
+          // request driving execution server-side, not just a display feed.
+          // The explicit cancel call is a best-effort backstop for a run
+          // being watched from another tab or device.
+          stop()
           void this.runs.cancelRun(runId, token).catch(() => undefined)
           reject(new Error('Parlay generation canceled.'))
         })

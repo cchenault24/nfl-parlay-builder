@@ -104,10 +104,13 @@ type StoredParlay = Partial<Omit<GeneratedParlay, 'legs'>> & {
 }
 
 // Older saves used different field names; normalize so history always renders.
+// `parlayId` here is always the Firestore doc id, not the stored field — the
+// same generated parlay (same runId) saved twice would otherwise carry the
+// same `parlayId` in both docs, breaking React's list identity in history.
 function normalizeParlay(data: StoredParlay, docId: string): GeneratedParlay {
   const num = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : 0)
   return {
-    parlayId: data.parlayId ?? docId,
+    parlayId: docId,
     gameId: data.gameId ?? '',
     gameContext: data.gameContext ?? '',
     legs: (data.legs ?? []).map(leg => ({

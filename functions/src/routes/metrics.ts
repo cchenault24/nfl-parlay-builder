@@ -1,13 +1,21 @@
 import express from 'express'
 import { cache } from '../cache/CacheClient'
+import { verifyAuth } from '../middleware/auth'
+import { rateLimitByIp } from '../middleware/rateLimit'
 import { log } from '../observability/logger'
 import { snapshot } from '../observability/metrics'
 
 export const metricsRouter = express.Router()
 
+// Internal diagnostics — require sign-in and rate-limit, since these were
+// previously reachable by anyone with no limit at all. Use GET /health for
+// an unauthenticated liveness probe.
+const guard = [verifyAuth, rateLimitByIp(30, 60_000, 'metrics')]
+
 // GET /metrics - Expose metrics for monitoring
 metricsRouter.get(
   '/metrics',
+  ...guard,
   async (req: express.Request, res: express.Response) => {
     try {
       const metrics = snapshot()
@@ -45,6 +53,7 @@ metricsRouter.get(
 // GET /metrics/health - Health check endpoint
 metricsRouter.get(
   '/metrics/health',
+  ...guard,
   async (req: express.Request, res: express.Response) => {
     try {
       const metrics = snapshot()
