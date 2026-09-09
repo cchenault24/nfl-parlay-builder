@@ -24,7 +24,7 @@ export type RunStreamEvent =
 
 export class AgentRunService {
   private base(): string {
-    return `${API_CONFIG.CLOUD_FUNCTIONS.baseURL}/api`
+    return API_CONFIG.CLOUD_FUNCTIONS.baseURL
   }
 
   private async request<T>(
