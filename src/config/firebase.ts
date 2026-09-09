@@ -118,12 +118,17 @@ function normalizeParlay(data: StoredParlay, docId: string): GeneratedParlay {
     legs: (data.legs ?? []).map(leg => ({
       betType: leg.betType ?? leg.type ?? 'moneyline',
       team: leg.team ?? '',
+      player: leg.player?.trim() ? leg.player : null,
       selection: leg.selection ?? leg.pick ?? '',
       line: leg.line ?? null,
       side: leg.side ?? null,
       odds: num(leg.odds),
       confidence: num(leg.confidence),
       reasoning: leg.reasoning ?? '',
+      // Saves from before this field existed were made under the old
+      // all-or-nothing anchoring rule, so every leg they contain was, by
+      // definition, anchored.
+      anchored: leg.anchored ?? true,
     })),
     combinedOdds: num(data.combinedOdds ?? data.estimatedOdds),
     parlayConfidence: num(data.parlayConfidence),
@@ -133,6 +138,7 @@ function normalizeParlay(data: StoredParlay, docId: string): GeneratedParlay {
       gamePrediction: { winner: '', projectedScore: { home: 0, away: 0 }, winProbability: 0 },
     },
     model: data.model ?? 'unknown',
+    grading: data.grading,
   }
 }
 
