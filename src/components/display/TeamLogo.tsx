@@ -1,6 +1,6 @@
 import { Box, Skeleton, Typography } from '@mui/material'
 import React, { useEffect, useState } from 'react'
-import { getTeamLogoUrl } from '../../utils/teamLogos'
+import { getTeamLogoUrl } from '@shared/teamLogos'
 
 export interface TeamLogoProps {
   teamName: string

@@ -14,12 +14,19 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
+    /* Shared cross-client source (also consumed by mobile/) */
+    "baseUrl": ".",
+    "paths": {
+      "@shared": ["shared/index.ts"],
+      "@shared/*": ["shared/*"]
+    },
+
     /* Linting */
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"],
+  "include": ["src", "shared"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
