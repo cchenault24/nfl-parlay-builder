@@ -2,6 +2,7 @@ import { createHash } from 'crypto'
 import express from 'express'
 import type { QueryDocumentSnapshot, Transaction } from 'firebase-admin/firestore'
 import { db } from '../firebase'
+import { log } from '../observability/logger'
 import { errorResponse } from '../utils/errors'
 import type { AuthedRequest } from './auth'
 
@@ -50,7 +51,10 @@ async function checkAndIncrementRateLimit(
 const isEmulator = () =>
   !!process.env.FUNCTIONS_EMULATOR || !!process.env.FIREBASE_AUTH_EMULATOR_HOST
 
-export function rateLimitByIp(limit: number, windowMs: number) {
+// `routeName` must be a fixed string, not derived from req.path — Express
+// matches paths case-insensitively and with optional trailing slashes, so a
+// path-derived key lets a client mint a fresh bucket per case/slash variant.
+export function rateLimitByIp(limit: number, windowMs: number, routeName: string) {
   return async (
     req: express.Request,
     res: express.Response,
@@ -63,23 +67,39 @@ export function rateLimitByIp(limit: number, windowMs: number) {
       (req as AuthedRequest).correlationId ||
       `req_${Math.random().toString(36).slice(2)}`
     const ip = req.ip || 'unknown'
-    const route = req.path || 'unknown'
-    const key = `ip:${ip}:route:${route}:win:${windowMs}`
-    const allowed = await checkAndIncrementRateLimit(key, limit, windowMs)
-    if (!allowed) {
-      return errorResponse(
+    const key = `ip:${ip}:route:${routeName}:win:${windowMs}`
+    try {
+      const allowed = await checkAndIncrementRateLimit(key, limit, windowMs)
+      if (!allowed) {
+        return errorResponse(
+          res,
+          429,
+          'rate_limited',
+          'Rate limit exceeded',
+          correlationId
+        )
+      }
+      next()
+    } catch (e) {
+      log.error('rate_limit.ip.error', {
+        correlationId,
+        error: {
+          code: 'rate_limit_unavailable',
+          message: e instanceof Error ? e.message : String(e),
+        },
+      })
+      errorResponse(
         res,
-        429,
-        'rate_limited',
-        'Rate limit exceeded',
+        503,
+        'rate_limit_unavailable',
+        'Rate limiting is temporarily unavailable',
         correlationId
       )
     }
-    next()
   }
 }
 
-export function rateLimitByUser(limit: number, windowMs: number) {
+export function rateLimitByUser(limit: number, windowMs: number, routeName: string) {
   return async (
     req: express.Request,
     res: express.Response,
@@ -98,20 +118,35 @@ export function rateLimitByUser(limit: number, windowMs: number) {
         correlationId
       )
     }
-    const uid = user.uid
-    const route = req.path || 'unknown'
-    const key = `user:${uid}:route:${route}:win:${windowMs}`
-    const allowed = await checkAndIncrementRateLimit(key, limit, windowMs)
-    if (!allowed) {
-      return errorResponse(
+    const key = `user:${user.uid}:route:${routeName}:win:${windowMs}`
+    try {
+      const allowed = await checkAndIncrementRateLimit(key, limit, windowMs)
+      if (!allowed) {
+        return errorResponse(
+          res,
+          429,
+          'rate_limited',
+          'Rate limit exceeded',
+          correlationId
+        )
+      }
+      next()
+    } catch (e) {
+      log.error('rate_limit.user.error', {
+        correlationId,
+        error: {
+          code: 'rate_limit_unavailable',
+          message: e instanceof Error ? e.message : String(e),
+        },
+      })
+      errorResponse(
         res,
-        429,
-        'rate_limited',
-        'Rate limit exceeded',
+        503,
+        'rate_limit_unavailable',
+        'Rate limiting is temporarily unavailable',
         correlationId
       )
     }
-    next()
   }
 }
 
@@ -166,7 +201,7 @@ export async function getRateLimitStatus(
 // Function to get rate limit status for a user
 export async function getUserRateLimitStatus(
   uid: string,
-  route: string,
+  routeName: string,
   limit: number,
   windowMs: number
 ): Promise<{
@@ -175,6 +210,6 @@ export async function getUserRateLimitStatus(
   resetTime: Date
   currentCount: number
 }> {
-  const key = `user:${uid}:route:${route}:win:${windowMs}`
+  const key = `user:${uid}:route:${routeName}:win:${windowMs}`
   return await getRateLimitStatus(key, limit, windowMs)
 }

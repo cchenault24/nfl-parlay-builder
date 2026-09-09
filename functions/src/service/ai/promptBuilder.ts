@@ -111,22 +111,29 @@ function linesSection(input: PromptInput): string {
     rows.push(
       `- Spread: ${game.home.name} ${formatAmerican(line)} (${formatAmerican(homePrice)}) / ${game.away.name} ${formatAmerican(-line)} (${formatAmerican(awayPrice)})`
     )
+  } else {
+    rows.push('- Spread: NOT AVAILABLE for this game')
   }
   if (odds.total) {
     const { line, overPrice, underPrice } = odds.total
     rows.push(
       `- Total: ${line} — Over (${formatAmerican(overPrice)}) / Under (${formatAmerican(underPrice)})`
     )
+  } else {
+    rows.push('- Total: NOT AVAILABLE for this game')
   }
   if (odds.moneyline) {
     rows.push(
       `- Moneyline: ${game.home.name} (${formatAmerican(odds.moneyline.home)}) / ${game.away.name} (${formatAmerican(odds.moneyline.away)})`
     )
+  } else {
+    rows.push('- Moneyline: NOT AVAILABLE for this game')
   }
   return (
     `Betting lines from ${odds.bookmaker} (updated ${odds.lastUpdate}):\n${rows.join('\n')}\n` +
     'LINE RULES: a spread leg must use exactly this spread and price for the chosen team; a total leg must use exactly this total ' +
     'and the matching over/under price; a moneyline leg must use exactly this price. Never create alternate lines. ' +
+    'Do not create a spread, total, or moneyline leg for a market marked NOT AVAILABLE above — use a player prop instead. ' +
     'Player props have no lines provided: set a realistic line and price yourself and keep confidence modest.'
   )
 }

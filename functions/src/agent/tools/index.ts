@@ -14,9 +14,18 @@ function getCircuit(key: string): CircuitState {
 export async function withResilience<T>(
   key: string,
   fn: () => Promise<T>,
-  opts: { timeoutMs: number; retries?: number; backoffMs?: number }
+  opts: {
+    timeoutMs: number
+    retries?: number
+    backoffMs?: number
+    // Error codes that mean "this specific request has no data" rather than
+    // "the provider is broken" — e.g. a game the book hasn't posted lines
+    // for yet. These don't count toward opening the circuit, so one game's
+    // missing data can't take odds/stats down for every other game.
+    nonCircuitErrorCodes?: string[]
+  }
 ): Promise<T> {
-  const { timeoutMs, retries = 0, backoffMs = 200 } = opts
+  const { timeoutMs, retries = 0, backoffMs = 200, nonCircuitErrorCodes } = opts
   const circuit = getCircuit(key)
   if (circuit.openUntil && circuit.openUntil > Date.now()) {
     throw Object.assign(new Error(`${key} circuit open`), {
@@ -46,9 +55,13 @@ export async function withResilience<T>(
       return result
     } catch (err) {
       attempt += 1
-      circuit.failures += 1
-      if (circuit.failures >= 5) {
-        circuit.openUntil = Date.now() + 15_000
+      const code = (err as { code?: string }).code
+      const isBusinessError = !!code && !!nonCircuitErrorCodes?.includes(code)
+      if (!isBusinessError) {
+        circuit.failures += 1
+        if (circuit.failures >= 5) {
+          circuit.openUntil = Date.now() + 15_000
+        }
       }
       if (attempt > retries) {
         throw err
