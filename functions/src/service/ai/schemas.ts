@@ -58,9 +58,12 @@ export const AIAnalysisSchema = z.object({
   }),
 })
 
+// analysisSummary comes first: structured-output generation fills fields in
+// schema order, so the model works out its read on the game before it has to
+// commit to specific legs, rather than the other way around.
 export const AIGenerateResponseSchema = z.object({
-  legs: z.array(AILegSchema).min(3).max(3),
   analysisSummary: AIAnalysisSchema,
+  legs: z.array(AILegSchema).min(3).max(3),
 })
 
 export type AIGenerateResponse = z.infer<typeof AIGenerateResponseSchema>

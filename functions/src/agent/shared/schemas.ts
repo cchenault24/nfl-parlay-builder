@@ -4,7 +4,12 @@ import type { OddsSnapshot } from '../../providers/odds/client'
 import type { AIAnalysis, AILeg } from '../../service/ai/schemas'
 
 export const AgentStepTypeSchema = z.enum(['plan', 'tool', 'draft', 'validate'])
-export const AgentToolNameSchema = z.enum(['espn_game', 'espn_team_stats', 'odds'])
+export const AgentToolNameSchema = z.enum([
+  'espn_game',
+  'espn_team_stats',
+  'espn_pregame',
+  'odds',
+])
 export const StepStatusSchema = z.enum(['running', 'ok', 'failed'])
 
 export const AgentStepSchema = z.object({

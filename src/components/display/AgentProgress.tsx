@@ -15,6 +15,7 @@ const ROWS: Array<{ id: string; label: string; optional?: boolean }> = [
   { id: 'step_plan', label: 'Plan the run' },
   { id: 'step_tool_espn_game', label: 'Load game, venue & forecast' },
   { id: 'step_tool_espn_team_stats', label: 'Pull team statistics', optional: true },
+  { id: 'step_tool_espn_pregame', label: 'Check injuries & recent form', optional: true },
   { id: 'step_tool_odds', label: 'Fetch book lines', optional: true },
   { id: 'step_draft', label: 'Draft the parlay' },
   { id: 'step_validate', label: 'Check legs against the lines' },

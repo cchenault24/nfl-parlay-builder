@@ -1,5 +1,6 @@
 import type { ScheduleGame } from '../providers/espn/types'
 import type { AIAnalysis } from '../service/ai/schemas'
+import { impliedProbability } from '../utils/odds'
 import type { ProcessedLeg } from './shared/schemas'
 
 const MIN_ABS_ODDS = 100
@@ -44,6 +45,13 @@ export function validateDraft(draft: ValidatableDraft, game: ScheduleGame): stri
     }
     if (!isPlayerBet && hasPlayer) {
       issues.push(`${at}: player must be empty for ${leg.betType}`)
+    }
+    // A leg anchored to the book's exact price has no edge if the model's
+    // own confidence doesn't clear that price's break-even win rate.
+    if (leg.anchored && leg.confidence <= impliedProbability(leg.odds)) {
+      issues.push(
+        `${at}: confidence ${leg.confidence} does not clear the implied probability of anchored odds ${leg.odds}`
+      )
     }
   })
 

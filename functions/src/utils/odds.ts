@@ -17,3 +17,10 @@ export function combineAmericanOdds(odds: number[]): number {
 export function formatAmerican(odds: number): string {
   return odds > 0 ? `+${odds}` : String(odds)
 }
+
+// The break-even win rate a price implies — e.g. -150 implies 60%.
+export function impliedProbability(americanOdds: number): number {
+  return americanOdds > 0
+    ? 100 / (americanOdds + 100)
+    : Math.abs(americanOdds) / (Math.abs(americanOdds) + 100)
+}

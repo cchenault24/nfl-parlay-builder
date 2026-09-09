@@ -5,9 +5,14 @@ import type {
   BoxScoreAthlete,
   GameBoxScore,
   GameStatus,
+  LeagueAverages,
+  PregameContext,
   RankedStat,
+  RecentGame,
   ScheduleGame,
   TeamBoxScore,
+  TeamInjury,
+  TeamPregameContext,
   TeamRef,
   TeamStats,
 } from './types'
@@ -203,6 +208,122 @@ export async function getBoxScore(gameId: string): Promise<GameBoxScore | null> 
     },
     { ttlMs: 24 * 60 * 60 * 1000 }
   )
+}
+
+type SummaryInjuryEntry = {
+  team: { id: string }
+  injuries: Array<{
+    status: string
+    athlete: { displayName: string; position?: { abbreviation: string } }
+    details?: { type?: string; detail?: string }
+  }>
+}
+type SummaryLastFiveGames = {
+  team: { id: string }
+  events: Array<{
+    week: number
+    gameDate: string
+    homeTeamId: string
+    homeTeamScore: string
+    awayTeamScore: string
+    gameResult: string
+    opponent: { displayName: string }
+  }>
+}
+type PregameSummaryResponse = SummaryResponse & {
+  injuries?: SummaryInjuryEntry[]
+  lastFiveGames?: SummaryLastFiveGames[]
+}
+
+function toTeamInjuries(entry: SummaryInjuryEntry | undefined): TeamInjury[] {
+  return (entry?.injuries ?? []).map(i => ({
+    player: i.athlete.displayName,
+    position: i.athlete.position?.abbreviation ?? '',
+    status: i.status,
+    detail: [i.details?.type, i.details?.detail].filter(Boolean).join(' - '),
+  }))
+}
+
+function toRecentGames(entry: SummaryLastFiveGames | undefined): RecentGame[] {
+  if (!entry) {
+    return []
+  }
+  return entry.events
+    .map(e => {
+      const isHome = e.homeTeamId === entry.team.id
+      const pointsFor = parseInt(isHome ? e.homeTeamScore : e.awayTeamScore, 10)
+      const pointsAgainst = parseInt(isHome ? e.awayTeamScore : e.homeTeamScore, 10)
+      return {
+        week: e.week,
+        opponent: e.opponent.displayName,
+        pointsFor,
+        pointsAgainst,
+        result: e.gameResult,
+        dateTime: e.gameDate,
+      }
+    })
+    .sort((a, b) => b.dateTime.localeCompare(a.dateTime))
+}
+
+// Injury reports and each team's last five results — available before
+// kickoff, unlike the box score. Cached briefly since injury designations
+// can change day-to-day in the lead-up to a game.
+export async function getPregameContext(
+  gameId: string,
+  homeTeamId: string,
+  awayTeamId: string
+): Promise<PregameContext | null> {
+  return cache.getOrSet(
+    'espn_pregame',
+    { gameId },
+    async () => {
+      inc('provider_calls_espn_pregame')
+      const data = await fetchJson<PregameSummaryResponse>(
+        `${SITE}/summary?event=${gameId}`,
+        10_000
+      )
+      const toTeamContext = (teamId: string): TeamPregameContext => ({
+        injuries: toTeamInjuries(data.injuries?.find(i => i.team.id === teamId)),
+        recentGames: toRecentGames(
+          data.lastFiveGames?.find(g => g.team.id === teamId)
+        ),
+      })
+      return {
+        home: toTeamContext(homeTeamId),
+        away: toTeamContext(awayTeamId),
+      }
+    },
+    { ttlMs: 1_800_000 }
+  )
+}
+
+// League-wide scoring average for the given season, used to give an
+// individual team's points-per-game some scale. Falls back to the prior
+// season before any games have been played, same as team stats.
+export async function getLeagueAverages(
+  season: number
+): Promise<LeagueAverages | null> {
+  const scoreFinalGames = (games: ScheduleGame[]) =>
+    games.filter(
+      (g): g is ScheduleGame & { homeScore: number; awayScore: number } =>
+        g.status === 'final' && g.homeScore !== null && g.awayScore !== null
+    )
+
+  let games = scoreFinalGames(await getSeasonSchedule(season))
+  let usedSeason = season
+  if (games.length === 0) {
+    games = scoreFinalGames(await getSeasonSchedule(season - 1))
+    usedSeason = season - 1
+  }
+  if (games.length === 0) {
+    return null
+  }
+  const totalPoints = games.reduce((sum, g) => sum + g.homeScore + g.awayScore, 0)
+  return {
+    season: usedSeason,
+    avgTotalPoints: Math.round((totalPoints / games.length) * 10) / 10,
+    avgPointsPerTeam: Math.round((totalPoints / games.length / 2) * 10) / 10,
+  }
 }
 
 function pickStat(
