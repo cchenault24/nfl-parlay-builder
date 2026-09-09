@@ -58,6 +58,39 @@ export interface GameBoxScore {
   away: TeamBoxScore
 }
 
+export interface TeamInjury {
+  player: string
+  position: string
+  status: string
+  detail: string
+}
+
+export interface RecentGame {
+  week: number
+  opponent: string
+  pointsFor: number
+  pointsAgainst: number
+  result: string
+  dateTime: string
+}
+
+export interface TeamPregameContext {
+  injuries: TeamInjury[]
+  // Most recent first.
+  recentGames: RecentGame[]
+}
+
+export interface PregameContext {
+  home: TeamPregameContext
+  away: TeamPregameContext
+}
+
+export interface LeagueAverages {
+  season: number
+  avgPointsPerTeam: number
+  avgTotalPoints: number
+}
+
 export interface RankedStat {
   value: number
   rank: number

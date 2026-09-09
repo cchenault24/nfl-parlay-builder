@@ -1,4 +1,11 @@
-import type { ScheduleGame, TeamStats } from '../../providers/espn/types'
+import type {
+  LeagueAverages,
+  PregameContext,
+  RecentGame,
+  ScheduleGame,
+  TeamInjury,
+  TeamStats,
+} from '../../providers/espn/types'
 import type { OddsSnapshot } from '../../providers/odds/client'
 import { formatAmerican } from '../../utils/odds'
 import { BetTypeEnum } from './schemas'
@@ -10,6 +17,8 @@ export interface PromptInput {
   homeStats: TeamStats | null
   awayStats: TeamStats | null
   odds: OddsSnapshot | null
+  pregame: PregameContext | null
+  leagueAverages: LeagueAverages | null
   riskLevel: RiskLevel
 }
 
@@ -97,6 +106,90 @@ function statsSection(input: PromptInput): string {
   )
 }
 
+function daysBetween(fromIso: string, toIso: string): number {
+  return Math.round((new Date(toIso).getTime() - new Date(fromIso).getTime()) / 86_400_000)
+}
+
+function recentFormLine(name: string, recentGames: RecentGame[]): string {
+  if (recentGames.length === 0) {
+    return `${name}: no recent games available`
+  }
+  const results = recentGames
+    .slice(0, 5)
+    .map(g => `${g.result} ${g.pointsFor}-${g.pointsAgainst} vs ${g.opponent} (wk ${g.week})`)
+    .join(', ')
+  return `${name}: ${results}`
+}
+
+function recentFormSection(input: PromptInput): string {
+  const { game, pregame } = input
+  if (!pregame) {
+    return 'Recent form: not available'
+  }
+  return (
+    'Recent form (last 5 games, most recent first):\n' +
+    `${recentFormLine(game.home.name, pregame.home.recentGames)}\n` +
+    `${recentFormLine(game.away.name, pregame.away.recentGames)}`
+  )
+}
+
+function restLine(name: string, recentGames: RecentGame[], kickoff: string): string {
+  if (recentGames.length === 0) {
+    return `${name}: rest not available`
+  }
+  const days = daysBetween(recentGames[0].dateTime, kickoff)
+  const note = days >= 9 ? ' (extended rest / bye)' : days <= 4 ? ' (short week)' : ''
+  return `${name}: ${days} days rest${note}`
+}
+
+function restSection(input: PromptInput): string {
+  const { game, pregame } = input
+  if (!pregame) {
+    return 'Rest since last game: not available'
+  }
+  return (
+    'Rest since last game:\n' +
+    `${restLine(game.home.name, pregame.home.recentGames, game.dateTime)}\n` +
+    `${restLine(game.away.name, pregame.away.recentGames, game.dateTime)}`
+  )
+}
+
+function injuryLine(name: string, injuries: TeamInjury[]): string {
+  if (injuries.length === 0) {
+    return `${name}: no notable injuries reported`
+  }
+  const rows = injuries
+    .map(i => `${i.player} (${i.position}) - ${i.status}${i.detail ? `, ${i.detail}` : ''}`)
+    .join('; ')
+  return `${name}: ${rows}`
+}
+
+function injuriesSection(input: PromptInput): string {
+  const { game, pregame } = input
+  if (!pregame) {
+    return 'Injury report: not available'
+  }
+  return (
+    'Injury report:\n' +
+    `${injuryLine(game.home.name, pregame.home.injuries)}\n` +
+    `${injuryLine(game.away.name, pregame.away.injuries)}`
+  )
+}
+
+function leagueAverageSection(input: PromptInput): string {
+  const { game, leagueAverages } = input
+  if (!leagueAverages) {
+    return 'League averages: not available'
+  }
+  const note =
+    leagueAverages.season !== game.season ? ` (${leagueAverages.season} season)` : ''
+  return (
+    `League averages${note}: ${leagueAverages.avgPointsPerTeam} points/team/game, ` +
+    `${leagueAverages.avgTotalPoints} combined points/game — use this to judge whether ` +
+    'a team or matchup is running hot or cold relative to the league.'
+  )
+}
+
 function linesSection(input: PromptInput): string {
   const { game, odds } = input
   if (!odds) {
@@ -149,9 +242,22 @@ export function buildParlayPrompt(input: PromptInput): string {
     '',
     statsSection(input),
     '',
+    recentFormSection(input),
+    '',
+    restSection(input),
+    '',
+    injuriesSection(input),
+    '',
+    leagueAverageSection(input),
+    '',
     linesSection(input),
     '',
     `Risk level: ${riskLevel}. ${RISK_GUIDANCE[riskLevel]}`,
+    '',
+    'Analysis requirements:',
+    '- matchupSummary: 5-7 sentences citing the data above.',
+    '- keyFactors: 3-5 short factors driving your read on this game (recent form, injuries, rest, and league-average context are all fair game alongside the season stats).',
+    '- gamePrediction: winner (exact team name), a projected score, and the winner\'s win probability — form this read before you pick legs, and keep the legs consistent with it.',
     '',
     'Leg requirements:',
     '- Every leg must cite specific numbers from the data above in its reasoning (2-3 sentences).',
@@ -163,7 +269,7 @@ export function buildParlayPrompt(input: PromptInput): string {
     '- "odds": American price as an integer (e.g. -110, 145).',
     '- "selection": a short human-readable description, e.g. "Chiefs -3.5", "Over 44.5", "Patrick Mahomes Over 262.5 Passing Yards".',
     `- Available bet types: ${BetTypeEnum.options.join(', ')}.`,
-    '',
-    'Analysis: matchupSummary of 5-7 sentences citing the data; 3-5 keyFactors; gamePrediction with the winner\'s exact team name, a projected score, and the winner\'s win probability.',
+    '- EDGE RULE: for a spread, total, or moneyline leg (these get anchored to the exact book price above), your confidence must be strictly greater than that price\'s break-even win rate (e.g. -150 breaks even at 60%, +130 at ~43%) — if you don\'t believe a market leg clears its own price, pick a different leg instead; it will be rejected otherwise. Player props (no posted price) are exempt — set their confidence honestly.',
+    '- CORRELATION: avoid stacking legs whose outcomes move together (e.g. a team\'s spread, that team\'s QB Over passing yards, and the game Over all tend to hit or miss as a group) — a 3-leg parlay built entirely from correlated pieces overstates the real combined probability. Prefer at least one leg that\'s largely independent of the others, or say so in your reasoning if you stack anyway.',
   ].join('\n')
 }
