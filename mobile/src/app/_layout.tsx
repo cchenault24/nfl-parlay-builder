@@ -1,5 +1,3 @@
-import { DarkTheme, ThemeProvider } from 'expo-router'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
   Inter_400Regular,
   Inter_500Medium,
@@ -7,11 +5,14 @@ import {
   Inter_700Bold,
   useFonts,
 } from '@expo-google-fonts/inter'
-import { Stack } from 'expo-router'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { DarkTheme, Stack, ThemeProvider } from 'expo-router'
 import * as SplashScreen from 'expo-splash-screen'
 import { StatusBar } from 'expo-status-bar'
 import { useEffect } from 'react'
 
+import { AuthProvider } from '@/lib/auth/AuthContext'
+import { useAuth } from '@/lib/auth/useAuth'
 import { colors } from '@/lib/theme/designTokens'
 
 SplashScreen.preventAutoHideAsync()
@@ -32,6 +33,33 @@ const navigationTheme = {
   },
 }
 
+function RootNavigator() {
+  const { user, loading } = useAuth()
+
+  useEffect(() => {
+    // Hold the splash until the first auth state lands, so a signed-in user
+    // never sees the sign-in screen flash before their session restores.
+    if (!loading) {
+      SplashScreen.hideAsync()
+    }
+  }, [loading])
+
+  if (loading) {
+    return null
+  }
+
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Protected guard={Boolean(user)}>
+        <Stack.Screen name="(tabs)" />
+      </Stack.Protected>
+      <Stack.Protected guard={!user}>
+        <Stack.Screen name="sign-in" />
+      </Stack.Protected>
+    </Stack>
+  )
+}
+
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
@@ -40,12 +68,6 @@ export default function RootLayout() {
     Inter_700Bold,
   })
 
-  useEffect(() => {
-    if (fontsLoaded) {
-      SplashScreen.hideAsync()
-    }
-  }, [fontsLoaded])
-
   if (!fontsLoaded) {
     return null
   }
@@ -53,10 +75,10 @@ export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider value={navigationTheme}>
-        <StatusBar style="light" />
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(tabs)" />
-        </Stack>
+        <AuthProvider>
+          <StatusBar style="light" />
+          <RootNavigator />
+        </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>
   )
