@@ -19,7 +19,7 @@ import {
 import { SelectChangeEvent } from '@mui/material/Select'
 import React from 'react'
 import { useRateLimit } from '../hooks/useRateLimit'
-import { useGamesForWeek } from '../hooks/useSchedule'
+import { useGamesForWeek } from '../hooks/useSeason'
 import useParlayStore from '../store/parlayStore'
 import type { Game, RiskLevel } from '../types'
 import TeamLogo from './display/TeamLogo'

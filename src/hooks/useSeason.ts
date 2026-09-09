@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { API_CONFIG } from '../config/api'
-import type { Game } from '../types'
+import type { Game, SeasonSummary } from '../types'
 
 async function fetchJson<T>(path: string): Promise<T> {
   const res = await fetch(`${API_CONFIG.CLOUD_FUNCTIONS.baseURL}${path}`)
@@ -11,15 +11,16 @@ async function fetchJson<T>(path: string): Promise<T> {
   return res.json() as Promise<T>
 }
 
-export const useSchedule = () =>
+export const useSeasonSummary = () =>
   useQuery({
-    queryKey: ['schedule'],
-    queryFn: () => fetchJson<Game[]>(API_CONFIG.CLOUD_FUNCTIONS.endpoints.schedule),
+    queryKey: ['season'],
+    queryFn: () =>
+      fetchJson<SeasonSummary>(API_CONFIG.CLOUD_FUNCTIONS.endpoints.season),
     staleTime: 5 * 60 * 1000,
     gcTime: 60 * 60 * 1000,
   })
 
-export const useSeason = () => useSchedule().data?.[0]?.season
+export const useSeason = () => useSeasonSummary().data?.season
 
 export const useGamesForWeek = (week: number) =>
   useQuery({
