@@ -6,6 +6,7 @@ import type {
   TeamInjury,
   TeamStats,
 } from '../../providers/espn/types'
+import type { TeamEpa, TeamEpaStats } from '../../providers/nflverse/types'
 import type { OddsSnapshot } from '../../providers/odds/client'
 import { formatAmerican } from '../../utils/odds'
 import { BetTypeEnum } from './schemas'
@@ -19,6 +20,7 @@ export interface PromptInput {
   odds: OddsSnapshot | null
   pregame: PregameContext | null
   leagueAverages: LeagueAverages | null
+  epa: TeamEpaStats | null
   riskLevel: RiskLevel
 }
 
@@ -103,6 +105,36 @@ function statsSection(input: PromptInput): string {
     `Team statistics (league rank in parentheses, 1 = best).${note}\n` +
     `${teamStatsBlock(game.home.name, homeStats)}\n` +
     `${teamStatsBlock(game.away.name, awayStats)}`
+  )
+}
+
+function signed(value: number): string {
+  return `${value >= 0 ? '+' : ''}${value.toFixed(3)}`
+}
+
+function epaLine(name: string, epa: TeamEpa): string {
+  const trend =
+    epa.offEpaPerPlayLast3 === null
+      ? 'last 3 games not available'
+      : `last 3 games ${signed(epa.offEpaPerPlayLast3)}`
+  return (
+    `${name}: offense ${signed(epa.offEpaPerPlay)} EPA/play, ` +
+    `defense ${signed(epa.defEpaPerPlayAllowed)} EPA/play allowed ` +
+    `(${trend}; ${epa.games} games)`
+  )
+}
+
+function epaSection(input: PromptInput): string {
+  const { game, epa } = input
+  if (!epa) {
+    return 'EPA efficiency: not available'
+  }
+  const note = epa.season !== game.season ? ` (${epa.season} season)` : ''
+  return (
+    `EPA efficiency${note} — expected points added per play, where league average is ` +
+    'about 0.000. Higher offense is better; lower defense allowed is better. Season-long ' +
+    'numbers are the more reliable signal, with the last-3-game figure showing current form:\n' +
+    `${epaLine(game.home.name, epa.home)}\n${epaLine(game.away.name, epa.away)}`
   )
 }
 
@@ -241,6 +273,8 @@ export function buildParlayPrompt(input: PromptInput): string {
     `Records: ${game.home.name} ${game.home.record} (home ${game.home.homeRecord}); ${game.away.name} ${game.away.record} (road ${game.away.roadRecord}).`,
     '',
     statsSection(input),
+    '',
+    epaSection(input),
     '',
     recentFormSection(input),
     '',

@@ -190,7 +190,12 @@ export interface DataSources {
 // ===== AGENT RUN (mirrors functions/src/agent/shared/schemas.ts) =====
 export type RunStatus = 'queued' | 'running' | 'succeeded' | 'canceled' | 'failed'
 export type AgentStepType = 'plan' | 'tool' | 'draft' | 'validate'
-export type AgentToolName = 'espn_game' | 'espn_team_stats' | 'espn_pregame' | 'odds'
+export type AgentToolName =
+  | 'espn_game'
+  | 'espn_team_stats'
+  | 'espn_pregame'
+  | 'nflverse_epa'
+  | 'odds'
 export type StepStatus = 'running' | 'ok' | 'failed'
 
 export interface AgentStep {

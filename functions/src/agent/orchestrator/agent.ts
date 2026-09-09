@@ -9,6 +9,7 @@ import {
   getTeamStats,
 } from '../../providers/espn/client'
 import type { ScheduleGame, TeamStats } from '../../providers/espn/types'
+import { getTeamEpa } from '../../providers/nflverse/client'
 import { getOddsForGame, type OddsSnapshot } from '../../providers/odds/client'
 import {
   PARLAY_MODEL,
@@ -233,7 +234,7 @@ export async function runAgent(
       throw new RunError('game_not_open', `Game is ${game.status.replace('_', ' ')}`)
     }
 
-    const [statsResult, oddsResult, pregameResult] = await Promise.all([
+    const [statsResult, oddsResult, pregameResult, epaResult] = await Promise.all([
       tool('espn_team_stats', () =>
         Promise.all([
           getTeamStats(game.home.teamId, game.season),
@@ -251,11 +252,15 @@ export async function runAgent(
       tool('espn_pregame', () =>
         getPregameContext(game.gameId, game.home.teamId, game.away.teamId)
       ),
+      tool('nflverse_epa', () =>
+        getTeamEpa(game.home.abbrev, game.away.abbrev, game.season)
+      ),
     ])
     const [homeStats, awayStats]: [TeamStats | null, TeamStats | null] =
       statsResult.data ?? [null, null]
     const odds: OddsSnapshot | null = oddsResult.data ?? null
     const pregame = pregameResult.data ?? null
+    const epa = epaResult.data ?? null
     // Supplementary context only, so a failure here shouldn't be a tracked
     // step or fail the run — worth less than the tool-wrapped calls above.
     const leagueAverages = await getLeagueAverages(game.season).catch(() => null)
@@ -271,6 +276,7 @@ export async function runAgent(
       odds,
       pregame,
       leagueAverages,
+      epa,
       riskLevel: run.input.riskLevel,
     })
     const draftStep = await step('draft', async () => {
