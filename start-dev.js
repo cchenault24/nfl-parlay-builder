@@ -1,9 +1,42 @@
 #!/usr/bin/env node
 
 import { execSync, spawn } from 'child_process'
-import { readFileSync } from 'fs'
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'fs'
+import { join } from 'path'
 
-const SECRETS = ['OPENAI_API_KEY', 'ODDS_API_KEY']
+// The emulator resolves every defineSecret() param, and for anything it cannot
+// find locally it calls Secret Manager on the *emulated* project — which does
+// not exist, so one unlisted secret 403s and no functions load at all. Scanning
+// the source keeps this list from going stale as secrets are added.
+function declaredSecrets(dir = 'functions/src') {
+  const names = new Set()
+  const walk = d => {
+    for (const entry of readdirSync(d, { withFileTypes: true })) {
+      const full = join(d, entry.name)
+      if (entry.isDirectory()) {
+        walk(full)
+      } else if (entry.name.endsWith('.ts')) {
+        for (const m of readFileSync(full, 'utf8').matchAll(
+          /defineSecret\(\s*['"`]([A-Z0-9_]+)['"`]/g
+        )) {
+          names.add(m[1])
+        }
+      }
+    }
+  }
+  walk(dir)
+  return [...names].sort()
+}
+
+// Auth and Firestore are emulated too, so local dev needs no cloud project at
+// all. The `demo-` prefix makes the SDKs refuse to reach a real backend, so a
+// misconfigured run fails loudly instead of touching production.
+// Keep in sync with LOCAL_PROJECT_ID in src/config/api.ts.
+const LOCAL_PROJECT_ID = 'demo-parlaid'
+
+// Emulator Auth users and Firestore docs are in-memory; persist them here so a
+// restart does not mean signing in and regenerating everything again.
+const DATA_DIR = '.emulator-data'
 
 function readProjectId() {
   try {
@@ -15,10 +48,11 @@ function readProjectId() {
   } catch {
     // fall through
   }
-  return 'nfl-parlay-builder-dev'
+  return LOCAL_PROJECT_ID
 }
 
-// Secrets live on the billed prod project; the dev project is on Spark.
+// The emulated project is a local fiction, so secrets still come from the real
+// billed prod project.
 function readSecretsProject() {
   try {
     return JSON.parse(readFileSync('.firebaserc', 'utf8')).projects.prod
@@ -34,9 +68,13 @@ const healthUrl = `http://localhost:5001/${projectId}/us-central1/api/health`
 let emulator = null
 let frontend = null
 
+// Written to functions/.secret.local (gitignored) because that is the only
+// source the emulator consults before falling back to Secret Manager;
+// process.env alone does not satisfy a defineSecret param.
 function loadSecrets() {
   const missing = []
-  for (const name of SECRETS) {
+  const resolved = []
+  for (const name of declaredSecrets()) {
     try {
       const value = execSync(
         `firebase functions:secrets:access ${name} --project ${secretsProject}`,
@@ -44,6 +82,7 @@ function loadSecrets() {
       ).trim()
       if (value) {
         process.env[name] = value
+        resolved.push(`${name}=${value}`)
       } else {
         missing.push(name)
       }
@@ -51,6 +90,12 @@ function loadSecrets() {
       missing.push(name)
     }
   }
+  // Placeholders keep an unset secret from reaching Secret Manager; a route
+  // that needs one still fails, but every other function loads and runs.
+  for (const name of missing) {
+    resolved.push(`${name}=missing-locally`)
+  }
+  writeFileSync('functions/.secret.local', `${resolved.join('\n')}\n`)
   return missing
 }
 
@@ -91,15 +136,25 @@ console.log(`Project: ${projectId} (secrets from ${secretsProject})`)
 const missing = loadSecrets()
 if (missing.length > 0) {
   console.log(
-    `Missing secrets: ${missing.join(', ')} — the emulator will run, but runs needing them will fail.`
+    `Missing secrets: ${missing.join(', ')} — stubbed locally, so the emulator runs, but routes needing them will fail.`
   )
 }
 
-emulator = spawn(
-  'firebase',
-  ['emulators:start', '--only', 'functions', '--project', projectId],
-  { stdio: 'inherit', shell: true }
-)
+const emulatorArgs = [
+  'emulators:start',
+  '--only',
+  'functions,auth,firestore',
+  '--project',
+  projectId,
+  '--export-on-exit',
+  DATA_DIR,
+]
+// --import on a directory with no export metadata aborts the whole suite.
+if (existsSync(`${DATA_DIR}/firebase-export-metadata.json`)) {
+  emulatorArgs.push('--import', DATA_DIR)
+}
+
+emulator = spawn('firebase', emulatorArgs, { stdio: 'inherit', shell: true })
 emulator.on('exit', code => {
   if (code) {
     console.log(`Emulator exited with code ${code}`)
@@ -109,7 +164,7 @@ emulator.on('exit', code => {
 const ready = await waitForEmulator()
 console.log(
   ready
-    ? `Functions emulator ready at ${healthUrl}`
+    ? `Emulators ready — API ${healthUrl}, UI http://127.0.0.1:4000`
     : 'Functions emulator did not become ready; the app will fail to load games until it does.'
 )
 startFrontend()

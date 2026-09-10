@@ -5,7 +5,12 @@ export const ENV = {
   NODE_ENV: getEnvVar('NODE_ENV') || 'development',
 } as const
 
-const isLocalDevelopment = () => {
+// The `demo-` prefix is load-bearing: it makes the Firebase SDKs refuse to
+// reach any real backend, so a misconfigured local run fails loudly instead of
+// quietly reading or writing production. Keep in sync with start-dev.js.
+export const LOCAL_PROJECT_ID = 'demo-parlaid'
+
+export const isLocalDevelopment = () => {
   if (typeof window === 'undefined') {
     return ENV.NODE_ENV === 'development'
   }
@@ -22,7 +27,7 @@ const isLocalDevelopment = () => {
 // same-origin to the function by firebase.json, so no project id or
 // cross-origin host needs to be known here at all.
 function localFunctionsBaseUrl(): string {
-  const projectId = ENV.FIREBASE_PROJECT_ID.trim() || 'nfl-parlay-builder-dev'
+  const projectId = ENV.FIREBASE_PROJECT_ID.trim() || LOCAL_PROJECT_ID
   return `http://localhost:5001/${projectId}/us-central1/api`
 }
 

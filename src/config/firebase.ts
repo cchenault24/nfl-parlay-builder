@@ -1,5 +1,6 @@
 import { initializeApp } from 'firebase/app'
 import {
+  connectAuthEmulator,
   createUserWithEmailAndPassword,
   getAuth,
   GoogleAuthProvider,
@@ -12,6 +13,7 @@ import {
 import {
   addDoc,
   collection,
+  connectFirestoreEmulator,
   doc,
   getDoc,
   getFirestore,
@@ -23,6 +25,7 @@ import {
   where,
 } from 'firebase/firestore'
 import type { GeneratedParlay, ParlayLeg, UserProfile } from '../types'
+import { isLocalDevelopment } from './api'
 
 export type { UserProfile }
 
@@ -38,6 +41,14 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig)
 export const auth = getAuth(app)
 export const db = getFirestore(app)
+
+// Local dev has no cloud project behind it — Auth and Firestore both run in the
+// emulator suite that start-dev.js launches (ports from firebase.json). These
+// must be connected before anything reads or writes.
+if (isLocalDevelopment()) {
+  connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true })
+  connectFirestoreEmulator(db, '127.0.0.1', 8080)
+}
 
 const googleProvider = new GoogleAuthProvider()
 googleProvider.setCustomParameters({ prompt: 'select_account' })
