@@ -1,5 +1,6 @@
 import js from '@eslint/js'
 import pluginReact from 'eslint-plugin-react'
+import pluginReactHooks from 'eslint-plugin-react-hooks'
 import pluginReactRefresh from 'eslint-plugin-react-refresh'
 import globals from 'globals'
 import tseslint from 'typescript-eslint'
@@ -20,6 +21,7 @@ export default tseslint.config(
     files: ['**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
     plugins: {
       'react-refresh': pluginReactRefresh,
+      'react-hooks': pluginReactHooks,
     },
     languageOptions: {
       ecmaVersion: 2020,
@@ -42,6 +44,11 @@ export default tseslint.config(
       },
     },
     rules: {
+      // Rules of hooks is not a style preference — breaking it produces
+      // genuinely wrong behaviour, so it fails the build.
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'warn',
+
       // React Refresh rules
       'react-refresh/only-export-components': [
         'warn',
