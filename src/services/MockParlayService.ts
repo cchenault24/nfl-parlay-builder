@@ -1,10 +1,10 @@
+import { BaseParlayService } from '@shared/api/BaseParlayService'
 import type {
   AgentStep,
   Game,
   ParlayGenerationOptions,
   ParlayGenerationResult,
 } from '../types'
-import { BaseParlayService } from './BaseParlayService'
 import { ParlayMock } from './ParlayMock'
 
 const STEP_SEQUENCE: Array<{

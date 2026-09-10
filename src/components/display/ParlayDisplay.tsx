@@ -15,10 +15,10 @@ import {
   Typography,
 } from '@mui/material'
 import React, { useState } from 'react'
+import useParlayStore from '@shared/store/parlayStore'
 import { saveParlayToUser } from '../../config/firebase'
 import { useAuth } from '../../hooks/useAuth'
 import useModalStore from '../../store/modalStore'
-import useParlayStore from '../../store/parlayStore'
 import { formatOdds } from '../../utils'
 import { AuthModal } from '../auth/AuthModal'
 import ErrorBanner from '../ErrorBanner'

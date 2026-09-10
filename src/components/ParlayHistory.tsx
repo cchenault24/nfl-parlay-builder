@@ -18,9 +18,9 @@ import {
   Typography,
 } from '@mui/material'
 import React, { useEffect, useState } from 'react'
+import { requestGrading } from '@shared/api/GradingService'
 import { auth, getUserParlays } from '../config/firebase'
 import { useAuth } from '../hooks/useAuth'
-import { requestGrading } from '../services/GradingService'
 import type { GeneratedParlay, LegOutcome, ParlayOutcome } from '../types'
 import { formatOdds, getBetTypeColor, getConfidenceColor } from '../utils'
 import ShareControl from './display/ShareControl'

@@ -14,8 +14,8 @@ import {
   Typography,
 } from '@mui/material'
 import React, { useState } from 'react'
-import { useDerivedCurrentWeek } from '../hooks/useDerivedCurrentWeek'
-import { useSeason } from '../hooks/useSeason'
+import { useDerivedCurrentWeek } from '@shared/hooks/useDerivedCurrentWeek'
+import { useSeason } from '@shared/hooks/useSeason'
 
 interface WeekSelectorProps {
   currentWeek: number

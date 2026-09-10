@@ -1,6 +1,6 @@
 import { Box, Link, Typography } from '@mui/material'
 import React from 'react'
-import useParlayStore from '../../store/parlayStore'
+import useParlayStore from '@shared/store/parlayStore'
 import { LegalDisclaimer } from '../legal/LegalDisclaimer'
 
 const ParlayDisplayFooter: React.FC = () => {
