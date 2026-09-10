@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -48,12 +48,17 @@ export function AuthSheet({ visible, startOnSignUp, onClose }: AuthSheetProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  useEffect(() => {
+  // Reset on open, adjusted during render rather than in an effect. An effect
+  // would paint one frame of the previous session's mode and error before
+  // correcting itself, and the sheet animates in on exactly that frame.
+  const [wasVisible, setWasVisible] = useState(visible)
+  if (visible !== wasVisible) {
+    setWasVisible(visible)
     if (visible) {
       setIsSignUp(startOnSignUp)
       setError('')
     }
-  }, [visible, startOnSignUp])
+  }
 
   const reset = () => {
     setEmail('')

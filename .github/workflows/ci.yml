@@ -49,7 +49,7 @@ jobs:
       - run: npm run build --prefix functions
 
   mobile:
-    name: Mobile — types
+    name: Mobile — lint & types
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -71,8 +71,9 @@ jobs:
       # only when someone opened the app. Type-checking ../shared through
       # mobile's config is the part worth having: a shared-layer change can
       # compile for web and still be wrong for React Native.
-      #
-      # Types only, deliberately: `expo lint` has no committed config, and
-      # scaffolding one in CI would both write files mid-run and fail on five
-      # pre-existing errors. Worth doing, but as its own change.
       - run: npm run type-check --prefix mobile
+      # `expo lint` now has a committed config, so it no longer scaffolds one
+      # mid-run. It is the only linter in the repo that knows React Native:
+      # expo/no-dynamic-env-var caught a computed process.env read here that
+      # resolved in the emulator and was undefined in a release build.
+      - run: npm run lint --prefix mobile

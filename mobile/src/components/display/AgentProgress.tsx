@@ -8,7 +8,7 @@ import { colors, radius, spacing, typography } from '@/lib/theme/designTokens'
 // Mirrors the web ROWS table. `optional` steps are allowed to fail without
 // failing the run — they render as "unavailable — continuing" rather than as
 // an error, or a degraded run looks broken.
-const ROWS: Array<{ id: string; label: string; optional?: boolean }> = [
+const ROWS: { id: string; label: string; optional?: boolean }[] = [
   { id: 'step_plan', label: 'Plan the run' },
   { id: 'step_tool_espn_game', label: 'Load game, venue & forecast' },
   { id: 'step_tool_espn_team_stats', label: 'Pull team statistics', optional: true },

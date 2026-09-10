@@ -1,7 +1,7 @@
 import { GoogleAuthProvider } from '@firebase/auth'
 import * as Google from 'expo-auth-session/providers/google'
 import * as WebBrowser from 'expo-web-browser'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 import { signInWithGoogleCredential } from '@/lib/firebase'
 
@@ -28,48 +28,43 @@ export const googleSignInConfigured = Boolean(iosClientId)
 export function useGoogleSignIn(onError: (message: string | null) => void) {
   const [pending, setPending] = useState(false)
 
-  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
+  const [request, , promptAsync] = Google.useIdTokenAuthRequest({
     iosClientId,
   })
 
-  useEffect(() => {
-    if (!response) {
-      return
-    }
-    if (response.type === 'error') {
-      onError(response.error?.message ?? 'Google sign-in failed')
+  // Handled on the promise promptAsync returns rather than on the hook's
+  // `response` state. It is the same result, but it arrives in the handler that
+  // asked for it, so clearing `pending` no longer costs a second render pass
+  // through an effect.
+  const signIn = async () => {
+    onError(null)
+    setPending(true)
+    try {
+      const result = await promptAsync()
+      if (result.type === 'error') {
+        onError(result.error?.message ?? 'Google sign-in failed')
+        return
+      }
+      if (result.type !== 'success') {
+        // dismiss / cancel — not an error worth showing.
+        return
+      }
+      const idToken = result.params.id_token
+      if (!idToken) {
+        onError('Google did not return an id_token')
+        return
+      }
+      await signInWithGoogleCredential(GoogleAuthProvider.credential(idToken))
+    } catch (err: unknown) {
+      // No auto-retry: the failure is surfaced and the user decides.
+      onError(err instanceof Error ? err.message : 'Google sign-in failed')
+    } finally {
       setPending(false)
-      return
     }
-    if (response.type !== 'success') {
-      // dismiss / cancel — not an error worth showing.
-      setPending(false)
-      return
-    }
-
-    const idToken = response.params.id_token
-    if (!idToken) {
-      onError('Google did not return an id_token')
-      setPending(false)
-      return
-    }
-
-    signInWithGoogleCredential(GoogleAuthProvider.credential(idToken))
-      .catch((err: unknown) =>
-        onError(err instanceof Error ? err.message : 'Google sign-in failed')
-      )
-      .finally(() => setPending(false))
-    // onError is a stable setter from the parent; re-running on it would
-    // reprocess an already-consumed response.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [response])
+  }
 
   return {
     disabled: !request || pending,
-    signIn: () => {
-      onError(null)
-      setPending(true)
-      promptAsync()
-    },
+    signIn,
   }
 }

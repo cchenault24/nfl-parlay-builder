@@ -26,7 +26,7 @@ function bookLinesLabel(odds: OddsSnapshot): string {
   return `Book lines · ${odds.bookmaker}`
 }
 
-const MATCHUP_ROWS: Array<{ label: string; pick: StatPick }> = [
+const MATCHUP_ROWS: { label: string; pick: StatPick }[] = [
   { label: 'Total yards', pick: s => s.offense.totalYardsPerGame },
   { label: 'Passing yards', pick: s => s.offense.passingYardsPerGame },
   { label: 'Rushing yards', pick: s => s.offense.rushingYardsPerGame },
