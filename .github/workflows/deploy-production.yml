@@ -24,8 +24,11 @@ jobs:
       - run: npm ci --prefix functions
       - name: Write service account
         run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_NFL_PARLAY_BUILDER }}' > "$RUNNER_TEMP/firebase-sa.json"
-      - name: Deploy functions and Firestore rules
-        run: npx --yes firebase-tools@latest deploy --only functions,firestore:rules --project nfl-parlay-builder --non-interactive --force
+      # Indexes ship here too: a query that needs a composite index fails
+      # outright without it, so an index has to land no later than the code
+      # that queries against it.
+      - name: Deploy functions, Firestore rules and indexes
+        run: npx --yes firebase-tools@latest deploy --only functions,firestore:rules,firestore:indexes --project nfl-parlay-builder --non-interactive --force
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/firebase-sa.json
 

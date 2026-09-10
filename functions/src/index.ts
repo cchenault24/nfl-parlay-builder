@@ -86,6 +86,7 @@ export const api = onRequest(
 // never take the request-serving function down with it.
 export { gradeParlaysSweep } from './scheduled/gradeParlays'
 export { captureClosingLinesSweep } from './scheduled/captureClosingLines'
+export { reapStaleRunsSweep } from './scheduled/reapStaleRuns'
 
 // sendKickoffReminders is deliberately not exported. It declares
 // RESEND_API_KEY, and Firebase validates every declared secret before it

@@ -27,23 +27,41 @@ function aiError(code: string, message: string): Error {
   return Object.assign(new Error(message), { code })
 }
 
+// `timeoutMs` is required because this is the one call in a run with no
+// bound of its own: every tool goes through `withResilience`, but a draft
+// would otherwise run until the client-level timeout, which is long enough
+// to outlive the whole run budget and get the instance killed mid-write.
+// Callers pass what's left of the budget.
 export async function draftParlay(
   client: OpenAI,
   prompt: string,
+  timeoutMs: number,
   signal?: AbortSignal
 ): Promise<DraftResult> {
-  const response = await client.responses.parse(
-    {
-      model: PARLAY_MODEL,
-      input: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: prompt },
-      ],
-      text: { format: zodTextFormat(AIGenerateResponseSchema, 'parlay') },
-      max_output_tokens: 4000,
-    },
-    { signal }
-  )
+  let response
+  try {
+    response = await client.responses.parse(
+      {
+        model: PARLAY_MODEL,
+        input: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user', content: prompt },
+        ],
+        text: { format: zodTextFormat(AIGenerateResponseSchema, 'parlay') },
+        max_output_tokens: 4000,
+      },
+      { signal, timeout: timeoutMs }
+    )
+  } catch (err) {
+    // The SDK's own timeout, as distinct from `signal` firing — that arrives
+    // as APIUserAbortError and has to stay a cancellation. Neither sets a
+    // `.code` and both inherit `.name` as plain "Error", so `instanceof` is
+    // the only thing that separates them.
+    if (err instanceof OpenAI.APIConnectionTimeoutError) {
+      throw aiError('ai_timeout', `Draft exceeded its ${timeoutMs}ms budget`)
+    }
+    throw err
+  }
 
   if (response.status === 'incomplete') {
     throw aiError(

@@ -257,7 +257,11 @@ export async function runAgent(
       riskLevel: run.input.riskLevel,
     })
     const draftStep = await step('draft', async () => {
-      const result = await draftParlay(client, prompt, signal)
+      // Bounded by what's left of the budget, not just by `signal`. The budget
+      // is otherwise only checked between steps, so an unbounded draft could
+      // carry the run past the api function's own timeout and have the
+      // instance killed before anything wrote a terminal status.
+      const result = await draftParlay(client, prompt, remainingMs(), signal)
       observe('draft_tokens_output', result.tokensOutput)
       return result
     })
