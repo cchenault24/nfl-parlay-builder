@@ -4,7 +4,13 @@ import { defineSecret } from 'firebase-functions/params'
 import { onRequest } from 'firebase-functions/v2/https'
 import { app as firebaseApp } from './firebase'
 import type { AuthedRequest } from './middleware/auth'
-import { agentRouter, gradingRouter, metricsRouter, publicRouter } from './routes'
+import {
+  agentRouter,
+  gradingRouter,
+  metricsRouter,
+  publicRouter,
+  sharingRouter,
+} from './routes'
 
 firebaseApp()
 
@@ -51,6 +57,7 @@ apiRouter.use('/', publicRouter)
 apiRouter.use('/', agentRouter)
 apiRouter.use('/', metricsRouter)
 apiRouter.use('/', gradingRouter)
+apiRouter.use('/', sharingRouter)
 
 // Two mount points for the same routes: direct Cloud Functions access
 // (https://REGION-PROJECT.cloudfunctions.net/api/...) has "api" — this

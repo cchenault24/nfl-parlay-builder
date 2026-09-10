@@ -5,11 +5,13 @@ import CssBaseline from '@mui/material/CssBaseline'
 import { ThemeProvider } from '@mui/material/styles'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useCallback, useState } from 'react'
+import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { AuthGate } from './components/auth/AuthGate'
 import { UserMenu } from './components/auth/UserMenu'
 import DevStatus from './components/DevStatus'
 import GameStatsPanel from './components/display/GameStatsPanel'
 import ParlayDisplay from './components/display/ParlayDisplay'
+import SharedParlayView from './components/display/SharedParlayView'
 import GameSelector from './components/GameSelector'
 import { AgeVerificationModal } from './components/legal/AgeVerificationModal'
 import { LegalFooter } from './components/legal/LegalFooter'
@@ -137,13 +139,38 @@ function AppContent() {
   )
 }
 
+// A shared link is public, so it skips sign-in — but not the age gate. The
+// page shows betting selections either way, and who sent the link has no
+// bearing on who is allowed to look at them.
+function SharedRoute() {
+  const { isVerified, isLoading, setVerified } = useAgeVerification()
+  if (isLoading) {
+    return <LoadingScreen />
+  }
+  if (!isVerified) {
+    return (
+      <AgeVerificationModal
+        open
+        onVerified={setVerified}
+        onDeclined={() => window.location.assign('https://www.google.com')}
+      />
+    )
+  }
+  return <SharedParlayView />
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <AuthProvider>
-          <AppContent />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/p/:shareId" element={<SharedRoute />} />
+              <Route path="*" element={<AppContent />} />
+            </Routes>
+          </BrowserRouter>
         </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>

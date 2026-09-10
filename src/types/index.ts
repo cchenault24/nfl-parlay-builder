@@ -199,6 +199,8 @@ export interface GeneratedParlay {
   // Absent until the pre-kickoff capture runs; absent forever for parlays
   // saved after their game started.
   closingLines?: ParlayClosingLines
+  // Present only while the owner has this parlay shared by link.
+  shareId?: string
 }
 
 export type SourceStatus = 'ok' | 'unavailable' | 'indoor'
