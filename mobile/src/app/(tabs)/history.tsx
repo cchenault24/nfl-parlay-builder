@@ -60,7 +60,7 @@ function OutcomeChip({ parlay }: { parlay: GeneratedParlay }) {
 export default function HistoryScreen() {
   const { user } = useAuth()
   const { capabilities, entitlements, isLoading, refetch } = useEntitlements()
-  const [parlays, setParlays] = useState<GeneratedParlay[] | null>(null)
+  const [loaded, setLoaded] = useState<GeneratedParlay[] | null>(null)
   const [error, setError] = useState('')
   const [upgradeVisible, setUpgradeVisible] = useState(false)
 
@@ -69,18 +69,27 @@ export default function HistoryScreen() {
   // would hide data they saved, so this one restriction fails open.
   const depth = capabilities?.historyDepth ?? null
 
+  // Derived rather than cleared in the effect: the tabs unmount on sign-out
+  // (app/_layout.tsx guards them), so this only has to cover the frame between
+  // the user going away and this screen leaving with it.
+  const parlays = user ? loaded : null
+
   useEffect(() => {
     if (!user) {
-      setParlays(null)
       return
     }
-    setError('')
+    // Both writes live in the listener's callbacks. Clearing the error on a
+    // successful snapshot also means a listener that recovers stops showing a
+    // stale failure, which clearing it once on subscribe never did.
     const unsubscribe = getUserParlays(
       user.uid,
-      setParlays,
+      next => {
+        setError('')
+        setLoaded(next)
+      },
       message => {
         setError(message)
-        setParlays([])
+        setLoaded([])
       },
       depth
     )

@@ -26,7 +26,11 @@ export const AuthContext = createContext<AuthContextValue>({
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null | undefined>(undefined)
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
+  // Keyed by uid rather than stored bare: AuthProvider outlives a sign-out, so
+  // a bare profile would still be in state when the next user signs in and the
+  // account screen would show them the previous user's name and photo until the
+  // fetch landed. Keying also means the signed-out case needs no write at all.
+  const [loaded, setLoaded] = useState<{ uid: string; profile: UserProfile | null }>()
   const [profileLoading, setProfileLoading] = useState(false)
   const [error, setError] = useState<Error | undefined>(undefined)
 
@@ -38,18 +42,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return
     }
     if (!user) {
-      setUserProfile(null)
       return
     }
 
     let cancelled = false
-    setProfileLoading(true)
     ;(async () => {
+      setProfileLoading(true)
       try {
         await createUserProfile(user)
         const profile = await getUserProfile(user.uid)
         if (!cancelled) {
-          setUserProfile(profile)
+          setLoaded({ uid: user.uid, profile })
           setError(undefined)
         }
       } catch (err) {
@@ -75,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider
       value={{
         user,
-        userProfile,
+        userProfile: user && loaded?.uid === user.uid ? loaded.profile : null,
         loading: user === undefined || profileLoading,
         error,
       }}
