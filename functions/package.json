@@ -10,10 +10,11 @@
     "build": "tsc -p tsconfig.json",
     "clean": "rimraf lib",
     "dev": "tsc -w -p tsconfig.json",
-    "lint": "eslint src --ext .ts --fix --report-unused-disable-directives --max-warnings 0",
+    "lint": "eslint src --ext .ts --report-unused-disable-directives --max-warnings 0",
     "start": "node lib/index.js",
     "format": "prettier --write src/",
-    "format:check": "prettier --check src/"
+    "format:check": "prettier --check src/",
+    "lint:fix": "eslint src --ext .ts --fix --report-unused-disable-directives --max-warnings 0"
   },
   "dependencies": {
     "cors": "^2.8.5",
