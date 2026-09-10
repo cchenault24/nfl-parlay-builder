@@ -34,12 +34,21 @@ const PRO_FEATURES = [
 interface UpgradeDialogProps {
   open: boolean
   onClose: () => void
+  // False while billing has no credentials. The features are still worth
+  // showing — this is what Pro will be — but an Upgrade button that can only
+  // fail is worse than none.
+  canPurchase: boolean
   // What the user was trying to do when they hit the lock, so the dialog opens
   // on their own intent rather than a generic pitch.
   reason?: string
 }
 
-const UpgradeDialog: React.FC<UpgradeDialogProps> = ({ open, onClose, reason }) => {
+const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
+  open,
+  onClose,
+  canPurchase,
+  reason,
+}) => {
   const [error, setError] = useState<string | null>(null)
   const [starting, setStarting] = useState(false)
 
@@ -66,7 +75,7 @@ const UpgradeDialog: React.FC<UpgradeDialogProps> = ({ open, onClose, reason }) 
           ParlAId Pro
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-          $4.99 a month. Cancel any time.
+          {canPurchase ? '$4.99 a month. Cancel any time.' : 'Not on sale yet.'}
         </Typography>
       </DialogTitle>
 
@@ -106,11 +115,13 @@ const UpgradeDialog: React.FC<UpgradeDialogProps> = ({ open, onClose, reason }) 
 
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button onClick={onClose} color="inherit">
-          Not now
+          {canPurchase ? 'Not now' : 'Close'}
         </Button>
-        <Button variant="contained" onClick={startCheckout} disabled={starting}>
-          {starting ? 'Opening checkout…' : 'Upgrade'}
-        </Button>
+        {canPurchase && (
+          <Button variant="contained" onClick={startCheckout} disabled={starting}>
+            {starting ? 'Opening checkout…' : 'Upgrade'}
+          </Button>
+        )}
       </DialogActions>
     </Dialog>
   )

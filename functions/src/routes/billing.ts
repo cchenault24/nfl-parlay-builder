@@ -6,11 +6,42 @@ import {
   handleStripeEvent,
   verifyStripeEvent,
 } from '../billing/stripe'
+import { appleConfigured, stripeConfigured } from '../billing/config'
 import { verifyAuth, type AuthedRequest } from '../middleware/auth'
 import { log } from '../observability/logger'
 import { errorResponse } from '../utils/errors'
 
 export const billingRouter = express.Router()
+
+// Billing ships disabled until its secrets exist — see billing/config.ts for
+// why they are not bound to the function. These guards make that a clear,
+// specific answer rather than a 500 from a missing credential, and they keep
+// the routes mounted so the surface is discoverable instead of a mystery 404.
+const requireStripe: express.RequestHandler = (req, res, next) => {
+  if (!stripeConfigured()) {
+    return errorResponse(
+      res,
+      503,
+      'billing_not_configured',
+      'Card payments are not available yet.',
+      (req as AuthedRequest).correlationId
+    )
+  }
+  next()
+}
+
+const requireApple: express.RequestHandler = (req, res, next) => {
+  if (!appleConfigured()) {
+    return errorResponse(
+      res,
+      503,
+      'billing_not_configured',
+      'In-app purchases are not available yet.',
+      (req as AuthedRequest).correlationId
+    )
+  }
+  next()
+}
 
 type Handler = (req: AuthedRequest, res: express.Response) => Promise<unknown>
 
@@ -35,6 +66,7 @@ const route =
 billingRouter.post(
   '/billing/checkout',
   verifyAuth,
+  requireStripe,
   route('checkout', async (req, res) => {
     const { correlationId, user } = req
     if (!user) {
@@ -47,6 +79,7 @@ billingRouter.post(
 billingRouter.post(
   '/billing/portal',
   verifyAuth,
+  requireStripe,
   route('portal', async (req, res) => {
     const { correlationId, user } = req
     if (!user) {
@@ -61,6 +94,7 @@ billingRouter.post(
 billingRouter.post(
   '/billing/apple/redeem',
   verifyAuth,
+  requireApple,
   route('apple_redeem', async (req, res) => {
     const { correlationId, user } = req
     if (!user) {
@@ -104,7 +138,7 @@ billingRouter.post(
 // between a POST and a granted subscription. Neither handler trusts a byte
 // before it verifies.
 
-billingRouter.post('/billing/webhooks/stripe', async (req, res) => {
+billingRouter.post('/billing/webhooks/stripe', requireStripe, async (req, res) => {
   const correlationId = (req as AuthedRequest).correlationId
   const signature = req.headers['stripe-signature']
   if (typeof signature !== 'string') {
@@ -158,7 +192,7 @@ billingRouter.post('/billing/webhooks/stripe', async (req, res) => {
 
 // Apple posts { signedPayload }; the signature lives inside the JWS, so normal
 // JSON parsing is fine here and no raw body is needed.
-billingRouter.post('/billing/webhooks/apple', async (req, res) => {
+billingRouter.post('/billing/webhooks/apple', requireApple, async (req, res) => {
   const correlationId = (req as AuthedRequest).correlationId
   const signedPayload = String(req.body?.signedPayload ?? '')
   if (!signedPayload) {

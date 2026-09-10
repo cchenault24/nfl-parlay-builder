@@ -1,18 +1,13 @@
 import Stripe from 'stripe'
 import { log } from '../observability/logger'
 import { getEntitlement, setEntitlement, setStripeCustomer } from '../tiering/store'
-import {
-  STRIPE_PRICE_ID,
-  STRIPE_SECRET_KEY,
-  STRIPE_WEBHOOK_SECRET,
-  WEB_ORIGIN,
-} from './config'
+import { billingSecret, WEB_ORIGIN } from './config'
 
 // Constructed per call rather than at module load: secret values are only
 // available once the function is running, and reading them at import time would
 // bind whatever was set during deploy analysis.
 function stripe(): Stripe {
-  return new Stripe(STRIPE_SECRET_KEY.value(), { apiVersion: '2026-08-26.dahlia' })
+  return new Stripe(billingSecret('STRIPE_SECRET_KEY'), { apiVersion: '2026-08-26.dahlia' })
 }
 
 // One Stripe customer per uid, remembered so a returning subscriber does not
@@ -38,7 +33,7 @@ export async function createCheckoutSession(
   const session = await stripe().checkout.sessions.create({
     mode: 'subscription',
     customer: await customerFor(uid, email),
-    line_items: [{ price: STRIPE_PRICE_ID.value(), quantity: 1 }],
+    line_items: [{ price: billingSecret('STRIPE_PRICE_ID'), quantity: 1 }],
     // Both of these carry the uid so a webhook never has to guess who paid.
     // client_reference_id covers the session; subscription_data.metadata rides
     // along onto the subscription itself, which is what later events are about.
@@ -130,7 +125,7 @@ export function verifyStripeEvent(rawBody: Buffer, signature: string): Stripe.Ev
   return stripe().webhooks.constructEvent(
     rawBody,
     signature,
-    STRIPE_WEBHOOK_SECRET.value()
+    billingSecret('STRIPE_WEBHOOK_SECRET')
   )
 }
 

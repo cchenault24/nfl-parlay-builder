@@ -1,12 +1,24 @@
-# Billing setup — required before merge
+# Billing setup — required before selling Pro
 
-**Firebase validates every declared secret before it deploys anything.** A secret
-named in code but absent from Secret Manager aborts the entire deploy — functions
-*and* hosting, since the hosting job depends on the functions job. That is exactly
-what stalled four merges behind `RESEND_API_KEY` (see PR #78).
+> **Billing ships disabled.** None of these secrets are bound to the function, so
+> their absence cannot block a deploy. `/billing/*` answers `503
+> billing_not_configured`, `/entitlements` reports `billingAvailable: {stripe:
+> false, apple: false}`, and the clients show Pro's features without an Upgrade
+> button. Tiering — entitlements, quota, and every gate — works regardless.
+>
+> **Turning billing on takes both steps below.** Creating the secrets alone does
+> nothing: they must also be bound in `functions/src/index.ts`, or Cloud
+> Functions never injects them. Binding them alone puts deploys back in the
+> state this design exists to prevent.
 
-Billing declares six. **All six must exist before this merges to `main`**, or the
-next production deploy fails and takes hosting with it.
+**Firebase validates every secret bound to a function before it deploys anything.**
+A bound secret with no value aborts the entire deploy — functions *and* hosting,
+since the hosting job depends on the functions job. `RESEND_API_KEY` did that in
+#78, and `STRIPE_SECRET_KEY` did it again the moment tiering merged, freezing
+production with the tiering code undeployed.
+
+That is why billing's six are deliberately **not bound**. Create them when you
+are ready to sell, and bind them in the same change.
 
 Verify with:
 
