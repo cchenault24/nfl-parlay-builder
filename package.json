@@ -18,7 +18,7 @@
     "build:all": "npm run build && npm run build:functions",
     "build:functions": "cd functions && npm run build",
     "lint:all": "npm run lint:fix && npm run lint:functions",
-    "lint:functions": "cd functions && npm run lint",
+    "lint:functions": "cd functions && npm run lint:fix",
     "format:all": "npm run format && npm run format:functions",
     "format:functions": "cd functions && npm run format",
     "prepare:all": "npm run lint:all && npm run format:all && npm run build:all"

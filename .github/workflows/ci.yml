@@ -1,0 +1,49 @@
+# Static checks for both packages. Kept apart from the deploy workflows so a
+# lint failure reads as a lint failure, and so these still run on forks, which
+# the preview deploy deliberately skips.
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    name: Web — lint & types
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'yarn'
+      - run: yarn install --frozen-lockfile
+      - run: yarn lint
+      - run: yarn type-check
+
+  functions:
+    name: Functions — lint & types
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Matches the deployed runtime, so a type error that only appears on
+      # Node 22's lib definitions is caught here rather than at deploy.
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: functions/package-lock.json
+      - run: npm ci --prefix functions
+      - run: npm run lint --prefix functions
+      # Functions were never type-checked on a pull request: the only tsc run
+      # was the deploy itself, so a break surfaced after merge.
+      - run: npm run build --prefix functions
