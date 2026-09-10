@@ -9,6 +9,10 @@ firebase-debug*.log
 
 # Dependencies
 node_modules/
+# The root package is yarn (yarn.lock is tracked); an npm install here leaves a
+# lockfile that would compete with it. Root-anchored so mobile/ and functions/,
+# which really are npm, keep tracking theirs.
+/package-lock.json
 
 # Build outputs
 dist/
