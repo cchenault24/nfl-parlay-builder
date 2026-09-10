@@ -11,17 +11,29 @@ export interface ValidatableDraft {
   analysisSummary: AIAnalysis
 }
 
+// What the run was created to produce, snapshotted from the user's tier. The
+// prompt asks for exactly this shape, so validating against anything else would
+// reject a draft that did as it was told.
+export interface DraftConstraints {
+  legCount: number
+  playerProps: boolean
+}
+
 // Numbers are no longer checked against the book here — the orchestrator
 // snaps a spread/total/moneyline leg's line and price to the book before
 // this runs, so they're correct by construction whenever `anchored` is true.
 // This checks structure only: is the leg internally sane, and did the model
 // follow the player-name rule needed to grade the leg later.
-export function validateDraft(draft: ValidatableDraft, game: ScheduleGame): string[] {
+export function validateDraft(
+  draft: ValidatableDraft,
+  game: ScheduleGame,
+  constraints: DraftConstraints
+): string[] {
   const issues: string[] = []
   const teams = [game.home.name, game.away.name]
 
-  if (draft.legs.length !== 3) {
-    issues.push(`expected 3 legs, got ${draft.legs.length}`)
+  if (draft.legs.length !== constraints.legCount) {
+    issues.push(`expected ${constraints.legCount} legs, got ${draft.legs.length}`)
   }
 
   draft.legs.forEach((leg, i) => {
@@ -40,6 +52,12 @@ export function validateDraft(draft: ValidatableDraft, game: ScheduleGame): stri
     // is common too — so treat both as "no player" in both directions.
     const isPlayerBet = leg.betType.startsWith('player_')
     const hasPlayer = !!leg.player?.trim()
+    // Player props carry a model-estimated line rather than a posted one, so a
+    // tier promised only book-anchored legs must not receive them. The prompt
+    // already says so; this is the backstop for when the model does it anyway.
+    if (isPlayerBet && !constraints.playerProps) {
+      issues.push(`${at}: player props are not available on this plan`)
+    }
     if (isPlayerBet && !hasPlayer) {
       issues.push(`${at}: ${leg.betType} requires a player name`)
     }

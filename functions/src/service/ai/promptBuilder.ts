@@ -22,6 +22,11 @@ export interface PromptInput {
   leagueAverages: LeagueAverages | null
   epa: TeamEpaStats | null
   riskLevel: RiskLevel
+  // Derived from the user's tier, and from which markets the book actually
+  // posted. Both the prompt and validateDraft use the same numbers, so the
+  // model is never asked for a shape that would then be rejected.
+  legCount: number
+  playerProps: boolean
 }
 
 const RISK_GUIDANCE: Record<RiskLevel, string> = {
@@ -31,6 +36,18 @@ const RISK_GUIDANCE: Record<RiskLevel, string> = {
     'Balance safety and value (confidence 0.5-0.7). Mix a market leg with player props; one moderate-payout leg is fine.',
   aggressive:
     'Higher risk/reward is acceptable (confidence 0.4-0.65). Anytime TDs, longer player props, and plus-money legs are welcome.',
+}
+
+// The same guidance with every prop reference removed. A plan without props that
+// was still told to "mix in player props" produces legs the validator then
+// rejects, which reads to the user as the generator being broken.
+const RISK_GUIDANCE_NO_PROPS: Record<RiskLevel, string> = {
+  conservative:
+    'Prefer higher-probability legs (confidence 0.6-0.75): spreads and totals. No long shots.',
+  moderate:
+    'Balance safety and value (confidence 0.5-0.7); one moderate-payout leg is fine.',
+  aggressive:
+    'Higher risk/reward is acceptable (confidence 0.4-0.65). Plus-money legs are welcome.',
 }
 
 function formatKickoff(iso: string): string {
@@ -223,11 +240,13 @@ function leagueAverageSection(input: PromptInput): string {
 }
 
 function linesSection(input: PromptInput): string {
-  const { game, odds } = input
+  const { game, odds, playerProps } = input
   if (!odds) {
     return (
       'Betting lines: NOT AVAILABLE. Any spread, total, or moneyline leg is therefore an estimate: ' +
-      'say so explicitly in its reasoning and keep its confidence at or below 0.6.'
+      `say so explicitly in its reasoning and keep its confidence at or below 0.6.${
+        playerProps ? '' : ' Player props are not available on this plan.'
+      }`
     )
   }
   const rows: string[] = []
@@ -259,15 +278,21 @@ function linesSection(input: PromptInput): string {
     'LINE RULES: your line and price for a spread/total/moneyline leg will be automatically replaced with the exact number ' +
     "shown above before this parlay is shown — focus on picking the right team/side and writing reasoning consistent with " +
     "the book's actual number, not on matching the price exactly. " +
-    'Do not create a spread, total, or moneyline leg for a market marked NOT AVAILABLE above — use a player prop instead. ' +
-    'Player props have no lines provided: set a realistic line and price yourself and keep confidence modest.'
+    `Do not create a spread, total, or moneyline leg for a market marked NOT AVAILABLE above. ${
+      playerProps
+        ? 'Use a player prop instead. Player props have no lines provided: set a realistic line and price yourself and keep confidence modest.'
+        : // Without props there is nothing to substitute, so the orchestrator
+          // reduces the leg count to the markets that do have a posted line
+          // rather than asking for a leg that cannot be anchored.
+          'Player props are not available on this plan — every leg must come from a market with a posted line above.'
+    }`
   )
 }
 
 export function buildParlayPrompt(input: PromptInput): string {
-  const { game, riskLevel } = input
+  const { game, riskLevel, legCount, playerProps } = input
   return [
-    `Generate a 3-leg NFL parlay for ${game.away.name} @ ${game.home.name} — Week ${game.week}, ${game.season} season, kickoff ${formatKickoff(game.dateTime)} ET.`,
+    `Generate a ${legCount}-leg NFL parlay for ${game.away.name} @ ${game.home.name} — Week ${game.week}, ${game.season} season, kickoff ${formatKickoff(game.dateTime)} ET.`,
     venueLine(game),
     weatherLine(game),
     `Records: ${game.home.name} ${game.home.record} (home ${game.home.homeRecord}); ${game.away.name} ${game.away.record} (road ${game.away.roadRecord}).`,
@@ -286,7 +311,7 @@ export function buildParlayPrompt(input: PromptInput): string {
     '',
     linesSection(input),
     '',
-    `Risk level: ${riskLevel}. ${RISK_GUIDANCE[riskLevel]}`,
+    `Risk level: ${riskLevel}. ${(playerProps ? RISK_GUIDANCE : RISK_GUIDANCE_NO_PROPS)[riskLevel]}`,
     '',
     'Analysis requirements:',
     '- matchupSummary: 5-7 sentences citing the data above.',
@@ -304,6 +329,6 @@ export function buildParlayPrompt(input: PromptInput): string {
     '- "selection": a short human-readable description, e.g. "Chiefs -3.5", "Over 44.5", "Patrick Mahomes Over 262.5 Passing Yards".',
     `- Available bet types: ${BetTypeEnum.options.join(', ')}.`,
     '- EDGE RULE: for a spread, total, or moneyline leg (these get anchored to the exact book price above), your confidence must be strictly greater than that price\'s break-even win rate (e.g. -150 breaks even at 60%, +130 at ~43%) — if you don\'t believe a market leg clears its own price, pick a different leg instead; it will be rejected otherwise. Player props (no posted price) are exempt — set their confidence honestly.',
-    '- CORRELATION: avoid stacking legs whose outcomes move together (e.g. a team\'s spread, that team\'s QB Over passing yards, and the game Over all tend to hit or miss as a group) — a 3-leg parlay built entirely from correlated pieces overstates the real combined probability. Prefer at least one leg that\'s largely independent of the others, or say so in your reasoning if you stack anyway.',
+    '- CORRELATION: avoid stacking legs whose outcomes move together (e.g. a team\'s spread, that team\'s QB Over passing yards, and the game Over all tend to hit or miss as a group) — a parlay built entirely from correlated pieces overstates the real combined probability. Prefer at least one leg that\'s largely independent of the others, or say so in your reasoning if you stack anyway.',
   ].join('\n')
 }

@@ -76,6 +76,13 @@ export const AgentRunSchema = z.object({
   input: z.object({
     gameId: z.string().min(1),
     riskLevel: RiskLevelSchema,
+    // Snapshotted from the user's entitlements when the run is created, rather
+    // than read again mid-run. A subscription that lapses (or starts) while the
+    // agent is drafting must not change the shape of the parlay being built —
+    // the draft was prompted for one thing and would then be validated against
+    // another, and every leg would be rejected.
+    legCount: z.number().int().min(2).max(6).default(3),
+    playerProps: z.boolean().default(false),
   }),
   tokensInput: z.number().int().nonnegative().default(0),
   tokensOutput: z.number().int().nonnegative().default(0),

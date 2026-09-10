@@ -123,6 +123,27 @@ agentRouter.post(
       )
     }
 
+    const { legCount: legs } = entitlements.capabilities
+    const requestedLegs = req.body?.legCount === undefined
+      ? legs.min
+      : Number(req.body.legCount)
+    if (
+      !Number.isInteger(requestedLegs) ||
+      requestedLegs < legs.min ||
+      requestedLegs > legs.max
+    ) {
+      return errorResponse(
+        res,
+        403,
+        'leg_count_locked',
+        legs.min === legs.max
+          ? `Parlays are ${legs.min} legs on your plan. Choosing a leg count is a Pro feature.`
+          : `Leg count must be between ${legs.min} and ${legs.max}.`,
+        correlationId,
+        { tier: entitlements.tier, allowed: legs }
+      )
+    }
+
     const now = new Date().toISOString()
     const run: AgentRun = AgentRunSchema.parse({
       id: `run_${Math.random().toString(36).slice(2)}`,
@@ -132,7 +153,15 @@ agentRouter.post(
       status: 'queued',
       correlationId,
       budget: AgentBudgetSchema.parse({}),
-      input: { gameId, riskLevel: risk.data },
+      input: {
+        gameId,
+        riskLevel: risk.data,
+        // Snapshotted now rather than re-read mid-run: a tier that changes
+        // while the agent is drafting would otherwise have the draft prompted
+        // for one shape and validated against another.
+        legCount: requestedLegs,
+        playerProps: entitlements.capabilities.playerProps,
+      },
     })
     await createRun(run)
     log.info('api.agent.create', { correlationId, runId: run.id, userId: user.uid })
