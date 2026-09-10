@@ -15,7 +15,7 @@ import { TeamLogo } from '@/components/display/TeamLogo'
 import { WeekSelector } from '@/components/WeekSelector'
 import { colors, radius, spacing, typography } from '@/lib/theme/designTokens'
 
-const RISK_LEVELS: Array<{ value: RiskLevel; label: string }> = [
+const RISK_LEVELS: { value: RiskLevel; label: string }[] = [
   { value: 'conservative', label: 'Conservative' },
   { value: 'moderate', label: 'Moderate' },
   { value: 'aggressive', label: 'Aggressive' },

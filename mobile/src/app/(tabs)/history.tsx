@@ -1,13 +1,22 @@
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { requestGrading } from '@shared/api/GradingService'
 import { getBetTypeColor } from '@shared/betColors'
+import { useEntitlements } from '@shared/hooks/useEntitlements'
 import { formatOdds } from '@shared/odds'
 import type { GeneratedParlay, LegOutcome, ParlayOutcome } from '@shared/types'
 import { useEffect, useState } from 'react'
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native'
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { ErrorBanner } from '@/components/ErrorBanner'
+import UpgradeSheet from '@/components/UpgradeSheet'
 import { useAuth } from '@/lib/auth/useAuth'
 import { auth } from '@/lib/firebase'
 import { getUserParlays } from '@/lib/parlays'
@@ -50,21 +59,42 @@ function OutcomeChip({ parlay }: { parlay: GeneratedParlay }) {
 
 export default function HistoryScreen() {
   const { user } = useAuth()
-  const [parlays, setParlays] = useState<GeneratedParlay[] | null>(null)
+  const { capabilities, entitlements, isLoading, refetch } = useEntitlements()
+  const [loaded, setLoaded] = useState<GeneratedParlay[] | null>(null)
   const [error, setError] = useState('')
+  const [upgradeVisible, setUpgradeVisible] = useState(false)
+
+  // Undefined while entitlements load, and if they fail outright. Showing a
+  // user more of their own saved parlays costs nothing, whereas failing closed
+  // would hide data they saved, so this one restriction fails open.
+  const depth = capabilities?.historyDepth ?? null
+
+  // Derived rather than cleared in the effect: the tabs unmount on sign-out
+  // (app/_layout.tsx guards them), so this only has to cover the frame between
+  // the user going away and this screen leaving with it.
+  const parlays = user ? loaded : null
 
   useEffect(() => {
     if (!user) {
-      setParlays(null)
       return
     }
-    setError('')
-    const unsubscribe = getUserParlays(user.uid, setParlays, message => {
-      setError(message)
-      setParlays([])
-    })
+    // Both writes live in the listener's callbacks. Clearing the error on a
+    // successful snapshot also means a listener that recovers stops showing a
+    // stale failure, which clearing it once on subscribe never did.
+    const unsubscribe = getUserParlays(
+      user.uid,
+      next => {
+        setError('')
+        setLoaded(next)
+      },
+      message => {
+        setError(message)
+        setLoaded([])
+      },
+      depth
+    )
     return unsubscribe
-  }, [user])
+  }, [user, depth])
 
   useEffect(() => {
     if (!user) {
@@ -85,7 +115,7 @@ export default function HistoryScreen() {
           <ErrorBanner type="error" title="Couldn't load history" message={error} />
         ) : null}
 
-        {parlays === null ? (
+        {parlays === null || isLoading ? (
           <View style={styles.centre}>
             <ActivityIndicator color={colors.primary} />
           </View>
@@ -139,7 +169,24 @@ export default function HistoryScreen() {
             </View>
           ))
         )}
+
+        {depth !== null && parlays !== null && parlays.length === depth ? (
+          <Pressable onPress={() => setUpgradeVisible(true)}>
+            <Text style={styles.depthNote}>
+              Showing your last {depth}.{' '}
+              <Text style={styles.depthLink}>Pro keeps every parlay, every season.</Text>
+            </Text>
+          </Pressable>
+        ) : null}
       </ScrollView>
+
+      <UpgradeSheet
+        visible={upgradeVisible}
+        onClose={() => setUpgradeVisible(false)}
+        onPurchased={refetch}
+        canPurchase={entitlements?.billingAvailable.apple ?? false}
+        reason="Your full history, every season, is part of Pro."
+      />
     </SafeAreaView>
   )
 }
@@ -150,6 +197,13 @@ const styles = StyleSheet.create({
   centre: { alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xxl },
   emptyTitle: { ...typography.title, color: colors.textSecondary },
   emptyBody: { ...typography.bodySmall, color: colors.textDisabled, textAlign: 'center' },
+  depthNote: {
+    ...typography.bodySmall,
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  depthLink: { color: colors.primary },
 
   card: {
     borderWidth: 1,

@@ -34,8 +34,13 @@ export interface UserProfile {
   savedParlays?: string[]
 }
 
-function requireEnv(name: string): string {
-  const value = process.env[name]
+// Every var has to be read as a literal `process.env.EXPO_PUBLIC_*` expression.
+// babel-preset-expo substitutes those at build time and leaves a computed
+// `process.env[name]` untouched, and @expo/metro-config only injects a runtime
+// process.env object when `dev` is true. So a computed read resolves in the
+// emulator and is undefined in a release build — which threw here at module
+// scope and took the app down on launch, before anything could render.
+function requireEnv(name: string, value: string | undefined): string {
   if (!value) {
     throw new Error(
       `Missing ${name}. Copy mobile/.env.example to mobile/.env.local and fill it in.`
@@ -45,12 +50,24 @@ function requireEnv(name: string): string {
 }
 
 const app = initializeApp({
-  apiKey: requireEnv('EXPO_PUBLIC_FIREBASE_API_KEY'),
-  authDomain: requireEnv('EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN'),
-  projectId: requireEnv('EXPO_PUBLIC_FIREBASE_PROJECT_ID'),
-  storageBucket: requireEnv('EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET'),
-  messagingSenderId: requireEnv('EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID'),
-  appId: requireEnv('EXPO_PUBLIC_FIREBASE_APP_ID'),
+  apiKey: requireEnv('EXPO_PUBLIC_FIREBASE_API_KEY', process.env.EXPO_PUBLIC_FIREBASE_API_KEY),
+  authDomain: requireEnv(
+    'EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN',
+    process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN
+  ),
+  projectId: requireEnv(
+    'EXPO_PUBLIC_FIREBASE_PROJECT_ID',
+    process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID
+  ),
+  storageBucket: requireEnv(
+    'EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET',
+    process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET
+  ),
+  messagingSenderId: requireEnv(
+    'EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID',
+    process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+  ),
+  appId: requireEnv('EXPO_PUBLIC_FIREBASE_APP_ID', process.env.EXPO_PUBLIC_FIREBASE_APP_ID),
 })
 
 // initializeAuth rather than getAuth: getAuth would pick the default

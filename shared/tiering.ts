@@ -22,7 +22,6 @@ export interface TierCapabilities {
   rejectedLegs: boolean
   performanceRecord: boolean
   lineMoveAlerts: boolean
-  exportResultCard: boolean
 }
 
 export interface QuotaState {

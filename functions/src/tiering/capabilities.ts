@@ -16,7 +16,6 @@ export interface TierCapabilities {
   rejectedLegs: boolean
   performanceRecord: boolean
   lineMoveAlerts: boolean
-  exportResultCard: boolean
 }
 
 // Free's leg count is not a cap anyone picked. `validate` permits at most one
@@ -32,7 +31,6 @@ const FREE: TierCapabilities = {
   rejectedLegs: false,
   performanceRecord: false,
   lineMoveAlerts: false,
-  exportResultCard: false,
 }
 
 const PRO: TierCapabilities = {
@@ -45,7 +43,6 @@ const PRO: TierCapabilities = {
   rejectedLegs: true,
   performanceRecord: true,
   lineMoveAlerts: true,
-  exportResultCard: true,
 }
 
 export function capabilitiesFor(tier: Tier): TierCapabilities {
