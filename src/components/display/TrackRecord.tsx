@@ -1,4 +1,5 @@
-import { Box, Card, CardContent, Divider, Typography } from '@mui/material'
+import LockIcon from '@mui/icons-material/Lock'
+import { Box, Button, Card, CardContent, Chip, Divider, Typography } from '@mui/material'
 import React from 'react'
 import type { GeneratedParlay } from '../../types'
 import { computeTrackRecord, type Tally } from '../../utils/trackRecord'
@@ -73,7 +74,56 @@ const Row: React.FC<RowProps> = ({ label, claimed, actual, count, header }) => {
   )
 }
 
-export const TrackRecord: React.FC<{ parlays: GeneratedParlay[] }> = ({ parlays }) => {
+interface TrackRecordProps {
+  parlays: GeneratedParlay[]
+  // Free does not get the performance record. The panel still occupies its
+  // place rather than vanishing: the spec's conversion moment is a user looking
+  // at parlays they already like, not an empty state.
+  locked?: boolean
+  onUpgrade?: () => void
+}
+
+export const TrackRecord: React.FC<TrackRecordProps> = ({
+  parlays,
+  locked = false,
+  onUpgrade,
+}) => {
+  if (locked) {
+    return (
+      <Card variant="outlined" sx={{ mb: 2 }}>
+        <CardContent sx={{ py: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, flex: 1 }}>
+              Track record
+            </Typography>
+            <Chip
+              icon={<LockIcon sx={{ fontSize: 14 }} />}
+              label="Pro"
+              size="small"
+              sx={{
+                height: 20,
+                fontSize: 11,
+                fontWeight: 600,
+                backgroundColor: 'secondary.main',
+                color: '#121212',
+                '& .MuiChip-icon': { color: '#121212', marginLeft: '4px' },
+              }}
+            />
+          </Box>
+          <Typography variant="body2" color="text.secondary">
+            Win rate, closing line value and stated-confidence accuracy across every
+            parlay you have saved.
+          </Typography>
+          {onUpgrade && (
+            <Button size="small" onClick={onUpgrade} sx={{ mt: 1, px: 0 }}>
+              See what Pro includes
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+    )
+  }
+
   const t = computeTrackRecord(parlays)
 
   if (t.parlays.settled === 0) {

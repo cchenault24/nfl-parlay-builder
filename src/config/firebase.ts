@@ -155,9 +155,15 @@ function normalizeParlay(data: StoredParlay, docId: string): GeneratedParlay {
   }
 }
 
+// `depth` is the tier's history depth, newest first; null means unbounded. It
+// is applied after the sort rather than as a Firestore limit() because the
+// ordering key is derived from two possible fields, and because this is a view
+// restriction rather than a boundary — firestore.rules lets a user read every
+// parlay they saved, and nothing here pretends otherwise.
 export const getUserParlays = (
   userId: string,
-  callback: (parlays: GeneratedParlay[]) => void
+  callback: (parlays: GeneratedParlay[]) => void,
+  depth: number | null = null
 ) =>
   onSnapshot(
     query(collection(db, 'parlays'), where('userId', '==', userId)),
@@ -168,7 +174,7 @@ export const getUserParlays = (
         .map(docSnap => ({ data: docSnap.data() as StoredParlay, id: docSnap.id }))
         .sort((a, b) => savedAtMs(b.data) - savedAtMs(a.data))
         .map(({ data, id }) => normalizeParlay(data, id))
-      callback(parlays)
+      callback(depth === null ? parlays : parlays.slice(0, depth))
     },
     error => {
       console.error('Error fetching user parlays:', error)

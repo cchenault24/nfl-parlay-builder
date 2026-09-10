@@ -19,12 +19,14 @@ import {
 } from '@mui/material'
 import React, { useEffect, useState } from 'react'
 import { requestGrading } from '@shared/api/GradingService'
+import { useEntitlements } from '@shared/hooks/useEntitlements'
 import { auth, getUserParlays } from '../config/firebase'
 import { useAuth } from '../hooks/useAuth'
 import type { GeneratedParlay, LegOutcome, ParlayOutcome } from '../types'
 import { formatOdds, getBetTypeColor, getConfidenceColor } from '../utils'
 import ShareControl from './display/ShareControl'
 import TrackRecord from './display/TrackRecord'
+import UpgradeDialog from './UpgradeDialog'
 
 interface ParlayHistoryProps {
   open: boolean
@@ -63,15 +65,22 @@ const GradingChip: React.FC<{ parlay: GeneratedParlay }> = ({ parlay }) => {
 
 export const ParlayHistory: React.FC<ParlayHistoryProps> = ({ open, onClose }) => {
   const { user } = useAuth()
+  const { capabilities, entitlements, isLoading } = useEntitlements()
   const [parlays, setParlays] = useState<GeneratedParlay[] | null>(null)
+  const [upgradeReason, setUpgradeReason] = useState<string | null>(null)
+
+  // Undefined while entitlements load, and if they fail outright. Showing a
+  // user more of their own saved parlays costs nothing, whereas failing closed
+  // would hide data they saved, so this one restriction fails open.
+  const depth = capabilities?.historyDepth ?? null
 
   useEffect(() => {
     if (!open || !user) {
       setParlays(null)
       return
     }
-    return getUserParlays(user.uid, setParlays)
-  }, [open, user])
+    return getUserParlays(user.uid, setParlays, depth)
+  }, [open, user, depth])
 
   useEffect(() => {
     if (!open || !user) {
@@ -96,8 +105,16 @@ export const ParlayHistory: React.FC<ParlayHistoryProps> = ({ open, onClose }) =
       </DialogTitle>
 
       <DialogContent>
-        {parlays !== null && parlays.length > 0 && <TrackRecord parlays={parlays} />}
-        {parlays === null ? (
+        {parlays !== null && parlays.length > 0 && (
+          <TrackRecord
+            parlays={parlays}
+            locked={capabilities?.performanceRecord === false}
+            onUpgrade={() =>
+              setUpgradeReason('Your record across every saved parlay is part of Pro.')
+            }
+          />
+        )}
+        {parlays === null || isLoading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
             <CircularProgress />
           </Box>
@@ -174,11 +191,41 @@ export const ParlayHistory: React.FC<ParlayHistoryProps> = ({ open, onClose }) =
             </Card>
           ))
         )}
+        {depth !== null && parlays !== null && parlays.length === depth && (
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+            Showing your last {depth}.{' '}
+            <Box
+              component="button"
+              type="button"
+              onClick={() =>
+                setUpgradeReason('Your full history, every season, is part of Pro.')
+              }
+              sx={{
+                border: 0,
+                p: 0,
+                background: 'none',
+                font: 'inherit',
+                color: 'secondary.main',
+                cursor: 'pointer',
+                textDecoration: 'underline',
+              }}
+            >
+              Pro keeps every parlay, every season.
+            </Box>
+          </Typography>
+        )}
       </DialogContent>
 
       <DialogActions>
         <Button onClick={onClose}>Close</Button>
       </DialogActions>
+
+      <UpgradeDialog
+        open={upgradeReason !== null}
+        onClose={() => setUpgradeReason(null)}
+        canPurchase={entitlements?.billingAvailable.stripe ?? false}
+        reason={upgradeReason ?? undefined}
+      />
     </Dialog>
   )
 }
