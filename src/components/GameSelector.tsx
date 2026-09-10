@@ -86,7 +86,7 @@ const GameSelector: React.FC<GameSelectorProps> = ({
   // Free is structurally three legs (one per market, no props); Pro picks a
   // count. Until that selector exists, show the plan's floor rather than a
   // hardcoded 3, so the label never contradicts what the server will build.
-  const legCountLabel = capabilities?.legCount.min ?? 3
+  const legCountLabel = capabilities?.legCount.default ?? 3
   const [, tick] = React.useState(0)
 
   const atLimit = isAtLimit()

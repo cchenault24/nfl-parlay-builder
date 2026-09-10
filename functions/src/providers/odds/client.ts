@@ -90,9 +90,14 @@ async function fetchNflOdds(): Promise<OddsEvent[]> {
       url.searchParams.set('bookmakers', BOOKMAKERS.join(','))
       const res = await fetch(url, { signal: AbortSignal.timeout(10_000) })
       if (!res.ok) {
+        // The status alone is not diagnosable: The Odds API answers 401 for an
+        // invalid key, an out-of-credits account and an unsupported parameter
+        // alike, and only says which in the body. Carrying it through cost a
+        // production debugging session to learn. The body echoes no credential.
+        const detail = await res.text().catch(() => '')
         throw oddsError(
           'odds_request_failed',
-          `The Odds API request failed: ${res.status}`
+          `The Odds API request failed: ${res.status}${detail ? ` — ${detail.slice(0, 300)}` : ''}`
         )
       }
       log.info('odds.fetched', {

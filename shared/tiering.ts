@@ -15,7 +15,7 @@ export type Tier = 'free' | 'pro'
 export interface TierCapabilities {
   generationsPerWeek: number | null
   riskLevels: RiskLevel[]
-  legCount: { min: number; max: number }
+  legCount: { min: number; max: number; default: number }
   playerProps: boolean
   chooseSportsbook: boolean
   historyDepth: number | null

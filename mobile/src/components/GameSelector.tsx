@@ -313,7 +313,7 @@ export function GameSelector({
             <Text style={styles.generateText}>
               {quotaExhausted
                 ? 'Upgrade for unlimited parlays'
-                : `Create ${capabilities?.legCount.min ?? 3}-leg parlay`}
+                : `Create ${capabilities?.legCount.default ?? 3}-leg parlay`}
             </Text>
           </Pressable>
         </>

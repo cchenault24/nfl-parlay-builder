@@ -9,7 +9,7 @@ export type Tier = 'free' | 'pro'
 export interface TierCapabilities {
   generationsPerWeek: number | null
   riskLevels: RiskLevel[]
-  legCount: { min: number; max: number }
+  legCount: { min: number; max: number; default: number }
   playerProps: boolean
   chooseSportsbook: boolean
   historyDepth: number | null
@@ -21,10 +21,16 @@ export interface TierCapabilities {
 // Free's leg count is not a cap anyone picked. `validate` permits at most one
 // leg per market and a single game has exactly three, so without player props a
 // free parlay is structurally three legs. Props are what make 2-6 possible.
+//
+// `default` is what a run gets when the caller does not ask for a leg count,
+// and it is three for both tiers. It is stated separately from `min` because
+// Pro's minimum is 2 and defaulting to a minimum produced a two-leg prompt that
+// the model — asked for three-leg parlays everywhere else — answered with three
+// legs, which `validate` then rejected. Every default Pro generation failed.
 const FREE: TierCapabilities = {
   generationsPerWeek: 2,
   riskLevels: ['moderate'],
-  legCount: { min: 3, max: 3 },
+  legCount: { min: 3, max: 3, default: 3 },
   playerProps: false,
   chooseSportsbook: false,
   historyDepth: 10,
@@ -36,7 +42,7 @@ const FREE: TierCapabilities = {
 const PRO: TierCapabilities = {
   generationsPerWeek: null,
   riskLevels: ['conservative', 'moderate', 'aggressive'],
-  legCount: { min: 2, max: 6 },
+  legCount: { min: 2, max: 6, default: 3 },
   playerProps: true,
   chooseSportsbook: true,
   historyDepth: null,

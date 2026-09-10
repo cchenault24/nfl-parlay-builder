@@ -126,7 +126,7 @@ agentRouter.post(
 
     const { legCount: legs } = entitlements.capabilities
     const requestedLegs = req.body?.legCount === undefined
-      ? legs.min
+      ? legs.default
       : Number(req.body.legCount)
     if (
       !Number.isInteger(requestedLegs) ||
