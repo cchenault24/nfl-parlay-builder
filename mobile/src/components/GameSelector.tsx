@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons'
+import { useEntitlements } from '@shared/hooks/useEntitlements'
 import { useRateLimit } from '@shared/hooks/useRateLimit'
 import { useGamesForWeek } from '@shared/hooks/useSeason'
 import useParlayStore from '@shared/store/parlayStore'
@@ -7,6 +8,9 @@ import { useEffect, useState } from 'react'
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
 
 import { ErrorBanner } from '@/components/ErrorBanner'
+import ProGate from '@/components/ProGate'
+import QuotaIndicator from '@/components/QuotaIndicator'
+import UpgradeSheet from '@/components/UpgradeSheet'
 import { TeamLogo } from '@/components/display/TeamLogo'
 import { WeekSelector } from '@/components/WeekSelector'
 import { colors, radius, spacing, typography } from '@/lib/theme/designTokens'
@@ -50,7 +54,19 @@ export function GameSelector({
   const selectedGame = useParlayStore(state => state.selectedGame)
   const riskLevel = useParlayStore(state => state.riskLevel)
   const setRiskLevel = useParlayStore(state => state.setRiskLevel)
+  const bookmaker = useParlayStore(state => state.bookmaker)
+  const setBookmaker = useParlayStore(state => state.setBookmaker)
+  const { capabilities, quota, entitlements, refetch } = useEntitlements()
+  const [upgradeReason, setUpgradeReason] = useState<string | null>(null)
   const [, tick] = useState(0)
+
+  // Until entitlements load, every gated control is treated as locked.
+  // Defaulting the other way would briefly show an unlocked control and let a
+  // tap through in the gap.
+  const allowedRisks = capabilities?.riskLevels ?? ['moderate']
+  const canChooseBook = capabilities?.chooseSportsbook ?? false
+  const sportsbooks = entitlements?.sportsbooks ?? []
+  const quotaExhausted = quota?.remaining === 0
 
   const atLimit = isAtLimit()
   useEffect(() => {
@@ -153,9 +169,8 @@ export function GameSelector({
             <View style={styles.segmented}>
               {RISK_LEVELS.map(r => {
                 const active = riskLevel === r.value
-                return (
+                const pill = (
                   <Pressable
-                    key={r.value}
                     onPress={() => setRiskLevel(r.value)}
                     accessibilityRole="button"
                     accessibilityState={{ selected: active }}
@@ -170,9 +185,93 @@ export function GameSelector({
                     </Text>
                   </Pressable>
                 )
+                return allowedRisks.includes(r.value) ? (
+                  <View key={r.value}>{pill}</View>
+                ) : (
+                  <ProGate
+                    key={r.value}
+                    locked
+                    label={`the ${r.label.toLowerCase()} risk level`}
+                    onUpgrade={() =>
+                      setUpgradeReason(
+                        `The ${r.label.toLowerCase()} risk level is part of Pro.`
+                      )
+                    }
+                  >
+                    {pill}
+                  </ProGate>
+                )
               })}
             </View>
           </View>
+
+          {sportsbooks.length > 0 ? (
+            <View style={styles.riskBlock}>
+              <Text style={styles.label}>Sportsbook</Text>
+              <ProGate
+                locked={!canChooseBook}
+                label="your own sportsbook"
+                onUpgrade={() =>
+                  setUpgradeReason(
+                    'Pricing every leg on your own sportsbook is part of Pro.'
+                  )
+                }
+              >
+                <View style={styles.segmented}>
+                  {/* "Best available" is a real choice, not a placeholder: it
+                      means whichever book has posted this game. */}
+                  {[{ key: '', title: 'Best available' }, ...sportsbooks].map(book => {
+                    const active = canChooseBook && (bookmaker ?? '') === book.key
+                    return (
+                      <Pressable
+                        key={book.key || 'best'}
+                        onPress={() => setBookmaker(book.key || undefined)}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: active }}
+                        style={({ pressed }) => [
+                          styles.segment,
+                          active && styles.segmentActive,
+                          pressed && styles.pressed,
+                        ]}
+                      >
+                        <Text
+                          style={[styles.segmentText, active && styles.segmentTextActive]}
+                        >
+                          {book.title}
+                        </Text>
+                      </Pressable>
+                    )
+                  })}
+                </View>
+              </ProGate>
+            </View>
+          ) : null}
+
+          {quota ? (
+            <View style={styles.quotaBlock}>
+              <QuotaIndicator
+                quota={quota}
+                onUpgrade={() =>
+                  setUpgradeReason(
+                    quota.remaining === 0
+                      ? 'You have used this week\u2019s parlays. Pro removes the limit.'
+                      : 'Pro removes the weekly limit.'
+                  )
+                }
+              />
+            </View>
+          ) : null}
+
+          {/* An exhausted weekly quota is not the hourly rate limit: waiting
+              will not clear it before Tuesday, so it offers the upgrade rather
+              than a countdown. */}
+          {quotaExhausted ? (
+            <ErrorBanner
+              type="rate_limit_reached"
+              title="No parlays left this week"
+              message={`Your next ${quota?.limit ?? 0} arrive Tuesday. Pro removes the limit entirely.`}
+            />
+          ) : null}
 
           {atLimit ? (
             <ErrorBanner
@@ -191,7 +290,14 @@ export function GameSelector({
           ) : null}
 
           <Pressable
-            onPress={onGenerateParlay}
+            onPress={
+              quotaExhausted
+                ? () =>
+                    setUpgradeReason(
+                      'You have used this week\u2019s parlays. Pro removes the limit.'
+                    )
+                : onGenerateParlay
+            }
             disabled={!canGenerate || atLimit}
             style={({ pressed }) => [
               styles.generate,
@@ -204,15 +310,29 @@ export function GameSelector({
               size={20}
               color={colors.text}
             />
-            <Text style={styles.generateText}>Create 3-leg parlay</Text>
+            <Text style={styles.generateText}>
+              {quotaExhausted
+                ? 'Upgrade for unlimited parlays'
+                : `Create ${capabilities?.legCount.min ?? 3}-leg parlay`}
+            </Text>
           </Pressable>
         </>
       )}
+
+      <UpgradeSheet
+        visible={upgradeReason !== null}
+        onClose={() => setUpgradeReason(null)}
+        onPurchased={refetch}
+        reason={upgradeReason ?? undefined}
+      />
     </View>
   )
 }
 
 const styles = StyleSheet.create({
+  quotaBlock: {
+    marginBottom: spacing.md,
+  },
   card: {
     borderWidth: 1,
     borderColor: colors.divider,

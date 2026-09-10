@@ -22,6 +22,7 @@ import {
   rateLimitByUser,
 } from '../middleware/rateLimit'
 import { log } from '../observability/logger'
+import { SUPPORTED_BOOKMAKERS } from '../providers/odds/client'
 import { getEntitlementView } from '../tiering/store'
 import { errorResponse } from '../utils/errors'
 
@@ -144,6 +145,33 @@ agentRouter.post(
       )
     }
 
+    // An unset bookmaker is the norm — it means "no preference", and the odds
+    // client falls through its default priority. Only a rejected *choice* is an
+    // error, so a plan that cannot choose simply has the field dropped rather
+    // than being refused for sending a default it never picked.
+    const requestedBook = req.body?.bookmaker
+      ? String(req.body.bookmaker)
+      : undefined
+    if (requestedBook && !entitlements.capabilities.chooseSportsbook) {
+      return errorResponse(
+        res,
+        403,
+        'sportsbook_locked',
+        'Choosing your sportsbook is a Pro feature.',
+        correlationId,
+        { tier: entitlements.tier }
+      )
+    }
+    if (requestedBook && !SUPPORTED_BOOKMAKERS.some(b => b.key === requestedBook)) {
+      return errorResponse(
+        res,
+        400,
+        'validation_error',
+        `bookmaker must be one of ${SUPPORTED_BOOKMAKERS.map(b => b.key).join(', ')}`,
+        correlationId
+      )
+    }
+
     const now = new Date().toISOString()
     const run: AgentRun = AgentRunSchema.parse({
       id: `run_${Math.random().toString(36).slice(2)}`,
@@ -161,6 +189,7 @@ agentRouter.post(
         // for one shape and validated against another.
         legCount: requestedLegs,
         playerProps: entitlements.capabilities.playerProps,
+        ...(requestedBook ? { bookmaker: requestedBook } : {}),
       },
     })
     await createRun(run)

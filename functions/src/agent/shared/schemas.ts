@@ -83,6 +83,9 @@ export const AgentRunSchema = z.object({
     // another, and every leg would be rejected.
     legCount: z.number().int().min(2).max(6).default(3),
     playerProps: z.boolean().default(false),
+    // Absent means "no preference" — the odds client falls through its default
+    // priority. Only a plan that can choose ever sets it.
+    bookmaker: z.string().optional(),
   }),
   tokensInput: z.number().int().nonnegative().default(0),
   tokensOutput: z.number().int().nonnegative().default(0),

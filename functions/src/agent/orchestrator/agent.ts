@@ -218,7 +218,7 @@ export async function runAgent(
           getTeamStats(game.away.teamId, game.season),
         ])
       ),
-      tool('odds', () => getOddsForGame(game), {
+      tool('odds', () => getOddsForGame(game, run.input.bookmaker), {
         retries: 0,
         nonCircuitErrorCodes: [
           'odds_not_found',

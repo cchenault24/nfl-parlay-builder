@@ -8,6 +8,7 @@ import { useRateLimit } from './useRateLimit'
 // One attempt per press: agent failures are surfaced, never retried.
 export const useParlayGenerator = (service: BaseParlayService) => {
   const riskLevel = useParlayStore(state => state.riskLevel)
+  const bookmaker = useParlayStore(state => state.bookmaker)
   const upsertStep = useParlayStore(state => state.upsertStep)
   const clearSteps = useParlayStore(state => state.clearSteps)
   const setResult = useParlayStore(state => state.setResult)
@@ -26,6 +27,7 @@ export const useParlayGenerator = (service: BaseParlayService) => {
       clearResult()
       return service.generateParlay(game, {
         riskLevel,
+        bookmaker,
         onStep: upsertStep,
         signal: controller.signal,
       })

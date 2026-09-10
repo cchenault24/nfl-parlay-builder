@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { formatOdds } from '@shared/odds'
 import useParlayStore from '@shared/store/parlayStore'
-import type { RankedStat, TeamStats } from '@shared/types'
+import type { OddsSnapshot, RankedStat, TeamStats } from '@shared/types'
 import { useState } from 'react'
 import { LayoutAnimation, Platform, Pressable, StyleSheet, Text, UIManager, View } from 'react-native'
 
@@ -15,6 +15,16 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 }
 
 type StatPick = (s: TeamStats) => RankedStat
+
+// Names the book the prices actually came from, and says so plainly when it is
+// not the one the user picked — the legs are real either way, but showing
+// someone else's number under your own book's name would be a lie.
+function bookLinesLabel(odds: OddsSnapshot): string {
+  if (odds.requestedBookmakerKey) {
+    return `Book lines · ${odds.bookmaker} (your book had no line)`
+  }
+  return `Book lines · ${odds.bookmaker}`
+}
 
 const MATCHUP_ROWS: Array<{ label: string; pick: StatPick }> = [
   { label: 'Total yards', pick: s => s.offense.totalYardsPerGame },
@@ -118,7 +128,7 @@ export function GameStatsPanel() {
 
           <View style={styles.panel}>
             <Text style={styles.panelTitle}>
-              {odds ? `Book lines · ${odds.bookmaker}` : 'Book lines'}
+              {odds ? bookLinesLabel(odds) : 'Book lines'}
             </Text>
             {odds ? (
               <View style={styles.lines}>

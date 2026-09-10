@@ -1,5 +1,6 @@
 import { FieldValue, type Transaction } from 'firebase-admin/firestore'
 import { db } from '../firebase'
+import { SUPPORTED_BOOKMAKERS } from '../providers/odds/client'
 import {
   capabilitiesFor,
   quotaWindowEnd,
@@ -125,6 +126,9 @@ export async function getQuotaUsage(uid: string, now = new Date()): Promise<numb
 export interface EntitlementView {
   tier: Tier
   capabilities: TierCapabilities
+  // Served rather than hardcoded in each client, for the same reason the limits
+  // are: adding a book should not need an app release on two platforms.
+  sportsbooks: ReadonlyArray<{ key: string; title: string }>
   quota: {
     used: number
     limit: number | null
@@ -148,6 +152,7 @@ export async function getEntitlementView(
   return {
     tier: entitlement.tier,
     capabilities,
+    sportsbooks: SUPPORTED_BOOKMAKERS,
     quota: {
       used,
       limit,

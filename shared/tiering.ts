@@ -37,10 +37,18 @@ export interface QuotaState {
   resetsAt: string
 }
 
+export interface Sportsbook {
+  key: string
+  title: string
+}
+
 export interface Entitlements {
   tier: Tier
   capabilities: TierCapabilities
   quota: QuotaState
+  // The books a Pro user may price against. Served by the API so adding one
+  // does not need an app release on two platforms.
+  sportsbooks: Sportsbook[]
   // Present only for a Pro user, and only when the subscription is set to end.
   // Free retains all data and regains it on resubscribe, so this is a view
   // restriction date, never a deletion date.

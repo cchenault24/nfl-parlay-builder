@@ -71,7 +71,9 @@ const GameSelector: React.FC<GameSelectorProps> = ({
   const selectedGame = useParlayStore(state => state.selectedGame)
   const riskLevel = useParlayStore(state => state.riskLevel)
   const setRiskLevel = useParlayStore(state => state.setRiskLevel)
-  const { capabilities, quota } = useEntitlements()
+  const { capabilities, quota, entitlements } = useEntitlements()
+  const bookmaker = useParlayStore(state => state.bookmaker)
+  const setBookmaker = useParlayStore(state => state.setBookmaker)
   const [upgradeReason, setUpgradeReason] = useState<string | null>(null)
 
   // Until entitlements load, treat every gated control as locked. Defaulting
@@ -79,6 +81,8 @@ const GameSelector: React.FC<GameSelectorProps> = ({
   // and would let a click through in the gap.
   const allowedRisks = capabilities?.riskLevels ?? ['moderate']
   const quotaExhausted = quota?.remaining === 0
+  const canChooseBook = capabilities?.chooseSportsbook ?? false
+  const sportsbooks = entitlements?.sportsbooks ?? []
   // Free is structurally three legs (one per market, no props); Pro picks a
   // count. Until that selector exists, show the plan's floor rather than a
   // hardcoded 3, so the label never contradicts what the server will build.
@@ -231,6 +235,52 @@ const GameSelector: React.FC<GameSelectorProps> = ({
                 )}
               </ToggleButtonGroup>
             </Box>
+
+            {sportsbooks.length > 0 && (
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 2,
+                  mb: 3,
+                  flexWrap: 'wrap',
+                }}
+              >
+                <Typography variant="body2" color="text.secondary">
+                  Sportsbook
+                </Typography>
+                <ProGate
+                  locked={!canChooseBook}
+                  label="your own sportsbook"
+                  onUpgrade={() =>
+                    setUpgradeReason(
+                      'Pricing every leg on your own sportsbook is part of Pro.'
+                    )
+                  }
+                >
+                  <FormControl size="small" sx={{ minWidth: 160 }}>
+                    <Select
+                      value={canChooseBook ? (bookmaker ?? '') : ''}
+                      displayEmpty
+                      disabled={!canChooseBook}
+                      onChange={(e: SelectChangeEvent<string>) =>
+                        setBookmaker(e.target.value || undefined)
+                      }
+                      inputProps={{ 'aria-label': 'Sportsbook' }}
+                    >
+                      {/* Empty is a real choice, not a placeholder: it means
+                          "whichever book has posted this game". */}
+                      <MenuItem value="">Best available</MenuItem>
+                      {sportsbooks.map(book => (
+                        <MenuItem key={book.key} value={book.key}>
+                          {book.title}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </ProGate>
+              </Box>
+            )}
 
             {quota && (
               <Box sx={{ mb: 3 }}>

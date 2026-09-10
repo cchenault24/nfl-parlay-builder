@@ -23,6 +23,7 @@ export class AgentParlayService extends BaseParlayService {
     const { runId, rateLimitInfo } = await this.runs.createRun({
       gameId: game.gameId,
       riskLevel: options.riskLevel,
+      bookmaker: options.bookmaker,
       token,
     })
 
