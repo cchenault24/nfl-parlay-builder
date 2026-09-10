@@ -22,6 +22,7 @@ import {
   rateLimitByUser,
 } from '../middleware/rateLimit'
 import { log } from '../observability/logger'
+import { getEntitlementView } from '../tiering/store'
 import { errorResponse } from '../utils/errors'
 
 export const agentRouter = express.Router()
@@ -94,6 +95,31 @@ agentRouter.post(
         'validation_error',
         'gameId is required and riskLevel must be conservative, moderate, or aggressive',
         correlationId
+      )
+    }
+
+    // Entitlements are enforced here rather than in the UI alone: the locked
+    // controls are an upsell, not a security boundary, and this endpoint is
+    // reachable directly.
+    const entitlements = await getEntitlementView(user.uid)
+    if (entitlements.quota.remaining === 0) {
+      return errorResponse(
+        res,
+        403,
+        'quota_exhausted',
+        `You have used all ${entitlements.quota.limit} generations for this week. Your next ones arrive Tuesday.`,
+        correlationId,
+        { resetsAt: entitlements.quota.resetsAt, tier: entitlements.tier }
+      )
+    }
+    if (!entitlements.capabilities.riskLevels.includes(risk.data)) {
+      return errorResponse(
+        res,
+        403,
+        'risk_level_locked',
+        `The ${risk.data} risk level is a Pro feature.`,
+        correlationId,
+        { tier: entitlements.tier, allowed: entitlements.capabilities.riskLevels }
       )
     }
 

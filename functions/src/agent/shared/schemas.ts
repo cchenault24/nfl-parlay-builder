@@ -94,3 +94,4 @@ export type AgentBudget = z.infer<typeof AgentBudgetSchema>
 export type AgentStep = z.infer<typeof AgentStepSchema>
 export type AgentToolName = z.infer<typeof AgentToolNameSchema>
 export type AgentRunStatus = z.infer<typeof AgentRunStatusSchema>
+export type RiskLevel = z.infer<typeof RiskLevelSchema>

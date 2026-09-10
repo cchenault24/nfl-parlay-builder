@@ -6,6 +6,7 @@ import { app as firebaseApp } from './firebase'
 import type { AuthedRequest } from './middleware/auth'
 import {
   agentRouter,
+  entitlementsRouter,
   gradingRouter,
   metricsRouter,
   publicRouter,
@@ -55,6 +56,7 @@ apiRouter.get('/health', (_req, res) => {
 })
 apiRouter.use('/', publicRouter)
 apiRouter.use('/', agentRouter)
+apiRouter.use('/', entitlementsRouter)
 apiRouter.use('/', metricsRouter)
 apiRouter.use('/', gradingRouter)
 apiRouter.use('/', sharingRouter)

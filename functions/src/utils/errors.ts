@@ -1,6 +1,12 @@
 import express from 'express'
 
-export type ErrorDetails = { fields?: Record<string, string[]> }
+// `fields` stays typed for validation errors; the index signature lets an error
+// carry the one piece of context that saves the client a follow-up request —
+// a quota refusal returning when the quota resets, say.
+export type ErrorDetails = {
+  fields?: Record<string, string[]>
+  [key: string]: unknown
+}
 export type ErrorBody = {
   code: string
   message: string
