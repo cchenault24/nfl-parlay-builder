@@ -74,7 +74,14 @@ function oddsError(code: string, message: string): Error {
 
 // One call covers every NFL game; cached so a burst of runs costs one credit per market.
 async function fetchNflOdds(): Promise<OddsEvent[]> {
-  const apiKey = process.env.ODDS_API_KEY
+  // Trimmed, because a secret set from a shell pipeline keeps whatever newline
+  // the shell fed it, and Secret Manager stores the value byte for byte. The
+  // stored ODDS_API_KEY carried a trailing \n, which the URL encodes as %0A —
+  // so The Odds API answered 401 INVALID_KEY on every request the deployed
+  // function ever made, while the same key worked from a terminal, where
+  // command substitution had already eaten the newline. Trimming here fixes it
+  // for every consumer of the key rather than only the one that noticed.
+  const apiKey = process.env.ODDS_API_KEY?.trim()
   if (!apiKey) {
     throw oddsError('odds_not_configured', 'ODDS_API_KEY is not configured')
   }
