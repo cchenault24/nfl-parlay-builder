@@ -86,3 +86,4 @@ export const api = onRequest(
 // never take the request-serving function down with it.
 export { gradeParlaysSweep } from './scheduled/gradeParlays'
 export { captureClosingLinesSweep } from './scheduled/captureClosingLines'
+export { sendKickoffReminders } from './scheduled/sendReminders'
