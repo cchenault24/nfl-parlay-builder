@@ -25,13 +25,30 @@ export interface OddsSnapshot {
   bookmaker: string
   bookmakerKey: string
   lastUpdate: string
+  // Set only when the user asked for a book that had not posted this game and
+  // another was used instead. Every leg is still anchored to a real posted
+  // price — just not the requested book's — so the UI has to say whose it is
+  // rather than quietly showing someone else's number.
+  requestedBookmakerKey?: string
   spread: SpreadLine | null
   total: TotalLine | null
   moneyline: Moneyline | null
 }
 
 const ODDS_API = 'https://api.the-odds-api.com/v4/sports/americanfootball_nfl'
-const BOOKMAKERS = ['draftkings', 'fanduel', 'betmgm', 'caesars']
+// Requested together in a single cached call, so letting a user pick among them
+// costs no extra Odds API credits — the response already contains all four.
+// Order is the fallback priority for anyone who has not chosen.
+export const SUPPORTED_BOOKMAKERS = [
+  { key: 'draftkings', title: 'DraftKings' },
+  { key: 'fanduel', title: 'FanDuel' },
+  { key: 'betmgm', title: 'BetMGM' },
+  { key: 'caesars', title: 'Caesars' },
+] as const
+
+export type BookmakerKey = (typeof SUPPORTED_BOOKMAKERS)[number]['key']
+
+const BOOKMAKERS = SUPPORTED_BOOKMAKERS.map(b => b.key)
 const CACHE_TTL_MS = 60_000
 const KICKOFF_TOLERANCE_MS = 6 * 60 * 60 * 1000
 
@@ -87,7 +104,10 @@ async function fetchNflOdds(): Promise<OddsEvent[]> {
   )
 }
 
-export async function getOddsForGame(game: ScheduleGame): Promise<OddsSnapshot> {
+export async function getOddsForGame(
+  game: ScheduleGame,
+  preferredBookmaker?: string
+): Promise<OddsSnapshot> {
   const events = await fetchNflOdds()
   const kickoff = Date.parse(game.dateTime)
   const event = events.find(
@@ -102,13 +122,22 @@ export async function getOddsForGame(game: ScheduleGame): Promise<OddsSnapshot> 
       `No lines listed yet for ${game.away.name} @ ${game.home.name}`
     )
   }
+  // A requested book wins outright when it posted this game. Otherwise fall
+  // through the default priority — a parlay priced at another real book beats
+  // no parlay, provided the swap is disclosed.
+  const requested = preferredBookmaker
+    ? event.bookmakers.find(b => b.key === preferredBookmaker)
+    : undefined
   const book =
+    requested ??
     BOOKMAKERS.map(key => event.bookmakers.find(b => b.key === key)).find(
       (b): b is Bookmaker => b !== undefined
-    ) ?? event.bookmakers[0]
+    ) ??
+    event.bookmakers[0]
   if (!book) {
     throw oddsError('odds_no_bookmaker', 'No bookmaker has posted lines')
   }
+  const fellBack = !!preferredBookmaker && book.key !== preferredBookmaker
 
   const market = (key: string) => book.markets.find(m => m.key === key)
   const outcome = (m: Market | undefined, name: string) =>
@@ -126,6 +155,7 @@ export async function getOddsForGame(game: ScheduleGame): Promise<OddsSnapshot> 
     bookmaker: book.title,
     bookmakerKey: book.key,
     lastUpdate: book.last_update,
+    ...(fellBack ? { requestedBookmakerKey: preferredBookmaker } : {}),
     spread:
       spreadHome?.point !== undefined && spreadAway
         ? {

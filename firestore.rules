@@ -42,6 +42,19 @@ service cloud.firestore {
     match /userSettings/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
+
+    // Tier entitlements and generation quotas - CRITICAL: server-side only.
+    // These deliberately do NOT live on users/{uid} or userSettings/{uid},
+    // both of which the signed-in user can write: a tier or a used-count
+    // stored there could be rewritten from a browser console, granting Pro
+    // or clearing a spent quota. Clients read their tier from
+    // GET /entitlements, which is served by the Admin SDK.
+    match /entitlements/{userId} {
+      allow read, write: if false;
+    }
+    match /quotas/{userId} {
+      allow read, write: if false;
+    }
     
     // Analytics or usage tracking (optional)
     match /analytics/{document} {

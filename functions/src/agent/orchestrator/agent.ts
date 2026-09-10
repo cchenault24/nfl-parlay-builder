@@ -218,7 +218,7 @@ export async function runAgent(
           getTeamStats(game.away.teamId, game.season),
         ])
       ),
-      tool('odds', () => getOddsForGame(game), {
+      tool('odds', () => getOddsForGame(game, run.input.bookmaker), {
         retries: 0,
         nonCircuitErrorCodes: [
           'odds_not_found',
@@ -246,6 +246,27 @@ export async function runAgent(
     if (!client) {
       throw new RunError('ai_unavailable', 'OpenAI client not configured')
     }
+    // A plan without player props can only build legs the book has posted, and
+    // a single game offers at most three markets. Asking for more legs than
+    // there are markets guarantees a draft the validator rejects, so the count
+    // is narrowed to what is actually available. Two anchored legs beat a run
+    // that fails outright, and the user is not billed either way unless the
+    // odds came back clean.
+    const anchorableMarkets = odds
+      ? [odds.spread, odds.total, odds.moneyline].filter(Boolean).length
+      : 0
+    const legCount = run.input.playerProps
+      ? run.input.legCount
+      : Math.min(run.input.legCount, anchorableMarkets)
+
+    if (legCount < 1) {
+      throw new RunError(
+        'no_anchorable_markets',
+        'No sportsbook has posted a line for this game yet, and this plan builds every leg from a posted line.'
+      )
+    }
+
+    const constraints = { legCount, playerProps: run.input.playerProps }
     const prompt = buildParlayPrompt({
       game,
       homeStats,
@@ -255,6 +276,7 @@ export async function runAgent(
       leagueAverages,
       epa,
       riskLevel: run.input.riskLevel,
+      ...constraints,
     })
     const draftStep = await step('draft', async () => {
       // Bounded by what's left of the budget, not just by `signal`. The budget
@@ -280,7 +302,10 @@ export async function runAgent(
     const validation = await step('validate', async () => {
       validationIssues = validateDraft(
         { legs: snappedLegs, analysisSummary: draft.analysisSummary },
-        game
+        game,
+        // The same constraints the prompt was built from, so the model is never
+        // judged against a shape it was not asked for.
+        constraints
       )
       if (validationIssues.length > 0) {
         throw new RunError(

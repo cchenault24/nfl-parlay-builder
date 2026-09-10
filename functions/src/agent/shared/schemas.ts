@@ -76,6 +76,16 @@ export const AgentRunSchema = z.object({
   input: z.object({
     gameId: z.string().min(1),
     riskLevel: RiskLevelSchema,
+    // Snapshotted from the user's entitlements when the run is created, rather
+    // than read again mid-run. A subscription that lapses (or starts) while the
+    // agent is drafting must not change the shape of the parlay being built —
+    // the draft was prompted for one thing and would then be validated against
+    // another, and every leg would be rejected.
+    legCount: z.number().int().min(2).max(6).default(3),
+    playerProps: z.boolean().default(false),
+    // Absent means "no preference" — the odds client falls through its default
+    // priority. Only a plan that can choose ever sets it.
+    bookmaker: z.string().optional(),
   }),
   tokensInput: z.number().int().nonnegative().default(0),
   tokensOutput: z.number().int().nonnegative().default(0),
@@ -94,3 +104,4 @@ export type AgentBudget = z.infer<typeof AgentBudgetSchema>
 export type AgentStep = z.infer<typeof AgentStepSchema>
 export type AgentToolName = z.infer<typeof AgentToolNameSchema>
 export type AgentRunStatus = z.infer<typeof AgentRunStatusSchema>
+export type RiskLevel = z.infer<typeof RiskLevelSchema>

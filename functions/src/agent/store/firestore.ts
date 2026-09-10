@@ -1,4 +1,6 @@
+import type { Transaction } from 'firebase-admin/firestore'
 import { db } from '../../firebase'
+import { commitGenerationInTx } from '../../tiering/store'
 import { AgentRun, AgentRunSchema, AgentStep } from '../shared/schemas'
 
 function runs() {
@@ -36,10 +38,18 @@ export async function listSteps(runId: string): Promise<AgentStep[]> {
 // on (claimed, canceled, or completed by someone else). This is the only
 // primitive that changes `status`, so concurrent writers can never clobber
 // each other's terminal state.
+//
+// `alsoInTx` piggybacks extra work on that same transaction. A transition
+// succeeds exactly once, so anything done here happens exactly once too —
+// which is what makes it safe to bill a generation against a user's quota
+// from the same place the run is marked succeeded. It runs before the status
+// write because Firestore requires every read in a transaction to precede
+// every write, and callers of this hook do read.
 export async function transitionRun(
   runId: string,
   allowedFrom: AgentRun['status'][],
-  updates: Partial<AgentRun>
+  updates: Partial<AgentRun>,
+  alsoInTx?: (tx: Transaction, current: AgentRun) => Promise<void>
 ): Promise<AgentRun | null> {
   return db().runTransaction(async tx => {
     const ref = runs().doc(runId)
@@ -50,6 +60,9 @@ export async function transitionRun(
     const current = AgentRunSchema.parse(snap.data())
     if (!allowedFrom.includes(current.status)) {
       return null
+    }
+    if (alsoInTx) {
+      await alsoInTx(tx, current)
     }
     const updatedAt = new Date().toISOString()
     tx.update(ref, stripUndefined({ ...updates, updatedAt }))
@@ -66,11 +79,28 @@ export function claimRun(runId: string): Promise<AgentRun | null> {
 // Writes the final outcome of a run, but only if it is still the one
 // actively running it — a run already canceled or claimed elsewhere is left
 // alone.
+//
+// A generation is billed against the user's quota here and nowhere else, and
+// only when the run both succeeded and got real odds. Everything else is free
+// to the user: failures, cancellations, and successful runs that fell back to
+// AI-estimated prices because the odds tool was unavailable. At a measured 13%
+// failure rate, charging on start would cost a free user a parlay to failure
+// roughly monthly — and a run without anchored prices has not delivered what
+// the free tier is defined as being.
 export async function finishRun(
   runId: string,
   updates: Partial<AgentRun>
 ): Promise<boolean> {
-  const result = await transitionRun(runId, ['running'], updates)
+  const billable =
+    updates.status === 'succeeded' && updates.result?.sources.odds === 'ok'
+  const result = await transitionRun(
+    runId,
+    ['running'],
+    updates,
+    billable
+      ? async (tx, current) => commitGenerationInTx(tx, current.userId)
+      : undefined
+  )
   return result !== null
 }
 

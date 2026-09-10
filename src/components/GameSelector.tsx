@@ -17,13 +17,17 @@ import {
   Typography,
 } from '@mui/material'
 import { SelectChangeEvent } from '@mui/material/Select'
-import React from 'react'
+import React, { useState } from 'react'
+import { useEntitlements } from '@shared/hooks/useEntitlements'
 import { useRateLimit } from '@shared/hooks/useRateLimit'
 import { useGamesForWeek } from '@shared/hooks/useSeason'
 import useParlayStore from '@shared/store/parlayStore'
 import type { Game, RiskLevel } from '../types'
 import TeamLogo from './display/TeamLogo'
 import ErrorBanner from './ErrorBanner'
+import ProGate from './ProGate'
+import QuotaIndicator from './QuotaIndicator'
+import UpgradeDialog from './UpgradeDialog'
 import WeekSelector from './WeekSelector'
 
 interface GameSelectorProps {
@@ -67,6 +71,22 @@ const GameSelector: React.FC<GameSelectorProps> = ({
   const selectedGame = useParlayStore(state => state.selectedGame)
   const riskLevel = useParlayStore(state => state.riskLevel)
   const setRiskLevel = useParlayStore(state => state.setRiskLevel)
+  const { capabilities, quota, entitlements } = useEntitlements()
+  const bookmaker = useParlayStore(state => state.bookmaker)
+  const setBookmaker = useParlayStore(state => state.setBookmaker)
+  const [upgradeReason, setUpgradeReason] = useState<string | null>(null)
+
+  // Until entitlements load, treat every gated control as locked. Defaulting
+  // the other way would flash an unlocked control that then disables itself,
+  // and would let a click through in the gap.
+  const allowedRisks = capabilities?.riskLevels ?? ['moderate']
+  const quotaExhausted = quota?.remaining === 0
+  const canChooseBook = capabilities?.chooseSportsbook ?? false
+  const sportsbooks = entitlements?.sportsbooks ?? []
+  // Free is structurally three legs (one per market, no props); Pro picks a
+  // count. Until that selector exists, show the plan's floor rather than a
+  // hardcoded 3, so the label never contradicts what the server will build.
+  const legCountLabel = capabilities?.legCount.min ?? 3
   const [, tick] = React.useState(0)
 
   const atLimit = isAtLimit()
@@ -189,13 +209,93 @@ const GameSelector: React.FC<GameSelectorProps> = ({
                 onChange={(_e, value: RiskLevel | null) => value && setRiskLevel(value)}
                 aria-label="Risk level"
               >
-                {RISK_LEVELS.map(r => (
-                  <ToggleButton key={r.value} value={r.value} sx={{ px: 2 }}>
-                    {r.label}
-                  </ToggleButton>
-                ))}
+                {RISK_LEVELS.map(r =>
+                  allowedRisks.includes(r.value) ? (
+                    <ToggleButton key={r.value} value={r.value} sx={{ px: 2 }}>
+                      {r.label}
+                    </ToggleButton>
+                  ) : (
+                    // Rendered rather than hidden: the upsell lands next to a
+                    // parlay the user already likes, not on an empty state.
+                    <ProGate
+                      key={r.value}
+                      locked
+                      label={`the ${r.label.toLowerCase()} risk level`}
+                      onUpgrade={() =>
+                        setUpgradeReason(
+                          `The ${r.label.toLowerCase()} risk level is part of Pro.`
+                        )
+                      }
+                    >
+                      <ToggleButton value={r.value} disabled sx={{ px: 2 }}>
+                        {r.label}
+                      </ToggleButton>
+                    </ProGate>
+                  )
+                )}
               </ToggleButtonGroup>
             </Box>
+
+            {sportsbooks.length > 0 && (
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 2,
+                  mb: 3,
+                  flexWrap: 'wrap',
+                }}
+              >
+                <Typography variant="body2" color="text.secondary">
+                  Sportsbook
+                </Typography>
+                <ProGate
+                  locked={!canChooseBook}
+                  label="your own sportsbook"
+                  onUpgrade={() =>
+                    setUpgradeReason(
+                      'Pricing every leg on your own sportsbook is part of Pro.'
+                    )
+                  }
+                >
+                  <FormControl size="small" sx={{ minWidth: 160 }}>
+                    <Select
+                      value={canChooseBook ? (bookmaker ?? '') : ''}
+                      displayEmpty
+                      disabled={!canChooseBook}
+                      onChange={(e: SelectChangeEvent<string>) =>
+                        setBookmaker(e.target.value || undefined)
+                      }
+                      inputProps={{ 'aria-label': 'Sportsbook' }}
+                    >
+                      {/* Empty is a real choice, not a placeholder: it means
+                          "whichever book has posted this game". */}
+                      <MenuItem value="">Best available</MenuItem>
+                      {sportsbooks.map(book => (
+                        <MenuItem key={book.key} value={book.key}>
+                          {book.title}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </ProGate>
+              </Box>
+            )}
+
+            {quota && (
+              <Box sx={{ mb: 3 }}>
+                <QuotaIndicator
+                  quota={quota}
+                  onUpgrade={() =>
+                    setUpgradeReason(
+                      quota.remaining === 0
+                        ? 'You have used this week\u2019s parlays. Pro removes the limit.'
+                        : 'Pro removes the weekly limit.'
+                    )
+                  }
+                />
+              </Box>
+            )}
 
             {selectedGame && (
               <Box sx={{ textAlign: 'center' }}>
@@ -214,20 +314,45 @@ const GameSelector: React.FC<GameSelectorProps> = ({
                     message={parlayError.message}
                   />
                 )}
+                {/* An exhausted weekly quota is a different thing from the
+                    hourly rate limit: waiting will not clear it before Tuesday,
+                    so it offers the upgrade instead of a countdown. */}
+                {quotaExhausted && (
+                  <ErrorBanner
+                    type="rate_limit_reached"
+                    title="No parlays left this week"
+                    message={`Your next ${quota?.limit ?? 0} arrive Tuesday. Pro removes the limit entirely.`}
+                  />
+                )}
                 <Button
                   variant="contained"
                   size="large"
                   startIcon={atLimit ? <AccessTimeIcon /> : <CasinoIcon />}
-                  onClick={onGenerateParlay}
+                  onClick={
+                    quotaExhausted
+                      ? () =>
+                          setUpgradeReason(
+                            'You have used this week\u2019s parlays. Pro removes the limit.'
+                          )
+                      : onGenerateParlay
+                  }
                   disabled={!canGenerate || atLimit}
                   sx={{ px: 4, py: 1.5 }}
                 >
-                  Create 3-leg parlay
+                  {quotaExhausted
+                    ? 'Upgrade for unlimited parlays'
+                    : `Create ${legCountLabel}-leg parlay`}
                 </Button>
               </Box>
             )}
           </>
         )}
+
+        <UpgradeDialog
+          open={upgradeReason !== null}
+          onClose={() => setUpgradeReason(null)}
+          reason={upgradeReason ?? undefined}
+        />
       </CardContent>
     </Card>
   )

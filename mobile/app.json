@@ -39,7 +39,8 @@
           "imageWidth": 76
         }
       ],
-      "./plugins/withStaticExpoModules"
+      "./plugins/withStaticExpoModules",
+      "expo-iap"
     ],
     "experiments": {
       "typedRoutes": true,

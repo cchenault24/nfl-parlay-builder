@@ -92,6 +92,10 @@ export interface OddsSnapshot {
   eventId: string
   bookmaker: string
   bookmakerKey: string
+  // Set only when the user asked for a book that had not posted this game and
+  // another was used. The legs are still anchored to a real posted price — just
+  // not the requested book's — so the UI has to say whose it is.
+  requestedBookmakerKey?: string
   lastUpdate: string
   spread: { line: number; homePrice: number; awayPrice: number } | null
   total: { line: number; overPrice: number; underPrice: number } | null
@@ -291,6 +295,8 @@ export interface ParlayGenerationResult {
 
 export interface ParlayGenerationOptions {
   riskLevel: RiskLevel
+  // Undefined means no preference; the server picks from its own book priority.
+  bookmaker?: string
   onStep?: (step: AgentStep) => void
   signal?: AbortSignal
 }

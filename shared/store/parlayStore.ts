@@ -12,6 +12,9 @@ import type {
 interface ParlayStore {
   selectedGame: Game | null
   riskLevel: RiskLevel
+  // Undefined means "no preference" — the server falls through its own book
+  // priority. Only a plan that can choose ever sets it.
+  bookmaker: string | undefined
   steps: AgentStep[]
   parlay: GeneratedParlay | null
   game: Game | null
@@ -24,6 +27,7 @@ interface ParlayStore {
 
   setSelectedGame: (game: Game | null) => void
   setRiskLevel: (level: RiskLevel) => void
+  setBookmaker: (key: string | undefined) => void
   upsertStep: (step: AgentStep) => void
   clearSteps: () => void
   setResult: (result: {
@@ -51,6 +55,7 @@ const emptyResult = {
 const useParlayStore = create<ParlayStore>(set => ({
   selectedGame: null,
   riskLevel: 'moderate',
+  bookmaker: undefined,
   steps: [],
   ...emptyResult,
   saveParlaySuccess: false,
@@ -58,6 +63,7 @@ const useParlayStore = create<ParlayStore>(set => ({
 
   setSelectedGame: game => set({ selectedGame: game }),
   setRiskLevel: riskLevel => set({ riskLevel }),
+  setBookmaker: bookmaker => set({ bookmaker }),
   upsertStep: step =>
     set(state => {
       const idx = state.steps.findIndex(s => s.id === step.id)

@@ -60,6 +60,7 @@ export class AgentRunService {
   createRun(params: {
     gameId: string
     riskLevel: RiskLevel
+    bookmaker?: string
     token: string
   }): Promise<{ runId: string; rateLimitInfo: RateLimitInfo }> {
     return this.request('/agent/runs', params.token, {
@@ -67,6 +68,9 @@ export class AgentRunService {
       body: JSON.stringify({
         gameId: params.gameId,
         riskLevel: params.riskLevel,
+        // Omitted rather than sent as null: the server rejects a *choice* from
+        // a plan that cannot choose, and an unset field is not a choice.
+        ...(params.bookmaker ? { bookmaker: params.bookmaker } : {}),
       }),
     })
   }

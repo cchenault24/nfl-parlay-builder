@@ -14,13 +14,23 @@ import {
 } from '@mui/material'
 import React from 'react'
 import useParlayStore from '@shared/store/parlayStore'
-import type { RankedStat, TeamStats } from '../../types'
+import type { OddsSnapshot, RankedStat, TeamStats } from '../../types'
 import { formatOdds } from '../../utils'
 import MatchupRow from './MatchupRow'
 import TeamCard from './TeamCard'
 import TeamLogo from './TeamLogo'
 
 type StatPick = (s: TeamStats) => RankedStat
+
+// Names the book the prices actually came from, and says so plainly when it is
+// not the one the user picked — the legs are real either way, but showing
+// someone else's number under your own book's name would be a lie.
+function bookLinesLabel(odds: OddsSnapshot): string {
+  if (odds.requestedBookmakerKey) {
+    return `Book lines · ${odds.bookmaker} (your book had no line)`
+  }
+  return `Book lines · ${odds.bookmaker}`
+}
 
 const MATCHUP_ROWS: Array<{ label: string; pick: StatPick }> = [
   { label: 'Total yards', pick: s => s.offense.totalYardsPerGame },
@@ -107,7 +117,7 @@ const GameStatsPanel: React.FC = () => {
 
         <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
           <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-            {odds ? `Book lines · ${odds.bookmaker}` : 'Book lines'}
+            {odds ? bookLinesLabel(odds) : 'Book lines'}
           </Typography>
           {odds ? (
             <Box
