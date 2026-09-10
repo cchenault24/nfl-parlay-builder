@@ -17,6 +17,7 @@ import {
   draftParlay,
   getOpenAI,
 } from '../../service/ai'
+import { bookPriceForLeg } from '../../utils/bookLines'
 import { combineAmericanOdds } from '../../utils/odds'
 import { getCurrentSeason } from '../../utils/season'
 import {
@@ -67,33 +68,9 @@ function snapLegToBook(
   // The model doesn't reliably emit a literal null here — normalize an
   // empty string to null once, up front.
   const leg = { ...rawLeg, player: rawLeg.player?.trim() ? rawLeg.player : null }
-  const isHome = leg.team === game.home.name
-  if (leg.betType === 'spread' && odds?.spread) {
-    return {
-      ...leg,
-      player: null,
-      line: isHome ? odds.spread.line : -odds.spread.line,
-      odds: isHome ? odds.spread.homePrice : odds.spread.awayPrice,
-      anchored: true,
-    }
-  }
-  if (leg.betType === 'moneyline' && odds?.moneyline) {
-    return {
-      ...leg,
-      player: null,
-      line: null,
-      odds: isHome ? odds.moneyline.home : odds.moneyline.away,
-      anchored: true,
-    }
-  }
-  if (leg.betType === 'total' && odds?.total && leg.side) {
-    return {
-      ...leg,
-      player: null,
-      line: odds.total.line,
-      odds: leg.side === 'over' ? odds.total.overPrice : odds.total.underPrice,
-      anchored: true,
-    }
+  const priced = bookPriceForLeg(leg, game, odds)
+  if (priced) {
+    return { ...leg, player: null, line: priced.line, odds: priced.odds, anchored: true }
   }
   return { ...leg, anchored: false }
 }
