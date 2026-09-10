@@ -1,7 +1,4 @@
-import { AppBar, Toolbar } from '@mui/material'
-import Box from '@mui/material/Box'
-import Container from '@mui/material/Container'
-import CssBaseline from '@mui/material/CssBaseline'
+import { AppBar, Box, Container, CssBaseline, Toolbar } from '@mui/material'
 import { ThemeProvider } from '@mui/material/styles'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useCallback, useState } from 'react'
