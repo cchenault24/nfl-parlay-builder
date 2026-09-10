@@ -4,11 +4,14 @@
     "slug": "parlaid",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/icon-light.png",
     "scheme": "parlaid",
     "userInterfaceStyle": "dark",
     "ios": {
-      "icon": "./assets/expo.icon",
+      "icon": {
+        "light": "./assets/images/icon-light.png",
+        "dark": "./assets/images/icon-dark.png"
+      },
       "bundleIdentifier": "com.debugdad.parlaid",
       "supportsTablet": false
     },
