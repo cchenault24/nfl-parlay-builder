@@ -45,11 +45,15 @@ Secrets live in Firebase Secret Manager (`firebase functions:secrets:set NAME`).
 
 ```bash
 yarn install && (cd functions && npm install)
-cp .env.example .env.local   # Firebase web config for the project you target
-npm run dev                  # loads secrets, starts the Functions emulator, then Vite on :3000
+cp .env.example .env.local   # emulator config; the committed defaults just work
+npm run dev                  # loads secrets, starts the emulator suite, then Vite on :3000
 ```
 
-`start-dev.js` reads `VITE_FIREBASE_PROJECT_ID` from `.env.local`, pulls `OPENAI_API_KEY` and `ODDS_API_KEY` via `firebase functions:secrets:access`, and waits for `/api/health`. The emulated function uses that project's real Firestore (`agentRuns`, `rate_limits`, `cache`) through the Firebase CLI's credentials. Run `npm run build:functions` after backend changes — the emulator serves `functions/lib`. In development a **Mock data** toggle (bottom-right) swaps the live agent for a deterministic local mock that emits the same step timeline.
+Local dev runs entirely on the emulator suite — **Auth, Firestore, and Functions** — against the fake project `demo-parlaid`. No cloud project is involved, and the `demo-` prefix makes the Firebase SDKs refuse to reach a real backend, so a misconfigured run fails loudly instead of touching production. Firestore requests are checked against `firestore.rules`, so rule changes are testable before deploy.
+
+`start-dev.js` still pulls `OPENAI_API_KEY` and `ODDS_API_KEY` from the **prod** project via `firebase functions:secrets:access` (the emulated project has no Secret Manager), then waits for `/api/health`. Emulator state persists to `.emulator-data/` on exit and is re-imported on the next start, so signed-in users and saved parlays survive a restart; delete that directory for a clean slate. The emulator UI is at `http://127.0.0.1:4000`.
+
+Run `npm run build:functions` after backend changes — the emulator serves `functions/lib`. In development a **Mock data** toggle (bottom-right) swaps the live agent for a deterministic local mock that emits the same step timeline.
 
 Checks: `npm run type-check`, `npm run lint`, `npm run build`, and in `functions/`: `npm run build`, `npm run lint`.
 
@@ -59,7 +63,7 @@ Checks: `npm run type-check`, `npm run lint`, `npm run build`, and in `functions
 firebase deploy --project prod   # functions + hosting + firestore rules
 ```
 
-Merging to `main` runs `deploy-production.yml`, which deploys functions + Firestore rules and then Hosting. Every PR to `main` gets a prod-backed preview channel (`deploy-main-pr.yml`). `nfl-parlay-builder-dev` (Spark plan) only provides Auth/Firestore for local development; it has no API.
+Merging to `main` runs `deploy-production.yml`, which deploys functions + Firestore rules and then Hosting. Every PR to `main` gets a prod-backed preview channel (`deploy-main-pr.yml`). `nfl-parlay-builder` is the only Firebase project — there is no separate dev or staging project.
 
 ## Endpoints
 

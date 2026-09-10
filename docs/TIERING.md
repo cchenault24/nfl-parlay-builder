@@ -210,9 +210,9 @@ building the v1 billing path.
 
 ## 7. Measured data
 
-Source: `agentRuns` in `nfl-parlay-builder-dev`, 2026-09-10. Local dev calls the
-live OpenAI API with the production prompt builder and model, so token counts are
-representative. The prod project has no `agentRuns` — the deployed agent has not
+Source: `agentRuns` from local development runs, 2026-09-10, captured before the
+dev Firebase project was retired. Local dev calls the live OpenAI API with the
+production prompt builder and model, so token counts are representative. The prod project has no `agentRuns` — the deployed agent has not
 been exercised (prod holds 5 users and 6 saved parlays).
 
 ```

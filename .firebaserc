@@ -1,7 +1,6 @@
 {
   "projects": {
     "default": "nfl-parlay-builder",
-    "dev": "nfl-parlay-builder-dev",
     "prod": "nfl-parlay-builder"
   }
 }

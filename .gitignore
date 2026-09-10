@@ -117,3 +117,8 @@ pids
 # Temporary folders
 tmp/
 temp/
+# Firebase emulator state (local dev data)
+.emulator-data/
+
+# Claude Code worktrees
+.claude-worktrees/
