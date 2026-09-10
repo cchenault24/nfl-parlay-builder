@@ -3,6 +3,10 @@ import { useCallback, useEffect, useState } from 'react'
 import { db } from '../config/firebase'
 import { useAuth } from './useAuth'
 
+// Currently unrendered: the menu toggle was removed while the backend cannot
+// send, so nobody is offered a switch that promises mail which will not
+// arrive. Restore it in UserMenu once RESEND_API_KEY exists.
+//
 // Opt-in state for pre-kickoff emails. Absent means off: nobody is emailed
 // because a document happens not to exist yet.
 export function useKickoffReminders() {

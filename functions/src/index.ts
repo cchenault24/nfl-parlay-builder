@@ -86,4 +86,11 @@ export const api = onRequest(
 // never take the request-serving function down with it.
 export { gradeParlaysSweep } from './scheduled/gradeParlays'
 export { captureClosingLinesSweep } from './scheduled/captureClosingLines'
-export { sendKickoffReminders } from './scheduled/sendReminders'
+
+// sendKickoffReminders is deliberately not exported. It declares
+// RESEND_API_KEY, and Firebase validates every declared secret before it
+// deploys anything — so while that secret does not exist, exporting this
+// fails the whole deploy, functions and hosting alike, over one optional
+// feature. The implementation is complete and stays in
+// ./scheduled/sendReminders; create the secret, restore this export and the
+// menu toggle in src/components/auth/UserMenu.tsx, and it is live again.
