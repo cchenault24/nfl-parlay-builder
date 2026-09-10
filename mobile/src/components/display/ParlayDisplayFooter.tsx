@@ -1,6 +1,7 @@
 import type { GeneratedParlay } from '@shared/types'
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native'
 
+import { LegalDisclaimer } from '@/components/legal/LegalDisclaimer'
 import { colors, spacing, typography } from '@/lib/theme/designTokens'
 
 const NFLVERSE_URL = 'https://github.com/nflverse/nflverse-data'
@@ -22,6 +23,8 @@ export function ParlayDisplayFooter({ parlay }: { parlay: GeneratedParlay }) {
       <Text style={styles.meta}>
         Overall confidence {Math.round(parlay.parlayConfidence * 100)}%
       </Text>
+
+      <LegalDisclaimer />
 
       {/* nflverse data is CC BY 4.0 — attribution is a licence condition
           wherever the data is surfaced, not a nicety. Mirrors the web

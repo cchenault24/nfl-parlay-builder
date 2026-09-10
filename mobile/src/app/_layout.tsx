@@ -11,8 +11,10 @@ import * as SplashScreen from 'expo-splash-screen'
 import { StatusBar } from 'expo-status-bar'
 import { useEffect } from 'react'
 
+import { AgeVerificationGate } from '@/components/legal/AgeVerificationGate'
 import { AuthProvider } from '@/lib/auth/AuthContext'
 import { useAuth } from '@/lib/auth/useAuth'
+import { useAgeVerification } from '@/lib/legal/useAgeVerification'
 import { colors } from '@/lib/theme/designTokens'
 
 SplashScreen.preventAutoHideAsync()
@@ -67,9 +69,29 @@ export default function RootLayout() {
     Inter_600SemiBold,
     Inter_700Bold,
   })
+  const { isVerified, isLoading: ageLoading, setVerified } = useAgeVerification()
 
-  if (!fontsLoaded) {
+  useEffect(() => {
+    // The age gate owns the splash while it is the thing on screen; the
+    // navigator hides it in the verified path.
+    if (fontsLoaded && !ageLoading && !isVerified) {
+      SplashScreen.hideAsync()
+    }
+  }, [fontsLoaded, ageLoading, isVerified])
+
+  if (!fontsLoaded || ageLoading) {
     return null
+  }
+
+  // Deliberately ahead of AuthProvider: an unverified user must not reach
+  // sign-in, betting content, or any network call that implies either.
+  if (!isVerified) {
+    return (
+      <ThemeProvider value={navigationTheme}>
+        <StatusBar style="light" />
+        <AgeVerificationGate onVerified={setVerified} />
+      </ThemeProvider>
+    )
   }
 
   return (
