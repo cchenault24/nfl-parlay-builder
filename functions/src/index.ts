@@ -3,8 +3,9 @@ import express from 'express'
 import { defineSecret } from 'firebase-functions/params'
 import { onRequest } from 'firebase-functions/v2/https'
 import { app as firebaseApp } from './firebase'
+import { log } from './observability/logger'
 import type { AuthedRequest } from './middleware/auth'
-import { BILLING_SECRETS } from './billing/config'
+import { missingBillingVars } from './billing/config'
 import {
   agentRouter,
   billingRouter,
@@ -16,6 +17,11 @@ import {
 } from './routes'
 
 firebaseApp()
+
+const missingBilling = missingBillingVars()
+if (missingBilling.length > 0) {
+  log.info('billing.disabled', { missing: missingBilling })
+}
 
 const REGION = 'us-central1'
 const CORS_ALLOWLIST: Array<string | RegExp> = [
@@ -90,7 +96,11 @@ const ODDS_API_KEY = defineSecret('ODDS_API_KEY')
 export const api = onRequest(
   {
     region: REGION,
-    secrets: [OPENAI_API_KEY, ODDS_API_KEY, ...BILLING_SECRETS],
+    // Billing's secrets are deliberately NOT bound here. Firebase validates
+    // every bound secret before it deploys anything, so one missing value
+    // aborts functions and hosting together — which is precisely what happened
+    // when tiering merged. See billing/config.ts for how to turn billing on.
+    secrets: [OPENAI_API_KEY, ODDS_API_KEY],
     timeoutSeconds: 120,
   },
   app

@@ -351,6 +351,7 @@ const GameSelector: React.FC<GameSelectorProps> = ({
         <UpgradeDialog
           open={upgradeReason !== null}
           onClose={() => setUpgradeReason(null)}
+          canPurchase={entitlements?.billingAvailable.stripe ?? false}
           reason={upgradeReason ?? undefined}
         />
       </CardContent>

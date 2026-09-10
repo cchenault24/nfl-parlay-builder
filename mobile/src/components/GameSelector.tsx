@@ -323,6 +323,7 @@ export function GameSelector({
         visible={upgradeReason !== null}
         onClose={() => setUpgradeReason(null)}
         onPurchased={refetch}
+        canPurchase={entitlements?.billingAvailable.apple ?? false}
         reason={upgradeReason ?? undefined}
       />
     </View>

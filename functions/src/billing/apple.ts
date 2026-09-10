@@ -6,14 +6,14 @@ import {
 } from '@apple/app-store-server-library'
 import { log } from '../observability/logger'
 import { findUidByAppleTransaction, setEntitlement } from '../tiering/store'
-import { APPLE_APP_APPLE_ID, APPLE_BUNDLE_ID, APPLE_ROOT_CA_G3 } from './config'
+import { billingSecret } from './config'
 
 // Production and sandbox transactions are signed by the same root but carry
 // different environments, and a verifier built for one rejects the other. Apple
 // reviewers test against sandbox on a production build, so both must work or
 // review fails on a purchase that looks broken.
 function verifierFor(environment: Environment): SignedDataVerifier {
-  const rootCert = Buffer.from(APPLE_ROOT_CA_G3.value(), 'base64')
+  const rootCert = Buffer.from(billingSecret('APPLE_ROOT_CA_G3'), 'base64')
   return new SignedDataVerifier(
     [rootCert],
     // Online revocation checks add a network round trip to Apple on every
@@ -21,8 +21,8 @@ function verifierFor(environment: Environment): SignedDataVerifier {
     // offline check is the right trade here.
     false,
     environment,
-    APPLE_BUNDLE_ID.value(),
-    Number(APPLE_APP_APPLE_ID.value())
+    billingSecret('APPLE_BUNDLE_ID'),
+    Number(billingSecret('APPLE_APP_APPLE_ID'))
   )
 }
 

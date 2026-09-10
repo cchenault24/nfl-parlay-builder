@@ -1,4 +1,5 @@
 import { FieldValue, type Transaction } from 'firebase-admin/firestore'
+import { appleConfigured, stripeConfigured } from '../billing/config'
 import { db } from '../firebase'
 import { SUPPORTED_BOOKMAKERS } from '../providers/odds/client'
 import {
@@ -129,6 +130,10 @@ export interface EntitlementView {
   // Served rather than hardcoded in each client, for the same reason the limits
   // are: adding a book should not need an app release on two platforms.
   sportsbooks: ReadonlyArray<{ key: string; title: string }>
+  // Whether Pro can actually be bought right now. Billing ships disabled until
+  // its secrets exist, and a client that cannot know this renders an Upgrade
+  // button that only fails when pressed.
+  billingAvailable: { stripe: boolean; apple: boolean }
   quota: {
     used: number
     limit: number | null
@@ -153,6 +158,7 @@ export async function getEntitlementView(
     tier: entitlement.tier,
     capabilities,
     sportsbooks: SUPPORTED_BOOKMAKERS,
+    billingAvailable: { stripe: stripeConfigured(), apple: appleConfigured() },
     quota: {
       used,
       limit,

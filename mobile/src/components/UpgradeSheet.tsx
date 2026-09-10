@@ -20,6 +20,10 @@ interface UpgradeSheetProps {
   visible: boolean
   onClose: () => void
   onPurchased: () => void
+  // False while Apple billing has no credentials. The features are still worth
+  // showing — this is what Pro will be — but a button that can only fail is
+  // worse than none.
+  canPurchase: boolean
   // What the user was trying to do when they hit the lock, so the sheet opens
   // on their own intent rather than a generic pitch.
   reason?: string
@@ -29,6 +33,7 @@ export default function UpgradeSheet({
   visible,
   onClose,
   onPurchased,
+  canPurchase,
   reason,
 }: UpgradeSheetProps) {
   const [error, setError] = useState<string | null>(null)
@@ -56,7 +61,9 @@ export default function UpgradeSheet({
           <View style={styles.header}>
             <View>
               <Text style={styles.title}>ParlAId Pro</Text>
-              <Text style={styles.price}>$4.99 a month. Cancel any time.</Text>
+              <Text style={styles.price}>
+                {canPurchase ? '$4.99 a month. Cancel any time.' : 'Not on sale yet.'}
+              </Text>
             </View>
             <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close">
               <Ionicons name="close" size={22} color={colors.textSecondary} />
@@ -80,18 +87,22 @@ export default function UpgradeSheet({
             </Text>
           </ScrollView>
 
-          <Pressable
-            onPress={buy}
-            disabled={busy}
-            accessibilityRole="button"
-            style={({ pressed }) => [
-              styles.cta,
-              pressed && styles.ctaPressed,
-              busy && styles.ctaDisabled,
-            ]}
-          >
-            <Text style={styles.ctaText}>{busy ? 'Contacting the App Store…' : 'Upgrade'}</Text>
-          </Pressable>
+          {canPurchase ? (
+            <Pressable
+              onPress={buy}
+              disabled={busy}
+              accessibilityRole="button"
+              style={({ pressed }) => [
+                styles.cta,
+                pressed && styles.ctaPressed,
+                busy && styles.ctaDisabled,
+              ]}
+            >
+              <Text style={styles.ctaText}>
+                {busy ? 'Contacting the App Store…' : 'Upgrade'}
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
       </View>
     </Modal>

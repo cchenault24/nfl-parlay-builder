@@ -1,29 +1,77 @@
-import { defineSecret } from 'firebase-functions/params'
+// Billing configuration, read from the environment rather than declared with
+// defineSecret().
+//
+// That is deliberate. Firebase validates every secret bound to a function before
+// it deploys anything, so one missing value aborts the whole run — functions AND
+// hosting, since the hosting job depends on the functions job. RESEND_API_KEY
+// did exactly that in #78, and STRIPE_SECRET_KEY did it again the moment tiering
+// merged, freezing production with the tiering code undeployed.
+//
+// Billing is not ready to sell yet, and an unfinished payment integration must
+// not be able to hold every future deploy hostage. So nothing here is bound to
+// the function: the values are absent in production today, `billingConfigured()`
+// is false, and the /billing routes answer 503 while the rest of the app — the
+// entitlements, the quota, every gate — is unaffected.
+//
+// TO TURN BILLING ON, both steps are required:
+//   1. Create the six secrets (see docs/BILLING_SETUP.md).
+//   2. Bind them in functions/src/index.ts, so Cloud Functions injects them:
+//        import { defineSecret } from 'firebase-functions/params'
+//        const STRIPE_SECRET_KEY = defineSecret('STRIPE_SECRET_KEY')   // ...etc
+//        secrets: [OPENAI_API_KEY, ODDS_API_KEY, STRIPE_SECRET_KEY, ...]
+//      Step 1 without step 2 leaves the values unavailable at runtime; step 2
+//      without step 1 puts the deploy back in the state this exists to prevent.
 
-// Every secret named here is validated by Firebase before it deploys anything —
-// one that does not exist aborts the whole deploy, functions and hosting alike.
-// That is what stalled four merges behind RESEND_API_KEY, so all of these must
-// exist in Secret Manager before this code merges. See docs/BILLING_SETUP.md.
-export const STRIPE_SECRET_KEY = defineSecret('STRIPE_SECRET_KEY')
-export const STRIPE_WEBHOOK_SECRET = defineSecret('STRIPE_WEBHOOK_SECRET')
-export const STRIPE_PRICE_ID = defineSecret('STRIPE_PRICE_ID')
+const BILLING_ENV_VARS = [
+  'STRIPE_SECRET_KEY',
+  'STRIPE_WEBHOOK_SECRET',
+  'STRIPE_PRICE_ID',
+  'APPLE_ROOT_CA_G3',
+  'APPLE_BUNDLE_ID',
+  'APPLE_APP_APPLE_ID',
+] as const
 
-// Apple's public root CA, PEM, base64-encoded so it survives Secret Manager as
-// a single line. It is not confidential — it lives here rather than in the repo
-// only to keep a binary trust anchor out of source, where a silent change would
-// be easy to miss in review.
-export const APPLE_ROOT_CA_G3 = defineSecret('APPLE_ROOT_CA_G3')
-export const APPLE_BUNDLE_ID = defineSecret('APPLE_BUNDLE_ID')
-export const APPLE_APP_APPLE_ID = defineSecret('APPLE_APP_APPLE_ID')
+type BillingEnvVar = (typeof BILLING_ENV_VARS)[number]
 
-export const BILLING_SECRETS = [
-  STRIPE_SECRET_KEY,
-  STRIPE_WEBHOOK_SECRET,
-  STRIPE_PRICE_ID,
-  APPLE_ROOT_CA_G3,
-  APPLE_BUNDLE_ID,
-  APPLE_APP_APPLE_ID,
-]
+// Read at call time, never at module load: a secret's value only exists once the
+// function is running, so binding it at import would capture whatever was set
+// during deploy analysis.
+export function billingSecret(name: BillingEnvVar): string {
+  const value = process.env[name]
+  if (!value) {
+    throw new Error(`${name} is not configured`)
+  }
+  return value
+}
+
+// Stripe and Apple are independently configurable — web checkout can be live
+// while iOS is still waiting on App Store Connect, which is exactly the order
+// they will arrive in.
+export function stripeConfigured(): boolean {
+  return !!(
+    process.env.STRIPE_SECRET_KEY &&
+    process.env.STRIPE_WEBHOOK_SECRET &&
+    process.env.STRIPE_PRICE_ID
+  )
+}
+
+export function appleConfigured(): boolean {
+  return !!(
+    process.env.APPLE_ROOT_CA_G3 &&
+    process.env.APPLE_BUNDLE_ID &&
+    process.env.APPLE_APP_APPLE_ID
+  )
+}
+
+export function billingConfigured(): boolean {
+  return stripeConfigured() || appleConfigured()
+}
+
+// Which values are missing, for the startup log — so an operator can see why
+// billing is off without reading code.
+export function missingBillingVars(): string[] {
+  return BILLING_ENV_VARS.filter(name => !process.env[name])
+}
 
 // Where Stripe sends the browser back to. Checkout requires absolute URLs, and
 // the deployed origin is the Hosting site rather than the function's own URL.
