@@ -1,14 +1,12 @@
-import type { Game } from '@shared/types'
 import { useMutation } from '@tanstack/react-query'
 import { useEffect, useRef } from 'react'
-
-import useParlayStore from '@/store/parlayStore'
-
-import { getParlayService } from './AgentParlayService'
+import type { BaseParlayService } from '../api/BaseParlayService'
+import useParlayStore from '../store/parlayStore'
+import type { Game } from '../types'
 import { useRateLimit } from './useRateLimit'
 
 // One attempt per press: agent failures are surfaced, never retried.
-export const useParlayGenerator = () => {
+export const useParlayGenerator = (service: BaseParlayService) => {
   const riskLevel = useParlayStore(state => state.riskLevel)
   const upsertStep = useParlayStore(state => state.upsertStep)
   const clearSteps = useParlayStore(state => state.clearSteps)
@@ -26,7 +24,7 @@ export const useParlayGenerator = () => {
       abortRef.current = controller
       clearSteps()
       clearResult()
-      return getParlayService().generateParlay(game, {
+      return service.generateParlay(game, {
         riskLevel,
         onStep: upsertStep,
         signal: controller.signal,

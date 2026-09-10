@@ -1,3 +1,4 @@
+import { sharedRuntime } from '../runtime'
 import type {
   AgentResult,
   AgentStep,
@@ -5,9 +6,7 @@ import type {
   RiskLevel,
   RunError,
   RunStatus,
-} from '@shared/types'
-
-import { API } from './config'
+} from '../types'
 import { SSEClient } from './SSEClient'
 
 export interface AgentRunRecord {
@@ -29,7 +28,7 @@ export class AgentRunService {
     token: string,
     init: RequestInit = {}
   ): Promise<T> {
-    const res = await fetch(`${API.baseURL}${path}`, {
+    const res = await fetch(`${sharedRuntime().baseURL}${path}`, {
       ...init,
       headers: {
         Authorization: `Bearer ${token}`,
@@ -89,7 +88,7 @@ export class AgentRunService {
     onClose: (reason?: string) => void
   ): () => void {
     return new SSEClient<RunStreamEvent>().start({
-      url: `${API.baseURL}/agent/runs/${runId}/stream`,
+      url: `${sharedRuntime().baseURL}/agent/runs/${runId}/stream`,
       headers: { Authorization: `Bearer ${token}` },
       onEvent,
       onClose,

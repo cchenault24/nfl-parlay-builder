@@ -15,9 +15,11 @@ import { AgeVerificationGate } from '@/components/legal/AgeVerificationGate'
 import { AuthProvider } from '@/lib/auth/AuthContext'
 import { useAuth } from '@/lib/auth/useAuth'
 import { useAgeVerification } from '@/lib/legal/useAgeVerification'
+import { installSharedRuntime } from '@/lib/runtime'
 import { colors } from '@/lib/theme/designTokens'
 
 SplashScreen.preventAutoHideAsync()
+installSharedRuntime()
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false } },

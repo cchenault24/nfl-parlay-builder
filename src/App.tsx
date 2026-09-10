@@ -6,6 +6,9 @@ import { ThemeProvider } from '@mui/material/styles'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useCallback, useState } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { useDerivedCurrentWeek } from '@shared/hooks/useDerivedCurrentWeek'
+import { useSeasonSummary } from '@shared/hooks/useSeason'
+import useParlayStore from '@shared/store/parlayStore'
 import { AuthGate } from './components/auth/AuthGate'
 import { UserMenu } from './components/auth/UserMenu'
 import DevStatus from './components/DevStatus'
@@ -22,10 +25,7 @@ import { ParlayHistory } from './components/ParlayHistory'
 import AuthProvider from './contexts/authentication/AuthContext'
 import { useAgeVerification } from './hooks/useAgeVerification'
 import { useAuth } from './hooks/useAuth'
-import { useDerivedCurrentWeek } from './hooks/useDerivedCurrentWeek'
 import { useParlayService } from './hooks/useParlayService'
-import { useSeasonSummary } from './hooks/useSeason'
-import useParlayStore from './store/parlayStore'
 import { theme } from './theme'
 import type { Game } from './types'
 
@@ -67,7 +67,7 @@ function AppContent() {
 
   const handleGenerateParlay = () => {
     if (selectedGame) {
-      generate({ game: selectedGame, useMock: usingMock })
+      generate({ game: selectedGame })
     }
   }
 

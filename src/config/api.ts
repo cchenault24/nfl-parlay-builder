@@ -29,9 +29,5 @@ function localFunctionsBaseUrl(): string {
 export const API_CONFIG = {
   CLOUD_FUNCTIONS: {
     baseURL: isLocalDevelopment() ? localFunctionsBaseUrl() : '/api',
-    endpoints: {
-      season: '/season',
-      games: (week: number) => `/games?week=${week}`,
-    },
   },
 } as const

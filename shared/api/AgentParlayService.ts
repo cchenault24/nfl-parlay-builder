@@ -1,4 +1,4 @@
-import { auth } from '../config/firebase'
+import { sharedRuntime } from '../runtime'
 import type {
   AgentResult,
   Game,
@@ -15,7 +15,7 @@ export class AgentParlayService extends BaseParlayService {
     game: Game,
     options: ParlayGenerationOptions
   ): Promise<ParlayGenerationResult> {
-    const token = await auth.currentUser?.getIdToken()
+    const token = await sharedRuntime().getIdToken()
     if (!token) {
       throw new Error('You must be signed in to generate a parlay.')
     }

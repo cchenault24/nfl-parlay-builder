@@ -13,7 +13,7 @@ import {
   Typography,
 } from '@mui/material'
 import React from 'react'
-import useParlayStore from '../../store/parlayStore'
+import useParlayStore from '@shared/store/parlayStore'
 import type { RankedStat, TeamStats } from '../../types'
 import { formatOdds } from '../../utils'
 import MatchupRow from './MatchupRow'

@@ -1,3 +1,5 @@
+import { sharedRuntime } from '../runtime'
+
 export type SSEOptions<TEvent extends { type: string; data: unknown }> = {
   url: string
   headers?: Record<string, string>
@@ -14,9 +16,12 @@ export class SSEClient<TEvent extends { type: string; data: unknown }> {
     this.controller = new AbortController()
     const { signal } = this.controller
 
-    ;(async () => {
+    void (async () => {
       try {
-        const res = await fetch(url, { headers, signal })
+        const res = await sharedRuntime().streamingFetch(url, {
+          headers,
+          signal,
+        })
         if (!res.ok || !res.body) {
           onClose?.(`bad_status_${res.status}`)
           return
@@ -24,7 +29,7 @@ export class SSEClient<TEvent extends { type: string; data: unknown }> {
         const reader = res.body.getReader()
         const decoder = new TextDecoder()
         let buffer = ''
-        while (true) {
+        for (;;) {
           const { done, value } = await reader.read()
           if (done) {
             break

@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons'
+import { requestGrading } from '@shared/api/GradingService'
 import { getBetTypeColor } from '@shared/betColors'
 import { formatOdds } from '@shared/odds'
 import type { GeneratedParlay, LegOutcome, ParlayOutcome } from '@shared/types'
@@ -7,7 +8,6 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-nat
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { ErrorBanner } from '@/components/ErrorBanner'
-import { requestGrading } from '@/lib/api/GradingService'
 import { useAuth } from '@/lib/auth/useAuth'
 import { auth } from '@/lib/firebase'
 import { getUserParlays } from '@/lib/parlays'

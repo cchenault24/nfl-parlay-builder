@@ -1,4 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons'
+import { useRateLimit } from '@shared/hooks/useRateLimit'
+import { useGamesForWeek } from '@shared/hooks/useSeason'
+import useParlayStore from '@shared/store/parlayStore'
 import type { Game, RiskLevel } from '@shared/types'
 import { useEffect, useState } from 'react'
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
@@ -6,10 +9,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { ErrorBanner } from '@/components/ErrorBanner'
 import { TeamLogo } from '@/components/display/TeamLogo'
 import { WeekSelector } from '@/components/WeekSelector'
-import { useRateLimit } from '@/lib/api/useRateLimit'
-import { useGamesForWeek } from '@/lib/api/useSeason'
 import { colors, radius, spacing, typography } from '@/lib/theme/designTokens'
-import useParlayStore from '@/store/parlayStore'
 
 const RISK_LEVELS: Array<{ value: RiskLevel; label: string }> = [
   { value: 'conservative', label: 'Conservative' },
