@@ -12,6 +12,11 @@ import DevStatus from './components/DevStatus'
 import GameStatsPanel from './components/display/GameStatsPanel'
 import ParlayDisplay from './components/display/ParlayDisplay'
 import SharedParlayView from './components/display/SharedParlayView'
+import LegalPage from './components/legal/LegalPage'
+import {
+  privacyPolicyConfig,
+  termsOfServiceConfig,
+} from './components/legal/legalDialogConfigs'
 import GameSelector from './components/GameSelector'
 import { AgeVerificationModal } from './components/legal/AgeVerificationModal'
 import { LegalFooter } from './components/legal/LegalFooter'
@@ -165,6 +170,17 @@ function App() {
           <BrowserRouter>
             <Routes>
               <Route path="/p/:shareId" element={<SharedRoute />} />
+              {/* Deliberately outside the age gate and sign-in: App Store
+                  Connect requires a privacy policy link a reviewer can open
+                  cold, and a policy behind a gate is not a published policy. */}
+              <Route
+                path="/privacy"
+                element={<LegalPage content={privacyPolicyConfig} />}
+              />
+              <Route
+                path="/terms"
+                element={<LegalPage content={termsOfServiceConfig} />}
+              />
               <Route path="*" element={<AppContent />} />
             </Routes>
           </BrowserRouter>
