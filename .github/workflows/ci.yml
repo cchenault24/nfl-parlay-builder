@@ -1,4 +1,4 @@
-# Static checks for both packages. Kept apart from the deploy workflows so a
+# Static checks for all three packages. Kept apart from the deploy workflows so a
 # lint failure reads as a lint failure, and so these still run on forks, which
 # the preview deploy deliberately skips.
 name: CI
@@ -47,3 +47,25 @@ jobs:
       # Functions were never type-checked on a pull request: the only tsc run
       # was the deploy itself, so a break surfaced after merge.
       - run: npm run build --prefix functions
+
+  mobile:
+    name: Mobile — types
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci --prefix mobile
+      # Nothing checked mobile/ at all until now, so a break there surfaced
+      # only when someone opened the app. It type-checks ../shared too (see
+      # mobile/tsconfig.json's include), which is what catches a shared-layer
+      # change that compiles for web but not for React Native.
+      #
+      # Types only, deliberately: `expo lint` has no committed config, and
+      # scaffolding one in CI would both write files mid-run and fail on five
+      # pre-existing errors. Worth doing, but as its own change.
+      - run: npm run type-check --prefix mobile
