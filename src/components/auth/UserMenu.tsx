@@ -1,7 +1,6 @@
 import {
   AccountCircle as AccountIcon,
   History as HistoryIcon,
-  NotificationsActive as RemindersIcon,
   Login as LoginIcon,
   Logout as LogoutIcon,
 } from '@mui/icons-material'
@@ -13,13 +12,11 @@ import {
   ListItemIcon,
   Menu,
   MenuItem,
-  Switch,
   Typography,
 } from '@mui/material'
 import React, { useState } from 'react'
 import { logOut } from '../../config/firebase'
 import { useAuth } from '../../hooks/useAuth'
-import { useKickoffReminders } from '../../hooks/useKickoffReminders'
 import { AuthModal } from './AuthModal'
 
 interface UserMenuProps {
@@ -30,7 +27,6 @@ export const UserMenu: React.FC<UserMenuProps> = ({ onViewHistory }) => {
   const { user, userProfile } = useAuth()
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
   const [authModalOpen, setAuthModalOpen] = useState(false)
-  const reminders = useKickoffReminders()
 
   const close = () => setAnchorEl(null)
 
@@ -106,18 +102,6 @@ export const UserMenu: React.FC<UserMenuProps> = ({ onViewHistory }) => {
             <HistoryIcon />
           </ListItemIcon>
           <Typography variant="body2">Parlay history</Typography>
-        </MenuItem>
-        <Divider />
-        {/* Stays open on click: toggling a setting isn't navigation, and
-            closing the menu would hide the state that just changed. */}
-        <MenuItem onClick={reminders.toggle} disabled={reminders.saving}>
-          <ListItemIcon>
-            <RemindersIcon />
-          </ListItemIcon>
-          <Typography variant="body2" sx={{ flex: 1, mr: 1 }}>
-            Email me before kickoff
-          </Typography>
-          <Switch size="small" edge="end" checked={reminders.enabled} tabIndex={-1} />
         </MenuItem>
         <Divider />
         <MenuItem onClick={handleLogout}>
