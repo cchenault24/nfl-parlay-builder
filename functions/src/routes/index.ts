@@ -1,3 +1,4 @@
+export { accountRouter } from './account'
 export { agentRouter } from './agent'
 export { billingRouter } from './billing'
 export { entitlementsRouter } from './entitlements'

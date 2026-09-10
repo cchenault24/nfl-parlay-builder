@@ -1,5 +1,6 @@
 import {
   AccountCircle as AccountIcon,
+  DeleteForever as DeleteIcon,
   History as HistoryIcon,
   Login as LoginIcon,
   Logout as LogoutIcon,
@@ -18,6 +19,7 @@ import React, { useState } from 'react'
 import { logOut } from '../../config/firebase'
 import { useAuth } from '../../hooks/useAuth'
 import { AuthModal } from './AuthModal'
+import DeleteAccountDialog from './DeleteAccountDialog'
 
 interface UserMenuProps {
   onViewHistory?: () => void
@@ -27,6 +29,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({ onViewHistory }) => {
   const { user, userProfile } = useAuth()
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
   const [authModalOpen, setAuthModalOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
 
   const close = () => setAnchorEl(null)
 
@@ -110,7 +113,22 @@ export const UserMenu: React.FC<UserMenuProps> = ({ onViewHistory }) => {
           </ListItemIcon>
           <Typography variant="body2">Sign out</Typography>
         </MenuItem>
+        <MenuItem
+          onClick={() => {
+            close()
+            setDeleteOpen(true)
+          }}
+        >
+          <ListItemIcon>
+            <DeleteIcon color="error" />
+          </ListItemIcon>
+          <Typography variant="body2" color="error">
+            Delete account
+          </Typography>
+        </MenuItem>
       </Menu>
+
+      <DeleteAccountDialog open={deleteOpen} onClose={() => setDeleteOpen(false)} />
     </Box>
   )
 }
