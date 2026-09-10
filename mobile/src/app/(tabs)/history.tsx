@@ -1,22 +1,179 @@
-import { StyleSheet, Text, View } from 'react-native'
+import Ionicons from '@expo/vector-icons/Ionicons'
+import { getBetTypeColor } from '@shared/betColors'
+import { formatOdds } from '@shared/odds'
+import type { GeneratedParlay, LegOutcome, ParlayOutcome } from '@shared/types'
+import { useEffect, useState } from 'react'
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
-import { colors, spacing, typography } from '@/lib/theme/designTokens'
+import { ErrorBanner } from '@/components/ErrorBanner'
+import { requestGrading } from '@/lib/api/GradingService'
+import { useAuth } from '@/lib/auth/useAuth'
+import { auth } from '@/lib/firebase'
+import { getUserParlays } from '@/lib/parlays'
+import {
+  colors,
+  radius,
+  semanticColor,
+  spacing,
+  typography,
+} from '@/lib/theme/designTokens'
+
+const OUTCOME: Record<ParlayOutcome | 'pending', { label: string; color: string }> = {
+  won: { label: 'Won', color: colors.success },
+  lost: { label: 'Lost', color: colors.error },
+  push: { label: 'Push', color: colors.textSecondary },
+  partial: { label: 'Partial', color: colors.warning },
+  pending: { label: 'Pending', color: colors.info },
+}
+
+const LEG_OUTCOME: Record<LegOutcome, { label: string; color: string }> = {
+  won: { label: 'Won', color: colors.success },
+  lost: { label: 'Lost', color: colors.error },
+  push: { label: 'Push', color: colors.textSecondary },
+  ungraded: { label: 'Ungraded', color: colors.warning },
+}
+
+function OutcomeChip({ parlay }: { parlay: GeneratedParlay }) {
+  const outcome =
+    parlay.grading?.status === 'graded' ? parlay.grading.parlayOutcome : 'pending'
+  if (!outcome) {
+    return null
+  }
+  const style = OUTCOME[outcome]
+  return (
+    <View style={[styles.chip, { borderColor: style.color }]}>
+      <Text style={[styles.chipText, { color: style.color }]}>{style.label}</Text>
+    </View>
+  )
+}
 
 export default function HistoryScreen() {
+  const { user } = useAuth()
+  const [parlays, setParlays] = useState<GeneratedParlay[] | null>(null)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (!user) {
+      setParlays(null)
+      return
+    }
+    setError('')
+    const unsubscribe = getUserParlays(user.uid, setParlays, message => {
+      setError(message)
+      setParlays([])
+    })
+    return unsubscribe
+  }, [user])
+
+  useEffect(() => {
+    if (!user) {
+      return
+    }
+    // Fire-and-forget: grades anything unGraded. Results arrive through the
+    // Firestore listener above, not this call.
+    auth.currentUser
+      ?.getIdToken()
+      .then(requestGrading)
+      .catch(() => undefined)
+  }, [user])
+
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
-      <View style={styles.body}>
-        <Text style={styles.title}>History</Text>
-        <Text style={styles.subtitle}>Parlays you have saved will appear here.</Text>
-      </View>
+      <ScrollView contentContainerStyle={styles.body}>
+        {error ? (
+          <ErrorBanner type="error" title="Couldn't load history" message={error} />
+        ) : null}
+
+        {parlays === null ? (
+          <View style={styles.centre}>
+            <ActivityIndicator color={colors.primary} />
+          </View>
+        ) : parlays.length === 0 && !error ? (
+          <View style={styles.centre}>
+            <Ionicons name="bookmark-outline" size={44} color={colors.textDisabled} />
+            <Text style={styles.emptyTitle}>No saved parlays yet</Text>
+            <Text style={styles.emptyBody}>
+              Build a parlay and tap Save, and it will show up here.
+            </Text>
+          </View>
+        ) : (
+          parlays.map(parlay => (
+            <View key={parlay.parlayId} style={styles.card}>
+              <View style={styles.cardHeader}>
+                <Text style={styles.context} numberOfLines={2}>
+                  {parlay.gameContext || 'NFL parlay'}
+                </Text>
+                <OutcomeChip parlay={parlay} />
+                <View style={[styles.chip, { borderColor: colors.primary }]}>
+                  <Text style={[styles.chipText, { color: colors.primary }]}>
+                    {formatOdds(parlay.combinedOdds)}
+                  </Text>
+                </View>
+              </View>
+
+              {parlay.legs.map((leg, i) => {
+                const legOutcome = parlay.grading?.legOutcomes?.[i]
+                const tint = semanticColor[getBetTypeColor(leg.betType)]
+                return (
+                  <View key={`${parlay.parlayId}-${i}`} style={styles.leg}>
+                    <View style={styles.legHeader}>
+                      <Text style={styles.legSelection} numberOfLines={2}>
+                        {leg.selection}
+                      </Text>
+                      <Text style={[styles.legOdds, { color: tint }]}>
+                        {formatOdds(leg.odds)}
+                      </Text>
+                    </View>
+                    <View style={styles.legMeta}>
+                      <Text style={styles.legType}>{leg.betType.replace(/_/g, ' ')}</Text>
+                      {legOutcome ? (
+                        <Text style={[styles.legResult, { color: LEG_OUTCOME[legOutcome].color }]}>
+                          {LEG_OUTCOME[legOutcome].label}
+                        </Text>
+                      ) : null}
+                    </View>
+                  </View>
+                )
+              })}
+            </View>
+          ))
+        )}
+      </ScrollView>
     </SafeAreaView>
   )
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
-  body: { flex: 1, padding: spacing.md, gap: spacing.sm },
-  title: { ...typography.h2, color: colors.text },
-  subtitle: { ...typography.body, color: colors.textSecondary },
+  body: { padding: spacing.md, gap: spacing.md },
+  centre: { alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xxl },
+  emptyTitle: { ...typography.title, color: colors.textSecondary },
+  emptyBody: { ...typography.bodySmall, color: colors.textDisabled, textAlign: 'center' },
+
+  card: {
+    borderWidth: 1,
+    borderColor: colors.divider,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  context: { ...typography.label, color: colors.text, flex: 1 },
+  chip: { borderWidth: 1, borderRadius: radius.sm, paddingHorizontal: 6, paddingVertical: 2 },
+  chipText: { ...typography.numeric, fontSize: 12 },
+
+  leg: {
+    borderTopWidth: 1,
+    borderTopColor: colors.divider,
+    paddingTop: spacing.sm,
+    gap: 2,
+  },
+  legHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
+  legSelection: { ...typography.bodySmall, color: colors.text, flex: 1 },
+  legOdds: { ...typography.numeric, fontSize: 13 },
+  legMeta: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  legType: { ...typography.bodySmall, fontSize: 12, color: colors.textSecondary, flex: 1 },
+  legResult: { ...typography.label, fontSize: 12 },
 })

@@ -1,65 +1,62 @@
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native'
+import type { Game } from '@shared/types'
+import { useCallback, useState } from 'react'
+import { ScrollView, StyleSheet, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
+import { GameSelector } from '@/components/GameSelector'
+import { GameStatsPanel } from '@/components/display/GameStatsPanel'
+import { ParlayDisplay } from '@/components/display/ParlayDisplay'
 import { useDerivedCurrentWeek } from '@/lib/api/useDerivedCurrentWeek'
-import { useGamesForWeek, useSeason } from '@/lib/api/useSeason'
-import { useRateLimit } from '@/lib/api/useRateLimit'
-import { colors, radius, spacing, typography } from '@/lib/theme/designTokens'
+import { useParlayGenerator } from '@/lib/api/useParlayGenerator'
+import { useSeasonSummary } from '@/lib/api/useSeason'
+import { colors, spacing } from '@/lib/theme/designTokens'
+import useParlayStore from '@/store/parlayStore'
 
-// Phase 3 proves the data layer end to end; the real week/game picker, risk
-// toggle and run timeline are Phase 4.
 export default function BuildScreen() {
-  const season = useSeason()
-  const { currentWeek, isLoading: weekLoading, error: weekError } = useDerivedCurrentWeek()
-  const games = useGamesForWeek(currentWeek)
-  const { rateLimitInfo, error: rateError } = useRateLimit()
+  const selectedGame = useParlayStore(state => state.selectedGame)
+  const setSelectedGame = useParlayStore(state => state.setSelectedGame)
+  const parlay = useParlayStore(state => state.parlay)
 
-  const error = weekError ?? games.error
-  const loading = weekLoading || games.isLoading
+  const { currentWeek } = useDerivedCurrentWeek()
+  const { data: seasonSummary } = useSeasonSummary()
+  const availableWeeks = seasonSummary?.weeks.map(w => w.week) ?? []
+
+  const [selectedWeek, setSelectedWeek] = useState<number | null>(null)
+  const activeWeek = selectedWeek ?? currentWeek
+
+  const { generate, isPending, error, reset, cancel } = useParlayGenerator()
+
+  const handleGameChange = useCallback(
+    (game: Game | null) => {
+      setSelectedGame(game)
+      reset()
+    },
+    [setSelectedGame, reset]
+  )
+
+  const handleWeekChange = (week: number) => {
+    setSelectedWeek(week)
+    handleGameChange(null)
+  }
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.body}>
-        <Text style={styles.title}>Build a parlay</Text>
-        <Text style={styles.subtitle}>
-          Pick a game and risk level, and the agent drafts a 3-leg parlay.
-        </Text>
+      <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+        <GameSelector
+          onGenerateParlay={() => selectedGame && generate({ game: selectedGame })}
+          onGameChange={handleGameChange}
+          canGenerate={!!selectedGame && !isPending}
+          currentWeek={activeWeek}
+          onWeekChange={handleWeekChange}
+          availableWeeks={availableWeeks}
+          parlayError={error}
+        />
 
-        {loading ? <ActivityIndicator color={colors.primary} /> : null}
+        {parlay && !isPending ? <GameStatsPanel /> : null}
 
-        {error ? (
-          <View style={[styles.card, styles.errorCard]}>
-            <Text style={styles.cardLabel}>API error</Text>
-            <Text style={styles.errorText}>{error.message}</Text>
-          </View>
-        ) : null}
+        <ParlayDisplay loading={isPending} onCancel={cancel} />
 
-        {!loading && !error ? (
-          <View style={styles.card}>
-            <Text style={styles.cardLabel}>data layer check</Text>
-            <Text style={styles.value}>Season {season ?? '—'}</Text>
-            <Text style={styles.value}>Week {currentWeek}</Text>
-            <Text style={styles.value}>{games.data?.length ?? 0} games</Text>
-            {games.data?.[0] ? (
-              <Text style={styles.matchup}>
-                e.g. {games.data[0].away.abbrev} @ {games.data[0].home.abbrev}
-              </Text>
-            ) : null}
-          </View>
-        ) : null}
-
-        <View style={styles.card}>
-          <Text style={styles.cardLabel}>rate limit</Text>
-          {rateError ? (
-            <Text style={styles.errorText}>{rateError}</Text>
-          ) : (
-            <Text style={styles.value}>
-              {rateLimitInfo
-                ? `${rateLimitInfo.remaining} of ${rateLimitInfo.total} left`
-                : 'not loaded'}
-            </Text>
-          )}
-        </View>
+        <View style={styles.tail} />
       </ScrollView>
     </SafeAreaView>
   )
@@ -67,21 +64,6 @@ export default function BuildScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
-  body: { padding: spacing.md, gap: spacing.sm },
-  title: { ...typography.h2, color: colors.text },
-  subtitle: { ...typography.body, color: colors.textSecondary },
-  card: {
-    marginTop: spacing.md,
-    padding: spacing.md,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    gap: spacing.xs,
-  },
-  errorCard: { borderColor: colors.error },
-  cardLabel: { ...typography.label, color: colors.textSecondary },
-  value: { ...typography.numeric, color: colors.secondary },
-  matchup: { ...typography.bodySmall, color: colors.textSecondary },
-  errorText: { ...typography.bodySmall, color: colors.error },
+  body: { padding: spacing.md, gap: spacing.md },
+  tail: { height: spacing.xl },
 })
