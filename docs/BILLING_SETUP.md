@@ -78,7 +78,34 @@ It is a public certificate, not a credential. It lives in Secret Manager rather
 than the repo only to keep a binary trust anchor out of source, where a silent
 change would be easy to miss in review.
 
-### 4. App Store Server Notifications
+### 4. The subscription product
+
+Create an **auto-renewable subscription** in App Store Connect whose Product ID
+is exactly:
+
+```
+com.debugdad.parlaid.pro.monthly
+```
+
+It must match `PRO_PRODUCT_ID` in `mobile/src/lib/billing/iap.ts`, or StoreKit
+returns no products and the purchase sheet never opens. Price it at $4.99/month.
+
+Enrol in the **Small Business Program** if you have not — it is the difference
+between Apple taking 15% and 30%, so ~$4.24 versus ~$3.49 net on $4.99.
+
+### 5. The iOS build
+
+Purchases go through `expo-iap`, which is a native module registered as a config
+plugin in `mobile/app.json`. **Expo Go cannot run it** — the app needs a fresh
+native build (`npx expo run:ios`, or an EAS build) before any purchase works.
+An older build will fail at `initConnection`.
+
+Sandbox testing needs a Sandbox Apple ID (App Store Connect → Users and Access →
+Sandbox Testers), signed in on the device under Settings → Developer. Sandbox
+subscriptions renew on an accelerated clock — a month is a few minutes — which
+is the practical way to exercise renewal notifications.
+
+### 6. App Store Server Notifications
 
 In App Store Connect → your app → **App Information → App Store Server
 Notifications**, set the **Version 2** production and sandbox URLs to:
@@ -101,4 +128,7 @@ build, so review fails if sandbox is not accepted.
 - **App Store review has not been validated.** No wagering happens in the app —
   it generates picks for entertainment — so Apple's gambling rules (5.3) should
   not apply, but expect an age-rating question at review. Worth confirming before
-  shipping the iOS purchase flow rather than before building it.
+  shipping the iOS purchase flow.
+- **The purchase flow has never run against a real store.** It is written against
+  expo-iap's documented API and type-checks against it, but no sandbox purchase
+  has been made. Do that on a real device build before trusting it.
