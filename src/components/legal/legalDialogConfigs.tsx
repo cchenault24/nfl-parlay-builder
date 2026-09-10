@@ -135,7 +135,7 @@ export const privacyPolicyConfig: Omit<
   footerSection: {
     title: 'Your Rights',
     description:
-      'You have the right to access, update, or delete your personal information at any time. You can also export your data or request account deletion. For privacy-related questions or requests, contact us at',
+      'You can delete your account and everything in it at any time — from the Account tab on iPhone, or the menu under your name on the web. Deletion is immediate and permanent. Parlays you chose to share by link stay reachable by that link and carry no name or account. For privacy-related questions or requests, contact us at',
     contactInfo: 'admin@debugdad.com',
     bgColor: 'rgba(46, 125, 50, 0.05)',
     borderColor: 'rgba(46, 125, 50, 0.2)',
@@ -228,7 +228,7 @@ export const supportConfig: LegalPageContent = {
     {
       title: 'Deleting your account',
       description:
-        'Email admin@debugdad.com from the address you signed in with and we will delete your account and everything in it. Deletion removes your saved parlays and your profile permanently and cannot be undone.',
+        'Delete your account from the Account tab on iPhone, or from the menu under your name on the web. Deletion removes your profile, your saved parlays and your generation history permanently and cannot be undone. Cancel a Pro subscription before deleting — neither the App Store nor Stripe cancels one because an account was removed.',
       icon: <BlockIcon color="error" />,
     },
     {

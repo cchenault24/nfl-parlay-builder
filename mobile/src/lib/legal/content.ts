@@ -105,7 +105,7 @@ export const privacyPolicy: LegalDocument = {
   footer: {
     title: 'Your Rights',
     description:
-      'You have the right to access, update, or delete your personal information at any time. You can also export your data or request account deletion. For privacy-related questions or requests, contact us at',
+      'You can delete your account and everything in it at any time — from the Account tab on iPhone, or the menu under your name on the web. Deletion is immediate and permanent. Parlays you chose to share by link stay reachable by that link and carry no name or account. For privacy-related questions or requests, contact us at',
     contact: CONTACT_EMAIL,
   },
 }

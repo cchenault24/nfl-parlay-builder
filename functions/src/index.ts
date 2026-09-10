@@ -7,6 +7,7 @@ import { log } from './observability/logger'
 import type { AuthedRequest } from './middleware/auth'
 import { missingBillingVars } from './billing/config'
 import {
+  accountRouter,
   agentRouter,
   billingRouter,
   entitlementsRouter,
@@ -78,6 +79,7 @@ apiRouter.use('/', billingRouter)
 apiRouter.use('/', metricsRouter)
 apiRouter.use('/', gradingRouter)
 apiRouter.use('/', sharingRouter)
+apiRouter.use('/', accountRouter)
 
 // Two mount points for the same routes: direct Cloud Functions access
 // (https://REGION-PROJECT.cloudfunctions.net/api/...) has "api" — this

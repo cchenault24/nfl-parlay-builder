@@ -3,6 +3,7 @@ import { Image } from 'expo-image'
 import { useState } from 'react'
 import {
   ActivityIndicator,
+  Alert,
   Linking,
   Pressable,
   ScrollView,
@@ -14,6 +15,8 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { LegalDocumentSheet } from '@/components/legal/LegalDocumentSheet'
 import { ResponsibleGambling } from '@/components/legal/ResponsibleGambling'
+import { AccountService } from '@shared/api/AccountService'
+import { sharedRuntime } from '@shared/runtime'
 import { useAuth } from '@/lib/auth/useAuth'
 import { logOut } from '@/lib/firebase'
 import {
@@ -48,14 +51,50 @@ function Row({
   )
 }
 
+const accounts = new AccountService()
+
 export default function AccountScreen() {
   const { user, userProfile, error } = useAuth()
   const [signingOut, setSigningOut] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [document, setDocument] = useState<LegalDocument | null>(null)
   const [helpOpen, setHelpOpen] = useState(false)
 
   const displayName =
     userProfile?.displayName ?? user?.displayName ?? user?.email ?? 'Signed in'
+
+  const deleteAccount = async () => {
+    setDeleting(true)
+    try {
+      const token = await sharedRuntime().getIdToken()
+      if (!token) {
+        throw new Error('Please sign in again to delete your account.')
+      }
+      await accounts.deleteAccount(token)
+      await logOut()
+    } catch (e) {
+      // No auto-retry: the failure is surfaced and the user decides. A live Pro
+      // subscription comes back here as its own message telling them where to
+      // cancel it.
+      setDeleting(false)
+      Alert.alert(
+        'Could not delete your account',
+        e instanceof Error ? e.message : 'Please try again.'
+      )
+    }
+  }
+
+  // Two taps, and the destructive one is not the default. This is the only
+  // action in the app that cannot be undone.
+  const confirmDelete = () =>
+    Alert.alert(
+      'Delete your account?',
+      'This removes your profile, every parlay you have saved and your generation history. It cannot be undone.\n\nParlays you shared with a link stay reachable by that link — they carry no name or account.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: deleteAccount },
+      ]
+    )
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -149,6 +188,18 @@ export default function AccountScreen() {
           )}
         </Pressable>
 
+        <Pressable
+          style={({ pressed }) => [styles.deleteAccount, pressed && styles.pressed]}
+          onPress={confirmDelete}
+          disabled={deleting || signingOut}
+        >
+          {deleting ? (
+            <ActivityIndicator color={colors.error} />
+          ) : (
+            <Text style={styles.deleteAccountText}>Delete account</Text>
+          )}
+        </Pressable>
+
         <Text style={styles.copyright}>
           © {new Date().getFullYear()} ParlAId.
         </Text>
@@ -162,6 +213,8 @@ export default function AccountScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
+  deleteAccount: { alignItems: 'center', paddingVertical: spacing.sm },
+  deleteAccountText: { ...typography.bodySmall, color: colors.error },
   body: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xxl },
   identity: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   avatar: { width: 56, height: 56, borderRadius: radius.pill },
