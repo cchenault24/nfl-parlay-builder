@@ -1,8 +1,21 @@
 import { Box, Chip, Container, Divider, Link, Paper, Typography } from '@mui/material'
 import React from 'react'
-import type { BaseLegalDialogProps } from './BaseLegalDialog'
+import type {
+  LegalDialogFooter,
+  LegalDialogNotice,
+  LegalDialogSection,
+} from './BaseLegalDialog'
 
-type LegalContent = Omit<BaseLegalDialogProps, 'open' | 'onClose'>
+// Only the parts a page renders. The dialog configs satisfy this structurally,
+// so they can be passed straight through, but a page-only document does not
+// have to invent the dialog chrome it will never use.
+export interface LegalContent {
+  title: string
+  subtitle: string
+  headerNotice?: LegalDialogNotice
+  sections: LegalDialogSection[]
+  footerSection?: LegalDialogFooter
+}
 
 // The same content the dialogs render, at a URL. App Store Connect requires a
 // publicly reachable privacy policy link, and a reviewer has to be able to open
