@@ -120,15 +120,52 @@ function toScheduleGame(event: ScoreboardEvent): ScheduleGame | null {
   }
 }
 
+// How old a cached schedule may be before it stops being worth serving. Long
+// enough to ride out an upstream outage, short enough that game status cannot
+// drift far from reality.
+const SCHEDULE_STALE_LIMIT_MS = 6 * 60 * 60 * 1000
+
+// The whole season, with the last good copy as a safety net. This one call
+// backs the week picker, the game list and the agent's status check, so when
+// it fails the app has nothing to show at all — an upstream refusal became a
+// full outage on 2026-09-09. Serving a slightly old schedule is strictly
+// better than serving none, and the data is real, merely older.
 export async function getSeasonSchedule(
   season: number
 ): Promise<ScheduleGame[]> {
+  try {
+    return await loadSeasonSchedule(season)
+  } catch (err) {
+    const stale = await cache.getStale<ScheduleGame[]>(
+      'espn_schedule',
+      { season },
+      SCHEDULE_STALE_LIMIT_MS
+    )
+    if (!stale) {
+      throw err
+    }
+    inc('provider_stale_espn_schedule')
+    log.warn('espn.schedule.stale', {
+      season,
+      games: stale.length,
+      error: {
+        code: 'schedule_stale',
+        message: err instanceof Error ? err.message : String(err),
+      },
+    })
+    return stale
+  }
+}
+
+function loadSeasonSchedule(season: number): Promise<ScheduleGame[]> {
   return cache.getOrSet(
     'espn_schedule',
     { season },
     async () => {
       inc('provider_calls_espn_schedule')
-      const url = `${SITE}/scoreboard?dates=${season}0801-${season + 1}0301&seasontype=${REGULAR_SEASON}&limit=1000`
+      // Bounded to the regular season rather than Aug-Mar at limit=1000:
+      // the extra months only ever returned games this filter discards.
+      const url = `${SITE}/scoreboard?dates=${season}0901-${season + 1}0215&seasontype=${REGULAR_SEASON}&limit=400`
       const data = await fetchJson<{ events?: ScoreboardEvent[] }>(url, 15_000)
       const games = (data.events ?? [])
         .filter(e => e.season.type === REGULAR_SEASON)

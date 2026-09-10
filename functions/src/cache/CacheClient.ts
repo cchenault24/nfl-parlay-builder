@@ -256,6 +256,28 @@ export class CacheClient {
   /**
    * Clear memory cache
    */
+  // The last value stored for this key, ignoring its TTL. Only for callers
+  // that would otherwise fail outright: stale real data beats an outage, and
+  // it is never a substitute for a working fetch.
+  async getStale<T>(
+    provider: string,
+    params: Record<string, unknown>,
+    maxAgeMs: number
+  ): Promise<T | null> {
+    const key = this.makeKey(provider, params)
+    const memoryEntry = this.memoryCache.get(key) as CacheEntry<T> | undefined
+    if (memoryEntry && Date.now() - memoryEntry.createdAt <= maxAgeMs) {
+      return memoryEntry.value
+    }
+    try {
+      const { getCached } = await import('../utils/cache')
+      const entry = await getCached<CacheEntry<T>>(key, maxAgeMs)
+      return entry ? entry.value : null
+    } catch {
+      return null
+    }
+  }
+
   clearMemory(): void {
     this.memoryCache.clear()
     log.info('cache.memory.cleared')
@@ -296,7 +318,12 @@ export class CacheClient {
 // Default cache configuration
 export const defaultCacheConfig: CacheConfig = {
   defaultTtlMs: 60_000, // 1 minute
-  maxTtlMs: 300_000, // 5 minutes
+  // A safety ceiling, not a policy: every call site passes the TTL it
+  // actually wants. At five minutes this quietly overrode all of them — a
+  // final box score asking for 24h, injuries for 30m and EPA for 6h were
+  // each re-fetched every five minutes, multiplying upstream load for data
+  // that had not changed.
+  maxTtlMs: 24 * 60 * 60 * 1000,
   namespace: 'nfl_parlay',
 }
 
