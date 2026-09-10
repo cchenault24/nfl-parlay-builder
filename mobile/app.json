@@ -49,6 +49,13 @@
       "typedRoutes": true,
       "reactCompiler": true
     },
-    "backgroundColor": "#121212"
+    "backgroundColor": "#121212",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "3ee2746d-31b8-4e19-af30-c1db73bfb8a4"
+      }
+    },
+    "owner": "cchenault24"
   }
 }
