@@ -13,7 +13,10 @@
         "dark": "./assets/images/icon-dark.png"
       },
       "bundleIdentifier": "com.debugdad.parlaid",
-      "supportsTablet": false
+      "supportsTablet": false,
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
