@@ -23,6 +23,8 @@ import { useAuth } from '../hooks/useAuth'
 import { requestGrading } from '../services/GradingService'
 import type { GeneratedParlay, LegOutcome, ParlayOutcome } from '../types'
 import { formatOdds, getBetTypeColor, getConfidenceColor } from '../utils'
+import ShareControl from './display/ShareControl'
+import TrackRecord from './display/TrackRecord'
 
 interface ParlayHistoryProps {
   open: boolean
@@ -94,6 +96,7 @@ export const ParlayHistory: React.FC<ParlayHistoryProps> = ({ open, onClose }) =
       </DialogTitle>
 
       <DialogContent>
+        {parlays !== null && parlays.length > 0 && <TrackRecord parlays={parlays} />}
         {parlays === null ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
             <CircularProgress />
@@ -121,6 +124,7 @@ export const ParlayHistory: React.FC<ParlayHistoryProps> = ({ open, onClose }) =
                     size="small"
                     sx={{ fontVariantNumeric: 'tabular-nums' }}
                   />
+                  <ShareControl parlay={parlay} />
                 </Box>
                 {parlay.legs.map((leg, i) => {
                   const legOutcome =

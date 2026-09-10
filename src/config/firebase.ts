@@ -139,6 +139,8 @@ function normalizeParlay(data: StoredParlay, docId: string): GeneratedParlay {
     },
     model: data.model ?? 'unknown',
     grading: data.grading,
+    closingLines: data.closingLines,
+    shareId: data.shareId,
   }
 }
 
