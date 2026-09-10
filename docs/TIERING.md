@@ -71,7 +71,7 @@ Pro is then "act on this however you want," not merely "more legs."
 | Post-game grading | yes | yes | Both |
 | Performance record (win rate, ROI, by risk/market/team) | — | yes | Pro |
 | Line-move alerts on saved parlays | — | yes | Pro |
-| Export / shareable result card | — | yes | Pro |
+| Share a result card | yes | yes | Both |
 | **Billing** ||||
 | Stripe (web) / Apple IAP (iOS) | — | yes | Pro |
 
@@ -175,7 +175,7 @@ has not posted a line for that game.
 **v2** — anchored player props (Odds API paid plan) · performance record ·
 rejected-legs view.
 
-**v3** — cross-game parlays · full-slate mode · line-move alerts · export ·
+**v3** — cross-game parlays · full-slate mode · line-move alerts ·
 priority queue.
 
 Note on sequencing: until v2, Pro props carry an AI-estimated line, so the only
@@ -229,8 +229,10 @@ Observations:
 - Input is remarkably stable (p50→p95 varies by 9 tokens); output carries all the
   variance, driven by leg count and reasoning length.
 - **13% failure rate** (11 failed + 2 canceled of 83) — drives the §3 quota rule.
-- **3 runs stuck in `running`** with no terminal state. This is a bug, and it will
-  corrupt any quota accounting keyed on run status. Fix before building quotas.
+- **3 runs stuck in `running`** with no terminal state. Fixed in #81 — the
+  orchestrator now drives every exit to a terminal status and `reapStaleRuns`
+  sweeps anything a crashed instance abandoned, so quota accounting keyed on run
+  status is safe.
 
 Reproduce: query `agentRuns/{id}/steps` for `type == 'draft'`, read
 `tokensInput` / `tokensOutput`.
@@ -249,6 +251,7 @@ Reproduce: query `agentRuns/{id}/steps` for `type == 'draft'`, read
 | Free = no player props | Props with AI-estimated lines free | Forces 3 anchored legs by construction; removes AI-invented numbers from Free entirely; sharpens Pro's best hook |
 | Leg count 3 free / 2–6 Pro | 2–6 both tiers; an arbitrary free cap | Falls out of the one-leg-per-market rule — no arbitrary number to defend |
 | Grading, reasoning and summary stay free | Gate them to Pro | Grading is the proof the product works; reasoning is what separates this from a random generator |
+| Sharing free on both tiers | Gate the result card to Pro | A shared card is the app's only organic distribution; charging for it taxes the one thing that brings new users in. Reverses the original Pro placement |
 | Free history = last 10 rolling | Current week only | A current-week window ages out a graded result ~1 day after grading, destroying the proof that justified keeping grading free |
 | Free pinned to one book | Best-price-across-books as the Pro feature | "Price it on my book" is a felt need; also tracks real Odds API cost |
 | Pro uncapped + silent 20/hr valve | 20/week; 10/day; 5/day | Strongest marketing claim, least code; valve bounds the tail; §4 confirms it is affordable |
@@ -264,5 +267,4 @@ Reproduce: query `agentRuns/{id}/steps` for `type == 'draft'`, read
 | Confirm `gpt-5.6-terra` rate | Read the OpenAI dashboard, drop it into §4 | Final sign-off on uncapped Pro |
 | Re-decide price against the final tier gap | $4.99 vs $9.99 | v1 billing |
 | Validate App Store approval for AI betting picks | Ask Apple before building | v1 iOS billing |
-| Fix runs stuck in `running` | Add a terminal-state timeout | Quota accounting |
 | Steer web signups to Stripe over IAP | ~$0.30/user/mo | — |

@@ -76,10 +76,14 @@ function normalizeParlay(data: StoredParlay, docId: string): GeneratedParlay {
   }
 }
 
+// `depth` is the tier's history depth, newest first; null means unbounded. See
+// the web copy in src/config/firebase.ts for why it is sliced here rather than
+// limited in the query.
 export const getUserParlays = (
   userId: string,
   callback: (parlays: GeneratedParlay[]) => void,
-  onError: (message: string) => void
+  onError: (message: string) => void,
+  depth: number | null = null
 ) =>
   onSnapshot(
     query(collection(db, 'parlays'), where('userId', '==', userId)),
@@ -90,7 +94,7 @@ export const getUserParlays = (
         .map(docSnap => ({ data: docSnap.data() as StoredParlay, id: docSnap.id }))
         .sort((a, b) => savedAtMs(b.data) - savedAtMs(a.data))
         .map(({ data, id }) => normalizeParlay(data, id))
-      callback(parlays)
+      callback(depth === null ? parlays : parlays.slice(0, depth))
     },
     // Web logs and returns an empty list here, which is indistinguishable from
     // "no saved parlays". Surface it instead.
