@@ -9,10 +9,4 @@ if (!baseUrl) {
   )
 }
 
-export const API = {
-  baseURL: baseUrl,
-  endpoints: {
-    season: '/season',
-    games: (week: number) => `/games?week=${week}`,
-  },
-} as const
+export const API_BASE_URL = baseUrl

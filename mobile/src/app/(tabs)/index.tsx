@@ -1,3 +1,7 @@
+import { useDerivedCurrentWeek } from '@shared/hooks/useDerivedCurrentWeek'
+import { useParlayGenerator } from '@shared/hooks/useParlayGenerator'
+import { useSeasonSummary } from '@shared/hooks/useSeason'
+import useParlayStore from '@shared/store/parlayStore'
 import type { Game } from '@shared/types'
 import { useCallback, useState } from 'react'
 import { ScrollView, StyleSheet, View } from 'react-native'
@@ -6,11 +10,8 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { GameSelector } from '@/components/GameSelector'
 import { GameStatsPanel } from '@/components/display/GameStatsPanel'
 import { ParlayDisplay } from '@/components/display/ParlayDisplay'
-import { useDerivedCurrentWeek } from '@/lib/api/useDerivedCurrentWeek'
-import { useParlayGenerator } from '@/lib/api/useParlayGenerator'
-import { useSeasonSummary } from '@/lib/api/useSeason'
+import { getParlayService } from '@/lib/api/parlayService'
 import { colors, spacing } from '@/lib/theme/designTokens'
-import useParlayStore from '@/store/parlayStore'
 
 export default function BuildScreen() {
   const selectedGame = useParlayStore(state => state.selectedGame)
@@ -24,7 +25,8 @@ export default function BuildScreen() {
   const [selectedWeek, setSelectedWeek] = useState<number | null>(null)
   const activeWeek = selectedWeek ?? currentWeek
 
-  const { generate, isPending, error, reset, cancel } = useParlayGenerator()
+  const { generate, isPending, error, reset, cancel } =
+    useParlayGenerator(getParlayService())
 
   const handleGameChange = useCallback(
     (game: Game | null) => {

@@ -1,5 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { formatOdds } from '@shared/odds'
+import useParlayStore from '@shared/store/parlayStore'
 import type { RankedStat, TeamStats } from '@shared/types'
 import { useState } from 'react'
 import { LayoutAnimation, Platform, Pressable, StyleSheet, Text, UIManager, View } from 'react-native'
@@ -8,7 +9,6 @@ import { MatchupRow } from '@/components/display/MatchupRow'
 import { TeamCard } from '@/components/display/TeamCard'
 import { TeamLogo } from '@/components/display/TeamLogo'
 import { colors, radius, spacing, typography } from '@/lib/theme/designTokens'
-import useParlayStore from '@/store/parlayStore'
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true)

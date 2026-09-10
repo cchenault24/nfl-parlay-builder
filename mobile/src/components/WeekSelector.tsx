@@ -1,8 +1,8 @@
 import Ionicons from '@expo/vector-icons/Ionicons'
+import { useDerivedCurrentWeek } from '@shared/hooks/useDerivedCurrentWeek'
 import { useEffect, useRef } from 'react'
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 
-import { useDerivedCurrentWeek } from '@/lib/api/useDerivedCurrentWeek'
 import { colors, radius, spacing, typography } from '@/lib/theme/designTokens'
 
 const CHIP_WIDTH = 68

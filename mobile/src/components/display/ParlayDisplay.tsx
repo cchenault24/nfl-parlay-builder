@@ -1,5 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { formatOdds } from '@shared/odds'
+import useParlayStore from '@shared/store/parlayStore'
 import { useState } from 'react'
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
 
@@ -11,7 +12,6 @@ import { ParlayLegView } from '@/components/display/ParlayLegView'
 import { useAuth } from '@/lib/auth/useAuth'
 import { saveParlayToUser } from '@/lib/parlays'
 import { colors, radius, spacing, typography } from '@/lib/theme/designTokens'
-import useParlayStore from '@/store/parlayStore'
 
 export function ParlayDisplay({
   loading,
