@@ -1,0 +1,142 @@
+import Ionicons from '@expo/vector-icons/Ionicons'
+import { Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+
+import {
+  HELPLINES,
+  RESPONSIBLE_PRACTICES,
+  WARNING_SIGNS,
+  type Helpline,
+} from '@/lib/legal/content'
+import { colors, radius, spacing, typography } from '@/lib/theme/designTokens'
+
+function HelplineCard({ helpline }: { helpline: Helpline }) {
+  return (
+    <View style={styles.card}>
+      <Text style={styles.cardTitle}>{helpline.name}</Text>
+      <Text style={styles.cardBody}>{helpline.description}</Text>
+      <View style={styles.cardActions}>
+        {helpline.dial ? (
+          <Pressable
+            onPress={() => Linking.openURL(`tel:${helpline.dial}`)}
+            style={({ pressed }) => [styles.action, pressed && styles.pressed]}
+          >
+            <Ionicons name="call-outline" size={16} color={colors.primary} />
+            <Text style={styles.actionText}>{helpline.phone}</Text>
+          </Pressable>
+        ) : (
+          <View style={styles.action}>
+            <Ionicons name="people-outline" size={16} color={colors.textSecondary} />
+            <Text style={styles.actionMuted}>{helpline.phone}</Text>
+          </View>
+        )}
+        <Pressable
+          onPress={() => Linking.openURL(`https://${helpline.website}`)}
+          style={({ pressed }) => [styles.action, pressed && styles.pressed]}
+        >
+          <Ionicons name="open-outline" size={16} color={colors.primary} />
+          <Text style={styles.actionText}>{helpline.website}</Text>
+        </Pressable>
+      </View>
+    </View>
+  )
+}
+
+export function ResponsibleGambling({
+  visible,
+  onClose,
+}: {
+  visible: boolean
+  onClose: () => void
+}) {
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={onClose}
+    >
+      <View style={styles.sheet}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Responsible gambling</Text>
+          <Pressable onPress={onClose} hitSlop={12} accessibilityLabel="Close">
+            <Ionicons name="close" size={24} color={colors.textSecondary} />
+          </Pressable>
+        </View>
+
+        <ScrollView contentContainerStyle={styles.body}>
+          <Text style={styles.lede}>
+            If gambling is causing problems in your life, help is available.
+          </Text>
+
+          <Text style={styles.section}>Get help now</Text>
+          {HELPLINES.map(h => (
+            <HelplineCard key={h.name} helpline={h} />
+          ))}
+
+          <Text style={styles.section}>Warning signs</Text>
+          {WARNING_SIGNS.map(sign => (
+            <View key={sign} style={styles.listRow}>
+              <Ionicons
+                name="alert-circle-outline"
+                size={16}
+                color={colors.warning}
+                style={styles.listIcon}
+              />
+              <Text style={styles.listText}>{sign}</Text>
+            </View>
+          ))}
+
+          <Text style={styles.section}>Responsible practices</Text>
+          {RESPONSIBLE_PRACTICES.map(practice => (
+            <View key={practice} style={styles.listRow}>
+              <Ionicons
+                name="checkmark-circle-outline"
+                size={16}
+                color={colors.primary}
+                style={styles.listIcon}
+              />
+              <Text style={styles.listText}>{practice}</Text>
+            </View>
+          ))}
+        </ScrollView>
+      </View>
+    </Modal>
+  )
+}
+
+const styles = StyleSheet.create({
+  sheet: { flex: 1, backgroundColor: colors.background },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.divider,
+  },
+  title: { ...typography.h3, color: colors.text },
+  body: { padding: spacing.md, gap: spacing.sm, paddingBottom: spacing.xxl },
+  lede: { ...typography.body, color: colors.textSecondary },
+  section: { ...typography.title, color: colors.text, marginTop: spacing.md },
+
+  card: {
+    borderWidth: 1,
+    borderColor: colors.divider,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  cardTitle: { ...typography.label, color: colors.text },
+  cardBody: { ...typography.bodySmall, color: colors.textSecondary },
+  cardActions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, marginTop: spacing.xs },
+  action: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  actionText: { ...typography.bodySmall, color: colors.primary },
+  actionMuted: { ...typography.bodySmall, color: colors.textSecondary },
+
+  listRow: { flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start' },
+  listIcon: { marginTop: 2 },
+  listText: { ...typography.bodySmall, color: colors.textSecondary, flex: 1 },
+
+  pressed: { opacity: 0.6 },
+})
