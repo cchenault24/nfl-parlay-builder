@@ -13,6 +13,7 @@ import {
   Warning as WarningIcon,
 } from '@mui/icons-material'
 import { BaseLegalDialogProps } from './BaseLegalDialog'
+import type { LegalContent as LegalPageContent } from './LegalPage'
 
 // Terms of Service Configuration
 export const termsOfServiceConfig: Omit<
@@ -199,5 +200,53 @@ export const legalDisclaimerConfig: Omit<
     bgColor: 'rgba(244, 67, 54, 0.05)',
     borderColor: 'rgba(244, 67, 54, 0.2)',
     titleColor: '#f44336',
+  },
+}
+
+// Support Page Configuration
+//
+// App Store Connect requires a Support URL to submit at all, and it has to be a
+// page rather than a mailto. This is not a dialog — nothing in the app opens it
+// — but it lives here so every piece of user-facing legal and support copy
+// stays in one file.
+export const supportConfig: LegalPageContent = {
+  title: 'Support',
+  subtitle: 'ParlAId — AI-generated NFL parlays, for entertainment',
+  headerNotice: {
+    title: 'Entertainment only',
+    description:
+      'ParlAId generates suggested parlays and explains the reasoning behind them. No wagers are placed through the app and no money changes hands. You must be 18 or older to use it.',
+    severity: 'info',
+  },
+  sections: [
+    {
+      title: 'Getting help',
+      description:
+        'Email admin@debugdad.com with any question, bug report, or account request. Include the email address you signed in with so we can find your account. We answer everything, usually within a couple of days.',
+      icon: <InfoIcon color="info" />,
+    },
+    {
+      title: 'Deleting your account',
+      description:
+        'Email admin@debugdad.com from the address you signed in with and we will delete your account and everything in it. Deletion removes your saved parlays and your profile permanently and cannot be undone.',
+      icon: <BlockIcon color="error" />,
+    },
+    {
+      title: 'Managing your subscription',
+      description:
+        'ParlAId Pro renews monthly and can be cancelled at any time. Subscriptions bought on iPhone are managed in Settings > your name > Subscriptions; subscriptions bought on the web are managed through the billing portal in the app. Deleting your account does not cancel a subscription — cancel it first.',
+      icon: <AccountBalanceIcon color="primary" />,
+    },
+    {
+      title: 'Gambling help',
+      description:
+        'If gambling is causing you or someone you know harm, call the National Council on Problem Gambling helpline at 1-800-522-4700, any time, free and confidential.',
+      icon: <WarningIcon color="warning" />,
+    },
+  ],
+  footerSection: {
+    title: 'Contact',
+    description: 'ParlAId is built and run by DebugDad LLC. Reach us at',
+    contactInfo: 'admin@debugdad.com',
   },
 }

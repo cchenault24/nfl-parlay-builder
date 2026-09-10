@@ -15,6 +15,7 @@ import SharedParlayView from './components/display/SharedParlayView'
 import LegalPage from './components/legal/LegalPage'
 import {
   privacyPolicyConfig,
+  supportConfig,
   termsOfServiceConfig,
 } from './components/legal/legalDialogConfigs'
 import GameSelector from './components/GameSelector'
@@ -181,6 +182,7 @@ function App() {
                 path="/terms"
                 element={<LegalPage content={termsOfServiceConfig} />}
               />
+              <Route path="/support" element={<LegalPage content={supportConfig} />} />
               <Route path="*" element={<AppContent />} />
             </Routes>
           </BrowserRouter>
