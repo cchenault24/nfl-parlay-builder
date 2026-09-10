@@ -74,3 +74,7 @@ export const api = onRequest(
   },
   app
 )
+
+// Scheduled work. Exported separately so a failure in a background job can
+// never take the request-serving function down with it.
+export { gradeParlaysSweep } from './scheduled/gradeParlays'
