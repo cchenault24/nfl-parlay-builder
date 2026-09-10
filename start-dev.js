@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 
-import { execSync, spawn } from 'child_process'
+import { execFile, spawn } from 'child_process'
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
+import { promisify } from 'util'
+
+const execFileAsync = promisify(execFile)
 
 // The emulator resolves every defineSecret() param, and for anything it cannot
 // find locally it calls Secret Manager on the *emulated* project — which does
@@ -38,6 +41,11 @@ const LOCAL_PROJECT_ID = 'demo-parlaid'
 // restart does not mean signing in and regenerating everything again.
 const DATA_DIR = '.emulator-data'
 
+// Written in place of a secret that could not be fetched. Exported in spirit,
+// not in code: functions/src/billing/config.ts checks for this exact string so
+// a stub can never make a feature look configured. Keep the two in sync.
+const MISSING_SENTINEL = 'missing-locally'
+
 function readProjectId() {
   try {
     const env = readFileSync('.env.local', 'utf8')
@@ -71,29 +79,43 @@ let frontend = null
 // Written to functions/.secret.local (gitignored) because that is the only
 // source the emulator consults before falling back to Secret Manager;
 // process.env alone does not satisfy a defineSecret param.
-function loadSecrets() {
-  const missing = []
-  const resolved = []
-  for (const name of declaredSecrets()) {
-    try {
-      const value = execSync(
-        `firebase functions:secrets:access ${name} --project ${secretsProject}`,
-        { encoding: 'utf8', stdio: 'pipe' }
-      ).trim()
-      if (value) {
-        process.env[name] = value
-        resolved.push(`${name}=${value}`)
-      } else {
-        missing.push(name)
+// Fetched concurrently: each call is a separate ~0.6s round trip to Secret
+// Manager that waits on the network, not on us, so running them in sequence
+// just added up. Promise.all preserves input order, and declaredSecrets() is
+// sorted, so .secret.local stays byte-stable between runs.
+async function loadSecrets() {
+  const names = declaredSecrets()
+  const results = await Promise.all(
+    names.map(async name => {
+      try {
+        // execFile rather than execSync: no shell, so a secret name cannot be
+        // interpolated into one, and the call can actually overlap.
+        const { stdout } = await execFileAsync(
+          'firebase',
+          ['functions:secrets:access', name, '--project', secretsProject],
+          { encoding: 'utf8' }
+        )
+        const value = stdout.trim()
+        return value ? { name, value } : { name }
+      } catch {
+        // Absent, forbidden, or the CLI is missing — all mean the same thing
+        // here: there is no value to write.
+        return { name }
       }
-    } catch {
-      missing.push(name)
-    }
-  }
+    })
+  )
+
+  const missing = results.filter(r => !r.value).map(r => r.name)
+  const resolved = results
+    .filter(r => r.value)
+    .map(r => {
+      process.env[r.name] = r.value
+      return `${r.name}=${r.value}`
+    })
   // Placeholders keep an unset secret from reaching Secret Manager; a route
   // that needs one still fails, but every other function loads and runs.
   for (const name of missing) {
-    resolved.push(`${name}=missing-locally`)
+    resolved.push(`${name}=${MISSING_SENTINEL}`)
   }
   writeFileSync('functions/.secret.local', `${resolved.join('\n')}\n`)
   return missing
@@ -133,7 +155,7 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
 }
 
 console.log(`Project: ${projectId} (secrets from ${secretsProject})`)
-const missing = loadSecrets()
+const missing = await loadSecrets()
 if (missing.length > 0) {
   console.log(
     `Missing secrets: ${missing.join(', ')} — stubbed locally, so the emulator runs, but routes needing them will fail.`
