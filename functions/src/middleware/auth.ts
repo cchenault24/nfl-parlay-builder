@@ -5,7 +5,11 @@ import { errorResponse } from '../utils/errors'
 
 export type AuthedRequest = express.Request & {
   correlationId: string
-  user?: Pick<DecodedIdToken, 'uid'>
+  // `email` comes off the verified token, so it is safe to hand to Stripe as
+  // the customer's address — receipts and the billing portal then show the
+  // account's own email rather than a second one Checkout collects separately.
+  // Absent under the emulator bypass, hence optional.
+  user?: Pick<DecodedIdToken, 'uid'> & { email?: string }
 }
 
 export async function verifyAuth(
@@ -41,7 +45,7 @@ export async function verifyAuth(
     }
 
     const decoded = await auth().verifyIdToken(token)
-    ;(req as AuthedRequest).user = { uid: decoded.uid }
+    ;(req as AuthedRequest).user = { uid: decoded.uid, email: decoded.email }
     return next()
   } catch {
     return errorResponse(

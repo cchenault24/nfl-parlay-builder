@@ -1,4 +1,4 @@
-import type { Transaction } from 'firebase-admin/firestore'
+import { FieldValue, type Transaction } from 'firebase-admin/firestore'
 import { db } from '../firebase'
 import {
   capabilitiesFor,
@@ -13,7 +13,7 @@ import {
 // both, so a tier stored there could be self-granted from a browser console.
 // The rules deny clients this collection outright and /entitlements is the only
 // way to read it.
-interface EntitlementRecord {
+export interface EntitlementRecord {
   tier: Tier
   source: 'stripe' | 'iap' | 'manual'
   // Set when a subscription is ending; access is restricted at this instant but
@@ -21,6 +21,12 @@ interface EntitlementRecord {
   accessEndsAt?: string
   stripeCustomerId?: string
   stripeSubscriptionId?: string
+  // Apple has no idea what a Firebase uid is. The app generates this UUID once,
+  // passes it as StoreKit's appAccountToken on purchase, and Apple echoes it
+  // back on every transaction and server notification — so it is the only way
+  // to attribute an Apple renewal to a user.
+  appleAccountToken?: string
+  appleOriginalTransactionId?: string
   updatedAt: string
 }
 
@@ -53,14 +59,55 @@ export async function getEntitlement(uid: string): Promise<EntitlementRecord> {
   return record
 }
 
+// `accessEndsAt: null` clears the field. A merge write ignores `undefined`, so
+// without this an end date set by a scheduled cancellation would survive the
+// user un-cancelling and keep demoting them on the original date.
 export async function setEntitlement(
   uid: string,
-  update: Omit<EntitlementRecord, 'updatedAt'>
+  update: Omit<EntitlementRecord, 'updatedAt' | 'accessEndsAt'> & {
+    accessEndsAt?: string | null
+  }
 ): Promise<void> {
+  const { accessEndsAt, ...rest } = update
   await entitlementRef(uid).set(
-    { ...update, updatedAt: new Date().toISOString() },
+    {
+      ...rest,
+      ...(accessEndsAt === null
+        ? { accessEndsAt: FieldValue.delete() }
+        : accessEndsAt !== undefined
+          ? { accessEndsAt }
+          : {}),
+      updatedAt: new Date().toISOString(),
+    },
     { merge: true }
   )
+}
+
+// Recorded before checkout completes, so the customer is reusable even if the
+// user abandons the session — otherwise the next attempt mints a duplicate
+// customer and splits their billing history across two records.
+export async function setStripeCustomer(
+  uid: string,
+  stripeCustomerId: string
+): Promise<void> {
+  await entitlementRef(uid).set(
+    { stripeCustomerId, updatedAt: new Date().toISOString() },
+    { merge: true }
+  )
+}
+
+// Apple identifies a subscriber by originalTransactionId, not by our uid, so a
+// renewal notification arrives with no idea who it belongs to. This index is
+// what makes that lookup possible.
+export async function findUidByAppleTransaction(
+  originalTransactionId: string
+): Promise<string | undefined> {
+  const snap = await db()
+    .collection('entitlements')
+    .where('appleOriginalTransactionId', '==', originalTransactionId)
+    .limit(1)
+    .get()
+  return snap.empty ? undefined : snap.docs[0].id
 }
 
 // Reads the current bucket, treating a stale `windowStart` as zero rather than

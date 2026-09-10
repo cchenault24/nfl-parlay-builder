@@ -4,8 +4,10 @@ import { defineSecret } from 'firebase-functions/params'
 import { onRequest } from 'firebase-functions/v2/https'
 import { app as firebaseApp } from './firebase'
 import type { AuthedRequest } from './middleware/auth'
+import { BILLING_SECRETS } from './billing/config'
 import {
   agentRouter,
+  billingRouter,
   entitlementsRouter,
   gradingRouter,
   metricsRouter,
@@ -48,6 +50,15 @@ app.use(
     credentials: true,
   })
 )
+// Stripe verifies its webhook signature against the exact bytes it sent, so
+// this route has to keep its raw body. express.raw marks the body as already
+// read, which makes the JSON parser below skip it — hence the ordering. Both
+// mount points are listed because the router is mounted at "/" and "/api"
+// (see the note further down) and Stripe is configured against one of them.
+app.use(
+  ['/billing/webhooks/stripe', '/api/billing/webhooks/stripe'],
+  express.raw({ type: 'application/json' })
+)
 app.use(express.json({ limit: '100kb' }))
 
 const apiRouter = express.Router()
@@ -57,6 +68,7 @@ apiRouter.get('/health', (_req, res) => {
 apiRouter.use('/', publicRouter)
 apiRouter.use('/', agentRouter)
 apiRouter.use('/', entitlementsRouter)
+apiRouter.use('/', billingRouter)
 apiRouter.use('/', metricsRouter)
 apiRouter.use('/', gradingRouter)
 apiRouter.use('/', sharingRouter)
@@ -78,7 +90,7 @@ const ODDS_API_KEY = defineSecret('ODDS_API_KEY')
 export const api = onRequest(
   {
     region: REGION,
-    secrets: [OPENAI_API_KEY, ODDS_API_KEY],
+    secrets: [OPENAI_API_KEY, ODDS_API_KEY, ...BILLING_SECRETS],
     timeoutSeconds: 120,
   },
   app
