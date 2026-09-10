@@ -152,6 +152,25 @@ export interface ParlayGrading {
   parlayOutcome?: ParlayOutcome
 }
 
+// Mirrors functions/src/grading/types.ts.
+export type ClvUnavailable = 'unanchored' | 'line_moved' | 'no_market'
+
+export interface LegClosingLine {
+  closingLine: number | null
+  closingOdds: number | null
+  // Implied-probability points gained versus the close; positive beat it.
+  // Null when the leg can't be judged (see `unavailable`).
+  clvPoints: number | null
+  unavailable?: ClvUnavailable
+}
+
+export interface ParlayClosingLines {
+  capturedAt: string
+  bookmaker: string | null
+  legs: LegClosingLine[]
+  averageClvPoints: number | null
+}
+
 export interface GameSummary {
   matchupSummary: string
   keyFactors: string[]
@@ -177,6 +196,9 @@ export interface GeneratedParlay {
   model: string
   // Absent = never checked. Populated by POST /parlays/grade.
   grading?: ParlayGrading
+  // Absent until the pre-kickoff capture runs; absent forever for parlays
+  // saved after their game started.
+  closingLines?: ParlayClosingLines
 }
 
 export type SourceStatus = 'ok' | 'unavailable' | 'indoor'
