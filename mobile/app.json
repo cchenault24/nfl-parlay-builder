@@ -16,6 +16,9 @@
       "supportsTablet": false,
       "config": {
         "usesNonExemptEncryption": false
+      },
+      "infoPlist": {
+        "UIStatusBarStyle": "UIStatusBarStyleLightContent"
       }
     },
     "android": {

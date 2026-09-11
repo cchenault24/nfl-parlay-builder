@@ -1,23 +1,21 @@
 import type { GeneratedParlay } from '@shared/types'
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Linking, StyleSheet, Text, View } from 'react-native'
 
 import { LegalDisclaimer } from '@/components/legal/LegalDisclaimer'
-import { colors, HIT_SLOP, spacing, typography } from '@/lib/theme/designTokens'
+import { LinkButton } from '@/components/ui/LinkButton'
+import { colors, spacing, typography } from '@/lib/theme/designTokens'
 
 const NFLVERSE_URL = 'https://github.com/nflverse/nflverse-data'
 const CC_BY_URL = 'https://creativecommons.org/licenses/by/4.0/'
 
 function ExternalLink({ label, url }: { label: string; url: string }) {
   return (
-    <Pressable
+    <LinkButton
+      label={label}
       onPress={() => Linking.openURL(url)}
-      accessibilityRole="link"
-      hitSlop={HIT_SLOP}
-    >
-      {({ pressed }) => (
-        <Text style={[styles.link, pressed && styles.linkPressed]}>{label}</Text>
-      )}
-    </Pressable>
+      tint={colors.textSecondary}
+      textStyle={styles.link}
+    />
   )
 }
 
@@ -48,10 +46,5 @@ const styles = StyleSheet.create({
   footer: { gap: spacing.xs },
   meta: { ...typography.bodySmall, color: colors.textSecondary },
   attribution: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' },
-  link: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    textDecorationLine: 'underline',
-  },
-  linkPressed: { color: colors.text },
+  link: { ...typography.bodySmall, textDecorationLine: 'underline' },
 })

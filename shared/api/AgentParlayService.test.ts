@@ -39,7 +39,7 @@ vi.mock('../runtime', () => ({
   sharedRuntime: () => ({ getIdToken: async () => idToken }),
 }))
 
-const { AgentParlayService } = await import('./AgentParlayService')
+const { AgentParlayService, STREAM_DEADLINE_MS } = await import('./AgentParlayService')
 
 const team = (abbrev: string, name: string) => ({
   teamId: abbrev.toLowerCase(),
@@ -247,8 +247,38 @@ describe('awaitResult — abort', () => {
     await drain()
     controller.abort()
     await rejected
+    await drain()
 
     expect(cancelRun).toHaveBeenCalledWith('run-1', 'token-1')
+  })
+
+  // The Cancel button is on screen before the POST that creates the run has
+  // returned. An abort in that window has no listener to fire; it must still
+  // stop the run rather than let it execute, bill, and vanish.
+  it('cancels a run whose creation finished after the abort', async () => {
+    let finishCreate: (value: unknown) => void = () => {}
+    createRun.mockReturnValue(new Promise(resolve => (finishCreate = resolve)))
+    const controller = new AbortController()
+    const pending = generate({ signal: controller.signal })
+    const rejected = expect(pending).rejects.toThrow('Parlay generation canceled.')
+    await drain()
+    controller.abort()
+    finishCreate({ runId: 'run-1', rateLimit: undefined })
+
+    await rejected
+    expect(streamRun).not.toHaveBeenCalled()
+    expect(cancelRun).toHaveBeenCalledWith('run-1', 'token-1')
+  })
+
+  it('reconciles and cancels with a fresh token, not the one the run began with', async () => {
+    getRun.mockResolvedValue({ status: 'succeeded', result: agentResult })
+    const pending = generate()
+    await drain()
+    idToken = 'token-2'
+    await close()
+
+    await expect(pending).resolves.toMatchObject({ runId: 'run-1' })
+    expect(getRun).toHaveBeenCalledWith('run-1', 'token-2')
   })
 
   // Best-effort: a cancel the server refuses must not replace the caller's
@@ -273,6 +303,23 @@ describe('awaitResult — abort', () => {
     controller.abort()
 
     expect(cancelRun).not.toHaveBeenCalled()
+  })
+})
+
+describe('awaitResult — deadline', () => {
+  it('gives up on a silent stream once the server could no longer be running it', async () => {
+    vi.useFakeTimers()
+    try {
+      getRun.mockResolvedValue({ status: 'failed', error: { message: 'Run abandoned' } })
+      const pending = generate()
+      const rejected = expect(pending).rejects.toThrow('Run abandoned')
+      await vi.advanceTimersByTimeAsync(STREAM_DEADLINE_MS)
+
+      await rejected
+      expect(stop).toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
 

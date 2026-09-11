@@ -14,7 +14,11 @@ import { colors, spacing, typography } from '@/lib/theme/designTokens'
  */
 export function ScreenLoading({ label }: { label?: string }) {
   return (
-    <View style={styles.centre} accessibilityRole="progressbar">
+    <View
+      style={styles.centre}
+      accessibilityRole="progressbar"
+      accessibilityLabel={label ?? 'Loading'}
+    >
       <ActivityIndicator color={colors.primaryBright} />
       {label ? <Text style={styles.body}>{label}</Text> : null}
     </View>

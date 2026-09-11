@@ -92,25 +92,37 @@ export const useParlayGenerator = (service: BaseParlayService) => {
    * asynchronously, and a screen that pushed the parlay route first would have
    * arrived before the entry it is about to render existed.
    */
-  const begin = (games: Game[]): string => {
-    const key = startRun(
+  const begin = (games: Game[]): { key: string; started: boolean } => {
+    const key = parlayKey(
       games[0].week,
       games.map(g => g.gameId)
     )
-    return key
+    // A second start on a running key used to reset its timeline, orphan the
+    // first run's controller and reserve a second quota slot. A hook instance's
+    // own `isPending` cannot see a run started elsewhere, so the store is the
+    // authority on whether one is already in flight.
+    if (useParlayStore.getState().entries[key]?.status === 'running') {
+      return { key, started: false }
+    }
+    startRun(games[0].week, games.map(g => g.gameId))
+    return { key, started: true }
   }
 
   const generate = (games: Game[]): string => {
-    const key = begin(games)
-    mutation.mutate({ games, key })
+    const { key, started } = begin(games)
+    if (started) {
+      mutation.mutate({ games, key })
+    }
     return key
   }
 
   // Resolves once the run has settled, for a batch that has to create and
   // stream its runs one at a time (CONTRACT §0).
   const generateAsync = async (games: Game[]): Promise<string> => {
-    const key = begin(games)
-    await mutation.mutateAsync({ games, key })
+    const { key, started } = begin(games)
+    if (started) {
+      await mutation.mutateAsync({ games, key })
+    }
     return key
   }
 

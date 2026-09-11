@@ -20,6 +20,12 @@ const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID
  */
 export const googleSignInConfigured = Boolean(iosClientId)
 
+// How long the library's own code exchange gets after the browser hands back
+// a code. Its `performAsync(...).then(setFullResult)` has no rejection path, so
+// a failed exchange never publishes a `response` and, without this, the button
+// spun forever with nothing to say.
+const EXCHANGE_TIMEOUT_MS = 30_000
+
 // A success carrying no id_token is not finished: on native the library sets
 // `response` only once its own code exchange resolves, and this guards the case
 // where it publishes an intermediate value instead.
@@ -72,8 +78,24 @@ export function useGoogleSignIn(onError: (message: string | null) => void) {
       const settled = new Promise<AuthSessionResult>(resolve => {
         waiting.current = resolve
       })
-      await promptAsync()
-      const result = await settled
+      const prompted = await promptAsync()
+      if (prompted.type !== 'success') {
+        // dismiss / cancel / error straight from the browser: nothing is
+        // being exchanged, so there is nothing to wait for.
+        if (prompted.type === 'error') {
+          onError(prompted.error?.message ?? 'Google sign-in failed')
+        }
+        return
+      }
+      const result = await Promise.race([
+        settled,
+        new Promise<never>((_, reject) =>
+          setTimeout(
+            () => reject(new Error('Google sign-in did not finish. Please try again.')),
+            EXCHANGE_TIMEOUT_MS
+          )
+        ),
+      ])
 
       if (result.type === 'error') {
         onError(result.error?.message ?? 'Google sign-in failed')

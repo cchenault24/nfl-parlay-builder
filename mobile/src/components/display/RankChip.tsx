@@ -29,7 +29,7 @@ function tint(rank?: number | null) {
   if (rank <= 22) {
     return colors.warning
   }
-  return colors.error
+  return colors.errorBright
 }
 
 export function RankChip({ rank }: { rank?: number | null }) {

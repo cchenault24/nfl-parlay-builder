@@ -5,7 +5,7 @@ import { useParlayGenerator } from '@shared/hooks/useParlayGenerator'
 import { useGameStats, useWeekOdds, gameBookLines } from '@shared/hooks/usePregame'
 import { useGamesForWeek } from '@shared/hooks/useSeason'
 import { useDerivedCurrentWeek } from '@shared/hooks/useDerivedCurrentWeek'
-import useParlayStore from '@shared/store/parlayStore'
+import useParlayStore, { parlayKey } from '@shared/store/parlayStore'
 import { router, Stack, useLocalSearchParams } from 'expo-router'
 import { useState } from 'react'
 import { ScrollView, StyleSheet, Text, View } from 'react-native'
@@ -44,14 +44,28 @@ export default function GameDetailScreen() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [upgradeReason, setUpgradeReason] = useState<string | null>(null)
 
-  const { data: games, isLoading } = useGamesForWeek(activeWeek)
+  const {
+    data: games,
+    isLoading,
+    error: gamesError,
+    refetch: refetchGames,
+  } = useGamesForWeek(activeWeek)
   const game = games?.find(g => g.gameId === gameId)
   const { data: weekOdds } = useWeekOdds(activeWeek)
-  const { data: stats } = useGameStats(gameId)
+  const {
+    data: stats,
+    isLoading: statsLoading,
+    error: statsError,
+  } = useGameStats(gameId)
 
   const riskLevel = useParlayStore(state => state.riskLevel)
   const legCount = useParlayStore(state => state.legCount)
   const bookmaker = useParlayStore(state => state.bookmaker)
+  // The store, not this hook's `isPending`: a run started from the list or a
+  // batch is invisible to a freshly mounted screen, and Create must not start
+  // a second one for the same game.
+  const entry = useParlayStore(state => state.entries[parlayKey(activeWeek, [gameId])])
+  const running = entry?.status === 'running'
   const { capabilities, quota, entitlements, refetch } = useEntitlements()
   const { generate, isPending, error } = useParlayGenerator(getParlayService())
 
@@ -74,6 +88,17 @@ export default function GameDetailScreen() {
         <Stack.Screen options={{ title: '' }} />
         {isLoading ? (
           <ScreenLoading />
+        ) : gamesError ? (
+          // A failed fetch is not "no longer in this week"; it is a question
+          // the schedule could not answer, and asking again is the user's call.
+          <>
+            <ErrorBanner
+              type="error"
+              title="Couldn't load this game"
+              message={gamesError.message}
+            />
+            <Button variant="outline" label="Try again" onPress={() => void refetchGames()} />
+          </>
         ) : (
           <EmptyState title="That game is no longer in this week." />
         )}
@@ -114,6 +139,7 @@ export default function GameDetailScreen() {
           game={game}
           homeStats={stats?.home ?? null}
           awayStats={stats?.away ?? null}
+          status={statsLoading ? 'loading' : statsError ? 'error' : undefined}
         />
         {error ? (
           <ErrorBanner
@@ -138,24 +164,32 @@ export default function GameDetailScreen() {
           gated={gated}
           onPress={() => setSettingsOpen(true)}
         />
-        <Button
-          label={
-            quotaExhausted
-              ? 'Upgrade for unlimited parlays'
-              : `Create ${legs}-leg parlay`
-          }
-          icon="dice-outline"
-          loading={isPending}
-          disabled={isPending || game.status !== 'scheduled'}
-          onPress={
-            quotaExhausted
-              ? () =>
-                  setUpgradeReason(
-                    'You have used this week’s parlays. Pro removes the limit.'
-                  )
-              : start
-          }
-        />
+        {running ? (
+          <Button
+            label="View progress"
+            icon="hourglass-outline"
+            onPress={() => router.push(`/parlay/${game.gameId}`)}
+          />
+        ) : (
+          <Button
+            label={
+              quotaExhausted
+                ? 'Upgrade for unlimited parlays'
+                : `Create ${legs}-leg parlay`
+            }
+            icon="dice-outline"
+            loading={isPending}
+            disabled={isPending || game.status !== 'scheduled'}
+            onPress={
+              quotaExhausted
+                ? () =>
+                    setUpgradeReason(
+                      'You have used this week’s parlays. Pro removes the limit.'
+                    )
+                : start
+            }
+          />
+        )}
         {costLine ? <Text style={styles.cost}>{costLine}</Text> : null}
       </PinnedActions>
 
@@ -190,6 +224,5 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   body: { padding: spacing.md, gap: spacing.md },
-  muted: { ...typography.body, color: colors.textSecondary, textAlign: 'center' },
   cost: { ...typography.caption, color: colors.textSecondary, textAlign: 'center' },
 })

@@ -20,7 +20,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ScrollView, StyleSheet, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
+import { Button } from '@/components/ui/Button'
 import { ErrorBanner } from '@/components/ui/ErrorBanner'
+import { KeepAwake } from '@/components/ui/KeepAwake'
 import { UpgradeSheet } from '@/components/UpgradeSheet'
 import { BatchBar } from '@/components/build/BatchBar'
 import { TAB_BAR_HIDDEN, TAB_BAR_STYLE } from '@/components/ui/tabBarStyle'
@@ -50,12 +52,19 @@ export default function BuildScreen() {
   const selectedWeek = useParlayStore(state => state.activeWeek)
   const setSelectedWeek = useParlayStore(state => state.setActiveWeek)
   const activeWeek = selectedWeek ?? currentWeek
-  const { data: games, isLoading, error } = useGamesForWeek(activeWeek)
+  const { data: games, isLoading, error, refetch: refetchGames } = useGamesForWeek(activeWeek)
 
   // The *live* week, not the browsed one — see useParlayPersistence.
   useParlayPersistence(currentWeek)
   const entries = useParlayStore(state => state.entries)
-  const { capabilities, quota, entitlements, refetch } = useEntitlements()
+  const {
+    capabilities,
+    quota,
+    entitlements,
+    error: entitlementsError,
+    isLoading: entitlementsLoading,
+    refetch,
+  } = useEntitlements()
   const { rateLimit, getTimeUntilReset } = useRateLimit()
 
   const { generateAsync, error: runError } = useParlayGenerator(getParlayService())
@@ -65,7 +74,7 @@ export default function BuildScreen() {
   const [selected, setSelected] = useState<string[]>([])
   const [mode, setMode] = useState<BatchMode>('separate')
   const [batchRunning, setBatchRunning] = useState(false)
-  const [batchNotice, setBatchNotice] = useState<string | null>(null)
+  const [batchNotice, setBatchNotice] = useState<{ title: string; message: string } | null>(null)
   // Measured rather than guessed, like the two pushed screens: the bar reports
   // its own height so the list reserves exactly that.
   const [batchBarHeight, setBatchBarHeight] = useState(0)
@@ -122,7 +131,10 @@ export default function BuildScreen() {
 
   const handleRowPress = useCallback(
     (game: Game, entry: ParlayEntry | undefined) => {
-      if (entry?.status === 'ready') {
+      // A running row opens its timeline. It used to fall through to the game
+      // screen, whose Create button could not see the run in flight and would
+      // start a second one for the same game.
+      if (entry?.status === 'ready' || entry?.status === 'running') {
         return openEntry(entry)
       }
       if (entry?.status === 'failed') {
@@ -148,11 +160,19 @@ export default function BuildScreen() {
     const outcome = await runBatch(batchGroups(mode, selected), runOne)
     setBatchRunning(false)
 
-    if (outcome.stoppedBy === 'rate_limited') {
+    if (outcome.stoppedBy) {
       const left = outcome.skipped.length
-      setBatchNotice(
-        `Stopped after ${outcome.succeeded.length} — you have hit the run limit. ${left} game${left === 1 ? '' : 's'} not started. Try again in ${getTimeUntilReset() || 'a little while'}.`
-      )
+      const notStarted = `${left} game${left === 1 ? '' : 's'} not started.`
+      const why =
+        outcome.stoppedBy === 'unauthorized'
+          ? 'Your session expired — sign in again.'
+          : outcome.stoppedBy === 'quota_exhausted'
+            ? 'You have used this week’s parlays.'
+            : `Try again in ${getTimeUntilReset() || 'a little while'}.`
+      setBatchNotice({
+        title: 'Stopped at the limit',
+        message: `Built ${outcome.succeeded.length} before hitting the parlay limit. ${notStarted} ${why}`,
+      })
       return
     }
     // A partially failed batch is a normal outcome, and the count is the only
@@ -164,9 +184,14 @@ export default function BuildScreen() {
       // Stays in select mode with the selection intact, exactly as the
       // rate-limited branch does, so Run can be pressed again — and because
       // exitSelectMode() clears the notice this is about to set.
-      setBatchNotice(
-        `${outcome.succeeded.length} built, ${failed} failed. Run again to retry — a run that does not come back with live book prices is not charged.`
-      )
+      // Nothing "stopped" here: the batch ran to the end and some parlays did
+      // not come back. The billing rule is stated as a rule, not an outcome —
+      // on a dropped connection the client cannot know whether the server
+      // finished and billed the run.
+      setBatchNotice({
+        title: 'Some parlays failed',
+        message: `${outcome.succeeded.length} built, ${failed} failed. Run again to retry. A parlay only counts against your weekly limit once it comes back with live book prices.`,
+      })
       return
     }
     if (mode === 'cross' && outcome.succeeded.length === 1) {
@@ -217,11 +242,16 @@ export default function BuildScreen() {
         {isLoading && !games ? (
           <ScreenLoading label={`Loading Week ${activeWeek} games…`} />
         ) : error ? (
-          <ErrorBanner
-            type="error"
-            title="Couldn't load games"
-            message={`${error.message}. Try again or pick a different week.`}
-          />
+          <>
+            <ErrorBanner
+              type="error"
+              title="Couldn't load games"
+              message={`${error.message} Try again or pick a different week.`}
+            />
+            {/* The manual half of "no auto-retry": the failure is shown, and
+                asking again is the user's call. */}
+            <Button variant="outline" label="Try again" onPress={() => void refetchGames()} />
+          </>
         ) : rows.length === 0 ? (
           <EmptyState
             icon="calendar-outline"
@@ -229,8 +259,21 @@ export default function BuildScreen() {
           />
         ) : (
           <>
+            {/* Without the plan every control locks and the quota strip goes
+                blank with no explanation — the same failure History already
+                names. */}
+            {entitlementsError && !entitlementsLoading ? (
+              <>
+                <ErrorBanner
+                  type="error"
+                  title="Couldn't load your plan"
+                  message={entitlementsError}
+                />
+                <Button variant="outline" label="Try again" onPress={() => void refetch()} />
+              </>
+            ) : null}
             {batchNotice ? (
-              <ErrorBanner type="rate_limit_reached" title="Batch stopped" message={batchNotice} />
+              <ErrorBanner type="rate_limit_reached" title={batchNotice.title} message={batchNotice.message} />
             ) : null}
             {runError && !selectMode ? (
               <ErrorBanner
@@ -249,7 +292,12 @@ export default function BuildScreen() {
             ) : null}
 
             {crossGameEntries.map(entry => (
-              <CrossGameRow key={entry.key} entry={entry} onPress={() => openEntry(entry)} />
+              <CrossGameRow
+                key={entry.key}
+                entry={entry}
+                disabled={selectMode}
+                onPress={() => openEntry(entry)}
+              />
             ))}
 
             {rows.map(row => (
@@ -273,6 +321,7 @@ export default function BuildScreen() {
         )}
       </ScrollView>
 
+      {batchRunning ? <KeepAwake /> : null}
       {selectMode ? (
         <BatchBar
           onLayout={e => setBatchBarHeight(e.nativeEvent.layout.height)}

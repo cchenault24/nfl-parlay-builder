@@ -3,6 +3,7 @@ import {
   CHUNK_SIZE,
   chunkKey,
   joinChunks,
+  manifestKey,
   parseManifest,
   splitValue,
   staleChunkIndices,
@@ -126,14 +127,28 @@ describe('staleChunkIndices', () => {
   })
 })
 
+// expo-secure-store's own rule, copied so a key it would refuse fails here
+// rather than at sign-in.
+const SECURE_STORE_KEY = /^[\w.-]+$/
+const FIREBASE_KEY = 'firebase:authUser:AIzaSyExample:[DEFAULT]'
+
 describe('chunkKey', () => {
   it('keeps each piece under its own distinct key', () => {
-    expect(chunkKey('firebase:authUser:abc', 0)).toBe('firebase:authUser:abc.0')
-    expect(chunkKey('firebase:authUser:abc', 1)).toBe('firebase:authUser:abc.1')
+    expect(chunkKey('firebase_authUser_abc', 0)).toBe('firebase_authUser_abc.0')
+    expect(chunkKey('firebase_authUser_abc', 1)).toBe('firebase_authUser_abc.1')
   })
 
   it('never collides with the manifest key', () => {
-    const key = 'firebase:authUser:abc'
-    expect(chunkKey(key, 0)).not.toBe(key)
+    expect(chunkKey(FIREBASE_KEY, 0)).not.toBe(manifestKey(FIREBASE_KEY))
+  })
+
+  it('turns the key Firebase actually uses into one SecureStore accepts', () => {
+    expect(manifestKey(FIREBASE_KEY)).toMatch(SECURE_STORE_KEY)
+    expect(chunkKey(FIREBASE_KEY, 3)).toMatch(SECURE_STORE_KEY)
+  })
+
+  it('maps the same key the same way every time', () => {
+    expect(manifestKey(FIREBASE_KEY)).toBe(manifestKey(FIREBASE_KEY))
+    expect(manifestKey(FIREBASE_KEY)).not.toBe(manifestKey('firebase:authUser:other:[DEFAULT]'))
   })
 })

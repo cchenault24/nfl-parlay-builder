@@ -13,6 +13,7 @@ import {
   getReactNativePersistence,
   initializeAuth,
   onAuthStateChanged,
+  sendPasswordResetEmail,
   signInWithCredential,
   signInWithEmailAndPassword,
   signOut,
@@ -91,6 +92,9 @@ export const signUpWithEmail = (email: string, password: string) =>
 
 export const signInWithGoogleCredential = (credential: AuthCredential) =>
   signInWithCredential(auth, credential)
+
+export const requestPasswordReset = (email: string) =>
+  sendPasswordResetEmail(auth, email)
 
 export const logOut = () => signOut(auth)
 

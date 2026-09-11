@@ -48,11 +48,17 @@ export function useAgeVerification() {
   }, [])
 
   const setVerified = useCallback(async () => {
-    await AsyncStorage.setItem(
-      AGE_VERIFICATION_KEY,
-      JSON.stringify(newVerification())
-    )
+    // The in-session flag is the gate; the write only spares the next launch
+    // from asking again. A failed write used to leave the tap doing nothing.
     setVerifiedState(true)
+    try {
+      await AsyncStorage.setItem(
+        AGE_VERIFICATION_KEY,
+        JSON.stringify(newVerification())
+      )
+    } catch {
+      // Asked again next launch, which is the safe direction to fail.
+    }
   }, [])
 
   return { isVerified: verified, isLoading, setVerified }

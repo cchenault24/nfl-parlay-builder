@@ -6,7 +6,6 @@ import { formatOdds } from '@shared/odds'
 import type { GeneratedParlay, LegOutcome, ParlayOutcome } from '@shared/types'
 import { useEffect, useState } from 'react'
 import {
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -16,8 +15,10 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { ErrorBanner } from '@/components/ui/ErrorBanner'
 import { UpgradeSheet } from '@/components/UpgradeSheet'
+import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Chip } from '@/components/ui/Chip'
+import { LinkButton } from '@/components/ui/LinkButton'
 import { useAuth } from '@/lib/auth/useAuth'
 import { auth } from '@/lib/firebase'
 import { getUserParlays } from '@/lib/parlays'
@@ -126,11 +127,14 @@ export default function HistoryScreen() {
         {/* Surfaced rather than worked around: without the plan there is no
             honest amount of history to show. */}
         {entitlementsError && !isLoading ? (
-          <ErrorBanner
-            type="error"
-            title="Couldn't load your plan"
-            message={entitlementsError}
-          />
+          <>
+            <ErrorBanner
+              type="error"
+              title="Couldn't load your plan"
+              message={entitlementsError}
+            />
+            <Button variant="outline" label="Try again" onPress={() => void refetch()} />
+          </>
         ) : null}
 
         {parlays === null || isLoading || !depthKnown ? (
@@ -197,12 +201,15 @@ export default function HistoryScreen() {
         )}
 
         {depth != null && parlays !== null && parlays.length === depth ? (
-          <Pressable onPress={() => setUpgradeVisible(true)}>
-            <Text style={styles.depthNote}>
-              Showing your last {depth}.{' '}
-              <Text style={styles.depthLink}>Pro keeps every parlay, every season.</Text>
-            </Text>
-          </Pressable>
+          <View style={styles.depthNote}>
+            <Text style={styles.depthText}>Showing your last {depth}.</Text>
+            <LinkButton
+              label="Pro keeps every parlay, every season."
+              onPress={() => setUpgradeVisible(true)}
+              role="button"
+              textStyle={styles.depthLink}
+            />
+          </View>
         ) : null}
       </ScrollView>
 
@@ -221,13 +228,9 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   body: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xxl },
   screenTitle: { ...typography.heading, color: colors.text },
-  depthNote: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    paddingVertical: spacing.sm,
-  },
-  depthLink: { color: colors.primaryBright },
+  depthNote: { alignItems: 'center' },
+  depthText: { ...typography.caption, color: colors.textSecondary, textAlign: 'center' },
+  depthLink: { ...typography.caption, textAlign: 'center' },
 
   card: { gap: spacing.sm },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },

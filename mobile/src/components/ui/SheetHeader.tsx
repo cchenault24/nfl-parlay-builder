@@ -1,7 +1,13 @@
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 
-import { colors, HIT_SLOP, spacing, typography } from '@/lib/theme/designTokens'
+import {
+  colors,
+  HIT_SLOP,
+  MIN_TARGET,
+  spacing,
+  typography,
+} from '@/lib/theme/designTokens'
 
 /**
  * The title-and-close row at the top of a full-screen `pageSheet` modal.
@@ -38,6 +44,7 @@ export function SheetHeader({
         hitSlop={HIT_SLOP}
         accessibilityRole="button"
         accessibilityLabel={`Close ${title}`}
+        style={styles.close}
       >
         <Ionicons name="close" size={24} color={colors.textSecondary} />
       </Pressable>
@@ -57,6 +64,15 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.divider,
   },
   text: { flex: 1, gap: spacing.xxs },
+  close: {
+    minWidth: MIN_TARGET,
+    minHeight: MIN_TARGET,
+    alignItems: 'center',
+    justifyContent: 'center',
+    // Pulls the 44pt box back so the glyph stays where the 24pt one sat.
+    marginTop: -spacing.sm,
+    marginRight: -spacing.sm,
+  },
   title: { ...typography.heading, color: colors.text },
   subtitle: { ...typography.bodySmall, color: colors.textSecondary },
 })

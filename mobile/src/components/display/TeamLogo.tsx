@@ -18,10 +18,14 @@ export function TeamLogo({ teamName, size = 'medium' }: TeamLogoProps) {
   const url = teamName.trim().length >= 2 ? getTeamLogoUrl(teamName) : ''
 
   if (!url || failed) {
+    const abbreviation = teamName.length >= 2 ? teamName.slice(0, 3).toUpperCase() : 'UNK'
     return (
-      <View style={[styles.fallback, { width: px, height: px }]}>
+      <View
+        style={[styles.fallback, { width: px, height: px }]}
+        accessibilityLabel={teamName.trim() || abbreviation}
+      >
         <Text style={[styles.fallbackText, { fontSize: px * 0.3 }]} numberOfLines={1}>
-          {teamName.length >= 2 ? teamName.slice(0, 3).toUpperCase() : 'UNK'}
+          {abbreviation}
         </Text>
       </View>
     )

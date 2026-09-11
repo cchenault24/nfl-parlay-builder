@@ -3,15 +3,10 @@ import {
   quotaResetLabel,
 } from '@shared/rateLimits'
 import type { QuotaState } from '@shared/tiering'
-import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { StyleSheet, Text, View } from 'react-native'
 
-import {
-  colors,
-  HIT_SLOP,
-  PRESSED_OPACITY,
-  spacing,
-  typography,
-} from '@/lib/theme/designTokens'
+import { LinkButton } from '@/components/ui/LinkButton'
+import { colors, spacing, typography } from '@/lib/theme/designTokens'
 
 interface QuotaIndicatorProps {
   quota: QuotaState
@@ -36,14 +31,12 @@ export function QuotaIndicator({ quota, onUpgrade }: QuotaIndicatorProps) {
         </Text>
         <Text style={styles.reset}>{quotaResetLabel(quota.resetsAt)}</Text>
       </View>
-      <Pressable
+      <LinkButton
+        label="Go unlimited"
         onPress={onUpgrade}
-        accessibilityRole="button"
-        hitSlop={HIT_SLOP}
-        style={({ pressed }) => [styles.link, pressed && styles.pressed]}
-      >
-        <Text style={styles.linkText}>Go unlimited</Text>
-      </Pressable>
+        role="button"
+        tint={colors.secondary}
+      />
     </View>
   )
 }
@@ -63,7 +56,4 @@ const styles = StyleSheet.create({
   },
   countExhausted: { color: colors.textSecondary },
   reset: { ...typography.caption, color: colors.textSecondary },
-  link: { paddingVertical: spacing.xs },
-  linkText: { ...typography.label, color: colors.secondary },
-  pressed: { opacity: PRESSED_OPACITY },
 })

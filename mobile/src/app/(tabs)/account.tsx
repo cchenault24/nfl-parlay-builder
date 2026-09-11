@@ -19,6 +19,7 @@ import { ResponsibleGambling } from '@/components/legal/ResponsibleGambling'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Chip } from '@/components/ui/Chip'
+import { LinkButton } from '@/components/ui/LinkButton'
 import { AccountService } from '@shared/api/AccountService'
 import { useEntitlements } from '@shared/hooks/useEntitlements'
 import { sharedRuntime } from '@shared/runtime'
@@ -196,17 +197,17 @@ export default function AccountScreen() {
         <Card padded={false} style={styles.group}>
           <Row
             icon="document-text-outline"
-            label="Terms of Service"
+            label="Terms of service"
             onPress={() => setDocument(termsOfService)}
           />
           <Row
             icon="lock-closed-outline"
-            label="Privacy Policy"
+            label="Privacy policy"
             onPress={() => setDocument(privacyPolicy)}
           />
           <Row
             icon="alert-circle-outline"
-            label="Legal Disclaimer"
+            label="Legal disclaimer"
             onPress={() => setDocument(legalDisclaimer)}
           />
           <Row
@@ -217,15 +218,13 @@ export default function AccountScreen() {
           />
         </Card>
 
-        <Pressable
+        <LinkButton
+          icon="call-outline"
+          label={`Problem gambling helpline · ${HELPLINE}`}
           onPress={() => Linking.openURL('tel:18005224700')}
-          style={({ pressed }) => [styles.helpline, pressed && styles.pressed]}
-        >
-          <Ionicons name="call-outline" size={16} color={colors.primaryBright} />
-          <Text style={styles.helplineText}>
-            Problem gambling helpline · {HELPLINE}
-          </Text>
-        </Pressable>
+          textStyle={styles.helplineText}
+          style={styles.helpline}
+        />
 
         <Button
           variant="neutral"
@@ -257,7 +256,6 @@ export default function AccountScreen() {
           loading={deleting}
           disabled={signingOut}
           onPress={confirmDelete}
-          style={styles.deleteAccount}
         />
 
         <Text style={styles.copyright}>
@@ -273,7 +271,6 @@ export default function AccountScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
-  deleteAccount: { minHeight: 0 },
   body: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xxl },
   screenTitle: { ...typography.heading, color: colors.text },
   identity: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
@@ -304,13 +301,8 @@ const styles = StyleSheet.create({
   rowLast: { borderBottomWidth: 0 },
   rowLabel: { ...typography.body, color: colors.text, flex: 1 },
 
-  helpline: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.sm,
-  },
-  helplineText: { ...typography.bodySmall, color: colors.primaryBright },
+  helpline: { alignSelf: 'flex-start', gap: spacing.sm },
+  helplineText: { ...typography.bodySmall },
 
   copyright: { ...typography.caption, color: colors.textDisabled, textAlign: 'center' },
   pressed: { opacity: PRESSED_OPACITY },

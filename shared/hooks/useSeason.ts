@@ -8,7 +8,9 @@ async function fetchJson<T>(path: string): Promise<T> {
     const body = (await res.json().catch(() => null)) as {
       message?: string
     } | null
-    throw new Error(body?.message ?? `Request failed (${res.status})`)
+    // A status code is not a sentence a person can act on; the server's own
+    // message is, when it sent one.
+    throw new Error(body?.message ?? 'The schedule could not be reached right now.')
   }
   return res.json() as Promise<T>
 }

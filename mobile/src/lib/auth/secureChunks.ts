@@ -17,13 +17,21 @@
 // under a quarter of the cap.
 export const CHUNK_SIZE = 400
 
+// SecureStore accepts only `[A-Za-z0-9._-]` in a key, and Firebase's key is
+// `firebase:authUser:<apiKey>:[DEFAULT]` — three characters it refuses. The
+// write rejected, and because sign-in awaits that write, so did every sign-in.
+// The mapping is deterministic, so the same key always finds the same entry.
+export function storeKey(key: string): string {
+  return key.replace(/[^\w.-]/g, '_')
+}
+
 // `key` holds the manifest; the pieces live beside it under a numeric suffix.
 export function manifestKey(key: string): string {
-  return key
+  return storeKey(key)
 }
 
 export function chunkKey(key: string, index: number): string {
-  return `${key}.${index}`
+  return `${storeKey(key)}.${index}`
 }
 
 export function splitValue(value: string): string[] {

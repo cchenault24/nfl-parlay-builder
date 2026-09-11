@@ -14,6 +14,7 @@ import { useState } from 'react'
 import { Alert, InteractionManager, ScrollView, StyleSheet, Text, View } from 'react-native'
 
 import { ErrorBanner } from '@/components/ui/ErrorBanner'
+import { KeepAwake } from '@/components/ui/KeepAwake'
 import { AgentProgress } from '@/components/display/AgentProgress'
 import { DraftPreviewView } from '@/components/display/DraftPreviewView'
 import { GameSummaryView } from '@/components/display/GameSummaryView'
@@ -22,7 +23,7 @@ import { ParlayLegView } from '@/components/display/ParlayLegView'
 import { Button } from '@/components/ui/Button'
 import { useAuth } from '@/lib/auth/useAuth'
 import { unbilledNotice } from '@/lib/build/quotaCopy'
-import { saveParlayToUser } from '@/lib/parlays'
+import { isParlaySaved, saveParlayToUser } from '@/lib/parlays'
 import { colors, spacing, typography } from '@/lib/theme/designTokens'
 
 /**
@@ -68,6 +69,7 @@ export default function ParlayDetailScreen() {
     return (
       <View style={styles.screen}>
         <Stack.Screen options={{ title: 'Building' }} />
+        <KeepAwake />
         <ScrollView contentContainerStyle={styles.body}>
           <AgentProgress
             steps={entry.steps}
@@ -107,7 +109,7 @@ export default function ParlayDetailScreen() {
   }
 
   const parlay = entry.parlay
-  const alreadySaved = savedId === parlay.parlayId
+  const alreadySaved = savedId === parlay.parlayId || isParlaySaved(parlay.parlayId)
   const hasEstimate = parlay.legs.some(leg => !leg.anchored)
   const unbilled = unbilledNotice(entry.games, quota)
   const contextFor = (gameId: string) => {

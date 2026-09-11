@@ -45,7 +45,9 @@ export async function runBatch(
       outcome.succeeded.push(gameIds)
     } catch (error) {
       const code = runErrorCode(error)
-      if (code === 'rate_limited') {
+      // Any refusal that applies to the account rather than the game will
+      // repeat for every remaining group; firing them just reports N failures.
+      if (code === 'rate_limited' || code === 'quota_exhausted' || code === 'unauthorized') {
         outcome.stoppedBy = code
         outcome.skipped = groups.slice(index)
         return outcome

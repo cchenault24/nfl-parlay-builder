@@ -43,7 +43,7 @@ export interface LegalDocument {
 
 export const termsOfService: LegalDocument = {
   title: 'Terms of Service',
-  subtitle: 'Last updated September 8, 2026',
+  subtitle: 'Last updated September 11, 2026',
   notice: {
     title: 'Important Notice',
     description:
@@ -86,6 +86,12 @@ export const termsOfService: LegalDocument = {
         'We reserve the right to modify or discontinue the service at any time without prior notice.',
       icon: 'check',
     },
+    {
+      title: '7. Subscriptions',
+      description:
+        'ParlAId Pro is an auto-renewing monthly subscription billed through the App Store on iPhone, or through Stripe on the web, at the price shown at purchase. It renews automatically unless cancelled at least 24 hours before the current period ends. Manage or cancel it in your App Store account settings, or in the billing portal on the web. Refunds are handled by the store you purchased through, under its own policies.',
+      icon: 'info',
+    },
   ],
   footer: {
     title: 'Contact Information',
@@ -96,7 +102,7 @@ export const termsOfService: LegalDocument = {
 
 export const privacyPolicy: LegalDocument = {
   title: 'Privacy Policy',
-  subtitle: 'Last updated September 8, 2026',
+  subtitle: 'Last updated September 11, 2026',
   notice: {
     title: 'Your Privacy Matters',
     description:
@@ -106,7 +112,7 @@ export const privacyPolicy: LegalDocument = {
     {
       title: 'Information We Collect',
       description:
-        'We collect minimal information necessary to provide our service: authentication data (email, name), parlay history, and basic usage analytics to improve user experience.',
+        'We collect minimal information necessary to provide our service: authentication data (email, name), parlay history, and the server logs needed to operate and troubleshoot the service. We do not use analytics or tracking SDKs.',
       icon: 'storage',
     },
     {
@@ -118,7 +124,7 @@ export const privacyPolicy: LegalDocument = {
     {
       title: 'Data Security',
       description:
-        'We implement industry-standard security measures including encryption, secure authentication, and regular security audits to protect your personal information.',
+        'We implement industry-standard security practices, including encryption in transit, secure authentication, and server-side access controls, to protect your personal information.',
       icon: 'shield',
     },
     {
@@ -205,6 +211,13 @@ export const HELPLINES: Helpline[] = [
     dial: '18005224700',
     website: 'ncpgambling.org',
     description: '24/7 confidential support for problem gambling',
+  },
+  {
+    name: '1-800-GAMBLER',
+    phone: '1-800-GAMBLER',
+    dial: '18004262537',
+    website: '1800gambler.net',
+    description: '24/7 confidential helpline, call or text',
   },
   {
     name: 'Gamblers Anonymous',

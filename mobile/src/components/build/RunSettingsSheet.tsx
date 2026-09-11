@@ -66,7 +66,6 @@ export function RunSettingsSheet({
     value: option.value,
     label: option.label,
     locked: option.locked,
-    disabled: option.locked,
   }))
   const bookChoices: StripOption<string>[] = books.map(book => ({
     value: book.key,
@@ -103,14 +102,15 @@ export function RunSettingsSheet({
           onChange={setLegCount}
           accessibilityLabel="Leg count"
           chipWidth={LEG_CHIP_WIDTH}
+          onLockedPress={() => onUpgrade('Longer and shorter parlays are part of Pro.')}
         />
         {/* The Pro range is the server's, not a sentence restating it. */}
         {capabilities &&
         proLegCount &&
         capabilities.legCount.min === capabilities.legCount.max ? (
           <Text style={styles.hint}>
-            Parlays are {capabilities.legCount.min} legs on your plan — {proLegCount.min}–
-            {proLegCount.max} with Pro.
+            Parlays are {capabilities.legCount.min} {capabilities.legCount.min === 1 ? 'leg' : 'legs'} on
+            your plan — {proLegCount.min}–{proLegCount.max} with Pro.
           </Text>
         ) : null}
       </View>

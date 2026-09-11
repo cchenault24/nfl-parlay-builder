@@ -88,7 +88,7 @@ accountRouter.delete(
         res,
         500,
         'account_delete_failed',
-        'Could not delete your account. Nothing has been removed — please try again.',
+        'Could not delete your account. Deletion did not finish — please try again to complete it.',
         correlationId
       )
     }

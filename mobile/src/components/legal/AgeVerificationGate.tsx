@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
   body: { padding: spacing.md, gap: spacing.md },
 
   header: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.lg },
-  headerText: { flex: 1, gap: 2 },
+  headerText: { flex: 1, gap: spacing.xxs },
   title: { ...typography.heading, color: colors.text },
   subtitle: { ...typography.bodySmall, color: colors.textSecondary },
 
@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
   panel: { padding: spacing.md, gap: spacing.sm },
   panelTitle: { ...typography.label, color: colors.primaryBright },
   requirement: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  dot: { width: 4, height: 4, borderRadius: 2, backgroundColor: colors.primary },
+  dot: { width: 4, height: 4, borderRadius: radius.pill, backgroundColor: colors.primary },
   requirementText: { ...typography.bodySmall, color: colors.textSecondary },
   helpline: { ...typography.caption, color: colors.textDisabled, marginTop: spacing.xs },
 

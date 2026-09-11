@@ -16,8 +16,6 @@ interface SheetProps {
   title: string
   onClose: () => void
   children: React.ReactNode
-  // Label for the confirming action. It only ever dismisses — every control in
-  // a sheet applies as it is touched, so there is nothing to commit.
 }
 
 /**
