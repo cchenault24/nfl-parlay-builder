@@ -40,7 +40,11 @@ export const AILegSchema = z.object({
   selection: z.string(),
   line: z.number().nullable(),
   side: z.enum(['over', 'under']).nullable(),
-  odds: z.number().int(),
+  // Bounded at the model boundary, not only in validate. The format cannot
+  // express "not zero" — a union of the two valid American ranges is rejected
+  // by zodTextFormat — so the -99..99 hole stays validate's job, but a price
+  // outside any plausible range is now impossible to emit at all.
+  odds: z.number().int().min(-20000).max(20000),
   confidence: z.number().min(0).max(1),
   reasoning: z.string(),
 })
