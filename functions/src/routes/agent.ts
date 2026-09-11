@@ -5,7 +5,6 @@ import {
   AgentRun,
   AgentRunSchema,
   AgentStep,
-  RiskLevelSchema,
 } from '../agent/shared/schemas'
 import {
   cancelRun,
@@ -22,9 +21,11 @@ import {
   rateLimitByUser,
 } from '../middleware/rateLimit'
 import { log } from '../observability/logger'
-import { SUPPORTED_BOOKMAKERS } from '../providers/odds/client'
+import { getSeasonSchedule } from '../providers/espn/client'
 import { getEntitlementView } from '../tiering/store'
 import { errorResponse } from '../utils/errors'
+import { getCurrentSeason } from '../utils/season'
+import { resolveRunInput } from './agentRunInput'
 
 export const agentRouter = express.Router()
 
@@ -98,14 +99,24 @@ agentRouter.post(
     if (!user) {
       return errorResponse(res, 401, 'unauthorized', 'Missing user', correlationId)
     }
-    const gameId = String(req.body?.gameId ?? '').trim()
-    const risk = RiskLevelSchema.safeParse(req.body?.riskLevel ?? 'moderate')
-    if (!gameId || !risk.success) {
+    // The schedule is needed to check that every requested game exists and that
+    // they share a week. One cached call however many games were asked for.
+    let schedule
+    try {
+      schedule = await getSeasonSchedule(getCurrentSeason())
+    } catch (e) {
+      log.error('api.agent.schedule.error', {
+        correlationId,
+        error: {
+          code: 'schedule_unavailable',
+          message: e instanceof Error ? e.message : String(e),
+        },
+      })
       return errorResponse(
         res,
-        400,
-        'validation_error',
-        'gameId is required and riskLevel must be conservative, moderate, or aggressive',
+        502,
+        'schedule_unavailable',
+        'Could not load the NFL schedule to check those games.',
         correlationId
       )
     }
@@ -114,72 +125,19 @@ agentRouter.post(
     // controls are an upsell, not a security boundary, and this endpoint is
     // reachable directly.
     const entitlements = await getEntitlementView(user.uid)
-    if (entitlements.quota.remaining === 0) {
+    const { input, refusal } = resolveRunInput({
+      body: req.body,
+      entitlements,
+      schedule,
+    })
+    if (refusal) {
       return errorResponse(
         res,
-        403,
-        'quota_exhausted',
-        `You have used all ${entitlements.quota.limit} generations for this week. Your next ones arrive Tuesday.`,
+        refusal.status,
+        refusal.code,
+        refusal.message,
         correlationId,
-        { resetsAt: entitlements.quota.resetsAt, tier: entitlements.tier }
-      )
-    }
-    if (!entitlements.capabilities.riskLevels.includes(risk.data)) {
-      return errorResponse(
-        res,
-        403,
-        'risk_level_locked',
-        `The ${risk.data} risk level is a Pro feature.`,
-        correlationId,
-        { tier: entitlements.tier, allowed: entitlements.capabilities.riskLevels }
-      )
-    }
-
-    const { legCount: legs } = entitlements.capabilities
-    const requestedLegs = req.body?.legCount === undefined
-      ? legs.default
-      : Number(req.body.legCount)
-    if (
-      !Number.isInteger(requestedLegs) ||
-      requestedLegs < legs.min ||
-      requestedLegs > legs.max
-    ) {
-      return errorResponse(
-        res,
-        403,
-        'leg_count_locked',
-        legs.min === legs.max
-          ? `Parlays are ${legs.min} legs on your plan. Choosing a leg count is a Pro feature.`
-          : `Leg count must be between ${legs.min} and ${legs.max}.`,
-        correlationId,
-        { tier: entitlements.tier, allowed: legs }
-      )
-    }
-
-    // An unset bookmaker is the norm — it means "no preference", and the odds
-    // client falls through its default priority. Only a rejected *choice* is an
-    // error, so a plan that cannot choose simply has the field dropped rather
-    // than being refused for sending a default it never picked.
-    const requestedBook = req.body?.bookmaker
-      ? String(req.body.bookmaker)
-      : undefined
-    if (requestedBook && !entitlements.capabilities.chooseSportsbook) {
-      return errorResponse(
-        res,
-        403,
-        'sportsbook_locked',
-        'Choosing your sportsbook is a Pro feature.',
-        correlationId,
-        { tier: entitlements.tier }
-      )
-    }
-    if (requestedBook && !SUPPORTED_BOOKMAKERS.some(b => b.key === requestedBook)) {
-      return errorResponse(
-        res,
-        400,
-        'validation_error',
-        `bookmaker must be one of ${SUPPORTED_BOOKMAKERS.map(b => b.key).join(', ')}`,
-        correlationId
+        refusal.details
       )
     }
 
@@ -192,16 +150,7 @@ agentRouter.post(
       status: 'queued',
       correlationId,
       budget: AgentBudgetSchema.parse({}),
-      input: {
-        gameId,
-        riskLevel: risk.data,
-        // Snapshotted now rather than re-read mid-run: a tier that changes
-        // while the agent is drafting would otherwise have the draft prompted
-        // for one shape and validated against another.
-        legCount: requestedLegs,
-        playerProps: entitlements.capabilities.playerProps,
-        ...(requestedBook ? { bookmaker: requestedBook } : {}),
-      },
+      input,
     })
     await createRun(run)
     log.info('api.agent.create', { correlationId, runId: run.id, userId: user.uid })

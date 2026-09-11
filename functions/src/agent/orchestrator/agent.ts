@@ -196,9 +196,12 @@ export async function runAgent(
     const { data: game } = await tool(
       'espn_game',
       () =>
-        getGame(getCurrentSeason(), run.input.gameId).then(g => {
+        getGame(getCurrentSeason(), run.input.gameIds[0]).then(g => {
           if (!g) {
-            throw new RunError('game_not_found', `Game ${run.input.gameId} not found`)
+            throw new RunError(
+              'game_not_found',
+              `Game ${run.input.gameIds[0]} not found`
+            )
           }
           return g
         }),

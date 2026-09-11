@@ -1,4 +1,4 @@
-import type { RiskLevel } from '../agent/shared/schemas'
+import { MAX_GAMES_PER_RUN, type RiskLevel } from '../agent/shared/schemas'
 
 // The authoritative tier definition. Clients never hardcode these numbers —
 // /entitlements hands them over — so this file is the only place a limit is
@@ -10,6 +10,9 @@ export interface TierCapabilities {
   generationsPerWeek: number | null
   riskLevels: RiskLevel[]
   legCount: { min: number; max: number; default: number }
+  // How many games one run may draw legs from. 1 means single-game only, which
+  // is what makes cross-game a Pro feature without needing a separate flag.
+  maxGamesPerRun: number
   playerProps: boolean
   chooseSportsbook: boolean
   historyDepth: number | null
@@ -31,6 +34,7 @@ const FREE: TierCapabilities = {
   generationsPerWeek: 2,
   riskLevels: ['moderate'],
   legCount: { min: 3, max: 3, default: 3 },
+  maxGamesPerRun: 1,
   playerProps: false,
   chooseSportsbook: false,
   historyDepth: 10,
@@ -43,6 +47,7 @@ const PRO: TierCapabilities = {
   generationsPerWeek: null,
   riskLevels: ['conservative', 'moderate', 'aggressive'],
   legCount: { min: 2, max: 6, default: 3 },
+  maxGamesPerRun: MAX_GAMES_PER_RUN,
   playerProps: true,
   chooseSportsbook: true,
   historyDepth: null,

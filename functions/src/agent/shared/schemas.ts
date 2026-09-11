@@ -42,6 +42,12 @@ export const AgentRunStatusSchema = z.enum([
 
 export const RiskLevelSchema = z.enum(['conservative', 'moderate', 'aggressive'])
 
+// The hard ceiling on a cross-game run, above whatever a tier allows. Six is
+// the leg-count maximum, so at this cap every leg can still come from its own
+// game and no larger number would buy anything. It also sets the run budget
+// (`maxRunMs` below) and, through it, the function timeout in index.ts.
+export const MAX_GAMES_PER_RUN = 6
+
 export type SourceStatus = 'ok' | 'unavailable' | 'indoor'
 
 // A drafted leg after the orchestrator has snapped its line/price to the
@@ -74,7 +80,10 @@ export const AgentRunSchema = z.object({
   correlationId: z.string(),
   budget: AgentBudgetSchema,
   input: z.object({
-    gameId: z.string().min(1),
+    // Always an array, even for one game. Nothing downstream branches on the
+    // length: a single-game run is a one-element slate, which is what keeps the
+    // fan-out, the analysis shape and the step timeline uniform.
+    gameIds: z.array(z.string().min(1)).min(1).max(MAX_GAMES_PER_RUN),
     riskLevel: RiskLevelSchema,
     // Snapshotted from the user's entitlements when the run is created, rather
     // than read again mid-run. A subscription that lapses (or starts) while the
