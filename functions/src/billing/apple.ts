@@ -38,10 +38,24 @@ async function verify<T>(
   }
 }
 
+// The App Store product that maps to ParlAId Pro. The client holds the same
+// string (mobile/src/lib/billing/iap.ts) and cannot share this one: `functions/`
+// compiles with rootDir "src" and Firebase packages only that directory, so it
+// cannot import from shared/. Two copies across a build boundary that has no
+// bridge — change both together.
+export const PRO_PRODUCT_ID = 'com.debugdad.parlaid.pro.monthly'
+
 function grantFrom(payload: JWSTransactionDecodedPayload): {
   tier: 'pro' | 'free'
   accessEndsAt: string | null
 } {
+  // A refunded or revoked transaction stays cryptographically valid and keeps
+  // its original expiresDate, so the date alone would re-grant Pro to someone
+  // Apple already took the money back from — replayable for as long as the
+  // period runs.
+  if (payload.revocationDate) {
+    return { tier: 'free', accessEndsAt: null }
+  }
   // An auto-renewing subscription is entitled until expiresDate. Apple sends
   // renewals ahead of that date, so a lapsed one simply stops being renewed
   // rather than being revoked — which is why an elapsed date demotes on read.
@@ -63,6 +77,34 @@ export async function redeemAppleTransaction(
   signedTransaction: string
 ): Promise<{ tier: 'pro' | 'free'; accessEndsAt: string | null }> {
   const payload = await verify(v => v.verifyAndDecodeTransaction(signedTransaction))
+
+  // A verified signature proves Apple issued *a* transaction, not that it was
+  // for the thing being granted. Without this, any signed auto-renewing
+  // transaction for this bundle grants Pro.
+  if (payload.productId !== PRO_PRODUCT_ID) {
+    throw new Error(`Transaction is for ${payload.productId ?? 'no product'}, not Pro`)
+  }
+
+  // Nor does a signature prove the *caller* made the purchase. A JWS can be
+  // lifted off one device and posted from another account, which would turn one
+  // subscription into unlimited Pro grants — and because findUidByAppleTransaction
+  // resolves one uid, a later REFUND would demote exactly one of them and leave
+  // the rest entitled forever.
+  const holder = payload.originalTransactionId
+    ? await findUidByAppleTransaction(payload.originalTransactionId)
+    : undefined
+  if (holder && holder !== uid) {
+    log.warn('billing.apple.transaction_already_claimed', {
+      correlationId: payload.originalTransactionId ?? 'unknown',
+      uid,
+      error: {
+        code: 'transaction_already_claimed',
+        message: `Apple transaction ${payload.originalTransactionId} is held by another account`,
+      },
+    })
+    throw new Error('That subscription is already attached to a different account.')
+  }
+
   const grant = grantFrom(payload)
 
   await setEntitlement(uid, {

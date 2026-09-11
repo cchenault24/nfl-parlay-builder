@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 
 import { Button } from '@/components/ui/Button'
-import { purchasePro } from '@/lib/billing/iap'
+import { purchasePro, reconcilePurchases } from '@/lib/billing/iap'
 import { colors, HIT_SLOP, radius, spacing, typography } from '@/lib/theme/designTokens'
 
 // Written as what Pro does, not as a feature matrix. Order is deliberate: the
@@ -38,13 +38,27 @@ export default function UpgradeSheet({
   reason,
 }: UpgradeSheetProps) {
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [restoring, setRestoring] = useState(false)
 
   const buy = async () => {
     setBusy(true)
     setError(null)
+    setNotice(null)
     try {
-      await purchasePro()
+      const outcome = await purchasePro()
+      if (outcome.status === 'cancelled') {
+        // Their own deliberate dismissal. Saying anything about it would tell
+        // them something went wrong when nothing did.
+        return
+      }
+      if (outcome.status === 'pending') {
+        setNotice(
+          'Waiting for approval. Pro unlocks as soon as the purchase is approved.'
+        )
+        return
+      }
       onPurchased()
       onClose()
     } catch (e) {
@@ -52,6 +66,29 @@ export default function UpgradeSheet({
       setError(e instanceof Error ? e.message : 'Purchase could not be completed.')
     } finally {
       setBusy(false)
+    }
+  }
+
+  // Required for an auto-renewable subscription (Guideline 3.1.1), and the way
+  // back for anyone whose entitlement never landed — a reinstall, a second
+  // device, or a purchase whose server redemption failed after they were
+  // charged.
+  const restore = async () => {
+    setRestoring(true)
+    setError(null)
+    setNotice(null)
+    try {
+      const redeemed = await reconcilePurchases()
+      if (redeemed > 0) {
+        onPurchased()
+        onClose()
+        return
+      }
+      setNotice('No previous purchase found on this Apple ID.')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not restore your purchases.')
+    } finally {
+      setRestoring(false)
     }
   }
 
@@ -87,6 +124,7 @@ export default function UpgradeSheet({
             ))}
 
             {error ? <Text style={styles.error}>{error}</Text> : null}
+            {notice ? <Text style={styles.notice}>{notice}</Text> : null}
 
             <Text style={styles.legal}>
               For entertainment only. No wagers are placed through ParlAId.
@@ -94,11 +132,22 @@ export default function UpgradeSheet({
           </ScrollView>
 
           {canPurchase ? (
-            <Button
-              label={busy ? 'Contacting the App Store…' : 'Upgrade'}
-              onPress={buy}
-              disabled={busy}
-            />
+            <View style={styles.actions}>
+              <Button
+                label={busy ? 'Contacting the App Store…' : 'Upgrade'}
+                onPress={buy}
+                disabled={busy || restoring}
+              />
+              {/* Guideline 3.1.1 wants this reachable from the purchase
+                  surface, not only buried in settings. */}
+              <Button
+                variant="neutral"
+                label="Restore purchases"
+                loading={restoring}
+                disabled={busy}
+                onPress={restore}
+              />
+            </View>
           ) : null}
         </View>
       </View>
@@ -141,5 +190,7 @@ const styles = StyleSheet.create({
   },
   featureText: { ...typography.body, color: colors.text, flex: 1 },
   error: { ...typography.bodySmall, color: colors.error, marginTop: spacing.md },
+  notice: { ...typography.bodySmall, color: colors.text, marginTop: spacing.md },
+  actions: { gap: spacing.sm },
   legal: { ...typography.micro, color: colors.textSecondary, marginTop: spacing.md },
 })

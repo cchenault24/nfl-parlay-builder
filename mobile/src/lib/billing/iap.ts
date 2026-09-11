@@ -1,7 +1,9 @@
 import { EntitlementsService } from '@shared/api/EntitlementsService'
 import { sharedRuntime } from '@shared/runtime'
 import {
+  ErrorCode,
   finishTransaction,
+  getAvailablePurchases,
   initConnection,
   purchaseErrorListener,
   purchaseUpdatedListener,
@@ -12,8 +14,20 @@ import {
 const service = new EntitlementsService()
 
 // The App Store product that maps to ParlAId Pro. Must match the identifier
-// created in App Store Connect, or StoreKit returns no products at all.
+// created in App Store Connect, or StoreKit returns no products at all. The
+// server holds the same string and checks it before granting — see the note in
+// functions/src/billing/apple.ts for why it cannot be shared.
 export const PRO_PRODUCT_ID = 'com.debugdad.parlaid.pro.monthly'
+
+export type PurchaseOutcome =
+  | { status: 'purchased' }
+  // The user dismissed the App Store sheet. Not a failure, and showing it as
+  // one tells them their own deliberate action went wrong.
+  | { status: 'cancelled' }
+  // Ask to Buy: StoreKit is holding the purchase for a parent to approve. The
+  // approved transaction arrives later and is picked up by reconcilePurchases()
+  // on a subsequent launch.
+  | { status: 'pending' }
 
 // Sends a StoreKit-signed transaction to the server, which verifies Apple's
 // signature and grants Pro. The signature is the only thing that grants
@@ -26,18 +40,78 @@ export async function redeemSignedTransaction(signedTransaction: string) {
   return service.redeemAppleTransaction(token, signedTransaction)
 }
 
+// initConnection resolves false rather than throwing when the device cannot pay
+// at all — purchases restricted by Screen Time, most often. Proceeding to
+// requestPurchase from there produces a generic store error instead of the true
+// reason, so this turns it into one.
+async function connect(): Promise<void> {
+  const connected = await initConnection()
+  if (!connected) {
+    throw new Error('In-app purchases are not available on this device.')
+  }
+}
+
+// Verify on the server first, and only then finishTransaction. The order is not
+// interchangeable: finishing early tells StoreKit the purchase is handled, and
+// an unfinished transaction is the only thing that survives a failure here.
+async function redeemAndFinish(purchase: Purchase): Promise<void> {
+  // Unified across platforms; on iOS this is the StoreKit 2 JWS.
+  const signedTransaction = purchase.purchaseToken
+  if (!signedTransaction) {
+    throw new Error('The App Store returned a purchase with no signed transaction.')
+  }
+  await redeemSignedTransaction(signedTransaction)
+  // A subscription is not consumable — consuming it would let the same period
+  // be bought again.
+  await finishTransaction({ purchase, isConsumable: false })
+}
+
+/**
+ * Redeems every Pro purchase StoreKit is still holding, and returns how many
+ * were taken.
+ *
+ * This is the recovery path, and nothing else provides one. A purchase whose
+ * server redemption fails is deliberately left unfinished so it survives, but
+ * openiap-apple drains unfinished transactions into internal pending state at
+ * `initConnection` WITHOUT emitting a purchase-updated event — so no listener
+ * ever sees them, and `purchaseUpdatedListener` is only registered for the few
+ * seconds `purchasePro` is awaiting anyway. Without an explicit
+ * `getAvailablePurchases` sweep a user who paid and lost the network keeps
+ * their charge and never gets Pro.
+ *
+ * Called at launch (app/_layout.tsx) and behind Restore Purchases.
+ */
+export async function reconcilePurchases(): Promise<number> {
+  await connect()
+  const purchases = await getAvailablePurchases()
+  let redeemed = 0
+  for (const purchase of purchases) {
+    if (purchase.productId !== PRO_PRODUCT_ID) {
+      continue
+    }
+    // A still-pending purchase has not been paid for; finishing it would
+    // discard the approval that is yet to arrive.
+    if (purchase.purchaseState === 'pending') {
+      continue
+    }
+    await redeemAndFinish(purchase)
+    redeemed += 1
+  }
+  return redeemed
+}
+
 // expo-iap delivers the outcome through listeners rather than the requestPurchase
 // return value, so this wraps the event flow into one awaitable call for the UI.
-//
-// The order matters and is not interchangeable: verify on the server first, and
-// only then finishTransaction. An unfinished iOS transaction replays on every
-// app launch, which is the safety net if this process dies mid-flight — finishing
-// early would throw that away and leave a paid user without Pro.
-export async function purchasePro(): Promise<void> {
-  await initConnection()
+export async function purchasePro(): Promise<PurchaseOutcome> {
+  await connect()
 
-  return new Promise<void>((resolve, reject) => {
+  return new Promise<PurchaseOutcome>((resolve, reject) => {
     let settled = false
+    // Claimed before the redeem round trip, not after it. `settled` alone is not
+    // enough: removing the listener happens at settle time, so a second event
+    // arriving while the first is still awaiting the server would start a second
+    // redeem-and-finish for the same transaction.
+    let claimed = false
 
     const settle = (outcome: () => void) => {
       if (settled) {
@@ -55,17 +129,17 @@ export async function purchasePro(): Promise<void> {
       if (purchase.productId !== PRO_PRODUCT_ID) {
         return
       }
+      if (claimed) {
+        return
+      }
+      if (purchase.purchaseState === 'pending') {
+        settle(() => resolve({ status: 'pending' }))
+        return
+      }
+      claimed = true
       try {
-        // Unified across platforms; on iOS this is the StoreKit 2 JWS.
-        const signedTransaction = purchase.purchaseToken
-        if (!signedTransaction) {
-          throw new Error('The App Store returned a purchase with no signed transaction.')
-        }
-        await redeemSignedTransaction(signedTransaction)
-        // A subscription is not consumable — consuming it would let the same
-        // period be bought again.
-        await finishTransaction({ purchase, isConsumable: false })
-        settle(resolve)
+        await redeemAndFinish(purchase)
+        settle(() => resolve({ status: 'purchased' }))
       } catch (e) {
         settle(() =>
           reject(e instanceof Error ? e : new Error('Purchase could not be verified.'))
@@ -74,6 +148,39 @@ export async function purchasePro(): Promise<void> {
     })
 
     const failed = purchaseErrorListener(error => {
+      // Three of these are not failures, and reporting them as one is what puts
+      // a red error under a user's own Cancel tap.
+      if (error.code === ErrorCode.UserCancelled) {
+        settle(() => resolve({ status: 'cancelled' }))
+        return
+      }
+      if (error.code === ErrorCode.DeferredPayment) {
+        settle(() => resolve({ status: 'pending' }))
+        return
+      }
+      if (error.code === ErrorCode.AlreadyOwned) {
+        // They have it; the entitlement just never landed. Redeeming what
+        // StoreKit already holds is the fix, not a second purchase.
+        settle(() => {
+          reconcilePurchases().then(
+            redeemed =>
+              redeemed > 0
+                ? resolve({ status: 'purchased' })
+                : reject(
+                    new Error(
+                      'You already have a subscription. Try Restore Purchases from the Account tab.'
+                    )
+                  ),
+            () =>
+              reject(
+                new Error(
+                  'You already have a subscription. Try Restore Purchases from the Account tab.'
+                )
+              )
+          )
+        })
+        return
+      }
       settle(() => reject(new Error(error.message || 'The purchase was not completed.')))
     })
 

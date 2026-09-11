@@ -100,8 +100,11 @@ billingRouter.post(
     if (!user) {
       return errorResponse(res, 401, 'unauthorized', 'Missing user', correlationId)
     }
-    const signedTransaction = String(req.body?.signedTransaction ?? '')
-    if (!signedTransaction) {
+    // Checked as a string rather than coerced: String({}) is "[object Object]",
+    // which is truthy, so a non-string body would sail past this guard and reach
+    // the verifier as gibberish.
+    const signedTransaction = req.body?.signedTransaction
+    if (typeof signedTransaction !== 'string' || !signedTransaction) {
       return errorResponse(
         res,
         400,

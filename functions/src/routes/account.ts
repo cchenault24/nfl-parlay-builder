@@ -37,22 +37,14 @@ accountRouter.delete(
 
     try {
       // Neither store cancels a subscription because an account disappeared, so
-      // deleting now would leave someone paying for an account that no longer
-      // exists. getEntitlement already demotes an expired one on read, so this
-      // only catches a genuinely live subscription.
+      // a live one outlives the deletion and has to be cancelled where it was
+      // bought. That is disclosed before the user confirms and reported back
+      // here, never used to refuse: 5.1.1(v) requires deletion to be available
+      // in the app, and Apple treats blocking it behind a subscription as a
+      // rejection. getEntitlement already demotes an expired one on read, so
+      // this only reports a genuinely live subscription.
       const entitlement = await getEntitlement(uid)
-      if (entitlement.tier === 'pro') {
-        return errorResponse(
-          res,
-          409,
-          'subscription_active',
-          entitlement.source === 'iap'
-            ? 'Cancel your Pro subscription first, in Settings > your name > Subscriptions on your iPhone. Once it has ended you can delete your account.'
-            : 'Cancel your Pro subscription first, from Manage billing. Once it has ended you can delete your account.',
-          correlationId,
-          { source: entitlement.source }
-        )
-      }
+      const liveSubscription = entitlement.tier === 'pro' ? entitlement.source : null
 
       // Data first, Auth last: a failure part way through leaves the user signed
       // in and able to retry, rather than locked out of their own leftovers.
@@ -78,8 +70,14 @@ accountRouter.delete(
         correlationId,
         parlays: parlays.size,
         runs: runs.size,
+        liveSubscription,
       })
-      res.json({ deleted: { parlays: parlays.size, agentRuns: runs.size } })
+      res.json({
+        deleted: { parlays: parlays.size, agentRuns: runs.size },
+        // So the client can tell them where to stop the billing they are still
+        // on the hook for, now that the account it paid for is gone.
+        ...(liveSubscription ? { subscriptionStillActive: liveSubscription } : {}),
+      })
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e)
       log.error('api.account.delete_failed', {

@@ -18,8 +18,10 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Chip } from '@/components/ui/Chip'
 import { AccountService } from '@shared/api/AccountService'
+import { useEntitlements } from '@shared/hooks/useEntitlements'
 import { sharedRuntime } from '@shared/runtime'
 import { useAuth } from '@/lib/auth/useAuth'
+import { reconcilePurchases } from '@/lib/billing/iap'
 import { logOut } from '@/lib/firebase'
 import {
   HELPLINE,
@@ -69,9 +71,36 @@ export default function AccountScreen() {
   const [deleting, setDeleting] = useState(false)
   const [document, setDocument] = useState<LegalDocument | null>(null)
   const [helpOpen, setHelpOpen] = useState(false)
+  const [restoring, setRestoring] = useState(false)
+  const { isPro, refetch: refetchEntitlements } = useEntitlements()
 
   const displayName =
     userProfile?.displayName ?? user?.displayName ?? user?.email ?? 'Signed in'
+
+  // Guideline 3.1.1 requires this for an auto-renewable subscription, and it is
+  // the only way back for a reinstall, a second device, or a purchase whose
+  // server redemption failed after the user was charged.
+  const restore = async () => {
+    setRestoring(true)
+    try {
+      const redeemed = await reconcilePurchases()
+      await refetchEntitlements()
+      Alert.alert(
+        redeemed > 0 ? 'Purchases restored' : 'Nothing to restore',
+        redeemed > 0
+          ? 'Your Pro subscription is active on this device.'
+          : 'No previous purchase was found on this Apple ID.'
+      )
+    } catch (e) {
+      // No auto-retry: the failure is surfaced and the user decides.
+      Alert.alert(
+        'Could not restore your purchases',
+        e instanceof Error ? e.message : 'Please try again.'
+      )
+    } finally {
+      setRestoring(false)
+    }
+  }
 
   const deleteAccount = async () => {
     setDeleting(true)
@@ -80,12 +109,24 @@ export default function AccountScreen() {
       if (!token) {
         throw new Error('Please sign in again to delete your account.')
       }
-      await accounts.deleteAccount(token)
+      const result = await accounts.deleteAccount(token)
       await logOut()
+      // The account is gone but the subscription is not: neither store cancels
+      // one because an account disappeared. Said after the fact as well as
+      // before, because this is the last moment we can tell them.
+      if (result.subscriptionStillActive === 'iap') {
+        Alert.alert(
+          'Account deleted',
+          'Your Pro subscription is still active. Cancel it in Settings > your name > Subscriptions, or you will keep being charged.'
+        )
+      } else if (result.subscriptionStillActive) {
+        Alert.alert(
+          'Account deleted',
+          'Your Pro subscription is still active. Cancel it from the billing portal, or you will keep being charged.'
+        )
+      }
     } catch (e) {
-      // No auto-retry: the failure is surfaced and the user decides. A live Pro
-      // subscription comes back here as its own message telling them where to
-      // cancel it.
+      // No auto-retry: the failure is surfaced and the user decides.
       setDeleting(false)
       Alert.alert(
         'Could not delete your account',
@@ -99,7 +140,13 @@ export default function AccountScreen() {
   const confirmDelete = () =>
     Alert.alert(
       'Delete your account?',
-      'This removes your profile, every parlay you have saved and your generation history. It cannot be undone.\n\nParlays you shared with a link stay reachable by that link — they carry no name or account.',
+      'This removes your profile, every parlay you have saved and your generation history. It cannot be undone.\n\nParlays you shared with a link stay reachable by that link — they carry no name or account.' +
+        // Disclosed, never used to refuse: 5.1.1(v) requires deletion to be
+        // available in the app, and Apple treats blocking it behind a live
+        // subscription as a rejection.
+        (isPro
+          ? '\n\nYour Pro subscription is not cancelled by this. Cancel it in Settings > your name > Subscriptions, or you will keep being charged.'
+          : ''),
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Delete', style: 'destructive', onPress: deleteAccount },
@@ -175,6 +222,14 @@ export default function AccountScreen() {
             Problem gambling helpline · {HELPLINE}
           </Text>
         </Pressable>
+
+        <Button
+          variant="neutral"
+          label="Restore purchases"
+          loading={restoring}
+          disabled={signingOut || deleting}
+          onPress={restore}
+        />
 
         <Button
           variant="neutral"
