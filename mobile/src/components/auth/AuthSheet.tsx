@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native'
 
+import { AppleSignInButton } from '@/components/auth/AppleSignInButton'
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton'
 import { Button } from '@/components/ui/Button'
 import { LinkButton } from '@/components/ui/LinkButton'
@@ -186,15 +187,16 @@ export function AuthSheet({ visible, startOnSignUp, onClose }: AuthSheetProps) {
             loading={loading}
           />
 
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or</Text>
+            <View style={styles.dividerLine} />
+          </View>
+          {/* Apple first, and never below Google: review expects it to be at
+              least as prominent as any other third-party option. */}
+          <AppleSignInButton onError={msg => setError(msg ?? '')} />
           {googleSignInConfigured ? (
-            <>
-              <View style={styles.dividerRow}>
-                <View style={styles.dividerLine} />
-                <Text style={styles.dividerText}>or</Text>
-                <View style={styles.dividerLine} />
-              </View>
-              <GoogleSignInButton onError={msg => setError(msg ?? '')} />
-            </>
+            <GoogleSignInButton onError={msg => setError(msg ?? '')} />
           ) : null}
 
           <LinkButton

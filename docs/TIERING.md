@@ -40,7 +40,7 @@ Pro is then "act on this however you want," not merely "more legs."
 | Feature | Free | Pro | Tier |
 |---|---|---|---|
 | **Access** ||||
-| Sign in (Google + email) | yes | yes | Both |
+| Sign in (email + password; Google only when its client id is configured, which needs Sign in with Apple first) | yes | yes | Both |
 | Age gate + legal disclaimers | yes | yes | Both |
 | Browse schedule / week picker | yes | yes | Both |
 | Team stats + league ranks | yes | yes | Both |

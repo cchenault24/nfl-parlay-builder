@@ -19,7 +19,8 @@
       },
       "infoPlist": {
         "UIStatusBarStyle": "UIStatusBarStyleLightContent"
-      }
+      },
+      "usesAppleSignIn": true
     },
     "android": {
       "adaptiveIcon": {
@@ -47,7 +48,8 @@
       ],
       "./plugins/withStaticExpoModules",
       "expo-iap",
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-apple-authentication"
     ],
     "experiments": {
       "typedRoutes": true,

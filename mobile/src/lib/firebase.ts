@@ -12,11 +12,13 @@ import {
   createUserWithEmailAndPassword,
   getReactNativePersistence,
   initializeAuth,
+  OAuthProvider,
   onAuthStateChanged,
   sendPasswordResetEmail,
   signInWithCredential,
   signInWithEmailAndPassword,
   signOut,
+  updateProfile,
   type AuthCredential,
   type User,
 } from '@firebase/auth'
@@ -92,6 +94,27 @@ export const signUpWithEmail = (email: string, password: string) =>
 
 export const signInWithGoogleCredential = (credential: AuthCredential) =>
   signInWithCredential(auth, credential)
+
+// Apple hands over the identity token and, on the very first sign-in only, the
+// name. Firebase checks the token's nonce claim against the raw nonce the app
+// hashed into the request, so a token replayed from elsewhere is refused.
+export const signInWithApple = async (
+  idToken: string,
+  rawNonce: string,
+  fullName: { givenName?: string | null; familyName?: string | null } | null
+) => {
+  const credential = new OAuthProvider('apple.com').credential({ idToken, rawNonce })
+  const { user } = await signInWithCredential(auth, credential)
+  const displayName = [fullName?.givenName, fullName?.familyName].filter(Boolean).join(' ')
+  // Apple never sends the name again, so this is the only chance to keep it.
+  // The profile document is created on the auth state change that this sign-in
+  // fires, which can land before or after this write; the merge covers both.
+  if (displayName && !user.displayName) {
+    await updateProfile(user, { displayName })
+    await setDoc(doc(db, 'users', user.uid), { displayName }, { merge: true })
+  }
+  return user
+}
 
 export const requestPasswordReset = (email: string) =>
   sendPasswordResetEmail(auth, email)
