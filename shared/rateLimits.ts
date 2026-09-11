@@ -1,11 +1,39 @@
 import type { QuotaState } from './tiering'
-import type { RateLimitWindows } from './types'
+import type { RateLimitInfo, RateLimitWindows } from './types'
 
 // Three separate things can refuse the next run: the weekly generation quota,
 // the daily fair-use valve and the hourly one. Which of them a user is actually
 // near is the only one worth saying out loud, so this picks it.
 
 export type AllowanceWindow = 'week' | 'day' | 'hour'
+
+function isWindow(value: unknown): value is RateLimitInfo {
+  const window = value as Partial<RateLimitInfo> | null
+  return (
+    !!window &&
+    typeof window.remaining === 'number' &&
+    typeof window.resetTime === 'string'
+  )
+}
+
+/**
+ * A rate-limit payload, or null when it is not the shape this client
+ * understands.
+ *
+ * Every read of these windows goes through here. The API served a single flat
+ * window before it served two, so a client newer than its server — or one
+ * reading state persisted by an older build — gets the old shape, and reaching
+ * straight into `.day.remaining` crashed the Build screen outright. Treating an
+ * unrecognised payload as "allowance unknown" degrades the cost line to "Uses 3
+ * runs." instead of taking the screen down.
+ */
+export function asRateLimitWindows(value: unknown): RateLimitWindows | null {
+  const windows = value as Partial<RateLimitWindows> | null
+  if (!windows || !isWindow(windows.hour) || !isWindow(windows.day)) {
+    return null
+  }
+  return { hour: windows.hour, day: windows.day }
+}
 
 export interface Allowance {
   remaining: number
@@ -38,7 +66,8 @@ export function bindingAllowance(params: {
   quota: QuotaState | undefined
   rateLimit: RateLimitWindows | null | undefined
 }): Allowance | null {
-  const { quota, rateLimit } = params
+  const { quota } = params
+  const rateLimit = asRateLimitWindows(params.rateLimit)
   const candidates: Allowance[] = []
 
   if (quota && quota.limit !== null && quota.remaining !== null) {

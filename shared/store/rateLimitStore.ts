@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist, type PersistStorage } from 'zustand/middleware'
 import type { RateLimitWindows } from '../types'
-import { timeUntil } from '../rateLimits'
+import { asRateLimitWindows, timeUntil } from '../rateLimits'
 
 export interface RateLimitState {
   // Both fair-use windows on run creation, or null before the first response.
@@ -23,7 +23,11 @@ const PERSIST_VERSION = 2
 // The window that will refuse the next run first, ignoring the weekly quota —
 // that one is the server's to report through /entitlements, and this store only
 // knows about rate limits.
-function tightest(rateLimit: RateLimitWindows | null) {
+//
+// Goes through `asRateLimitWindows` because what is held here can have been
+// written by an older build of this app or by an older build of the API.
+function tightest(value: RateLimitWindows | null) {
+  const rateLimit = asRateLimitWindows(value)
   if (!rateLimit) {
     return null
   }

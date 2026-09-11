@@ -19,7 +19,7 @@ export const useRateLimit = () => {
 
   const query = useQuery({
     queryKey: ['rateLimitStatus', uid],
-    queryFn: async (): Promise<RateLimitWindows> => {
+    queryFn: async (): Promise<RateLimitWindows | null> => {
       const token = await runtime.getIdToken()
       if (!token) {
         throw new Error('Not signed in')
@@ -33,7 +33,10 @@ export const useRateLimit = () => {
   })
 
   useEffect(() => {
-    if (query.data) {
+    // `undefined` means the query has not resolved; `null` means it did and the
+    // server answered with a shape this client does not understand. Only the
+    // first should leave whatever is already held in place.
+    if (query.data !== undefined) {
       setRateLimit(query.data)
     }
   }, [query.data, setRateLimit])

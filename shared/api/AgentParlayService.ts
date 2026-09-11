@@ -43,7 +43,7 @@ export class AgentParlayService extends BaseParlayService {
         result.model
       ),
       games: result.games,
-      rateLimit,
+      ...(rateLimit ? { rateLimit } : {}),
       runId,
       serviceMode: 'agent',
     }

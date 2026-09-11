@@ -7,6 +7,7 @@ import type {
   RunError,
   RunStatus,
 } from '../types'
+import { asRateLimitWindows } from '../rateLimits'
 import { SSEClient } from './SSEClient'
 
 export interface AgentRunRecord {
@@ -81,8 +82,11 @@ export class AgentRunService {
     return res.json() as Promise<T>
   }
 
-  getRateLimitStatus(token: string): Promise<RateLimitWindows> {
-    return this.request('/agent/rate-limit', token)
+  // Null when the server is older than this client and still answers with a
+  // single flat window. Callers treat that as "allowance unknown" rather than
+  // reaching into a shape that is not there.
+  async getRateLimitStatus(token: string): Promise<RateLimitWindows | null> {
+    return asRateLimitWindows(await this.request('/agent/rate-limit', token))
   }
 
   createRun(params: {
@@ -91,8 +95,8 @@ export class AgentRunService {
     bookmaker?: string
     legCount?: number
     token: string
-  }): Promise<{ runId: string; rateLimit: RateLimitWindows }> {
-    return this.request('/agent/runs', params.token, {
+  }): Promise<{ runId: string; rateLimit: RateLimitWindows | null }> {
+    return this.request<{ runId: string; rateLimit: unknown }>('/agent/runs', params.token, {
       method: 'POST',
       body: JSON.stringify({
         gameIds: params.gameIds,
@@ -103,7 +107,10 @@ export class AgentRunService {
         ...(params.bookmaker ? { bookmaker: params.bookmaker } : {}),
         ...(params.legCount !== undefined ? { legCount: params.legCount } : {}),
       }),
-    })
+    }).then(body => ({
+      runId: body.runId,
+      rateLimit: asRateLimitWindows(body.rateLimit),
+    }))
   }
 
   getRun(runId: string, token: string): Promise<AgentRunRecord> {

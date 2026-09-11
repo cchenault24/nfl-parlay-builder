@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { QuotaState } from './tiering'
 import type { RateLimitInfo, RateLimitWindows } from './types'
-import { allowanceLabel, bindingAllowance, timeUntil } from './rateLimits'
+import {
+  allowanceLabel,
+  asRateLimitWindows,
+  bindingAllowance,
+  timeUntil,
+} from './rateLimits'
+
 
 const RESETS = {
   week: '2026-10-13T00:00:00.000Z',
@@ -37,7 +43,58 @@ const proQuota: QuotaState = {
   resetsAt: RESETS.week,
 }
 
+// Exactly what `GET /agent/rate-limit` answered before it served two windows,
+// and what a client newer than its server still receives.
+const LEGACY_FLAT_PAYLOAD = {
+  remaining: 18,
+  total: 20,
+  resetTime: RESETS.hour,
+  currentCount: 2,
+}
+
+describe('asRateLimitWindows', () => {
+  it('accepts both windows', () => {
+    expect(asRateLimitWindows(limits(7))).toEqual(limits(7))
+  })
+
+  // This is the payload that took the Build screen down: the old flat shape,
+  // stored as-is and then read as `rateLimit.day.remaining`.
+  it('rejects the single flat window an older API returns', () => {
+    expect(asRateLimitWindows(LEGACY_FLAT_PAYLOAD)).toBeNull()
+  })
+
+  it.each([
+    ['null', null],
+    ['undefined', undefined],
+    ['an empty object', {}],
+    ['only the hourly window', { hour: window(5, 20, RESETS.hour) }],
+    ['a window missing its reset', { hour: { remaining: 1 }, day: { remaining: 1 } }],
+  ])('rejects %s', (_label, value) => {
+    expect(asRateLimitWindows(value)).toBeNull()
+  })
+})
+
 describe('bindingAllowance', () => {
+  // A client newer than its server must degrade to "allowance unknown", not
+  // crash the screen that reads it.
+  it('reports no allowance for a payload it does not understand', () => {
+    expect(
+      bindingAllowance({
+        quota: proQuota,
+        rateLimit: LEGACY_FLAT_PAYLOAD as never,
+      })
+    ).toBeNull()
+  })
+
+  it('still reports the weekly quota against an unreadable payload', () => {
+    expect(
+      bindingAllowance({
+        quota: freeQuota(2),
+        rateLimit: LEGACY_FLAT_PAYLOAD as never,
+      })
+    ).toMatchObject({ remaining: 2, window: 'week' })
+  })
+
   it('is the weekly quota on free, which is always the scarcest thing there', () => {
     expect(bindingAllowance({ quota: freeQuota(2), rateLimit: limits(10) })).toEqual({
       remaining: 2,
