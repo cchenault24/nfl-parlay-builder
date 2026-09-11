@@ -81,18 +81,26 @@ export function claimRun(runId: string): Promise<AgentRun | null> {
 // alone.
 //
 // A generation is billed against the user's quota here and nowhere else, and
-// only when the run both succeeded and got real odds. Everything else is free
-// to the user: failures, cancellations, and successful runs that fell back to
-// AI-estimated prices because the odds tool was unavailable. At a measured 13%
-// failure rate, charging on start would cost a free user a parlay to failure
-// roughly monthly — and a run without anchored prices has not delivered what
-// the free tier is defined as being.
+// only when the run both succeeded and got real odds for *every* game in it.
+// Everything else is free to the user: failures, cancellations, and successful
+// runs that fell back to AI-estimated prices because the odds tool was
+// unavailable. At a measured 13% failure rate, charging on start would cost a
+// free user a parlay to failure roughly monthly — and a run without anchored
+// prices has not delivered what the free tier is defined as being.
+//
+// "every game" rather than "any game" because the parlay is one product: a
+// six-game parlay with one estimated leg is no more fully priced than a
+// single-game one with an estimated leg, and charging for it would make the
+// existing promise conditional on slate size.
 export async function finishRun(
   runId: string,
   updates: Partial<AgentRun>
 ): Promise<boolean> {
   const billable =
-    updates.status === 'succeeded' && updates.result?.sources.odds === 'ok'
+    updates.status === 'succeeded' &&
+    !!updates.result &&
+    updates.result.games.length > 0 &&
+    updates.result.games.every(g => g.sources.odds === 'ok')
   const result = await transitionRun(
     runId,
     ['running'],

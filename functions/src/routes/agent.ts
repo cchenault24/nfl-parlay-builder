@@ -5,6 +5,7 @@ import {
   AgentRun,
   AgentRunSchema,
   AgentStep,
+  budgetForGames,
 } from '../agent/shared/schemas'
 import {
   cancelRun,
@@ -149,7 +150,9 @@ agentRouter.post(
       updatedAt: now,
       status: 'queued',
       correlationId,
-      budget: AgentBudgetSchema.parse({}),
+      budget: AgentBudgetSchema.parse({
+        maxRunMs: budgetForGames(input.gameIds.length),
+      }),
       input,
     })
     await createRun(run)

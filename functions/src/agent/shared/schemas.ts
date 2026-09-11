@@ -32,6 +32,20 @@ export const AgentBudgetSchema = z.object({
   perToolTimeoutMs: z.number().int().positive().default(15_000),
 })
 
+const SINGLE_GAME_RUN_MS = 90_000
+const EXTRA_MS_PER_GAME = 20_000
+
+// Per-game tool phases run concurrently, so the extra cost of another game is
+// the model's, not the providers': a longer prompt to read and another game's
+// analysis to write. Twenty seconds each is what that measured out at. One game
+// is exactly the 90s it has always been, by construction.
+//
+// The ceiling this can reach (190s at six games) is why `timeoutSeconds` on the
+// api function is 300 — the stream is held open for the whole run.
+export function budgetForGames(gameCount: number): number {
+  return SINGLE_GAME_RUN_MS + EXTRA_MS_PER_GAME * (gameCount - 1)
+}
+
 export const AgentRunStatusSchema = z.enum([
   'queued',
   'running',
@@ -56,6 +70,16 @@ export type SourceStatus = 'ok' | 'unavailable' | 'indoor'
 // discarded once `anchored` is true.
 export type ProcessedLeg = AILeg & { anchored: boolean }
 
+// Everything gathered for one of a run's games. A single-game run carries one
+// of these; nothing reads `games[0]` as a special case.
+export interface AgentGameResult {
+  game: ScheduleGame
+  homeStats: TeamStats | null
+  awayStats: TeamStats | null
+  odds: OddsSnapshot | null
+  sources: { stats: SourceStatus; odds: SourceStatus; weather: SourceStatus }
+}
+
 export interface AgentResult {
   parlay: {
     legs: ProcessedLeg[]
@@ -63,11 +87,7 @@ export interface AgentResult {
     parlayConfidence: number
     gameSummary: AIAnalysis
   }
-  game: ScheduleGame
-  homeStats: TeamStats | null
-  awayStats: TeamStats | null
-  odds: OddsSnapshot | null
-  sources: { stats: SourceStatus; odds: SourceStatus; weather: SourceStatus }
+  games: AgentGameResult[]
   model: string
 }
 
