@@ -48,8 +48,8 @@ export const useParlayGenerator = (service: BaseParlayService) => {
       }
     },
     onSuccess: (result, { key }) => {
-      if (result.rateLimitInfo) {
-        updateFromResponse(result.rateLimitInfo)
+      if (result.rateLimit) {
+        updateFromResponse(result.rateLimit)
       }
       setResult(key, { parlay: result.parlay, games: result.games })
     },

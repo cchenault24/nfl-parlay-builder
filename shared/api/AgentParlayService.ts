@@ -23,7 +23,7 @@ export class AgentParlayService extends BaseParlayService {
       throw new Error('Pick at least one game.')
     }
 
-    const { runId, rateLimitInfo } = await this.runs.createRun({
+    const { runId, rateLimit } = await this.runs.createRun({
       gameIds: games.map(g => g.gameId),
       riskLevel: options.riskLevel,
       bookmaker: options.bookmaker,
@@ -43,7 +43,7 @@ export class AgentParlayService extends BaseParlayService {
         result.model
       ),
       games: result.games,
-      rateLimitInfo,
+      rateLimit,
       runId,
       serviceMode: 'agent',
     }

@@ -2,7 +2,7 @@ import { sharedRuntime } from '../runtime'
 import type {
   AgentResult,
   AgentStep,
-  RateLimitInfo,
+  RateLimitWindows,
   RiskLevel,
   RunError,
   RunStatus,
@@ -81,7 +81,7 @@ export class AgentRunService {
     return res.json() as Promise<T>
   }
 
-  getRateLimitStatus(token: string): Promise<RateLimitInfo> {
+  getRateLimitStatus(token: string): Promise<RateLimitWindows> {
     return this.request('/agent/rate-limit', token)
   }
 
@@ -91,7 +91,7 @@ export class AgentRunService {
     bookmaker?: string
     legCount?: number
     token: string
-  }): Promise<{ runId: string; rateLimitInfo: RateLimitInfo }> {
+  }): Promise<{ runId: string; rateLimit: RateLimitWindows }> {
     return this.request('/agent/runs', params.token, {
       method: 'POST',
       body: JSON.stringify({

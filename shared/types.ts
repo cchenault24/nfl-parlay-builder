@@ -361,10 +361,17 @@ export interface RateLimitInfo {
   currentCount: number
 }
 
+// Both fair-use windows on run creation. A client deciding whether a six-game
+// batch will fit has to know which of them binds first.
+export interface RateLimitWindows {
+  hour: RateLimitInfo
+  day: RateLimitInfo
+}
+
 export interface ParlayGenerationResult {
   parlay: GeneratedParlay
   games: AgentGameResult[]
-  rateLimitInfo?: RateLimitInfo
+  rateLimit?: RateLimitWindows
   runId?: string
   serviceMode: 'mock' | 'agent'
 }

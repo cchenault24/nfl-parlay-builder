@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 import { runError } from '@shared/api/AgentRunService'
+import type { Allowance } from '@shared/rateLimits'
 import {
   batchCostLine,
-  batchExceedsQuota,
+  batchExceedsAllowance,
   batchGroups,
   runBatch,
   type BatchMode,
@@ -84,12 +85,43 @@ describe('runBatch', () => {
 })
 
 describe('batchCostLine', () => {
-  const line = (mode: BatchMode, gameCount: number, quotaRemaining?: number | null) =>
-    batchCostLine({ mode, gameCount, quotaRemaining })
+  const allowance = (remaining: number, window: Allowance['window']): Allowance => ({
+    remaining,
+    window,
+    resetsAt: '2026-10-12T00:00:00.000Z',
+  })
+  const line = (mode: BatchMode, gameCount: number, a: Allowance | null) =>
+    batchCostLine({ mode, gameCount, allowance: a })
 
-  it('names the cheaper mode when several separate runs are selected', () => {
-    expect(line('separate', 3, null)).toBe(
-      'Uses 3 runs · one cross-game parlay would use 1.'
+  it('names the daily allowance a Pro user is spending', () => {
+    expect(line('separate', 3, allowance(7, 'day'))).toBe(
+      'Uses 3 of your 7 remaining runs today. One cross-game parlay would use 1.'
+    )
+  })
+
+  it('counts against the weekly quota on free', () => {
+    expect(line('separate', 2, allowance(2, 'week'))).toBe(
+      'Uses 2 of your 2 remaining runs this week. One cross-game parlay would use 1.'
+    )
+  })
+
+  it('names the hourly window once that is what binds', () => {
+    expect(line('separate', 1, allowance(4, 'hour'))).toBe(
+      'Uses 1 of your 4 remaining runs this hour.'
+    )
+  })
+
+  // The point of the whole line: a Pro user with four runs left is told before
+  // selecting six games, not when run five is refused halfway through.
+  it('refuses up front when the batch is larger than what is left', () => {
+    expect(line('separate', 6, allowance(4, 'day'))).toBe(
+      'Needs 6 runs; you have 4 left today. One cross-game parlay would use 1.'
+    )
+  })
+
+  it('states a cross-game run as one run whatever the slate size', () => {
+    expect(line('cross', 6, allowance(4, 'day'))).toBe(
+      'Uses 1 of your 4 remaining runs today.'
     )
   })
 
@@ -97,38 +129,51 @@ describe('batchCostLine', () => {
     expect(line('separate', 1, null)).toBe('Uses 1 run.')
   })
 
-  it('states a cross-game run as one run', () => {
-    expect(line('cross', 6, null)).toBe('Uses 1 run.')
+  it('falls back to the bare cost before any allowance is known', () => {
+    expect(line('separate', 3, null)).toBe(
+      'Uses 3 runs. One cross-game parlay would use 1.'
+    )
   })
 
-  it('counts against a weekly quota when the plan has one', () => {
-    expect(line('separate', 2, 2)).toBe('Uses 2 of your 2 remaining runs this week.')
-    expect(line('separate', 1, 1)).toBe('Uses 1 of your 1 remaining run this week.')
-  })
-
-  it('says so plainly when the quota cannot cover the batch', () => {
-    expect(line('separate', 4, 2)).toBe('Needs 4 runs; you have 2 left this week.')
+  it('gets the singular right on the last remaining run', () => {
+    expect(line('cross', 4, allowance(1, 'week'))).toBe(
+      'Uses 1 of your 1 remaining run this week.'
+    )
   })
 
   it('asks for a selection when there is none', () => {
-    expect(line('separate', 0, 2)).toBe('Pick at least one game.')
+    expect(line('separate', 0, allowance(2, 'week'))).toBe('Pick at least one game.')
   })
 })
 
-describe('batchExceedsQuota', () => {
-  it('is false for an unlimited plan', () => {
-    expect(batchExceedsQuota({ mode: 'separate', gameCount: 6, quotaRemaining: null })).toBe(
+describe('batchExceedsAllowance', () => {
+  const at = (remaining: number): Allowance => ({
+    remaining,
+    window: 'day',
+    resetsAt: '2026-10-12T00:00:00.000Z',
+  })
+
+  it('is false while nothing is known', () => {
+    expect(
+      batchExceedsAllowance({ mode: 'separate', gameCount: 6, allowance: null })
+    ).toBe(false)
+  })
+
+  it('is true when a separate batch is larger than what is left', () => {
+    expect(
+      batchExceedsAllowance({ mode: 'separate', gameCount: 3, allowance: at(2) })
+    ).toBe(true)
+  })
+
+  it('is false for the same games as one cross-game run', () => {
+    expect(batchExceedsAllowance({ mode: 'cross', gameCount: 3, allowance: at(2) })).toBe(
       false
     )
   })
 
-  it('is true when a separate batch is larger than what is left', () => {
-    expect(batchExceedsQuota({ mode: 'separate', gameCount: 3, quotaRemaining: 2 })).toBe(
+  it('is true for anything at all once the allowance is spent', () => {
+    expect(batchExceedsAllowance({ mode: 'cross', gameCount: 1, allowance: at(0) })).toBe(
       true
     )
-  })
-
-  it('is false for the same games as one cross-game run', () => {
-    expect(batchExceedsQuota({ mode: 'cross', gameCount: 3, quotaRemaining: 2 })).toBe(false)
   })
 })

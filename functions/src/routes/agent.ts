@@ -23,6 +23,12 @@ import {
 } from '../middleware/rateLimit'
 import { log } from '../observability/logger'
 import { getSeasonSchedule } from '../providers/espn/client'
+import {
+  PRO_RUNS_PER_DAY,
+  PRO_RUNS_PER_HOUR,
+  RUN_WINDOW_DAY_MS,
+  RUN_WINDOW_HOUR_MS,
+} from '../tiering/capabilities'
 import { getEntitlementView } from '../tiering/store'
 import { errorResponse } from '../utils/errors'
 import { getCurrentSeason } from '../utils/season'
@@ -30,14 +36,10 @@ import { resolveRunInput } from './agentRunInput'
 
 export const agentRouter = express.Router()
 
-const RUNS_PER_HOUR = 20
-const RATE_WINDOW_MS = 60 * 60_000
+// Both windows come from tiering/capabilities.ts, which is where the numbers
+// are reasoned about. Free is already held by its weekly quota, so in practice
+// these only ever bind Pro.
 const AGENT_RUNS_ROUTE = 'agent_runs_create'
-// The daily valve. See PRO_RUNS_PER_DAY in tiering/capabilities.ts for why the
-// hourly one alone left the month unbounded. Free is already held by its weekly
-// quota, so in practice this only ever applies to Pro.
-const RUNS_PER_DAY = 10
-const DAY_WINDOW_MS = 24 * 60 * 60_000
 const AGENT_RUNS_DAILY_ROUTE = 'agent_runs_create_daily'
 const isEmulator = () =>
   !!process.env.FUNCTIONS_EMULATOR || !!process.env.FIREBASE_AUTH_EMULATOR_HOST
@@ -66,20 +68,33 @@ const route =
     }
   }
 
-function rateLimitFor(uid: string) {
-  return isEmulator()
-    ? Promise.resolve({
-        remaining: 9999,
-        total: 9999,
-        resetTime: new Date(),
-        currentCount: 0,
-      })
-    : getUserRateLimitStatus(
-        uid,
-        AGENT_RUNS_ROUTE,
-        RUNS_PER_HOUR,
-        RATE_WINDOW_MS
-      )
+// Both windows, because a client deciding whether a six-game batch will fit has
+// to know which one binds first.
+async function rateLimitFor(uid: string) {
+  if (isEmulator()) {
+    const unbounded = {
+      remaining: 9999,
+      total: 9999,
+      resetTime: new Date(),
+      currentCount: 0,
+    }
+    return { hour: unbounded, day: unbounded }
+  }
+  const [hour, day] = await Promise.all([
+    getUserRateLimitStatus(
+      uid,
+      AGENT_RUNS_ROUTE,
+      PRO_RUNS_PER_HOUR,
+      RUN_WINDOW_HOUR_MS
+    ),
+    getUserRateLimitStatus(
+      uid,
+      AGENT_RUNS_DAILY_ROUTE,
+      PRO_RUNS_PER_DAY,
+      RUN_WINDOW_DAY_MS
+    ),
+  ])
+  return { hour, day }
 }
 
 async function ownedRun(req: AuthedRequest, res: express.Response) {
@@ -97,8 +112,8 @@ agentRouter.post(
   ...(isEmulator()
     ? []
     : [
-        rateLimitByUser(RUNS_PER_HOUR, RATE_WINDOW_MS, AGENT_RUNS_ROUTE),
-        rateLimitByUser(RUNS_PER_DAY, DAY_WINDOW_MS, AGENT_RUNS_DAILY_ROUTE),
+        rateLimitByUser(PRO_RUNS_PER_HOUR, RUN_WINDOW_HOUR_MS, AGENT_RUNS_ROUTE),
+        rateLimitByUser(PRO_RUNS_PER_DAY, RUN_WINDOW_DAY_MS, AGENT_RUNS_DAILY_ROUTE),
       ]),
   route(async (req, res) => {
     const { correlationId, user } = req
@@ -172,7 +187,7 @@ agentRouter.post(
       runId: run.id,
       userId: user.uid,
     })
-    res.json({ runId: run.id, rateLimitInfo: await rateLimitFor(user.uid) })
+    res.json({ runId: run.id, rateLimit: await rateLimitFor(user.uid) })
   })
 )
 

@@ -19,6 +19,7 @@ import {
 import { SelectChangeEvent } from '@mui/material/Select'
 import React, { useState } from 'react'
 import { useEntitlements } from '@shared/hooks/useEntitlements'
+import { allowanceExhaustedCopy, bindingAllowance } from '@shared/rateLimits'
 import { useRateLimit } from '@shared/hooks/useRateLimit'
 import { useGamesForWeek } from '@shared/hooks/useSeason'
 import useParlayStore from '@shared/store/parlayStore'
@@ -67,7 +68,7 @@ const GameSelector: React.FC<GameSelectorProps> = ({
   parlayError,
 }) => {
   const { data: games, isLoading: loading, error } = useGamesForWeek(currentWeek)
-  const { rateLimitInfo, isAtLimit, getTimeUntilReset } = useRateLimit()
+  const { rateLimit, getTimeUntilReset } = useRateLimit()
   const selectedGame = useParlayStore(state => state.selectedGame)
   const riskLevel = useParlayStore(state => state.riskLevel)
   const setRiskLevel = useParlayStore(state => state.setRiskLevel)
@@ -81,6 +82,10 @@ const GameSelector: React.FC<GameSelectorProps> = ({
   // and would let a click through in the gap.
   const allowedRisks = capabilities?.riskLevels ?? ['moderate']
   const quotaExhausted = quota?.remaining === 0
+  // Whichever window actually ran out, so the banner never says "hourly" about
+  // the daily valve. Weekly exhaustion has its own treatment below.
+  const exhausted = allowanceExhaustedCopy(bindingAllowance({ quota, rateLimit }))
+  const atLimit = !!exhausted
   const canChooseBook = capabilities?.chooseSportsbook ?? false
   const sportsbooks = entitlements?.sportsbooks ?? []
   // Free is structurally three legs (one per market, no props); Pro picks a
@@ -89,7 +94,6 @@ const GameSelector: React.FC<GameSelectorProps> = ({
   const legCountLabel = capabilities?.legCount.default ?? 3
   const [, tick] = React.useState(0)
 
-  const atLimit = isAtLimit()
   React.useEffect(() => {
     if (!atLimit) {
       return
@@ -302,8 +306,11 @@ const GameSelector: React.FC<GameSelectorProps> = ({
                 {atLimit && (
                   <ErrorBanner
                     type="rate_limit_reached"
-                    title="Hourly limit reached"
-                    message={`You've used all ${rateLimitInfo?.total ?? 0} parlay generations for this hour.`}
+                    title={exhausted?.title ?? 'Run limit reached'}
+                    message={
+                      exhausted?.message ??
+                      "You've used all your parlay generations for now."
+                    }
                     countdown={getTimeUntilReset()}
                   />
                 )}

@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useEffect } from 'react'
 import { AgentRunService } from '../api/AgentRunService'
 import { sharedRuntime } from '../runtime'
-import type { RateLimitInfo } from '../types'
+import type { RateLimitWindows } from '../types'
 
 const service = new AgentRunService()
 
@@ -10,17 +10,16 @@ export const useRateLimit = () => {
   const runtime = sharedRuntime()
   const { uid, loading } = runtime.useAuthUser()
   const {
-    rateLimitInfo,
-    setRateLimitInfo,
+    rateLimit,
+    setRateLimit,
     updateFromResponse,
-    isNearLimit,
     isAtLimit,
     getTimeUntilReset,
   } = runtime.useRateLimitStore()
 
   const query = useQuery({
     queryKey: ['rateLimitStatus', uid],
-    queryFn: async (): Promise<RateLimitInfo> => {
+    queryFn: async (): Promise<RateLimitWindows> => {
       const token = await runtime.getIdToken()
       if (!token) {
         throw new Error('Not signed in')
@@ -35,24 +34,23 @@ export const useRateLimit = () => {
 
   useEffect(() => {
     if (query.data) {
-      setRateLimitInfo(query.data)
+      setRateLimit(query.data)
     }
-  }, [query.data, setRateLimitInfo])
+  }, [query.data, setRateLimit])
 
   useEffect(() => {
     if (!uid && !loading) {
-      setRateLimitInfo(null)
+      setRateLimit(null)
     }
-  }, [uid, loading, setRateLimitInfo])
+  }, [uid, loading, setRateLimit])
 
   return {
-    rateLimitInfo,
+    rateLimit,
     isLoading: query.isLoading || loading,
     error: query.error?.message ?? null,
     refetch: query.refetch,
     updateFromResponse,
     getTimeUntilReset,
-    isNearLimit,
     isAtLimit,
   }
 }

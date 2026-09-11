@@ -1,4 +1,5 @@
 import { runErrorCode } from '@shared/api/AgentRunService'
+import { allowanceLabel, type Allowance } from '@shared/rateLimits'
 
 // Select mode's two products. They are genuinely different — one parlay per
 // game versus one parlay across games — and they cost differently, which is the
@@ -62,46 +63,51 @@ export async function runBatch(
 /**
  * What the batch bar says the tap will cost, before the tap.
  *
- * A run is the unit the server charges in both currencies — one against the
- * weekly quota, one against the daily valve — so stating the run count and
- * naming the cheaper mode is what makes the choice legible. The daily
- * allowance itself is not stated: the server does not serve it, and inventing
- * a number the client cannot verify would be worse than saying nothing.
+ * A run is the unit the server charges in all three of its currencies — the
+ * weekly quota, the daily valve and the hourly window — so the number that
+ * matters is the one nearest to refusing you, which `bindingAllowance` picks.
+ *
+ * Selecting six games spends six runs in one tap. Discovering that when run
+ * five is refused halfway through is the worst version of finding out, which is
+ * the whole reason this line exists (DESIGN #22).
  */
 export function batchCostLine(params: {
   mode: BatchMode
   gameCount: number
-  quotaRemaining: number | null | undefined
+  allowance: Allowance | null
 }): string {
-  const { mode, gameCount, quotaRemaining } = params
+  const { mode, gameCount, allowance } = params
   if (gameCount === 0) {
     return 'Pick at least one game.'
   }
   const runs = mode === 'cross' ? 1 : gameCount
   const plural = (n: number) => (n === 1 ? 'run' : 'runs')
+  // Named whenever it is actually cheaper, and especially when the batch has
+  // just been refused — that is the moment the alternative is worth knowing.
+  const cheaper =
+    mode === 'separate' && gameCount > 1 ? ' One cross-game parlay would use 1.' : ''
 
-  if (quotaRemaining !== null && quotaRemaining !== undefined) {
-    if (runs > quotaRemaining) {
-      return `Needs ${runs} ${plural(runs)}; you have ${quotaRemaining} left this week.`
-    }
-    return `Uses ${runs} of your ${quotaRemaining} remaining ${plural(quotaRemaining)} this week.`
+  if (!allowance) {
+    return `Uses ${runs} ${plural(runs)}.${cheaper}`
   }
-  if (mode === 'separate' && gameCount > 1) {
-    return `Uses ${runs} runs · one cross-game parlay would use 1.`
+  const where = allowanceLabel(allowance.window)
+  if (runs > allowance.remaining) {
+    return `Needs ${runs} ${plural(runs)}; you have ${allowance.remaining} left ${where}.${cheaper}`
   }
-  return `Uses ${runs} ${plural(runs)}.`
+  return `Uses ${runs} of your ${allowance.remaining} remaining ${plural(allowance.remaining)} ${where}.${cheaper}`
 }
 
 // Whether the tap should be refused outright rather than started and failed
-// partway. A quota that cannot cover the batch is knowable now.
-export function batchExceedsQuota(params: {
+// partway. What is left is knowable now, so spending half a batch to discover
+// it is a choice nobody would make.
+export function batchExceedsAllowance(params: {
   mode: BatchMode
   gameCount: number
-  quotaRemaining: number | null | undefined
+  allowance: Allowance | null
 }): boolean {
-  const { mode, gameCount, quotaRemaining } = params
-  if (quotaRemaining === null || quotaRemaining === undefined) {
+  const { mode, gameCount, allowance } = params
+  if (!allowance) {
     return false
   }
-  return (mode === 'cross' ? 1 : gameCount) > quotaRemaining
+  return (mode === 'cross' ? 1 : gameCount) > allowance.remaining
 }

@@ -43,6 +43,7 @@ Everything else on the backend is code-only.
 | Grading | each leg graded against its own game; a cross-game parlay waits for all of them |
 | Closing lines | captured per game as each one kicks off, merged into the parlay across sweeps |
 | `parlays/{id}` | writes `gameIds`; `gameId` is gone from the domain type and from the rule |
+| `GET /agent/rate-limit` | returns both windows — `{ hour, day }` — not just the hourly one |
 
 `npm test` in `functions/` covers the validator (characterized before it changed),
 every run-input refusal, the orchestrator's fan-out and per-game pricing, the
@@ -153,16 +154,22 @@ step labels, and the quota copy.
 
 ## Gaps and decisions worth a second opinion
 
-**The daily run valve is not surfaced before a batch.** DESIGN #22 wants a Pro
-user with four runs left to be told *before* selecting six games. The batch bar
-states what the tap costs in runs and names the cheaper mode, which is the part
-that makes the choice legible — but it cannot say "4 of your 7 remaining today",
-because `PRO_RUNS_PER_DAY` is deliberately not served by `/entitlements`
-(`capabilities.ts` calls it a valve that should never be felt). Surfacing it
-means reversing that decision and reshaping the persisted rate-limit store, so
-it was left alone. A batch that trips the limit mid-flight stops rather than
-firing the rest at it, and says how many games it did not start and when to try
-again.
+**The daily run valve is surfaced now, reversing an earlier product decision.**
+`capabilities.ts` used to describe both fair-use valves as things that should
+never be felt, on the reasoning that nobody watching a 19-39s timeline reaches
+ten runs in a day. Batch broke that: six games is six runs in one tap. Both
+windows are served by `GET /agent/rate-limit`, and the batch bar states what a
+tap will cost against whichever of the weekly quota, the daily valve and the
+hourly window is nearest to refusing you. A batch larger than what is left is
+refused up front rather than failing at run five, and the refusal names the
+cross-game alternative in the same breath. The comment in `capabilities.ts` was
+rewritten so the code no longer asserts the opposite of what it does.
+
+Worth watching: a Pro user now sees a ceiling they were never meant to notice.
+It appears only in the batch bar and in the banner when a window is actually
+spent — not on every screen — on the grounds that the number changes a decision
+there and nowhere else. If it reads as stingy in practice, the lever is the
+number in `capabilities.ts`, not the disclosure.
 
 **Where a cross-game parlay lives is an addition to the design.** DESIGN §4.2
 gives every row a game; a parlay spanning several belongs to none of them. It

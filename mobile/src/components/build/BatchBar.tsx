@@ -4,15 +4,21 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Button } from '@/components/ui/Button'
 import { GlassSurface } from '@/components/ui/GlassSurface'
 import { Segmented, type SegmentedOption } from '@/components/ui/Segmented'
-import { batchCostLine, batchExceedsQuota, type BatchMode } from '@/lib/build/batch'
+import type { Allowance } from '@shared/rateLimits'
+import {
+  batchCostLine,
+  batchExceedsAllowance,
+  type BatchMode,
+} from '@/lib/build/batch'
 import { colors, spacing, typography } from '@/lib/theme/designTokens'
 
 interface BatchBarProps {
   mode: BatchMode
   onModeChange: (mode: BatchMode) => void
   gameCount: number
-  // Null means unbounded — Pro's weekly allowance.
-  quotaRemaining: number | null | undefined
+  // Whichever of the weekly quota, the daily valve and the hourly window will
+  // refuse a run first. Null while nothing is known.
+  allowance: Allowance | null
   // Cross-game is a Pro feature; a locked segment still shows, and explains.
   crossGameLocked: boolean
   maxGamesPerRun: number
@@ -30,7 +36,7 @@ export function BatchBar({
   mode,
   onModeChange,
   gameCount,
-  quotaRemaining,
+  allowance,
   crossGameLocked,
   maxGamesPerRun,
   running,
@@ -39,7 +45,7 @@ export function BatchBar({
 }: BatchBarProps) {
   const insets = useSafeAreaInsets()
   const overCap = mode === 'cross' && gameCount > maxGamesPerRun
-  const overQuota = batchExceedsQuota({ mode, gameCount, quotaRemaining })
+  const overAllowance = batchExceedsAllowance({ mode, gameCount, allowance })
 
   const modes: SegmentedOption<BatchMode>[] = [
     {
@@ -51,7 +57,7 @@ export function BatchBar({
 
   const costLine = overCap
     ? `A cross-game parlay covers at most ${maxGamesPerRun} games.`
-    : batchCostLine({ mode, gameCount, quotaRemaining })
+    : batchCostLine({ mode, gameCount, allowance })
 
   return (
     <GlassSurface style={[styles.bar, { paddingBottom: insets.bottom + spacing.sm }]}>
@@ -67,14 +73,14 @@ export function BatchBar({
         label={mode === 'cross' ? 'Build cross-game parlay' : `Build ${gameCount === 1 ? 'parlay' : `${gameCount} parlays`}`}
         icon="dice-outline"
         loading={running}
-        disabled={gameCount === 0 || overCap || overQuota || running}
+        disabled={gameCount === 0 || overCap || overAllowance || running}
         onPress={onRun}
       />
 
       {/* Not decoration. A run is what the server charges, in both currencies,
           and discovering that halfway through a batch is the worst version
           (DESIGN #22). */}
-      <Text style={[styles.cost, (overCap || overQuota) && styles.costWarning]}>
+      <Text style={[styles.cost, (overCap || overAllowance) && styles.costWarning]}>
         {costLine}
       </Text>
     </GlassSurface>

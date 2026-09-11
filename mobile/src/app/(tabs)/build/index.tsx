@@ -5,6 +5,11 @@ import {
   useParlayGenerator,
 } from '@shared/hooks/useParlayGenerator'
 import { useRateLimit } from '@shared/hooks/useRateLimit'
+import {
+  allowanceExhaustedCopy,
+  bindingAllowance,
+  timeUntil,
+} from '@shared/rateLimits'
 import { useGamesForWeek, useSeasonSummary } from '@shared/hooks/useSeason'
 import useParlayStore, { parlayKey, type ParlayEntry } from '@shared/store/parlayStore'
 import type { Game } from '@shared/types'
@@ -49,7 +54,7 @@ export default function BuildScreen() {
   useParlayPersistence(currentWeek)
   const entries = useParlayStore(state => state.entries)
   const { capabilities, quota, entitlements, refetch } = useEntitlements()
-  const { isAtLimit, getTimeUntilReset } = useRateLimit()
+  const { rateLimit, getTimeUntilReset } = useRateLimit()
 
   const { generateAsync, error: runError } = useParlayGenerator(getParlayService())
 
@@ -147,7 +152,12 @@ export default function BuildScreen() {
     exitSelectMode()
   }
 
-  const quotaRemaining = quota?.limit === null ? null : quota?.remaining
+  // What will refuse the next run first: free is held by its weekly quota, Pro
+  // by the daily valve, and either by the hourly window after a burst.
+  const allowance = bindingAllowance({ quota, rateLimit })
+  // Names the window that actually ran out. Weekly exhaustion is the quota
+  // strip's job, not a countdown's.
+  const exhausted = allowanceExhaustedCopy(allowance)
   const maxGamesPerRun = capabilities?.maxGamesPerRun ?? 1
 
   return (
@@ -197,12 +207,12 @@ export default function BuildScreen() {
                 message={runError.message}
               />
             ) : null}
-            {isAtLimit() ? (
+            {exhausted ? (
               <ErrorBanner
                 type="rate_limit_reached"
-                title="Hourly limit reached"
-                message="You've used all your parlay generations for this hour."
-                countdown={getTimeUntilReset()}
+                title={exhausted.title}
+                message={exhausted.message}
+                countdown={timeUntil(allowance?.resetsAt)}
               />
             ) : null}
 
@@ -236,7 +246,7 @@ export default function BuildScreen() {
           mode={mode}
           onModeChange={setMode}
           gameCount={selected.length}
-          quotaRemaining={quotaRemaining}
+          allowance={allowance}
           crossGameLocked={maxGamesPerRun < 2}
           maxGamesPerRun={maxGamesPerRun}
           running={batchRunning}
