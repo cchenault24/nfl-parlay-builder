@@ -92,7 +92,7 @@ export default function BuildScreen() {
   )
 
   const openEntry = useCallback((entry: ParlayEntry) => {
-    router.push(`/build/parlay/${[...entry.gameIds].sort().join('+')}`)
+    router.push(`/parlay/${[...entry.gameIds].sort().join('+')}`)
   }, [])
 
   const runOne = useCallback(
@@ -117,7 +117,7 @@ export default function BuildScreen() {
         void runOne([game.gameId]).catch(() => undefined)
         return
       }
-      router.push(`/build/game/${game.gameId}`)
+      router.push(`/game/${game.gameId}`)
     },
     [openEntry, runOne]
   )

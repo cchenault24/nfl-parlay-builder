@@ -27,7 +27,9 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
-        name="build"
+        // A route group, so the Build list is the app's index rather than a
+        // `/build` route with nothing at `/`. The stack lives inside it.
+        name="(build)"
         options={{
           title: 'Build',
           tabBarIcon: ({ color, size }) => (

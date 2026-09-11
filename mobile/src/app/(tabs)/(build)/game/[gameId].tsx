@@ -82,7 +82,7 @@ export default function GameDetailScreen() {
     // `generate` creates the entry before it returns, so the screen being
     // pushed already has something to render.
     generate([game])
-    router.push(`/build/parlay/${game.gameId}`)
+    router.push(`/parlay/${game.gameId}`)
   }
 
   return (
