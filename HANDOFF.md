@@ -82,3 +82,83 @@ writes `gameIds`, require it in the rule and drop `gameId`.
 permits legs across games that nothing checks for correlation — two road
 favourites in the same weather system, say. The prompt asks the model to avoid
 it and to say so if it stacks anyway; there is no rule enforcing it.
+
+---
+
+# Client — Build tab restructure
+
+## What a human has to look at
+
+**Nothing here proves a screen renders.** Every logic module has real tests; the
+screens themselves are gated by the compiler and the linter only, and a screen
+can typecheck perfectly and render blank. Treat this as reviewable work on a
+branch, not as done.
+
+```bash
+cd mobile && LANG=en_US.UTF-8 npx expo run:ios --port 8082
+```
+
+Screens that have never been rendered:
+
+| Screen | What to check |
+|---|---|
+| Build list | Row states: default, running (step label, elapsed, cancel, rule), ready (odds chip, green border), failed (amber border, tap to retry), closed (dimmed, not tappable) |
+| Build list header | Large `Week N ▾`, `Select`, the games/parlays line, quota strip on free |
+| Week picker sheet | Past weeks dimmed and unpickable; `now` on the live week |
+| Game detail | Hero, context rows, book lines, matchup rankings + `All rankings` disclosure, pinned settings row + CTA + cost line |
+| Run settings sheet | Free: moderate only, 3 legs, DraftKings pinned with the others locked, fallback caption. Pro: all open, a book that has not posted the game disabled with "Not available" |
+| Parlay detail — building | Eight rows, `4 of 6` on a multi-game run, elapsed, cancel |
+| Parlay detail — ready | Odds at 30pt, confidence bar, analysis collapsed, legs, pinned Save, unbilled notice when prices were estimates |
+| Select mode | Radios, batch bar replacing the tab bar, mode switch, cost line, cross-game locked on free |
+| Cross-game row | Above the list, after a cross-game parlay is built and after a relaunch |
+
+Two things worth checking specifically because they are device-dependent:
+
+- **Liquid Glass.** `GlassSurface` resolves `isLiquidGlassAvailable()` once at
+  import, inside a try/catch. It needs looking at on iOS 26 *and* on something
+  older, where the flat `surface` fallback should be indistinguishable from the
+  rest of the app.
+- **Typed routes are not actually checking anything yet.** `.expo/types` has
+  never been generated in this worktree, so `router.push('/build/game/…')`
+  currently typechecks as a plain string. Run the dev server once and re-run
+  `npm run type-check --prefix mobile` to get the real check.
+
+App Store screenshots have to be re-captured after that pass — five of them,
+and they are downstream of this, not of the plan.
+
+## What landed
+
+Build list → game detail → parlay detail, on a stack under the Build tab.
+`GameSelector` is gone; `WeekSelector` went with it. The parlay store is one
+entry per run keyed by week and games, persisted to AsyncStorage for the
+current week only.
+
+Logic that mattered is in `mobile/src/lib/build/`, tested: row states, run
+settings (including "free sends no `bookmaker`"), the sequential batch runner,
+step labels, and the quota copy.
+
+## Gaps and decisions worth a second opinion
+
+**The daily run valve is not surfaced before a batch.** DESIGN #22 wants a Pro
+user with four runs left to be told *before* selecting six games. The batch bar
+states what the tap costs in runs and names the cheaper mode, which is the part
+that makes the choice legible — but it cannot say "4 of your 7 remaining today",
+because `PRO_RUNS_PER_DAY` is deliberately not served by `/entitlements`
+(`capabilities.ts` calls it a valve that should never be felt). Surfacing it
+means reversing that decision and reshaping the persisted rate-limit store, so
+it was left alone. A batch that trips the limit mid-flight stops rather than
+firing the rest at it, and says how many games it did not start and when to try
+again.
+
+**Where a cross-game parlay lives is an addition to the design.** DESIGN §4.2
+gives every row a game; a parlay spanning several belongs to none of them. It
+is rendered as a row above the list, so it survives a relaunch instead of being
+navigable exactly once.
+
+**Free-tier select mode.** At 2 generations a week a free user may only ever
+meet select mode as an upsell. DESIGN open risk #8 already flags this; it is
+visible-but-blocked today, and worth watching.
+
+**Batch + SSE concurrency is still untested against a real server.** Runs are
+sequential by construction, so the load pattern is one stream at a time — but
+nothing has yet run three real runs back to back against the deployed function.
