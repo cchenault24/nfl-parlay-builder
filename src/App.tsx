@@ -76,7 +76,7 @@ function AppContent() {
 
   const handleGenerateParlay = () => {
     if (selectedGame) {
-      generate({ games: [selectedGame] })
+      generate([selectedGame])
     }
   }
 

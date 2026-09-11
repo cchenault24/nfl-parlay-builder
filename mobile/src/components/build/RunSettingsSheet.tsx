@@ -69,7 +69,11 @@ export function RunSettingsSheet({
     label: book.title,
     caption: book.caption,
     captionTone: 'muted' as const,
-    disabled: book.disabled || book.locked,
+    // Only "this book has not posted this game" dims a chip. A *locked* chip is
+    // already dimmed by the ProGate wrapping the whole strip, and dimming it
+    // twice takes it to 20% opacity — below the contrast a locked control is
+    // meant to keep.
+    disabled: book.disabled,
     locked: book.locked,
   }))
 

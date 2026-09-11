@@ -1,6 +1,9 @@
 import { useDerivedCurrentWeek } from '@shared/hooks/useDerivedCurrentWeek'
 import { useEntitlements } from '@shared/hooks/useEntitlements'
-import { useParlayGenerator } from '@shared/hooks/useParlayGenerator'
+import {
+  cancelParlayRun,
+  useParlayGenerator,
+} from '@shared/hooks/useParlayGenerator'
 import { useRateLimit } from '@shared/hooks/useRateLimit'
 import { useGamesForWeek, useSeasonSummary } from '@shared/hooks/useSeason'
 import useParlayStore, { parlayKey, type ParlayEntry } from '@shared/store/parlayStore'
@@ -34,16 +37,21 @@ export default function BuildScreen() {
     [seasonSummary]
   )
 
-  const [selectedWeek, setSelectedWeek] = useState<number | null>(null)
+  // The browsed week lives in the store, not in this screen: the two pushed
+  // screens have to resolve the same week, and a future week picked here would
+  // otherwise leave them looking at the live one.
+  const selectedWeek = useParlayStore(state => state.activeWeek)
+  const setSelectedWeek = useParlayStore(state => state.setActiveWeek)
   const activeWeek = selectedWeek ?? currentWeek
   const { data: games, isLoading, error } = useGamesForWeek(activeWeek)
 
-  useParlayPersistence(activeWeek)
+  // The *live* week, not the browsed one — see useParlayPersistence.
+  useParlayPersistence(currentWeek)
   const entries = useParlayStore(state => state.entries)
   const { capabilities, quota, entitlements, refetch } = useEntitlements()
   const { isAtLimit, getTimeUntilReset } = useRateLimit()
 
-  const { generateAsync, cancel, error: runError } = useParlayGenerator(getParlayService())
+  const { generateAsync, error: runError } = useParlayGenerator(getParlayService())
 
   const [weekPickerOpen, setWeekPickerOpen] = useState(false)
   const [selectMode, setSelectMode] = useState(false)
@@ -88,7 +96,7 @@ export default function BuildScreen() {
       if (chosen.length !== gameIds.length) {
         throw new Error('Those games are no longer in this week.')
       }
-      await generateAsync({ games: chosen })
+      await generateAsync(chosen)
     },
     [games, generateAsync]
   )
@@ -216,7 +224,7 @@ export default function BuildScreen() {
                       : [...current, row.game.gameId]
                   )
                 }
-                onCancel={cancel}
+                onCancel={() => cancelParlayRun(parlayKey(activeWeek, [row.game.gameId]))}
               />
             ))}
           </>

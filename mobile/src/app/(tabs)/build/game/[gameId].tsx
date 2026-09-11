@@ -36,12 +36,14 @@ export default function GameDetailScreen() {
   const { gameId } = useLocalSearchParams<{ gameId: string }>()
   const insets = useSafeAreaInsets()
   const { currentWeek } = useDerivedCurrentWeek()
+  // The week the list is browsing, which is not always the live one.
+  const activeWeek = useParlayStore(state => state.activeWeek) ?? currentWeek
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [upgradeReason, setUpgradeReason] = useState<string | null>(null)
 
-  const { data: games, isLoading } = useGamesForWeek(currentWeek)
+  const { data: games, isLoading } = useGamesForWeek(activeWeek)
   const game = games?.find(g => g.gameId === gameId)
-  const { data: weekOdds } = useWeekOdds(currentWeek)
+  const { data: weekOdds } = useWeekOdds(activeWeek)
   const { data: stats } = useGameStats(gameId)
 
   const riskLevel = useParlayStore(state => state.riskLevel)
@@ -77,7 +79,9 @@ export default function GameDetailScreen() {
   }
 
   const start = () => {
-    generate({ games: [game] })
+    // `generate` creates the entry before it returns, so the screen being
+    // pushed already has something to render.
+    generate([game])
     router.push(`/build/parlay/${game.gameId}`)
   }
 

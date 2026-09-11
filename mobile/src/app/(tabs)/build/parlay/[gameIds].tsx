@@ -2,6 +2,7 @@ import { useDerivedCurrentWeek } from '@shared/hooks/useDerivedCurrentWeek'
 import { useEntitlements } from '@shared/hooks/useEntitlements'
 import { formatOdds } from '@shared/odds'
 import useParlayStore, { parlayKey } from '@shared/store/parlayStore'
+import { cancelParlayRun } from '@shared/hooks/useParlayGenerator'
 import { Stack, useLocalSearchParams } from 'expo-router'
 import { useState } from 'react'
 import { ScrollView, StyleSheet, Text, View } from 'react-native'
@@ -27,14 +28,14 @@ import { colors, spacing, typography } from '@/lib/theme/designTokens'
 export default function ParlayDetailScreen() {
   const { gameIds } = useLocalSearchParams<{ gameIds: string }>()
   const { currentWeek } = useDerivedCurrentWeek()
+  const activeWeek = useParlayStore(state => state.activeWeek) ?? currentWeek
   const insets = useSafeAreaInsets()
   const { user } = useAuth()
   const { quota } = useEntitlements()
 
   const ids = (gameIds ?? '').split('+').filter(Boolean)
-  const key = parlayKey(currentWeek, ids)
+  const key = parlayKey(activeWeek, ids)
   const entry = useParlayStore(state => state.entries[key])
-  const clearRun = useParlayStore(state => state.clearRun)
 
   const [saving, setSaving] = useState(false)
   const [savedId, setSavedId] = useState<string | null>(null)
@@ -63,7 +64,10 @@ export default function ParlayDetailScreen() {
             steps={entry.steps}
             gameCount={entry.gameIds.length}
             startedAt={entry.startedAt}
-            onCancel={() => clearRun(key)}
+            // Stops the run itself, not just this screen's view of it — the
+            // controller is keyed by run, so the screen that started it does
+            // not have to be the one that cancels it.
+            onCancel={() => cancelParlayRun(key)}
           />
         </ScrollView>
       </View>

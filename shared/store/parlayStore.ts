@@ -37,6 +37,11 @@ export function parlayKey(week: number, gameIds: string[]): string {
 
 interface ParlayStore {
   selectedGame: Game | null
+  // The week being browsed, which is not always the live one — the picker
+  // offers future weeks. Every screen in the Build stack keys off this, so a
+  // pushed screen resolves the same games and the same entries as the list it
+  // came from.
+  activeWeek: number | null
   riskLevel: RiskLevel
   // Undefined means "whatever this tier defaults to" — the server owns that
   // number and the client never guesses it.
@@ -49,6 +54,7 @@ interface ParlayStore {
   saveParlayError: string
 
   setSelectedGame: (game: Game | null) => void
+  setActiveWeek: (week: number | null) => void
   setRiskLevel: (level: RiskLevel) => void
   setLegCount: (count: number | undefined) => void
   setBookmaker: (key: string | undefined) => void
@@ -61,9 +67,10 @@ interface ParlayStore {
   ) => void
   failRun: (key: string, error: string) => void
   clearRun: (key: string) => void
-  // Drops everything that is not from `week`. Called on hydrate: the Build tab
-  // holds this week's working set, and History is the durable record.
-  pruneToWeek: (week: number) => void
+  // Drops everything from before `week`. Called on hydrate against the *live*
+  // week, not the browsed one: a week whose games have kicked off has been
+  // superseded, but a future week the user was looking at has not.
+  pruneBefore: (week: number) => void
   replaceEntries: (entries: Record<string, ParlayEntry>) => void
 
   setSaveParlaySuccess: (success: boolean) => void
@@ -72,6 +79,7 @@ interface ParlayStore {
 
 const useParlayStore = create<ParlayStore>(set => ({
   selectedGame: null,
+  activeWeek: null,
   riskLevel: 'moderate',
   legCount: undefined,
   bookmaker: undefined,
@@ -80,6 +88,7 @@ const useParlayStore = create<ParlayStore>(set => ({
   saveParlayError: '',
 
   setSelectedGame: game => set({ selectedGame: game }),
+  setActiveWeek: activeWeek => set({ activeWeek }),
   setRiskLevel: riskLevel => set({ riskLevel }),
   setLegCount: legCount => set({ legCount }),
   setBookmaker: bookmaker => set({ bookmaker }),
@@ -145,10 +154,10 @@ const useParlayStore = create<ParlayStore>(set => ({
       return { entries: rest }
     }),
 
-  pruneToWeek: week =>
+  pruneBefore: week =>
     set(state => ({
       entries: Object.fromEntries(
-        Object.entries(state.entries).filter(([, entry]) => entry.week === week)
+        Object.entries(state.entries).filter(([, entry]) => entry.week >= week)
       ),
     })),
 

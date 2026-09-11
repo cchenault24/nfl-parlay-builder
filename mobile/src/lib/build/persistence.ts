@@ -36,15 +36,21 @@ export function serializeEntries(entries: Record<string, ParlayEntry>): string {
   return JSON.stringify(persistableEntries(entries))
 }
 
-// Anything that is not a finished parlay from `week` is dropped: an earlier
-// week's working set has been superseded, and a run that was mid-flight cannot
-// be resumed — restoring it would show a spinner for a run nobody is driving.
+// Anything that is not a finished parlay from `minWeek` or later is dropped.
 //
-// Unparseable storage is treated as empty rather than thrown. Losing this
-// week's cache is a smaller failure than a Build tab that cannot open.
+// `minWeek` is the *live* week, not the one being browsed: a week whose games
+// have kicked off has been superseded, but a future week the user was looking
+// at has not — pruning to the browsed week would delete this week's parlays the
+// moment someone glanced at next week's slate.
+//
+// A run that was mid-flight cannot be resumed either; restoring it would show a
+// spinner for a run nobody is driving.
+//
+// Unparseable storage is treated as empty rather than thrown. Losing the cache
+// is a smaller failure than a Build tab that cannot open.
 export function parseEntries(
   raw: string | null,
-  week: number
+  minWeek: number
 ): Record<string, ParlayEntry> {
   if (!raw) {
     return {}
@@ -62,17 +68,17 @@ export function parseEntries(
   return Object.fromEntries(
     Object.entries(parsed as Record<string, unknown>).filter(
       (pair): pair is [string, ParlayEntry] =>
-        isEntry(pair[1]) && pair[1].week === week && pair[1].status === ready
+        isEntry(pair[1]) && pair[1].week >= minWeek && pair[1].status === ready
     )
   )
 }
 
 export async function loadEntries(
   storage: EntryStorage,
-  week: number
+  minWeek: number
 ): Promise<Record<string, ParlayEntry>> {
   try {
-    return parseEntries(await storage.getItem(PARLAY_STORAGE_KEY), week)
+    return parseEntries(await storage.getItem(PARLAY_STORAGE_KEY), minWeek)
   } catch {
     return {}
   }

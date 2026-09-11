@@ -96,15 +96,19 @@ describe('parlayStore entries', () => {
     expect(parlayKey(5, ['g2', 'g1'])).toBe(parlayKey(5, ['g1', 'g2']))
   })
 
-  it('drops earlier weeks on prune', () => {
+  it('drops finished weeks on prune but keeps weeks not yet played', () => {
     useParlayStore.setState({
       entries: {
         '4:g9': readyEntry('g9', 4),
         '5:g1': readyEntry('g1', 5),
+        '6:g2': readyEntry('g2', 6),
       },
     })
-    useParlayStore.getState().pruneToWeek(5)
-    expect(Object.keys(useParlayStore.getState().entries)).toEqual(['5:g1'])
+    useParlayStore.getState().pruneBefore(5)
+    expect(Object.keys(useParlayStore.getState().entries).sort()).toEqual([
+      '5:g1',
+      '6:g2',
+    ])
   })
 
   it('records a failure against the run that failed, and nothing else', () => {
@@ -145,10 +149,21 @@ describe('persistence', () => {
     expect(await loadEntries(storage, 5)).toEqual({ '5:g1': readyEntry('g1') })
   })
 
-  it('drops an earlier week on hydrate', async () => {
+  it('drops a week that has already been played', async () => {
     const storage = memoryStorage()
     await saveEntries(storage, { '4:g9': readyEntry('g9', 4) })
     expect(await loadEntries(storage, 5)).toEqual({})
+  })
+
+  // Looking at next week's slate must not delete this week's parlays, which is
+  // what pruning to the *browsed* week rather than the live one would do.
+  it('keeps a week the user browsed ahead to', async () => {
+    const storage = memoryStorage()
+    await saveEntries(storage, {
+      '5:g1': readyEntry('g1', 5),
+      '6:g2': readyEntry('g2', 6),
+    })
+    expect(Object.keys(await loadEntries(storage, 5)).sort()).toEqual(['5:g1', '6:g2'])
   })
 
   it.each([
