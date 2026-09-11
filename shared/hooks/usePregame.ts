@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
-import { OddsService } from '../api/OddsService'
+import { PregameService } from '../api/PregameService'
 import type { BookLines, GameBookLines } from '../types'
 
-const service = new OddsService()
+const service = new PregameService()
 
 // The server caches the underlying slate for 60s, so this matches it rather
 // than re-asking on every screen that mounts.
@@ -43,3 +43,16 @@ export function resolveBook(
   const chosen = books.find(b => b.key === preferred && b.posted)
   return chosen ?? books.find(b => b.posted)
 }
+
+// Both teams' season stats for one game. Same reasoning as the lines above: the
+// screen still renders without them, so a failure must not be retried in the
+// background or shown as a broken screen.
+export const useGameStats = (gameId: string | undefined) =>
+  useQuery({
+    queryKey: ['gameStats', gameId],
+    queryFn: () => service.getGameStats(gameId as string),
+    enabled: !!gameId,
+    staleTime: 30 * 60_000,
+    gcTime: 60 * 60_000,
+    retry: false,
+  })

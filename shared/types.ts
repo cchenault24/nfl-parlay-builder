@@ -129,6 +129,12 @@ export interface WeekOdds {
   games: GameBookLines[]
 }
 
+// Both teams' season stats for one game, read before any run has happened.
+export interface GameTeamStats {
+  home: TeamStats | null
+  away: TeamStats | null
+}
+
 export interface OddsSnapshot {
   eventId: string
   bookmaker: string
