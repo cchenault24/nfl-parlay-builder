@@ -166,15 +166,16 @@ export default function ParlayDetailScreen() {
       >
         <View style={styles.header}>
           <View style={styles.headerText}>
+            {/* The book the anchored prices came from sits in the headline:
+                the settings row names it before the run, and nothing on this
+                screen did after. */}
             <Text style={styles.headline} accessibilityRole="header">
               {parlay.legs.length}-leg parlay
+              {parlay.bookmaker ? (
+                <Text style={styles.headlineBook}> · {parlay.bookmaker}</Text>
+              ) : null}
             </Text>
             <Text style={styles.context}>{parlay.gameContext}</Text>
-            {/* Which book the anchored prices came from. The settings row
-                names it before the run; nothing on this screen did after. */}
-            {parlay.bookmaker ? (
-              <Text style={styles.context}>Lines from {parlay.bookmaker}</Text>
-            ) : null}
           </View>
           <Text style={styles.odds}>{formatOdds(parlay.combinedOdds)}</Text>
         </View>
@@ -284,6 +285,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
   headerText: { flex: 1, gap: spacing.xxs },
   headline: { ...typography.title, color: colors.text },
+  headlineBook: { color: colors.textSecondary, fontFamily: typography.body.fontFamily },
   context: { ...typography.caption, color: colors.textSecondary },
   // The number people came for, at display size and anchored to the trailing
   // edge where the eye lands last.
