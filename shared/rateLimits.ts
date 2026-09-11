@@ -137,3 +137,27 @@ export function allowanceExhaustedCopy(
     message: `You've used all your parlay generations for ${where}.`,
   }
 }
+
+const DAY_MS = 24 * 60 * 60 * 1000
+
+/**
+ * When the weekly bucket comes back, for the quota strip.
+ *
+ * Both clients carried this three-line ceil and the four strings around it by
+ * hand. The window derivation is the server's and has exactly one answer, so
+ * two copies could only ever disagree — telling the same user different days
+ * for when their parlays return.
+ */
+export function quotaResetLabel(resetsAt: string, now = Date.now()): string {
+  const days = Math.ceil((Date.parse(resetsAt) - now) / DAY_MS)
+  if (!Number.isFinite(days)) {
+    return ''
+  }
+  return days <= 1 ? 'Resets tomorrow' : `Resets in ${days} days`
+}
+
+export function quotaRemainingLabel(remaining: number, limit: number): string {
+  return remaining === 0
+    ? 'No parlays left this week'
+    : `${remaining} of ${limit} parlays left this week`
+}

@@ -1,8 +1,10 @@
+import { ErrorBanner } from '@/components/ErrorBanner'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { useEntitlements } from '@shared/hooks/useEntitlements'
 import { proFeatures } from '@shared/proFeatures'
 import { useEffect, useState } from 'react'
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { Button } from '@/components/ui/Button'
 import { useAuth } from '@/lib/auth/useAuth'
@@ -36,6 +38,7 @@ export default function UpgradeSheet({
   const [price, setPrice] = useState<string | null>(null)
   const { entitlements } = useEntitlements()
   const { user } = useAuth()
+  const insets = useSafeAreaInsets()
 
   // Written from the capabilities the server sends, not from sentences with the
   // numbers spelled into them — widening a limit server-side used to leave a
@@ -118,9 +121,25 @@ export default function UpgradeSheet({
   }
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={styles.backdrop}>
-        <View style={styles.sheet}>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent
+      onRequestClose={onClose}
+      statusBarTranslucent
+    >
+      {/* Tappable, like ui/Sheet's. A scrim that only dims is a dead end for
+          anyone who reaches for the obvious way out. */}
+      <Pressable
+        style={styles.backdrop}
+        onPress={onClose}
+        accessibilityRole="button"
+        accessibilityLabel="Close ParlAId Pro"
+      />
+      <View style={styles.dock} pointerEvents="box-none">
+        <View
+          style={[styles.sheet, { paddingBottom: insets.bottom + spacing.lg }]}
+        >
           <View style={styles.header}>
             <View>
               <Text style={styles.title}>ParlAId Pro</Text>
@@ -152,8 +171,16 @@ export default function UpgradeSheet({
               </View>
             ))}
 
-            {error ? <Text style={styles.error}>{error}</Text> : null}
-            {notice ? <Text style={styles.notice}>{notice}</Text> : null}
+            {error ? (
+              <View style={styles.banner}>
+                <ErrorBanner type="error" message={error} />
+              </View>
+            ) : null}
+            {notice ? (
+              <View style={styles.banner}>
+                <ErrorBanner type="info" message={notice} />
+              </View>
+            ) : null}
 
             <Text style={styles.legal}>
               For entertainment only. No wagers are placed through ParlAId.
@@ -186,16 +213,23 @@ export default function UpgradeSheet({
 
 const styles = StyleSheet.create({
   backdrop: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: colors.scrim,
   },
+  dock: { flex: 1, justifyContent: 'flex-end' },
   sheet: {
     backgroundColor: colors.surface,
-    borderTopLeftRadius: radius.md * 2,
-    borderTopRightRadius: radius.md * 2,
-    padding: spacing.lg,
-    maxHeight: '85%',
+    borderTopLeftRadius: radius.lg,
+    borderTopRightRadius: radius.lg,
+    paddingTop: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    // Matches ui/Sheet: never taller than most of the screen, so the scrim
+    // stays a visible way out.
+    maxHeight: '86%',
     borderTopWidth: StyleSheet.hairlineWidth,
     borderColor: colors.divider,
   },
@@ -218,8 +252,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   featureText: { ...typography.body, color: colors.text, flex: 1 },
-  error: { ...typography.bodySmall, color: colors.error, marginTop: spacing.md },
-  notice: { ...typography.bodySmall, color: colors.text, marginTop: spacing.md },
   actions: { gap: spacing.sm },
+  banner: { marginTop: spacing.md },
   legal: { ...typography.micro, color: colors.textSecondary, marginTop: spacing.md },
 })

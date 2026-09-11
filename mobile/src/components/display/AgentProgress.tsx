@@ -5,7 +5,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 
 import { Card } from '@/components/ui/Card'
 import { waitEstimate } from '@/lib/build/quotaCopy'
-import { formatElapsed, STEP_ROWS, stepProgressLabel } from '@shared/agentSteps'
+import { formatElapsed, STEP_ROWS, stepMeta } from '@shared/agentSteps'
 import {
   colors,
   HIT_SLOP,
@@ -78,8 +78,8 @@ export function AgentProgress({
             counts through them in the meta column instead (CONTRACT §9.3). */}
         {STEP_ROWS.map((row, i) => {
           const step = byId.get(row.id)
-          const failed = step?.status === 'failed'
-          const progress = stepProgressLabel(step)
+          const meta = stepMeta(step, row)
+          const failed = meta.failed
           return (
             <View key={row.id} style={[styles.row, i > 0 && styles.rowDivider]}>
               <StatusGlyph step={step} />
@@ -93,14 +93,7 @@ export function AgentProgress({
                 {row.label}
               </Text>
               <Text style={[styles.rowMeta, failed && styles.rowMetaFailed]}>
-                {failed
-                  ? row.optional
-                    ? 'unavailable — continuing'
-                    : (step.error?.message ?? 'failed')
-                  : (progress ??
-                    (step?.durationMs !== undefined
-                      ? `${(step.durationMs / 1000).toFixed(1)}s`
-                      : ''))}
+                {meta.text}
               </Text>
             </View>
           )

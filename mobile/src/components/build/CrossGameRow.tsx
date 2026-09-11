@@ -1,3 +1,4 @@
+import { raisedSurface } from '@/components/ui/Card'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { formatOdds } from '@shared/odds'
 import type { ParlayEntry } from '@shared/store/parlayStore'
@@ -9,7 +10,6 @@ import {
   colors,
   MIN_TARGET,
   PRESSED_OPACITY,
-  radius,
   spacing,
   typography,
 } from '@/lib/theme/designTokens'
@@ -69,11 +69,7 @@ export function CrossGameRow({
 
 const styles = StyleSheet.create({
   row: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.divider,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
-    padding: spacing.md,
+    ...raisedSurface,
     gap: spacing.xs,
     minHeight: MIN_TARGET,
   },

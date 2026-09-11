@@ -1,3 +1,4 @@
+import { ErrorBanner } from '@/components/ErrorBanner'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { useState } from 'react'
 import {
@@ -107,9 +108,7 @@ export function AuthSheet({ visible, startOnSignUp, onClose }: AuthSheetProps) {
 
         <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
           {error ? (
-            <View style={styles.errorBox}>
-              <Text style={styles.errorText}>{error}</Text>
-            </View>
+            <ErrorBanner type="error" message={error} />
           ) : null}
 
           <View style={styles.field}>
@@ -232,14 +231,6 @@ const styles = StyleSheet.create({
   dividerText: { ...typography.bodySmall, color: colors.textSecondary },
 
 
-  errorBox: {
-    backgroundColor: 'rgba(244, 67, 54, 0.12)',
-    borderWidth: 1,
-    borderColor: colors.error,
-    borderRadius: radius.md,
-    padding: spacing.md,
-  },
-  errorText: { ...typography.bodySmall, color: colors.error },
 
   switch: { paddingVertical: spacing.sm },
   switchText: {

@@ -1,3 +1,4 @@
+import { raisedSurface } from '@/components/ui/Card'
 import { SECOND_TICK, useNow } from '@/lib/useNow'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { formatOdds } from '@shared/odds'
@@ -44,9 +45,9 @@ function useElapsed(since: number | undefined): number {
 }
 
 /**
- * One game, carrying its parlay's state. This row is the redesign in miniature:
- * it is what makes a week shoppable, because the thing you are deciding about
- * and the thing you already spent are in the same place (DESIGN §4.2).
+ * One game, carrying its parlay's state. What makes a week shoppable: the
+ * thing you are deciding about and the thing you already spent are in the same
+ * place (DESIGN §4.2).
  */
 export function BuildRow({
   row,
@@ -183,11 +184,7 @@ export function BuildRow({
 
 const styles = StyleSheet.create({
   row: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.divider,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
-    padding: spacing.md,
+    ...raisedSurface,
     gap: spacing.xs,
     minHeight: MIN_TARGET,
   },

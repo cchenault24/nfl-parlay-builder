@@ -12,8 +12,8 @@ interface ChipProps {
   style?: StyleProp<ViewStyle>
 }
 
-// One chip. Odds, outcomes, ranks, bet types and the legal badges were each
-// carrying their own padding (6/2, 8/3, 6/2, 8/3) and their own font size.
+// One chip for all of them — odds, outcomes, ranks, bet types and the legal
+// badges. Padding and type size live here, never at the call site.
 export function Chip({ label, tint, numeric, style }: ChipProps) {
   const color = tint ?? colors.textSecondary
   return (

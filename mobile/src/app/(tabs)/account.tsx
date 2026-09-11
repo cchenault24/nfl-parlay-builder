@@ -1,3 +1,4 @@
+import { ErrorBanner } from '@/components/ErrorBanner'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { Image } from 'expo-image'
 import { useState } from 'react'
@@ -175,9 +176,7 @@ export default function AccountScreen() {
         </View>
 
         {error ? (
-          <View style={styles.errorBox}>
-            <Text style={styles.errorText}>{error.message}</Text>
-          </View>
+          <ErrorBanner type="error" message={error.message} />
         ) : null}
 
         <View style={styles.badges}>
@@ -283,14 +282,6 @@ const styles = StyleSheet.create({
   name: { ...typography.title, color: colors.text },
   email: { ...typography.bodySmall, color: colors.textSecondary },
 
-  errorBox: {
-    backgroundColor: 'rgba(244, 67, 54, 0.12)',
-    borderWidth: 1,
-    borderColor: colors.error,
-    borderRadius: radius.md,
-    padding: spacing.md,
-  },
-  errorText: { ...typography.bodySmall, color: colors.error },
 
   badges: { flexDirection: 'row', gap: spacing.sm },
   badgeCaption: { ...typography.caption, color: colors.textSecondary },

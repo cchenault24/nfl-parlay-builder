@@ -161,6 +161,15 @@ export default function HistoryScreen() {
                 />
               </View>
 
+              {/* A compact row rather than ParlayLegView: that component is a
+                  detail card carrying reasoning, a confidence bar and the
+                  implied probability, and a list of saved parlays would be
+                  unreadable with one per leg. What it must not lose is meaning
+                  — the odds are tinted like ParlayLegView's, the bet type is a
+                  chip rather than the thing carrying the colour, and an
+                  estimated price is marked. Without that marker a saved parlay
+                  priced by the model was indistinguishable from one priced
+                  against a real book. */}
               {parlay.legs.map((leg, i) => {
                 const legOutcome = parlay.grading?.legOutcomes?.[i]
                 const tint = semanticColor[getBetTypeColor(leg.betType)]
@@ -170,12 +179,15 @@ export default function HistoryScreen() {
                       <Text style={styles.legSelection} numberOfLines={2}>
                         {leg.selection}
                       </Text>
-                      <Text style={[styles.legOdds, { color: tint }]}>
+                      <Text style={[styles.legOdds, { color: colors.primaryBright }]}>
                         {formatOdds(leg.odds)}
                       </Text>
                     </View>
                     <View style={styles.legMeta}>
-                      <Text style={styles.legType}>{leg.betType.replace(/_/g, ' ')}</Text>
+                      <Chip label={leg.betType.replace(/_/g, ' ')} tint={tint} />
+                      {leg.anchored === false ? (
+                        <Chip label="Estimate" tint={colors.warning} />
+                      ) : null}
                       {legOutcome ? (
                         <Text style={[styles.legResult, { color: LEG_OUTCOME[legOutcome].color }]}>
                           {LEG_OUTCOME[legOutcome].label}
@@ -239,6 +251,5 @@ const styles = StyleSheet.create({
   legSelection: { ...typography.bodySmall, color: colors.text, flex: 1 },
   legOdds: { ...typography.numericSmall },
   legMeta: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  legType: { ...typography.caption, color: colors.textSecondary, flex: 1 },
-  legResult: { ...typography.micro },
+  legResult: { ...typography.micro, marginLeft: 'auto' },
 })

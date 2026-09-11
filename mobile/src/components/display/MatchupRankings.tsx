@@ -1,3 +1,4 @@
+import { Card } from '@/components/ui/Card'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import type { Game, RankedStat, TeamStats } from '@shared/types'
 import { useState } from 'react'
@@ -10,7 +11,6 @@ import {
   colors,
   MIN_TARGET,
   PRESSED_OPACITY,
-  radius,
   spacing,
   typography,
 } from '@/lib/theme/designTokens'
@@ -46,7 +46,7 @@ export function MatchupRankings({ game, homeStats, awayStats }: MatchupRankingsP
   const rows = open ? [...HEADLINE_ROWS, ...DETAIL_ROWS] : HEADLINE_ROWS
 
   return (
-    <View style={styles.panel}>
+    <Card tone="inset" style={styles.panel}>
       <View style={styles.header}>
         <Text style={styles.title} accessibilityRole="header">
           Matchup rankings
@@ -108,19 +108,13 @@ export function MatchupRankings({ game, homeStats, awayStats }: MatchupRankingsP
           <TeamCard team={home} stats={homeStats} />
         </View>
       ) : null}
-    </View>
+    </Card>
   )
 }
 
 const styles = StyleSheet.create({
-  panel: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.divider,
-    borderRadius: radius.md,
-    backgroundColor: colors.background,
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
+  // Geometry and fill come from Card tone="inset"; only the gap is ours.
+  panel: { gap: spacing.sm },
   header: {
     flexDirection: 'row',
     alignItems: 'baseline',

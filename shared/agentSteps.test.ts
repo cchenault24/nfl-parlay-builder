@@ -4,6 +4,7 @@ import {
   currentStepLabel,
   formatElapsed,
   stepFraction,
+  stepMeta,
   stepProgressLabel,
   STEP_ROWS,
 } from './agentSteps'
@@ -164,5 +165,78 @@ describe('the step contract itself', () => {
     for (const id of ['step_plan', 'step_tool_espn_game', 'step_draft', 'step_validate']) {
       expect(STEP_ROWS.find(row => row.id === id)?.optional).toBeUndefined()
     }
+  })
+})
+
+describe('stepMeta', () => {
+  const row = { id: 'step_tool_odds', label: 'Fetch book lines', optional: true }
+  const required = { id: 'step_draft', label: 'Draft the parlay' }
+
+  // The branch that decides whether a degraded run looks fine or a broken one
+  // looks benign. It was four nested ternaries inside JSX.
+  it('softens a failed optional step', () => {
+    const meta = stepMeta(
+      step('step_tool_odds', { status: 'failed', error: { code: 'odds_unavailable', message: 'no lines' } }),
+      row
+    )
+
+    expect(meta).toEqual({ failed: true, text: 'unavailable — continuing' })
+  })
+
+  it('surfaces the real error for a failed required step', () => {
+    const meta = stepMeta(
+      step('step_draft', { status: 'failed', error: { code: 'agent_error', message: 'model refused' } }),
+      required
+    )
+
+    expect(meta).toEqual({ failed: true, text: 'model refused' })
+  })
+
+  it('falls back to "failed" when a required step carries no message', () => {
+    expect(stepMeta(step('step_draft', { status: 'failed' }), required).text).toBe(
+      'failed'
+    )
+  })
+
+  it('prefers the progress count while a multi-game step runs', () => {
+    const meta = stepMeta(
+      step('step_tool_odds', { status: 'running', progress: { done: 4, total: 6 } }),
+      row
+    )
+
+    expect(meta).toEqual({ failed: false, text: '4 of 6' })
+  })
+
+  it('shows the duration once a step has finished', () => {
+    const meta = stepMeta(step('step_draft', { status: 'ok', durationMs: 1500 }), required)
+
+    expect(meta).toEqual({ failed: false, text: '1.5s' })
+  })
+
+  it('prefers progress over duration when a step has both', () => {
+    const meta = stepMeta(
+      step('step_tool_odds', {
+        status: 'running',
+        durationMs: 1500,
+        progress: { done: 1, total: 6 },
+      }),
+      row
+    )
+
+    expect(meta.text).toBe('1 of 6')
+  })
+
+  it('says nothing for a step that has not started', () => {
+    expect(stepMeta(undefined, required)).toEqual({ failed: false, text: '' })
+  })
+
+  it('says nothing for a running step with neither progress nor duration', () => {
+    expect(stepMeta(step('step_draft', { status: 'running' }), required).text).toBe('')
+  })
+
+  it('reports a zero duration rather than treating it as absent', () => {
+    expect(stepMeta(step('step_draft', { status: 'ok', durationMs: 0 }), required).text).toBe(
+      '0.0s'
+    )
   })
 })

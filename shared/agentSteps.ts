@@ -77,3 +77,34 @@ export function formatElapsed(ms: number): string {
 // stated this number, so a change to the agent's real duration had to be made
 // twice to stop the two clients disagreeing.
 export const RUN_DURATION_ESTIMATE = 'Runs usually take 20–60 seconds.'
+
+/**
+ * What the right-hand side of a timeline row says: the failure, the progress
+ * count, or how long the step took.
+ *
+ * Four mutually exclusive outcomes, previously resolved by nested ternaries
+ * inside JSX. An optional step that failed reads as "unavailable — continuing"
+ * rather than as an error, because a degraded run is not a broken one — and
+ * getting that branch wrong presents a mandatory failure as benign.
+ */
+export function stepMeta(
+  step: AgentStep | undefined,
+  row: StepRow
+): { text: string; failed: boolean } {
+  if (step?.status === 'failed') {
+    return {
+      failed: true,
+      text: row.optional
+        ? 'unavailable — continuing'
+        : (step.error?.message ?? 'failed'),
+    }
+  }
+  const progress = stepProgressLabel(step)
+  if (progress) {
+    return { failed: false, text: progress }
+  }
+  if (step?.durationMs !== undefined) {
+    return { failed: false, text: `${(step.durationMs / 1000).toFixed(1)}s` }
+  }
+  return { failed: false, text: '' }
+}

@@ -1,3 +1,4 @@
+import { ErrorBanner } from '@/components/ErrorBanner'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { useState } from 'react'
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
@@ -116,7 +117,7 @@ export function AgeVerificationGate({ onVerified }: { onVerified: () => void }) 
           </Text>
         </Pressable>
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {error ? <ErrorBanner type="error" message={error} /> : null}
 
         {/* Stays tappable while unconfirmed rather than going disabled: a
             dead button tells the user nothing about why. */}
@@ -180,7 +181,6 @@ const styles = StyleSheet.create({
   checkRowOn: { borderColor: colors.primaryBright },
   checkLabel: { ...typography.bodySmall, color: colors.textSecondary, flex: 1 },
   checkLabelOn: { color: colors.text },
-  error: { ...typography.bodySmall, color: colors.error },
 
   helpBtn: { marginTop: spacing.md, paddingHorizontal: spacing.lg },
 

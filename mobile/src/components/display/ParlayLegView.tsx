@@ -98,8 +98,8 @@ const styles = StyleSheet.create({
     minWidth: 40,
     textAlign: 'right',
   },
-  // Its own line now. Sharing the bar's row meant two numbers competing for
-  // the same trailing edge, and the wider one clipped at large text sizes.
+  // Its own line: sharing the bar's row puts two numbers on the same trailing
+  // edge, and the wider one clips at large text sizes.
   implied: { ...typography.caption, color: colors.textSecondary },
   warn: { ...typography.bodySmall, color: colors.warning },
 })

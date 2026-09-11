@@ -24,8 +24,8 @@ interface WeekHeaderProps {
   onUpgrade: (reason: string) => void
 }
 
-// "14 games · 2 parlays built". Singular matters: "1 parlays built" above "1 of
-// 2 left" was the copy contradiction the canvas review caught.
+// "14 games · 2 parlays built". Singular matters: this sits directly above the
+// quota strip, so "1 parlays built" lands next to "1 of 2 left".
 export function slateSummary(gameCount: number, builtCount: number): string {
   const games = `${gameCount} game${gameCount === 1 ? '' : 's'}`
   if (builtCount === 0) {

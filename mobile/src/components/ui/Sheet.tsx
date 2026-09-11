@@ -22,8 +22,7 @@ interface SheetProps {
 
 /**
  * A bottom sheet over the current screen. The scrim is its own dismiss target,
- * and `Done` is a real 44pt control rather than a bare word — both were caught
- * in the canvas review.
+ * and `Done` is a real 44pt control rather than a bare word.
  */
 export function Sheet({ visible, title, onClose, children }: SheetProps) {
   const insets = useSafeAreaInsets()
@@ -76,7 +75,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: colors.scrim,
   },
   dock: { flex: 1, justifyContent: 'flex-end' },
   sheet: {
