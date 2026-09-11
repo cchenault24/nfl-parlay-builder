@@ -73,6 +73,7 @@ jobs:
       # mobile's config is the part worth having: a shared-layer change can
       # compile for web and still be wrong for React Native.
       - run: npm run type-check --prefix mobile
+      - run: npm test --prefix mobile
       # `expo lint` now has a committed config, so it no longer scaffolds one
       # mid-run. It is the only linter in the repo that knows React Native:
       # expo/no-dynamic-env-var caught a computed process.env read here that
