@@ -36,6 +36,10 @@ export default function ParlayDetailScreen() {
   const entry = useParlayStore(state => state.entries[key])
   const clearRun = useParlayStore(state => state.clearRun)
 
+  // The pinned bar floats over the scroll view, so the content has to reserve
+  // its real height rather than a guess — a guess leaves either dead space
+  // under the last line or a footer you cannot scroll clear of.
+  const [actionsHeight, setActionsHeight] = useState(0)
   const [saving, setSaving] = useState(false)
   const [savedId, setSavedId] = useState<string | null>(null)
   const [saveError, setSaveError] = useState('')
@@ -140,7 +144,12 @@ export default function ParlayDetailScreen() {
     <View style={styles.screen}>
       <Stack.Screen options={{ title }} />
 
-      <ScrollView contentContainerStyle={styles.body}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.body,
+          { paddingBottom: actionsHeight + spacing.md },
+        ]}
+      >
         <View style={styles.header}>
           <View style={styles.headerText}>
             <Text style={styles.headline} accessibilityRole="header">
@@ -220,7 +229,10 @@ export default function ParlayDetailScreen() {
         <ParlayDisplayFooter parlay={parlay} />
       </ScrollView>
 
-      <GlassSurface style={styles.actions}>
+      <GlassSurface
+        style={styles.actions}
+        onLayout={e => setActionsHeight(e.nativeEvent.layout.height)}
+      >
         <View style={styles.actionRow}>
           <Button
             variant="outline"
@@ -254,7 +266,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     padding: spacing.lg,
   },
-  body: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xxl * 3 },
+  body: { padding: spacing.md, gap: spacing.md },
   muted: { ...typography.bodySmall, color: colors.textSecondary },
 
   header: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },

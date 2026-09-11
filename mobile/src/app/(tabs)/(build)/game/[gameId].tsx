@@ -36,6 +36,10 @@ export default function GameDetailScreen() {
   const { currentWeek } = useDerivedCurrentWeek()
   // The week the list is browsing, which is not always the live one.
   const activeWeek = useParlayStore(state => state.activeWeek) ?? currentWeek
+  // The pinned bar floats over the scroll view, so the content has to reserve
+  // its real height rather than a guess — a guess leaves either dead space
+  // under the last panel or a panel you cannot scroll clear of.
+  const [actionsHeight, setActionsHeight] = useState(0)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [upgradeReason, setUpgradeReason] = useState<string | null>(null)
 
@@ -89,7 +93,12 @@ export default function GameDetailScreen() {
         options={{ title: `${game.away.abbrev} @ ${game.home.abbrev}` }}
       />
 
-      <ScrollView contentContainerStyle={styles.body}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.body,
+          { paddingBottom: actionsHeight + spacing.md },
+        ]}
+      >
         <MatchupHero game={game} />
         <BookLinesPanel
           game={game}
@@ -116,7 +125,10 @@ export default function GameDetailScreen() {
 
       {/* Pinned, so the button that acts on this game is never below a
           screenful of the data you used to decide (DESIGN fault 1). */}
-      <GlassSurface style={styles.actions}>
+      <GlassSurface
+        style={styles.actions}
+        onLayout={e => setActionsHeight(e.nativeEvent.layout.height)}
+      >
         <RunSettingsRow
           summary={settingsSummary({
             riskLevel,
@@ -177,7 +189,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     padding: spacing.lg,
   },
-  body: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xxl * 3 },
+  body: { padding: spacing.md, gap: spacing.md },
   muted: { ...typography.body, color: colors.textSecondary, textAlign: 'center' },
   // No safe-area inset here. This bar is pinned to the bottom of a screen
   // inside the tab navigator, so the tab bar already sits between it and the
