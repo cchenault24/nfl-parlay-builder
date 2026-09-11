@@ -17,8 +17,10 @@ export default function BuildLayout() {
       }}
     >
       {/* The list carries its own large header, so the nav bar would only
-          repeat it — the same reason the tab header was removed. */}
-      <Stack.Screen name="index" options={{ headerShown: false }} />
+          repeat it — the same reason the tab header was removed. The title is
+          still set: a pushed screen's back button uses it, and without one it
+          falls back to the route name and reads "index". */}
+      <Stack.Screen name="index" options={{ headerShown: false, title: 'Build' }} />
       <Stack.Screen name="game/[gameId]" />
       <Stack.Screen name="parlay/[gameIds]" />
     </Stack>

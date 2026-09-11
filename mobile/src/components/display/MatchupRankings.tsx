@@ -52,7 +52,7 @@ export function MatchupRankings({ game, homeStats, awayStats }: MatchupRankingsP
           Matchup rankings
         </Text>
         {statsSeason !== undefined ? (
-          <Text style={styles.muted}>
+          <Text style={[styles.muted, styles.headerNote]}>
             {statsSeason} season{priorSeason ? ' (no games played yet this year)' : ''}
           </Text>
         ) : null}
@@ -129,6 +129,9 @@ const styles = StyleSheet.create({
   },
   title: { ...typography.label, color: colors.text },
   muted: { ...typography.caption, color: colors.textSecondary },
+  // Wraps rather than running off the edge. The note is long in the preseason
+  // case, which is exactly when it matters most.
+  headerNote: { flexShrink: 1, textAlign: 'right' },
   teamsRow: {
     flexDirection: 'row',
     alignItems: 'center',

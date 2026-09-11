@@ -61,7 +61,11 @@ const styles = StyleSheet.create({
   },
   badge: {
     position: 'absolute',
-    top: -spacing.sm,
+    // Clear of the control it labels. At -8 it overlapped the first row of
+    // chips, which on the run-settings sheet meant the badge sat across the
+    // sportsbook a free user is being sold.
+    bottom: '100%',
+    marginBottom: spacing.xxs,
     right: 0,
     flexDirection: 'row',
     alignItems: 'center',
