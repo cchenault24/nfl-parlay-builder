@@ -7,6 +7,8 @@ import type { GeneratedParlay } from '@shared/types'
 import {
   addDoc,
   collection,
+  deleteDoc,
+  doc,
   onSnapshot,
   query,
   serverTimestamp,
@@ -23,7 +25,9 @@ import { db } from '@/lib/firebase'
 // and re-pushed freely, and a per-screen flag let Save create the same History
 // document twice. A cache of re-creatable runs does not need this to survive a
 // relaunch.
-const savedThisSession = new Set<string>()
+// Keyed by the run's id, holding the document id, so a delete from History can
+// un-mark the run's Save button as well.
+const savedThisSession = new Map<string, string>()
 
 export const isParlaySaved = (parlayId: string) => savedThisSession.has(parlayId)
 
@@ -32,8 +36,19 @@ export const saveParlayToUser = async (userId: string, parlay: GeneratedParlay) 
     collection(db, 'parlays'),
     parlayDocument(userId, parlay, serverTimestamp())
   )
-  savedThisSession.add(parlay.parlayId)
+  savedThisSession.set(parlay.parlayId, ref.id)
   return ref.id
+}
+
+// A loaded parlay's `parlayId` is its document id (see shared/firestoreDocs).
+// The History listener drops the card on its own once the delete lands.
+export const deleteSavedParlay = async (docId: string) => {
+  await deleteDoc(doc(db, 'parlays', docId))
+  for (const [runId, savedDocId] of savedThisSession) {
+    if (savedDocId === docId) {
+      savedThisSession.delete(runId)
+    }
+  }
 }
 
 // The parlays the History listener last delivered, by id, so a pushed screen
