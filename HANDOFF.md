@@ -14,6 +14,12 @@ functions are deployed. A six-game run is budgeted at 190s and will be killed at
 function. Deploy before raising anything, or before anyone tries a cross-game
 parlay against production.
 
+**`firestore.rules` must deploy with the web client.** The parlay-create rule
+now requires a non-empty `gameIds`, and the currently-live web bundle writes
+`gameId`. `firebase deploy` ships hosting and rules together, which closes the
+gap to an already-open browser tab — a refresh fixes that. Do not deploy rules
+on their own. The iOS app is unaffected: it has never shipped.
+
 Everything else on the backend is code-only.
 
 ---
@@ -35,6 +41,8 @@ Everything else on the backend is code-only.
 | `GET /odds/week/:week` | per-book lines and `posted` for a whole week, on `publicRouter` |
 | Odds slate cache | Firestore-backed instead of per-instance |
 | Grading | each leg graded against its own game; a cross-game parlay waits for all of them |
+| Closing lines | captured per game as each one kicks off, merged into the parlay across sweeps |
+| `parlays/{id}` | writes `gameIds`; `gameId` is gone from the domain type and from the rule |
 
 `npm test` in `functions/` covers the validator (characterized before it changed),
 every run-input refusal, the orchestrator's fan-out and per-game pricing, the
@@ -64,24 +72,30 @@ the way in. Every handoff is a snapshot now.
 
 ## Known gaps, deliberately left
 
-**Closing-line capture skips cross-game parlays.** Each leg closes at its own
-game's kickoff and
-[`captureClosingLines.ts`](functions/src/scheduled/captureClosingLines.ts) is keyed
-on one kickoff time, so capturing there would record a price taken hours before
-the later games closed. `closingLines` stays absent, which is already a supported
-state, and the sweep logs `skippedCrossGame`. A per-game capture needs a new
-field and a Firestore index — its own piece of work.
-
-**`GeneratedParlay` carries both `gameId` and `gameIds`.** `gameId` is
-`gameIds[0]` and exists because `firestore.rules` requires the field on create.
-Changing that rule needs a rules deploy that would break every client still
-running the old bundle, so it is not this branch's to make. Once every client
-writes `gameIds`, require it in the rule and drop `gameId`.
-
 **Cross-game correlation is unproven.** Scoping one-leg-per-market per game
 permits legs across games that nothing checks for correlation — two road
 favourites in the same weather system, say. The prompt asks the model to avoid
 it and to say so if it stacks anyway; there is no rule enforcing it.
+
+## Resolved since the first pass
+
+**Closing lines now cover cross-game parlays.** The sweep is driven by the
+*games* about to kick off rather than by the parlays, so each leg is priced when
+its own game closes and the parlay is written once per game it covers. A leg
+already priced is never recomputed — its market is gone, and re-reading it later
+would replace a real close with a meaningless one. `capturedGameIds` makes a
+repeated sweep idempotent and `complete` says when nothing more will change.
+`bookmaker` moved onto the leg, because a cross-game parlay's games can close at
+different books. `not_yet_closed` is the new, and only temporary,
+`ClvUnavailable` value.
+
+**`gameId` is gone.** It survived one commit alongside `gameIds` only because
+`firestore.rules` required it. The iOS app has never shipped, so the only client
+that constraint protected was the web bundle — see the deploy note above.
+Documents already saved still carry `gameId` and always will;
+`normalizeStoredParlay` and `parlayGameIds` promote it to a one-element list on
+read. That is normalization at the persistence boundary, and it is the reason
+History renders at all for anything saved before this week.
 
 ---
 

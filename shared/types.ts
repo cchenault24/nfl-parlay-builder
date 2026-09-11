@@ -211,8 +211,13 @@ export interface ParlayGrading {
   parlayOutcome?: ParlayOutcome
 }
 
-// Mirrors functions/src/grading/types.ts.
-export type ClvUnavailable = 'unanchored' | 'line_moved' | 'no_market'
+// Mirrors functions/src/grading/types.ts. `not_yet_closed` is the only
+// temporary one: a cross-game parlay's legs close at their own games' kickoffs.
+export type ClvUnavailable =
+  | 'unanchored'
+  | 'line_moved'
+  | 'no_market'
+  | 'not_yet_closed'
 
 export interface LegClosingLine {
   closingLine: number | null
@@ -220,12 +225,17 @@ export interface LegClosingLine {
   // Implied-probability points gained versus the close; positive beat it.
   // Null when the leg can't be judged (see `unavailable`).
   clvPoints: number | null
+  // Per leg, because a cross-game parlay's games can close at different books.
+  bookmaker: string | null
   unavailable?: ClvUnavailable
 }
 
 export interface ParlayClosingLines {
+  // The most recent capture; a cross-game parlay is captured once per game.
   capturedAt: string
-  bookmaker: string | null
+  capturedGameIds: string[]
+  // Every game has been priced and nothing more will change.
+  complete: boolean
   legs: LegClosingLine[]
   averageClvPoints: number | null
 }
