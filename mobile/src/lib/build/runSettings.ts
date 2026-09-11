@@ -1,4 +1,4 @@
-import type { Sportsbook, TierCapabilities } from '@shared/tiering'
+import { normalizeRunSettings, type Sportsbook, type TierCapabilities } from '@shared/tiering'
 import type { BookLines, RiskLevel } from '@shared/types'
 
 // The run-settings sheet, decided in one place. Which books are offered, which
@@ -86,24 +86,6 @@ export function effectiveBookKey(params: {
   return sportsbooks.find(b => posted(b.key))?.key
 }
 
-/**
- * What to put in the request's `bookmaker` field.
- *
- * Free must send **nothing**. `agent.ts` answers 403 `sportsbook_locked` to a
- * requested book when `chooseSportsbook` is false, so sending `draftkings` to
- * match the label the sheet shows would break every free run. The server's own
- * priority already starts there: the UI names the book, the server picks it.
- */
-export function bookmakerForRequest(
-  capabilities: TierCapabilities | undefined,
-  chosen: string | undefined
-): string | undefined {
-  if (!(capabilities?.chooseSportsbook ?? false)) {
-    return undefined
-  }
-  return chosen || undefined
-}
-
 export function riskOptions(
   capabilities: TierCapabilities | undefined
 ): ChoiceOption<RiskLevel>[] {
@@ -149,16 +131,20 @@ export function settingsSummary(params: {
     .join(' · ')
 }
 
+// The number the button and the settings row show. It delegates to the same
+// clamp the request path uses (`normalizeRunSettings`) rather than repeating it,
+// because a label that disagrees with what is sent is the whole failure mode:
+// the screen names one leg count and the server refuses the other.
 export function effectiveLegCount(
   capabilities: TierCapabilities | undefined,
   chosen: number | undefined
 ): number {
-  const allowed = capabilities?.legCount
-  if (!allowed) {
-    return chosen ?? 3
-  }
-  if (chosen === undefined) {
-    return allowed.default
-  }
-  return Math.min(Math.max(chosen, allowed.min), allowed.max)
+  const { legCount } = normalizeRunSettings(capabilities, {
+    riskLevel: 'moderate',
+    legCount: chosen,
+    bookmaker: undefined,
+  })
+  // Only reachable before entitlements land, when nothing is known about the
+  // allowed range and there is no limit to render.
+  return legCount ?? chosen ?? 3
 }

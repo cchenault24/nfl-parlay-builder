@@ -71,3 +71,61 @@ export function canUseRiskLevel(
 export function hasGenerationsLeft(quota: QuotaState): boolean {
   return quota.remaining === null || quota.remaining > 0
 }
+
+// What the user picked. Every field is optional in the sense that it may hold a
+// value their plan no longer allows: settings persist, and a subscription can
+// lapse or be refunded while they are sitting on the Build tab.
+export interface RunSettingsChoice {
+  riskLevel: RiskLevel
+  legCount: number | undefined
+  bookmaker: string | undefined
+}
+
+// What may actually go on the wire. `legCount` and `bookmaker` are omitted
+// rather than defaulted when there is nothing legitimate to send, so the server
+// applies its own default instead of the client inventing one.
+export interface RunSettingsRequest {
+  riskLevel: RiskLevel
+  legCount: number | undefined
+  bookmaker: string | undefined
+}
+
+/**
+ * Clamps a user's stored run settings to what their plan actually permits.
+ *
+ * This is the single place the rule lives, and it is applied on the request
+ * path rather than only in the label. The server refuses a gated value outright
+ * — 403 `sportsbook_locked`, `leg_count_locked`, or the risk-level refusal — so
+ * a client that renders the clamped value while sending the raw one produces a
+ * run that fails every time, showing a setting it is not asking for. A Free
+ * user tapping the sportsbook chip already shown as selected is enough to do
+ * it, because the pinned book is displayed as selected and is not locked.
+ *
+ * Free must send **nothing** for `bookmaker`. The server's own priority order
+ * already starts at the pinned book, so the UI names it and the server picks
+ * it; sending the name to match the label is what breaks the run.
+ *
+ * With capabilities not yet loaded every gated field is dropped, matching the
+ * fail-closed default the option lists use: briefly sending an unpermitted
+ * value would fail the run outright, while sending nothing is always valid.
+ */
+export function normalizeRunSettings(
+  capabilities: TierCapabilities | undefined,
+  chosen: RunSettingsChoice
+): RunSettingsRequest {
+  const allowedRisks = capabilities?.riskLevels ?? ['moderate']
+  const legs = capabilities?.legCount
+
+  return {
+    riskLevel: allowedRisks.includes(chosen.riskLevel)
+      ? chosen.riskLevel
+      : (allowedRisks[0] ?? 'moderate'),
+    legCount:
+      legs === undefined
+        ? undefined
+        : chosen.legCount === undefined
+          ? legs.default
+          : Math.min(Math.max(chosen.legCount, legs.min), legs.max),
+    bookmaker: capabilities?.chooseSportsbook ? chosen.bookmaker || undefined : undefined,
+  }
+}

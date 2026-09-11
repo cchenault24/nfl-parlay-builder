@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import type { TierCapabilities } from '@shared/tiering'
 import type { BookLines } from '@shared/types'
 import {
-  bookmakerForRequest,
   bookOptions,
   effectiveBookKey,
   effectiveLegCount,
@@ -55,29 +54,6 @@ const lines = (posted: Record<string, boolean>): BookLines[] =>
 
 const ALL_POSTED = lines({ draftkings: true, fanduel: true, betmgm: true, caesars: true })
 const HALF_POSTED = lines({ draftkings: true, fanduel: true })
-
-describe('bookmakerForRequest', () => {
-  // agent.ts answers 403 sportsbook_locked to a *requested* book from a plan
-  // that cannot choose, so sending the pinned book to match the label would
-  // break every free run.
-  it('sends nothing on free, even though the sheet names DraftKings', () => {
-    expect(bookmakerForRequest(FREE, 'draftkings')).toBeUndefined()
-    expect(bookmakerForRequest(FREE, undefined)).toBeUndefined()
-  })
-
-  it('sends nothing before entitlements have loaded', () => {
-    expect(bookmakerForRequest(undefined, 'fanduel')).toBeUndefined()
-  })
-
-  it('sends the choice on Pro', () => {
-    expect(bookmakerForRequest(PRO, 'fanduel')).toBe('fanduel')
-  })
-
-  it('sends nothing when Pro has expressed no preference', () => {
-    expect(bookmakerForRequest(PRO, undefined)).toBeUndefined()
-    expect(bookmakerForRequest(PRO, '')).toBeUndefined()
-  })
-})
 
 describe('bookOptions on free', () => {
   const options = () =>

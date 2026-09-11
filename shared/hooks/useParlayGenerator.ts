@@ -1,8 +1,9 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { BaseParlayService } from '../api/BaseParlayService'
 import useParlayStore, { parlayKey } from '../store/parlayStore'
+import { normalizeRunSettings } from '../tiering'
 import type { Game } from '../types'
-import { ENTITLEMENTS_QUERY_KEY } from './useEntitlements'
+import { ENTITLEMENTS_QUERY_KEY, useEntitlements } from './useEntitlements'
 import { useRateLimit } from './useRateLimit'
 
 // Keyed by run, not held in a ref, because the screen that *starts* a run is not
@@ -31,17 +32,24 @@ export const useParlayGenerator = (service: BaseParlayService) => {
   const setResult = useParlayStore(state => state.setResult)
   const failRun = useParlayStore(state => state.failRun)
   const { updateFromResponse } = useRateLimit()
+  const { capabilities } = useEntitlements()
   const queryClient = useQueryClient()
 
   const mutation = useMutation({
     mutationFn: async ({ games, key }: { games: Game[]; key: string }) => {
       const controller = new AbortController()
       controllers.set(key, controller)
+      // Clamped here, on the only path to the wire. Settings persist and a plan
+      // can lapse underneath them, so what the store holds is a preference and
+      // not necessarily something this user may still ask for.
+      const settings = normalizeRunSettings(capabilities, {
+        riskLevel,
+        legCount,
+        bookmaker,
+      })
       try {
         return await service.generateParlay(games, {
-          riskLevel,
-          bookmaker,
-          legCount,
+          ...settings,
           onStep: step => upsertStep(key, step),
           signal: controller.signal,
         })
