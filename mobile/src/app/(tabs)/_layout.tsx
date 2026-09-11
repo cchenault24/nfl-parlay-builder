@@ -1,6 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { Tabs } from 'expo-router'
 
+import { TAB_BAR_STYLE } from '@/components/ui/tabBarStyle'
 import { colors, fonts, typography } from '@/lib/theme/designTokens'
 
 export default function TabLayout() {
@@ -14,10 +15,7 @@ export default function TabLayout() {
         // own title in the scroll content instead.
         headerShown: false,
         sceneStyle: { backgroundColor: colors.background },
-        tabBarStyle: {
-          backgroundColor: colors.surface,
-          borderTopColor: colors.divider,
-        },
+        tabBarStyle: TAB_BAR_STYLE,
         tabBarActiveTintColor: colors.primaryBright,
         tabBarInactiveTintColor: colors.textSecondary,
         tabBarLabelStyle: {

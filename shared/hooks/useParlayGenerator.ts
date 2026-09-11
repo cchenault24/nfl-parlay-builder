@@ -1,7 +1,8 @@
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { BaseParlayService } from '../api/BaseParlayService'
 import useParlayStore, { parlayKey } from '../store/parlayStore'
 import type { Game } from '../types'
+import { ENTITLEMENTS_QUERY_KEY } from './useEntitlements'
 import { useRateLimit } from './useRateLimit'
 
 // Keyed by run, not held in a ref, because the screen that *starts* a run is not
@@ -30,6 +31,7 @@ export const useParlayGenerator = (service: BaseParlayService) => {
   const setResult = useParlayStore(state => state.setResult)
   const failRun = useParlayStore(state => state.failRun)
   const { updateFromResponse } = useRateLimit()
+  const queryClient = useQueryClient()
 
   const mutation = useMutation({
     mutationFn: async ({ games, key }: { games: Game[]; key: string }) => {
@@ -52,6 +54,13 @@ export const useParlayGenerator = (service: BaseParlayService) => {
         updateFromResponse(result.rateLimit)
       }
       setResult(key, { parlay: result.parlay, games: result.games })
+      // The server bills a generation inside the same transaction that marks
+      // the run succeeded, so the quota on screen is now one behind. Nothing
+      // else brings it back: the Build list stays mounted while the stack is
+      // pushed over it, so react-query never sees a mount or focus event to
+      // refetch on, and the strip can read "1 of 2 left" indefinitely against a
+      // server that will refuse the next run.
+      void queryClient.invalidateQueries({ queryKey: [ENTITLEMENTS_QUERY_KEY] })
     },
     onError: (error, { key }) => {
       // A cancel has already cleared the entry; `failRun` is a no-op on a key

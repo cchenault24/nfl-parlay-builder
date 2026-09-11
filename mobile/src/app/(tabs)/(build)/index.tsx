@@ -13,14 +13,15 @@ import {
 import { useGamesForWeek, useSeasonSummary } from '@shared/hooks/useSeason'
 import useParlayStore, { parlayKey, type ParlayEntry } from '@shared/store/parlayStore'
 import type { Game } from '@shared/types'
-import { router } from 'expo-router'
-import { useCallback, useMemo, useState } from 'react'
+import { router, useNavigation } from 'expo-router'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { ErrorBanner } from '@/components/ErrorBanner'
 import UpgradeSheet from '@/components/UpgradeSheet'
 import { BatchBar } from '@/components/build/BatchBar'
+import { TAB_BAR_HIDDEN, TAB_BAR_STYLE } from '@/components/ui/tabBarStyle'
 import { BuildRow } from '@/components/build/BuildRow'
 import { CrossGameRow } from '@/components/build/CrossGameRow'
 import { WeekHeader } from '@/components/build/WeekHeader'
@@ -32,7 +33,7 @@ import { useParlayPersistence } from '@/lib/build/useParlayPersistence'
 import { colors, spacing, typography } from '@/lib/theme/designTokens'
 
 // Room for the batch bar, which replaces the tab bar rather than stacking on it.
-const BATCH_BAR_SPACE = 180
+const BATCH_BAR_SPACE = 200
 
 export default function BuildScreen() {
   const { currentWeek } = useDerivedCurrentWeek()
@@ -65,6 +66,16 @@ export default function BuildScreen() {
   const [batchRunning, setBatchRunning] = useState(false)
   const [batchNotice, setBatchNotice] = useState<string | null>(null)
   const [upgradeReason, setUpgradeReason] = useState<string | null>(null)
+
+  // The batch bar *replaces* the tab bar rather than stacking above it: two
+  // bottom bars eat ~150pt and read as clutter, and select mode is modal by
+  // nature — Done is the way out (DESIGN #11).
+  const navigation = useNavigation()
+  useEffect(() => {
+    const tabs = navigation.getParent()
+    tabs?.setOptions({ tabBarStyle: selectMode ? TAB_BAR_HIDDEN : TAB_BAR_STYLE })
+    return () => tabs?.setOptions({ tabBarStyle: TAB_BAR_STYLE })
+  }, [navigation, selectMode])
 
   const rows = useMemo(
     () =>
