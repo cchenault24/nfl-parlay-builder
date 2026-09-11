@@ -16,6 +16,9 @@ export interface TierCapabilities {
   generationsPerWeek: number | null
   riskLevels: RiskLevel[]
   legCount: { min: number; max: number; default: number }
+  // How many games one run may draw legs from. 1 is single-game only; above
+  // that the client may offer a cross-game parlay.
+  maxGamesPerRun: number
   playerProps: boolean
   chooseSportsbook: boolean
   historyDepth: number | null

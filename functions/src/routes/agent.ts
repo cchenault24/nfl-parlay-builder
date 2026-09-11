@@ -5,7 +5,7 @@ import {
   AgentRun,
   AgentRunSchema,
   AgentStep,
-  RiskLevelSchema,
+  budgetForGames,
 } from '../agent/shared/schemas'
 import {
   cancelRun,
@@ -22,20 +22,24 @@ import {
   rateLimitByUser,
 } from '../middleware/rateLimit'
 import { log } from '../observability/logger'
-import { SUPPORTED_BOOKMAKERS } from '../providers/odds/client'
+import { getSeasonSchedule } from '../providers/espn/client'
+import {
+  PRO_RUNS_PER_DAY,
+  PRO_RUNS_PER_HOUR,
+  RUN_WINDOW_DAY_MS,
+  RUN_WINDOW_HOUR_MS,
+} from '../tiering/capabilities'
 import { getEntitlementView } from '../tiering/store'
 import { errorResponse } from '../utils/errors'
+import { getCurrentSeason } from '../utils/season'
+import { resolveRunInput } from './agentRunInput'
 
 export const agentRouter = express.Router()
 
-const RUNS_PER_HOUR = 20
-const RATE_WINDOW_MS = 60 * 60_000
+// Both windows come from tiering/capabilities.ts, which is where the numbers
+// are reasoned about. Free is already held by its weekly quota, so in practice
+// these only ever bind Pro.
 const AGENT_RUNS_ROUTE = 'agent_runs_create'
-// The daily valve. See PRO_RUNS_PER_DAY in tiering/capabilities.ts for why the
-// hourly one alone left the month unbounded. Free is already held by its weekly
-// quota, so in practice this only ever applies to Pro.
-const RUNS_PER_DAY = 10
-const DAY_WINDOW_MS = 24 * 60 * 60_000
 const AGENT_RUNS_DAILY_ROUTE = 'agent_runs_create_daily'
 const isEmulator = () =>
   !!process.env.FUNCTIONS_EMULATOR || !!process.env.FIREBASE_AUTH_EMULATOR_HOST
@@ -64,15 +68,33 @@ const route =
     }
   }
 
-function rateLimitFor(uid: string) {
-  return isEmulator()
-    ? Promise.resolve({
-        remaining: 9999,
-        total: 9999,
-        resetTime: new Date(),
-        currentCount: 0,
-      })
-    : getUserRateLimitStatus(uid, AGENT_RUNS_ROUTE, RUNS_PER_HOUR, RATE_WINDOW_MS)
+// Both windows, because a client deciding whether a six-game batch will fit has
+// to know which one binds first.
+async function rateLimitFor(uid: string) {
+  if (isEmulator()) {
+    const unbounded = {
+      remaining: 9999,
+      total: 9999,
+      resetTime: new Date(),
+      currentCount: 0,
+    }
+    return { hour: unbounded, day: unbounded }
+  }
+  const [hour, day] = await Promise.all([
+    getUserRateLimitStatus(
+      uid,
+      AGENT_RUNS_ROUTE,
+      PRO_RUNS_PER_HOUR,
+      RUN_WINDOW_HOUR_MS
+    ),
+    getUserRateLimitStatus(
+      uid,
+      AGENT_RUNS_DAILY_ROUTE,
+      PRO_RUNS_PER_DAY,
+      RUN_WINDOW_DAY_MS
+    ),
+  ])
+  return { hour, day }
 }
 
 async function ownedRun(req: AuthedRequest, res: express.Response) {
@@ -90,22 +112,38 @@ agentRouter.post(
   ...(isEmulator()
     ? []
     : [
-        rateLimitByUser(RUNS_PER_HOUR, RATE_WINDOW_MS, AGENT_RUNS_ROUTE),
-        rateLimitByUser(RUNS_PER_DAY, DAY_WINDOW_MS, AGENT_RUNS_DAILY_ROUTE),
+        rateLimitByUser(PRO_RUNS_PER_HOUR, RUN_WINDOW_HOUR_MS, AGENT_RUNS_ROUTE),
+        rateLimitByUser(PRO_RUNS_PER_DAY, RUN_WINDOW_DAY_MS, AGENT_RUNS_DAILY_ROUTE),
       ]),
   route(async (req, res) => {
     const { correlationId, user } = req
     if (!user) {
-      return errorResponse(res, 401, 'unauthorized', 'Missing user', correlationId)
-    }
-    const gameId = String(req.body?.gameId ?? '').trim()
-    const risk = RiskLevelSchema.safeParse(req.body?.riskLevel ?? 'moderate')
-    if (!gameId || !risk.success) {
       return errorResponse(
         res,
-        400,
-        'validation_error',
-        'gameId is required and riskLevel must be conservative, moderate, or aggressive',
+        401,
+        'unauthorized',
+        'Missing user',
+        correlationId
+      )
+    }
+    // The schedule is needed to check that every requested game exists and that
+    // they share a week. One cached call however many games were asked for.
+    let schedule
+    try {
+      schedule = await getSeasonSchedule(getCurrentSeason())
+    } catch (e) {
+      log.error('api.agent.schedule.error', {
+        correlationId,
+        error: {
+          code: 'schedule_unavailable',
+          message: e instanceof Error ? e.message : String(e),
+        },
+      })
+      return errorResponse(
+        res,
+        502,
+        'schedule_unavailable',
+        'Could not load the NFL schedule to check those games.',
         correlationId
       )
     }
@@ -114,72 +152,19 @@ agentRouter.post(
     // controls are an upsell, not a security boundary, and this endpoint is
     // reachable directly.
     const entitlements = await getEntitlementView(user.uid)
-    if (entitlements.quota.remaining === 0) {
+    const { input, refusal } = resolveRunInput({
+      body: req.body,
+      entitlements,
+      schedule,
+    })
+    if (refusal) {
       return errorResponse(
         res,
-        403,
-        'quota_exhausted',
-        `You have used all ${entitlements.quota.limit} generations for this week. Your next ones arrive Tuesday.`,
+        refusal.status,
+        refusal.code,
+        refusal.message,
         correlationId,
-        { resetsAt: entitlements.quota.resetsAt, tier: entitlements.tier }
-      )
-    }
-    if (!entitlements.capabilities.riskLevels.includes(risk.data)) {
-      return errorResponse(
-        res,
-        403,
-        'risk_level_locked',
-        `The ${risk.data} risk level is a Pro feature.`,
-        correlationId,
-        { tier: entitlements.tier, allowed: entitlements.capabilities.riskLevels }
-      )
-    }
-
-    const { legCount: legs } = entitlements.capabilities
-    const requestedLegs = req.body?.legCount === undefined
-      ? legs.default
-      : Number(req.body.legCount)
-    if (
-      !Number.isInteger(requestedLegs) ||
-      requestedLegs < legs.min ||
-      requestedLegs > legs.max
-    ) {
-      return errorResponse(
-        res,
-        403,
-        'leg_count_locked',
-        legs.min === legs.max
-          ? `Parlays are ${legs.min} legs on your plan. Choosing a leg count is a Pro feature.`
-          : `Leg count must be between ${legs.min} and ${legs.max}.`,
-        correlationId,
-        { tier: entitlements.tier, allowed: legs }
-      )
-    }
-
-    // An unset bookmaker is the norm — it means "no preference", and the odds
-    // client falls through its default priority. Only a rejected *choice* is an
-    // error, so a plan that cannot choose simply has the field dropped rather
-    // than being refused for sending a default it never picked.
-    const requestedBook = req.body?.bookmaker
-      ? String(req.body.bookmaker)
-      : undefined
-    if (requestedBook && !entitlements.capabilities.chooseSportsbook) {
-      return errorResponse(
-        res,
-        403,
-        'sportsbook_locked',
-        'Choosing your sportsbook is a Pro feature.',
-        correlationId,
-        { tier: entitlements.tier }
-      )
-    }
-    if (requestedBook && !SUPPORTED_BOOKMAKERS.some(b => b.key === requestedBook)) {
-      return errorResponse(
-        res,
-        400,
-        'validation_error',
-        `bookmaker must be one of ${SUPPORTED_BOOKMAKERS.map(b => b.key).join(', ')}`,
-        correlationId
+        refusal.details
       )
     }
 
@@ -191,21 +176,18 @@ agentRouter.post(
       updatedAt: now,
       status: 'queued',
       correlationId,
-      budget: AgentBudgetSchema.parse({}),
-      input: {
-        gameId,
-        riskLevel: risk.data,
-        // Snapshotted now rather than re-read mid-run: a tier that changes
-        // while the agent is drafting would otherwise have the draft prompted
-        // for one shape and validated against another.
-        legCount: requestedLegs,
-        playerProps: entitlements.capabilities.playerProps,
-        ...(requestedBook ? { bookmaker: requestedBook } : {}),
-      },
+      budget: AgentBudgetSchema.parse({
+        maxRunMs: budgetForGames(input.gameIds.length),
+      }),
+      input,
     })
     await createRun(run)
-    log.info('api.agent.create', { correlationId, runId: run.id, userId: user.uid })
-    res.json({ runId: run.id, rateLimitInfo: await rateLimitFor(user.uid) })
+    log.info('api.agent.create', {
+      correlationId,
+      runId: run.id,
+      userId: user.uid,
+    })
+    res.json({ runId: run.id, rateLimit: await rateLimitFor(user.uid) })
   })
 )
 
@@ -304,7 +286,10 @@ agentRouter.get(
       if (finalRun?.status === 'succeeded') {
         send('final', finalRun.result)
       } else {
-        send('error', finalRun?.error ?? { code: 'error', message: 'Run ended' })
+        send(
+          'error',
+          finalRun?.error ?? { code: 'error', message: 'Run ended' }
+        )
       }
       return finish()
     }
@@ -345,7 +330,10 @@ agentRouter.get(
           return finish()
         }
         if (latest.status === 'failed' || latest.status === 'canceled') {
-          send('error', latest.error ?? { code: latest.status, message: 'Run ended' })
+          send(
+            'error',
+            latest.error ?? { code: latest.status, message: 'Run ended' }
+          )
           return finish()
         }
       } catch (e) {
@@ -383,7 +371,13 @@ agentRouter.get(
   route(async (req, res) => {
     const { correlationId, user } = req
     if (!user) {
-      return errorResponse(res, 401, 'unauthorized', 'Missing user', correlationId)
+      return errorResponse(
+        res,
+        401,
+        'unauthorized',
+        'Missing user',
+        correlationId
+      )
     }
     res.json(await rateLimitFor(user.uid))
   })

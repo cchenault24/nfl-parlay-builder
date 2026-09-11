@@ -16,7 +16,10 @@ node_modules/
 
 # Build outputs
 dist/
-build/
+# Root-anchored: unanchored, this also swallowed mobile/src/lib/build, the Build
+# tab's own source. Nothing nested produces a build/ directory here — dist/ is
+# what Vite and `expo export` write.
+/build/
 
 # Environment files with secrets (NEVER commit these)
 .env.local

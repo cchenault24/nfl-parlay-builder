@@ -16,6 +16,10 @@ export interface StripOption<T extends string | number> {
   label: string
   // Sits under the label — "now" on the current week.
   caption?: string
+  // `accent` marks something worth looking at ("now"); `muted` explains why a
+  // chip is unavailable, where orange would read as a warning about the game
+  // rather than a statement about the book.
+  captionTone?: 'accent' | 'muted'
   disabled?: boolean
   locked?: boolean
 }
@@ -26,8 +30,11 @@ interface ChipStripProps<T extends string | number> {
   onChange: (value: T) => void
   accessibilityLabel: string
   // Fixed-width chips read as a row of equals (weeks); content-width chips let
-  // a long label like "Best available" stay on one line (sportsbooks).
+  // a long label stay on one line (sportsbooks).
   chipWidth?: number
+  // Mirrors Segmented: a locked chip stays selectable-looking and offers the
+  // upgrade rather than setting a value the server would refuse.
+  onLockedPress?: (option: StripOption<T>) => void
 }
 
 /**
@@ -41,6 +48,7 @@ export function ChipStrip<T extends string | number>({
   onChange,
   accessibilityLabel,
   chipWidth,
+  onLockedPress,
 }: ChipStripProps<T>) {
   const scrollRef = useRef<ScrollView>(null)
   const index = options.findIndex(o => o.value === value)
@@ -71,9 +79,19 @@ export function ChipStrip<T extends string | number>({
           <Pressable
             key={option.value}
             disabled={option.disabled}
-            onPress={() => onChange(option.value)}
+            onPress={() =>
+              option.locked && onLockedPress
+                ? onLockedPress(option)
+                : onChange(option.value)
+            }
             accessibilityRole="radio"
-            accessibilityState={{ checked: selected, disabled: option.disabled }}
+            accessibilityState={{
+              checked: selected,
+              disabled: option.disabled || option.locked,
+            }}
+            accessibilityLabel={
+              option.locked ? `${option.label}. Pro feature` : option.label
+            }
             style={({ pressed }) => [
               styles.chip,
               chipWidth ? { width: chipWidth } : null,
@@ -83,7 +101,11 @@ export function ChipStrip<T extends string | number>({
             ]}
           >
             <Text
-              style={[styles.label, selected && styles.labelSelected]}
+              style={[
+                styles.label,
+                selected && styles.labelSelected,
+                option.locked && styles.labelLocked,
+              ]}
               numberOfLines={1}
             >
               {option.label}
@@ -91,7 +113,14 @@ export function ChipStrip<T extends string | number>({
             {option.locked ? (
               <Ionicons name="lock-closed" size={10} color={colors.textDisabled} />
             ) : option.caption ? (
-              <Text style={styles.caption}>{option.caption}</Text>
+              <Text
+                style={[
+                  styles.caption,
+                  option.captionTone === 'muted' && styles.captionMuted,
+                ]}
+              >
+                {option.caption}
+              </Text>
             ) : null}
           </Pressable>
         )
@@ -121,5 +150,7 @@ const styles = StyleSheet.create({
   pressed: { opacity: PRESSED_OPACITY },
   label: { ...typography.label, color: colors.textSecondary },
   labelSelected: { color: colors.text, fontFamily: typography.title.fontFamily },
+  labelLocked: { color: colors.textDisabled },
   caption: { ...typography.micro, color: colors.secondary },
+  captionMuted: { color: colors.textDisabled },
 })

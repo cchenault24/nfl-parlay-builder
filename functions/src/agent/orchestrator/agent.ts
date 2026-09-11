@@ -8,14 +8,20 @@ import {
   getPregameContext,
   getTeamStats,
 } from '../../providers/espn/client'
-import type { ScheduleGame, TeamStats } from '../../providers/espn/types'
+import type {
+  PregameContext,
+  ScheduleGame,
+  TeamStats,
+} from '../../providers/espn/types'
 import { getTeamEpa } from '../../providers/nflverse/client'
+import type { TeamEpaStats } from '../../providers/nflverse/types'
 import { getOddsForGame, type OddsSnapshot } from '../../providers/odds/client'
 import {
   PARLAY_MODEL,
   buildParlayPrompt,
   draftParlay,
   getOpenAI,
+  type PromptGame,
 } from '../../service/ai'
 import { bookPriceForLeg } from '../../utils/bookLines'
 import { combineAmericanOdds } from '../../utils/odds'
@@ -28,7 +34,12 @@ import {
   ProcessedLeg,
 } from '../shared/schemas'
 import { withResilience } from '../tools'
-import { validateDraft, validationSummary } from '../validate'
+import {
+  attachGameIds,
+  teamToGame,
+  validateDraft,
+  validationSummary,
+} from '../validate'
 import type { AILeg } from '../../service/ai/schemas'
 
 export type Persist = {
@@ -67,12 +78,47 @@ function snapLegToBook(
 ): ProcessedLeg {
   // The model doesn't reliably emit a literal null here — normalize an
   // empty string to null once, up front.
-  const leg = { ...rawLeg, player: rawLeg.player?.trim() ? rawLeg.player : null }
+  const leg = {
+    ...rawLeg,
+    player: rawLeg.player?.trim() ? rawLeg.player : null,
+  }
   const priced = bookPriceForLeg(leg, game, odds)
   if (priced) {
-    return { ...leg, player: null, line: priced.line, odds: priced.odds, anchored: true }
+    return {
+      ...leg,
+      player: null,
+      line: priced.line,
+      odds: priced.odds,
+      anchored: true,
+    }
   }
   return { ...leg, anchored: false }
+}
+
+// Runs a provider call for every game in the slate. A per-game failure becomes
+// a null for that game rather than failing the step: one game whose lines are
+// not posted yet must not blank the other five. The step only fails when every
+// game failed, and it then fails with the first game's error so the circuit
+// breaker and `nonCircuitErrorCodes` still see the real code.
+async function perGame<T>(
+  games: ScheduleGame[],
+  fn: (game: ScheduleGame) => Promise<T>,
+  onProgress?: (done: number, total: number) => void
+): Promise<(T | null)[]> {
+  let done = 0
+  const settled = await Promise.allSettled(
+    games.map(game =>
+      fn(game).finally(() => {
+        done += 1
+        onProgress?.(done, games.length)
+      })
+    )
+  )
+  const firstRejection = settled.find(r => r.status === 'rejected')
+  if (firstRejection && settled.every(r => r.status === 'rejected')) {
+    throw firstRejection.reason
+  }
+  return settled.map(r => (r.status === 'fulfilled' ? r.value : null))
 }
 
 class RunError extends Error {
@@ -114,14 +160,22 @@ export async function runAgent(
   const ctx = { correlationId, runId }
   setActiveRuns(1)
   inc('runs_started')
-  const rootSpan = startSpan('agent.run', { ...ctx, attrs: { userId: run.userId } })
+  const rootSpan = startSpan('agent.run', {
+    ...ctx,
+    attrs: { userId: run.userId },
+  })
   log.info('agent.run.start', { ...ctx, userId: run.userId })
 
   const remainingMs = () => budget.maxRunMs - (Date.now() - startedAt)
 
+  // Handed to every step's body so a step spanning several games can say how
+  // far through it is. Single-game runs never call it, so nothing changes for
+  // them — not the step shape, and not the number of Firestore writes.
+  type StepContext = { progress: (done: number, total: number) => void }
+
   async function step<T>(
     type: AgentStep['type'],
-    fn: () => Promise<T>,
+    fn: (ctx: StepContext) => Promise<T>,
     opts: { tool?: AgentToolName; notes?: string } = {}
   ): Promise<{ data: T | undefined; step: AgentStep }> {
     if (signal?.aborted) {
@@ -135,6 +189,10 @@ export async function runAgent(
       throw new RunError('canceled', 'Run was canceled')
     }
     const t0 = Date.now()
+    // Mutated in place through the step's life. Every handoff below takes a
+    // snapshot, so a consumer that keeps what it was given never sees it change
+    // underneath — the live stream and Firestore must agree on what a step
+    // looked like at the moment it was sent.
     const record: AgentStep = {
       id: `step_${type}${opts.tool ? `_${opts.tool}` : ''}`,
       type,
@@ -143,18 +201,31 @@ export async function runAgent(
       startedAt: new Date(t0).toISOString(),
       notes: opts.notes,
     }
-    await persist.upsertStep(runId, record)
-    onStep?.(record)
-    const span = startSpan(`agent.${record.id}`, { ...ctx, parent: rootSpan.ctx })
+    await persist.upsertStep(runId, { ...record })
+    onStep?.({ ...record })
+    const span = startSpan(`agent.${record.id}`, {
+      ...ctx,
+      parent: rootSpan.ctx,
+    })
+    const stepCtx: StepContext = {
+      progress: (done, total) => {
+        if (record.status !== 'running') {
+          return
+        }
+        record.progress = { done, total }
+        void persist.upsertStep(runId, { ...record })
+        onStep?.({ ...record })
+      },
+    }
     try {
-      const data = await fn()
+      const data = await fn(stepCtx)
       Object.assign(record, {
         status: 'ok',
         finishedAt: new Date().toISOString(),
         durationMs: Date.now() - t0,
       })
-      await persist.upsertStep(runId, record)
-      onStep?.(record)
+      await persist.upsertStep(runId, { ...record })
+      onStep?.({ ...record })
       endSpan(span, ctx)
       return { data, step: record }
     } catch (err) {
@@ -164,23 +235,31 @@ export async function runAgent(
         durationMs: Date.now() - t0,
         error: { code: errorCode(err), message: errorMessage(err) },
       })
-      await persist.upsertStep(runId, record)
-      onStep?.(record)
-      endSpan(span, { ...ctx, status: 'error', errorMessage: errorMessage(err) })
-      log.warn('agent.step.failed', { ...ctx, stepId: record.id, error: record.error })
+      await persist.upsertStep(runId, { ...record })
+      onStep?.({ ...record })
+      endSpan(span, {
+        ...ctx,
+        status: 'error',
+        errorMessage: errorMessage(err),
+      })
+      log.warn('agent.step.failed', {
+        ...ctx,
+        stepId: record.id,
+        error: record.error,
+      })
       return { data: undefined, step: record }
     }
   }
 
   const tool = <T>(
     name: AgentToolName,
-    fn: () => Promise<T>,
+    fn: (ctx: StepContext) => Promise<T>,
     toolOpts: { retries?: number; nonCircuitErrorCodes?: string[] } = {}
   ) =>
     step(
       'tool',
-      () =>
-        withResilience(name, fn, {
+      stepCtx =>
+        withResilience(name, () => fn(stepCtx), {
           timeoutMs: Math.min(remainingMs(), budget.perToolTimeoutMs),
           retries: toolOpts.retries ?? 1,
           nonCircuitErrorCodes: toolOpts.nonCircuitErrorCodes,
@@ -189,72 +268,144 @@ export async function runAgent(
     )
 
   try {
+    const gameIds = run.input.gameIds
+    const season = getCurrentSeason()
     await step('plan', async () => undefined, {
-      notes: 'Load game, gather team stats + book lines, draft, validate',
+      notes:
+        gameIds.length === 1
+          ? 'Load game, gather team stats + book lines, draft, validate'
+          : `Load ${gameIds.length} games, gather team stats + book lines for each, draft, validate`,
     })
 
-    const { data: game } = await tool(
+    // Every id was checked against the schedule when the run was created, so a
+    // miss here means the schedule moved underneath it.
+    const { data: loadedGames } = await tool(
       'espn_game',
       () =>
-        getGame(getCurrentSeason(), run.input.gameId).then(g => {
-          if (!g) {
-            throw new RunError('game_not_found', `Game ${run.input.gameId} not found`)
-          }
-          return g
-        }),
+        Promise.all(
+          gameIds.map(id =>
+            getGame(season, id).then(g => {
+              if (!g) {
+                throw new RunError('game_not_found', `Game ${id} not found`)
+              }
+              return g
+            })
+          )
+        ),
       { nonCircuitErrorCodes: ['game_not_found'] }
     )
-    if (!game) {
-      throw new RunError('game_not_found', 'Could not load the selected game')
+    if (!loadedGames) {
+      throw new RunError('game_not_found', 'Could not load the selected games')
     }
-    if (game.status !== 'scheduled') {
-      throw new RunError('game_not_open', `Game is ${game.status.replace('_', ' ')}`)
+    const games = loadedGames
+    const closed = games.filter(g => g.status !== 'scheduled')
+    if (closed.length > 0) {
+      throw new RunError(
+        'game_not_open',
+        closed.length === games.length && games.length === 1
+          ? `Game is ${closed[0].status.replace('_', ' ')}`
+          : `${closed.map(g => `${g.away.abbrev} @ ${g.home.abbrev}`).join(', ')} ${closed.length === 1 ? 'has' : 'have'} already started`
+      )
     }
 
-    const [statsResult, oddsResult, pregameResult, epaResult] = await Promise.all([
-      tool('espn_team_stats', () =>
-        Promise.all([
-          getTeamStats(game.home.teamId, game.season),
-          getTeamStats(game.away.teamId, game.season),
-        ])
-      ),
-      tool('odds', () => getOddsForGame(game, run.input.bookmaker), {
-        retries: 0,
-        nonCircuitErrorCodes: [
-          'odds_not_found',
-          'odds_no_bookmaker',
-          'odds_not_configured',
-        ],
-      }),
-      tool('espn_pregame', () =>
-        getPregameContext(game.gameId, game.home.teamId, game.away.teamId)
-      ),
-      tool('nflverse_epa', () =>
-        getTeamEpa(game.home.abbrev, game.away.abbrev, game.season)
-      ),
-    ])
-    const [homeStats, awayStats]: [TeamStats | null, TeamStats | null] =
-      statsResult.data ?? [null, null]
-    const odds: OddsSnapshot | null = oddsResult.data ?? null
-    const pregame = pregameResult.data ?? null
-    const epa = epaResult.data ?? null
-    // Supplementary context only, so a failure here shouldn't be a tracked
-    // step or fail the run — worth less than the tool-wrapped calls above.
-    const leagueAverages = await getLeagueAverages(game.season).catch(() => null)
+    // A single-game run reports no progress at all: "1 of 1" is noise, and the
+    // row has always rendered without it.
+    const reportFor = (progress: (done: number, total: number) => void) =>
+      games.length > 1 ? progress : undefined
+
+    // One step per phase however many games there are — the timeline stays
+    // eight rows (CONTRACT §9.3). Inside a phase the games run concurrently,
+    // because they are independent and the sequential version alone can exceed
+    // the whole run budget at six games.
+    const [statsResult, oddsResult, pregameResult, epaResult] =
+      await Promise.all([
+        tool('espn_team_stats', ({ progress }) =>
+          perGame(
+            games,
+            g =>
+              Promise.all([
+                getTeamStats(g.home.teamId, g.season),
+                getTeamStats(g.away.teamId, g.season),
+              ]),
+            reportFor(progress)
+          )
+        ),
+        // One Odds API credit for the whole run whatever the slate size: the
+        // provider fetches every NFL game in a single cached request, and these
+        // are reads of that one response.
+        tool(
+          'odds',
+          ({ progress }) =>
+            perGame(
+              games,
+              g => getOddsForGame(g, run.input.bookmaker),
+              reportFor(progress)
+            ),
+          {
+            retries: 0,
+            nonCircuitErrorCodes: [
+              'odds_not_found',
+              'odds_no_bookmaker',
+              'odds_not_configured',
+            ],
+          }
+        ),
+        tool('espn_pregame', ({ progress }) =>
+          perGame(
+            games,
+            g => getPregameContext(g.gameId, g.home.teamId, g.away.teamId),
+            reportFor(progress)
+          )
+        ),
+        tool('nflverse_epa', ({ progress }) =>
+          perGame(
+            games,
+            g => getTeamEpa(g.home.abbrev, g.away.abbrev, g.season),
+            reportFor(progress)
+          )
+        ),
+      ])
+
+    const nulls = <T>(): (T | null)[] => games.map(() => null)
+    const statsPairs = statsResult.data ?? nulls<[TeamStats, TeamStats]>()
+    const oddsByGame: (OddsSnapshot | null)[] =
+      oddsResult.data ?? nulls<OddsSnapshot>()
+    const pregameByGame = pregameResult.data ?? nulls<PregameContext>()
+    const epaByGame = epaResult.data ?? nulls<TeamEpaStats>()
+
+    // Supplementary context only, and slate-wide, so a failure here shouldn't be
+    // a tracked step or fail the run — worth less than the tool-wrapped calls.
+    const leagueAverages = await getLeagueAverages(games[0].season).catch(
+      () => null
+    )
+
+    const promptGames: PromptGame[] = games.map((game, i) => ({
+      game,
+      homeStats: statsPairs[i]?.[0] ?? null,
+      awayStats: statsPairs[i]?.[1] ?? null,
+      odds: oddsByGame[i],
+      pregame: pregameByGame[i],
+      epa: epaByGame[i],
+    }))
 
     const client = getOpenAI()
     if (!client) {
       throw new RunError('ai_unavailable', 'OpenAI client not configured')
     }
     // A plan without player props can only build legs the book has posted, and
-    // a single game offers at most three markets. Asking for more legs than
-    // there are markets guarantees a draft the validator rejects, so the count
-    // is narrowed to what is actually available. Two anchored legs beat a run
-    // that fails outright, and the user is not billed either way unless the
-    // odds came back clean.
-    const anchorableMarkets = odds
-      ? [odds.spread, odds.total, odds.moneyline].filter(Boolean).length
-      : 0
+    // each game offers at most three markets. Asking for more legs than there
+    // are markets guarantees a draft the validator rejects, so the count is
+    // narrowed to what is actually available across the slate. Two anchored
+    // legs beat a run that fails outright, and the user is not billed either
+    // way unless the odds came back clean.
+    const anchorableMarkets = oddsByGame.reduce(
+      (total, odds) =>
+        total +
+        (odds
+          ? [odds.spread, odds.total, odds.moneyline].filter(Boolean).length
+          : 0),
+      0
+    )
     const legCount = run.input.playerProps
       ? run.input.legCount
       : Math.min(run.input.legCount, anchorableMarkets)
@@ -262,19 +413,16 @@ export async function runAgent(
     if (legCount < 1) {
       throw new RunError(
         'no_anchorable_markets',
-        'No sportsbook has posted a line for this game yet, and this plan builds every leg from a posted line.'
+        games.length === 1
+          ? 'No sportsbook has posted a line for this game yet, and this plan builds every leg from a posted line.'
+          : 'No sportsbook has posted a line for any of these games yet, and this plan builds every leg from a posted line.'
       )
     }
 
     const constraints = { legCount, playerProps: run.input.playerProps }
     const prompt = buildParlayPrompt({
-      game,
-      homeStats,
-      awayStats,
-      odds,
-      pregame,
+      games: promptGames,
       leagueAverages,
-      epa,
       riskLevel: run.input.riskLevel,
       ...constraints,
     })
@@ -283,7 +431,12 @@ export async function runAgent(
       // is otherwise only checked between steps, so an unbounded draft could
       // carry the run past the api function's own timeout and have the
       // instance killed before anything wrote a terminal status.
-      const result = await draftParlay(client, prompt, remainingMs(), signal)
+      const result = await draftParlay(client, prompt, {
+        legCount,
+        gameCount: games.length,
+        timeoutMs: remainingMs(),
+        signal,
+      })
       observe('draft_tokens_output', result.tokensOutput)
       return result
     })
@@ -294,15 +447,35 @@ export async function runAgent(
       )
     }
     const { draft, tokensInput, tokensOutput } = draftStep.data
-    await persist.upsertStep(runId, { ...draftStep.step, tokensInput, tokensOutput })
+    await persist.upsertStep(runId, {
+      ...draftStep.step,
+      tokensInput,
+      tokensOutput,
+    })
 
-    const snappedLegs = draft.legs.map(leg => snapLegToBook(leg, game, odds))
+    // A leg is priced by the book covering its own game, found the same way the
+    // validator finds it: by the team it names.
+    const gameForTeam = teamToGame(games)
+    const oddsForGameId = new Map(
+      games.map((game, i) => [game.gameId, oddsByGame[i]] as const)
+    )
+    const snappedLegs = draft.legs.map(leg => {
+      const legGame = gameForTeam.get(leg.team)
+      return legGame
+        ? snapLegToBook(leg, legGame, oddsForGameId.get(legGame.gameId) ?? null)
+        : // A team in none of the run's games. Left unanchored so it reaches
+          // validateDraft, which is the one place that says why it is wrong.
+          { ...leg, anchored: false }
+    })
+    // Each analysis block is resolved to its game before validation, so the
+    // stored shape and the validated shape are the same one.
+    const analysis = attachGameIds(draft.analysisSummary, games)
 
     let validationIssues: string[] = []
     const validation = await step('validate', async () => {
       validationIssues = validateDraft(
-        { legs: snappedLegs, analysisSummary: draft.analysisSummary },
-        game,
+        { legs: snappedLegs, analysisSummary: analysis },
+        games,
         // The same constraints the prompt was built from, so the model is never
         // judged against a shape it was not asked for.
         constraints
@@ -329,17 +502,27 @@ export async function runAgent(
         legs: snappedLegs,
         combinedOdds: combineAmericanOdds(snappedLegs.map(l => l.odds)),
         parlayConfidence: Math.min(...snappedLegs.map(l => l.confidence)),
-        gameSummary: draft.analysisSummary,
+        gameSummary: analysis,
       },
-      game: game satisfies ScheduleGame,
-      homeStats,
-      awayStats,
-      odds,
-      sources: {
-        stats: homeStats && awayStats ? 'ok' : 'unavailable',
-        odds: odds ? 'ok' : 'unavailable',
-        weather: game.weather ? 'ok' : game.venue?.indoor ? 'indoor' : 'unavailable',
-      },
+      games: games.map((game, i) => {
+        const homeStats = statsPairs[i]?.[0] ?? null
+        const awayStats = statsPairs[i]?.[1] ?? null
+        return {
+          game,
+          homeStats,
+          awayStats,
+          odds: oddsByGame[i],
+          sources: {
+            stats: homeStats && awayStats ? 'ok' : 'unavailable',
+            odds: oddsByGame[i] ? 'ok' : 'unavailable',
+            weather: game.weather
+              ? 'ok'
+              : game.venue?.indoor
+                ? 'indoor'
+                : 'unavailable',
+          },
+        }
+      }),
       model: PARLAY_MODEL,
     }
     await persist.finishRun(runId, {

@@ -6,23 +6,31 @@ import type {
   TeamInjury,
   TeamStats,
 } from '../../providers/espn/types'
-import type { TeamEpa, TeamEpaStats } from '../../providers/nflverse/types'
+import type { TeamEpaStats, TeamEpa } from '../../providers/nflverse/types'
 import type { OddsSnapshot } from '../../providers/odds/client'
 import { formatAmerican } from '../../utils/odds'
 import { BetTypeEnum } from './schemas'
 
 export type RiskLevel = 'conservative' | 'moderate' | 'aggressive'
 
-export interface PromptInput {
+// Everything gathered for one game. A run carries one of these per requested
+// game; a single-game run carries exactly one, and the prompt it produces reads
+// the way the single-game prompt always has.
+export interface PromptGame {
   game: ScheduleGame
   homeStats: TeamStats | null
   awayStats: TeamStats | null
   odds: OddsSnapshot | null
   pregame: PregameContext | null
-  leagueAverages: LeagueAverages | null
   epa: TeamEpaStats | null
+}
+
+export interface PromptInput {
+  games: PromptGame[]
+  // Slate-wide, so it is fetched once and stated once rather than per game.
+  leagueAverages: LeagueAverages | null
   riskLevel: RiskLevel
-  // Derived from the user's tier, and from which markets the book actually
+  // Derived from the user's tier, and from which markets the books actually
   // posted. Both the prompt and validateDraft use the same numbers, so the
   // model is never asked for a shape that would then be rejected.
   legCount: number
@@ -66,7 +74,10 @@ function venueLine(game: ScheduleGame): string {
     return 'Venue: not available'
   }
   const { name, city, state, indoor } = game.venue
-  const flags = [indoor ? 'indoor' : 'outdoor', game.neutralSite && 'neutral site']
+  const flags = [
+    indoor ? 'indoor' : 'outdoor',
+    game.neutralSite && 'neutral site',
+  ]
     .filter(Boolean)
     .join(', ')
   return `Venue: ${name}, ${city}, ${state} (${flags})`
@@ -110,8 +121,8 @@ function teamStatsBlock(name: string, stats: TeamStats | null): string {
   )
 }
 
-function statsSection(input: PromptInput): string {
-  const { game, homeStats, awayStats } = input
+function statsSection(entry: PromptGame): string {
+  const { game, homeStats, awayStats } = entry
   const priorSeason = [homeStats, awayStats].some(
     s => s && s.season < game.season
   )
@@ -141,8 +152,8 @@ function epaLine(name: string, epa: TeamEpa): string {
   )
 }
 
-function epaSection(input: PromptInput): string {
-  const { game, epa } = input
+function epaSection(entry: PromptGame): string {
+  const { game, epa } = entry
   if (!epa) {
     return 'EPA efficiency: not available'
   }
@@ -156,7 +167,9 @@ function epaSection(input: PromptInput): string {
 }
 
 function daysBetween(fromIso: string, toIso: string): number {
-  return Math.round((new Date(toIso).getTime() - new Date(fromIso).getTime()) / 86_400_000)
+  return Math.round(
+    (new Date(toIso).getTime() - new Date(fromIso).getTime()) / 86_400_000
+  )
 }
 
 function recentFormLine(name: string, recentGames: RecentGame[]): string {
@@ -165,13 +178,16 @@ function recentFormLine(name: string, recentGames: RecentGame[]): string {
   }
   const results = recentGames
     .slice(0, 5)
-    .map(g => `${g.result} ${g.pointsFor}-${g.pointsAgainst} vs ${g.opponent} (wk ${g.week})`)
+    .map(
+      g =>
+        `${g.result} ${g.pointsFor}-${g.pointsAgainst} vs ${g.opponent} (wk ${g.week})`
+    )
     .join(', ')
   return `${name}: ${results}`
 }
 
-function recentFormSection(input: PromptInput): string {
-  const { game, pregame } = input
+function recentFormSection(entry: PromptGame): string {
+  const { game, pregame } = entry
   if (!pregame) {
     return 'Recent form: not available'
   }
@@ -182,17 +198,22 @@ function recentFormSection(input: PromptInput): string {
   )
 }
 
-function restLine(name: string, recentGames: RecentGame[], kickoff: string): string {
+function restLine(
+  name: string,
+  recentGames: RecentGame[],
+  kickoff: string
+): string {
   if (recentGames.length === 0) {
     return `${name}: rest not available`
   }
   const days = daysBetween(recentGames[0].dateTime, kickoff)
-  const note = days >= 9 ? ' (extended rest / bye)' : days <= 4 ? ' (short week)' : ''
+  const note =
+    days >= 9 ? ' (extended rest / bye)' : days <= 4 ? ' (short week)' : ''
   return `${name}: ${days} days rest${note}`
 }
 
-function restSection(input: PromptInput): string {
-  const { game, pregame } = input
+function restSection(entry: PromptGame): string {
+  const { game, pregame } = entry
   if (!pregame) {
     return 'Rest since last game: not available'
   }
@@ -208,13 +229,16 @@ function injuryLine(name: string, injuries: TeamInjury[]): string {
     return `${name}: no notable injuries reported`
   }
   const rows = injuries
-    .map(i => `${i.player} (${i.position}) - ${i.status}${i.detail ? `, ${i.detail}` : ''}`)
+    .map(
+      i =>
+        `${i.player} (${i.position}) - ${i.status}${i.detail ? `, ${i.detail}` : ''}`
+    )
     .join('; ')
   return `${name}: ${rows}`
 }
 
-function injuriesSection(input: PromptInput): string {
-  const { game, pregame } = input
+function injuriesSection(entry: PromptGame): string {
+  const { game, pregame } = entry
   if (!pregame) {
     return 'Injury report: not available'
   }
@@ -226,12 +250,13 @@ function injuriesSection(input: PromptInput): string {
 }
 
 function leagueAverageSection(input: PromptInput): string {
-  const { game, leagueAverages } = input
+  const { leagueAverages } = input
   if (!leagueAverages) {
     return 'League averages: not available'
   }
+  const season = input.games[0].game.season
   const note =
-    leagueAverages.season !== game.season ? ` (${leagueAverages.season} season)` : ''
+    leagueAverages.season !== season ? ` (${leagueAverages.season} season)` : ''
   return (
     `League averages${note}: ${leagueAverages.avgPointsPerTeam} points/team/game, ` +
     `${leagueAverages.avgTotalPoints} combined points/game — use this to judge whether ` +
@@ -239,8 +264,8 @@ function leagueAverageSection(input: PromptInput): string {
   )
 }
 
-function linesSection(input: PromptInput): string {
-  const { game, odds, playerProps } = input
+function linesSection(entry: PromptGame, playerProps: boolean): string {
+  const { game, odds } = entry
   if (!odds) {
     return (
       'Betting lines: NOT AVAILABLE. Any spread, total, or moneyline leg is therefore an estimate: ' +
@@ -279,62 +304,94 @@ function linesSection(input: PromptInput): string {
   } else {
     rows.push('- Moneyline: NOT AVAILABLE for this game')
   }
-  return (
-    `Betting lines from ${odds.bookmaker} (updated ${odds.lastUpdate}):\n${rows.join('\n')}\n` +
-    'LINE RULES: your line and price for a spread/total/moneyline leg will be automatically replaced with the exact number ' +
-    "shown above before this parlay is shown — focus on picking the right team/side and writing reasoning consistent with " +
-    "the book's actual number, not on matching the price exactly. " +
-    `Do not create a spread, total, or moneyline leg for a market marked NOT AVAILABLE above. ${
-      playerProps
-        ? 'Use a player prop instead. Player props have no lines provided: set a realistic line and price yourself and keep confidence modest.'
-        : // Without props there is nothing to substitute, so the orchestrator
-          // reduces the leg count to the markets that do have a posted line
-          // rather than asking for a leg that cannot be anchored.
-          'Player props are not available on this plan — every leg must come from a market with a posted line above.'
-    }`
-  )
+  return `Betting lines from ${odds.bookmaker} (updated ${odds.lastUpdate}):\n${rows.join('\n')}`
 }
 
-export function buildParlayPrompt(input: PromptInput): string {
-  const { game, riskLevel, legCount, playerProps } = input
+function gameBlock(
+  entry: PromptGame,
+  input: PromptInput,
+  index: number
+): string {
+  const { game } = entry
+  const heading =
+    input.games.length === 1
+      ? `${game.away.name} @ ${game.home.name} — Week ${game.week}, ${game.season} season, kickoff ${formatKickoff(game.dateTime)} ET.`
+      : `GAME ${index + 1} of ${input.games.length}: ${game.away.name} @ ${game.home.name} — kickoff ${formatKickoff(game.dateTime)} ET.`
   return [
-    `Generate a ${legCount}-leg NFL parlay for ${game.away.name} @ ${game.home.name} — Week ${game.week}, ${game.season} season, kickoff ${formatKickoff(game.dateTime)} ET.`,
+    heading,
     venueLine(game),
     weatherLine(game),
     `Records: ${game.home.name} ${game.home.record} (home ${game.home.homeRecord}); ${game.away.name} ${game.away.record} (road ${game.away.roadRecord}).`,
     '',
-    statsSection(input),
+    statsSection(entry),
     '',
-    epaSection(input),
+    epaSection(entry),
     '',
-    recentFormSection(input),
+    recentFormSection(entry),
     '',
-    restSection(input),
+    restSection(entry),
     '',
-    injuriesSection(input),
+    injuriesSection(entry),
     '',
+    linesSection(entry, input.playerProps),
+  ].join('\n')
+}
+
+export function buildParlayPrompt(input: PromptInput): string {
+  const { games, riskLevel, legCount, playerProps } = input
+  const multi = games.length > 1
+  const first = games[0].game
+  const task = multi
+    ? `Generate ONE ${legCount}-leg NFL parlay drawing on ${games.length} games from Week ${first.week}, ${first.season} season. The legs may come from any of them, in any distribution.`
+    : `Generate a ${legCount}-leg NFL parlay for ${first.away.name} @ ${first.home.name} — Week ${first.week}, ${first.season} season, kickoff ${formatKickoff(first.dateTime)} ET.`
+
+  const teamNames = games
+    .flatMap(({ game }) => [game.home.name, game.away.name])
+    .map(n => `"${n}"`)
+    .join(', ')
+
+  return [
+    task,
+    '',
+    ...games.flatMap((entry, i) => [gameBlock(entry, input, i), '']),
     leagueAverageSection(input),
     '',
-    linesSection(input),
+    'LINE RULES: your line and price for a spread/total/moneyline leg will be automatically replaced with the exact number ' +
+      "shown for that leg's game before this parlay is shown — focus on picking the right team/side and writing reasoning " +
+      "consistent with the book's actual number, not on matching the price exactly. " +
+      `Do not create a spread, total, or moneyline leg for a market marked NOT AVAILABLE. ${
+        playerProps
+          ? 'Use a player prop instead. Player props have no lines provided: set a realistic line and price yourself and keep confidence modest.'
+          : // Without props there is nothing to substitute, so the orchestrator
+            // reduces the leg count to the markets that do have a posted line
+            // rather than asking for a leg that cannot be anchored.
+            'Player props are not available on this plan — every leg must come from a market with a posted line above.'
+      }`,
     '',
     `Risk level: ${riskLevel}. ${(playerProps ? RISK_GUIDANCE : RISK_GUIDANCE_NO_PROPS)[riskLevel]}`,
     '',
     'Analysis requirements:',
-    '- matchupSummary: 5-7 sentences citing the data above.',
-    '- keyFactors: 3-5 short factors driving your read on this game (recent form, injuries, rest, and league-average context are all fair game alongside the season stats).',
-    '- gamePrediction: winner (exact team name), a projected score, and the winner\'s win probability — form this read before you pick legs, and keep the legs consistent with it.',
+    `- analysisSummary.games: exactly ${games.length} entr${games.length === 1 ? 'y' : 'ies'}, one per game above, in the same order.`,
+    `  - matchupSummary: ${multi ? '3-4' : '5-7'} sentences citing that game's data.`,
+    '  - keyFactors: 3-5 short factors driving your read on that game (recent form, injuries, rest, and league-average context are all fair game alongside the season stats).',
+    "  - gamePrediction: winner (exact team name), a projected score, and the winner's win probability — form this read before you pick legs, and keep the legs consistent with it.",
+    multi
+      ? '- slateSummary: 2-3 sentences on how these games fit together as one parlay, including any correlation between them.'
+      : '- slateSummary: null. There is only one game, so there is nothing to summarize across games.',
     '',
     'Leg requirements:',
     '- Every leg must cite specific numbers from the data above in its reasoning (2-3 sentences).',
-    '- No contradictory legs: at most one spread leg, one total leg, and one moneyline leg; never both sides of a market.',
-    `- "team" must be exactly "${game.home.name}" or "${game.away.name}" (for a total, use the team the leg leans on).`,
+    multi
+      ? '- No contradictory legs: within any ONE game, at most one spread leg, one total leg, and one moneyline leg, and never both sides of a market. Across different games these limits do not apply — a spread in each of two games is fine.'
+      : '- No contradictory legs: at most one spread leg, one total leg, and one moneyline leg; never both sides of a market.',
+    `- "team" must be exactly one of: ${teamNames} (for a total, use the team the leg leans on). The team is what tells us which game a leg belongs to, so it must be exact.`,
     '- "player": for a player_* bet type, the player\'s full name exactly as it would appear in an NFL box score (e.g. "Patrick Mahomes"); null for every other bet type.',
     '- "line": for a spread, the chosen team\'s spread from that team\'s perspective (negative = favorite); for a total or player prop, the threshold number; null for a moneyline or anytime/first TD.',
     '- "side": "over" or "under" for totals and yardage/reception props; null otherwise.',
     '- "odds": American price as an integer (e.g. -110, 145).',
     '- "selection": a short human-readable description, e.g. "Chiefs -3.5", "Over 44.5", "Patrick Mahomes Over 262.5 Passing Yards".',
     `- Available bet types: ${BetTypeEnum.options.join(', ')}.`,
-    '- EDGE RULE: for a spread, total, or moneyline leg (these get anchored to the exact book price above), your confidence must be strictly greater than that price\'s break-even win rate (e.g. -150 breaks even at 60%, +130 at ~43%) — if you don\'t believe a market leg clears its own price, pick a different leg instead; it will be rejected otherwise. Player props (no posted price) are exempt — set their confidence honestly.',
-    '- CORRELATION: avoid stacking legs whose outcomes move together (e.g. a team\'s spread, that team\'s QB Over passing yards, and the game Over all tend to hit or miss as a group) — a parlay built entirely from correlated pieces overstates the real combined probability. Prefer at least one leg that\'s largely independent of the others, or say so in your reasoning if you stack anyway.',
+    "- EDGE RULE: for a spread, total, or moneyline leg (these get anchored to the exact book price above), your confidence must be strictly greater than that price's break-even win rate (e.g. -150 breaks even at 60%, +130 at ~43%) — if you don't believe a market leg clears its own price, pick a different leg instead; it will be rejected otherwise. Player props (no posted price) are exempt — set their confidence honestly.",
+    "- CORRELATION: avoid stacking legs whose outcomes move together (e.g. a team's spread, that team's QB Over passing yards, and the game Over all tend to hit or miss as a group) — a parlay built entirely from correlated pieces overstates the real combined probability. Prefer at least one leg that's largely independent of the others, or say so in your reasoning if you stack anyway.",
   ].join('\n')
 }

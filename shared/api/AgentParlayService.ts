@@ -12,31 +12,38 @@ export class AgentParlayService extends BaseParlayService {
   private readonly runs = new AgentRunService()
 
   async generateParlay(
-    game: Game,
+    games: Game[],
     options: ParlayGenerationOptions
   ): Promise<ParlayGenerationResult> {
     const token = await sharedRuntime().getIdToken()
     if (!token) {
       throw new Error('You must be signed in to generate a parlay.')
     }
+    if (games.length === 0) {
+      throw new Error('Pick at least one game.')
+    }
 
-    const { runId, rateLimitInfo } = await this.runs.createRun({
-      gameId: game.gameId,
+    const { runId, rateLimit } = await this.runs.createRun({
+      gameIds: games.map(g => g.gameId),
       riskLevel: options.riskLevel,
       bookmaker: options.bookmaker,
+      legCount: options.legCount,
       token,
     })
 
     const result = await this.awaitResult(runId, token, options)
 
     return {
-      parlay: this.toParlay(runId, game, result.parlay, result.model),
-      game: result.game,
-      homeStats: result.homeStats,
-      awayStats: result.awayStats,
-      odds: result.odds,
-      sources: result.sources,
-      rateLimitInfo,
+      // The server's own view of each game, not the caller's: it carries the
+      // stats, odds and per-source status the run actually resolved.
+      parlay: this.toParlay(
+        runId,
+        result.games.map(g => g.game),
+        result.parlay,
+        result.model
+      ),
+      games: result.games,
+      ...(rateLimit ? { rateLimit } : {}),
       runId,
       serviceMode: 'agent',
     }

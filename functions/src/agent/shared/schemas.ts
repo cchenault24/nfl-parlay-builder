@@ -22,6 +22,16 @@ export const AgentStepSchema = z.object({
   finishedAt: z.string().optional(),
   durationMs: z.number().nonnegative().optional(),
   notes: z.string().optional(),
+  // Set only while a step covers more than one game, so the eight-row timeline
+  // reports "4 of 6" inside a row rather than becoming forty-eight rows
+  // (CONTRACT §9.3). A single-game run leaves it undefined and the row renders
+  // exactly as it always has.
+  progress: z
+    .object({
+      done: z.number().int().nonnegative(),
+      total: z.number().int().positive(),
+    })
+    .optional(),
   tokensInput: z.number().int().nonnegative().optional(),
   tokensOutput: z.number().int().nonnegative().optional(),
   error: z.object({ code: z.string(), message: z.string() }).optional(),
@@ -32,6 +42,20 @@ export const AgentBudgetSchema = z.object({
   perToolTimeoutMs: z.number().int().positive().default(15_000),
 })
 
+const SINGLE_GAME_RUN_MS = 90_000
+const EXTRA_MS_PER_GAME = 20_000
+
+// Per-game tool phases run concurrently, so the extra cost of another game is
+// the model's, not the providers': a longer prompt to read and another game's
+// analysis to write. Twenty seconds each is what that measured out at. One game
+// is exactly the 90s it has always been, by construction.
+//
+// The ceiling this can reach (190s at six games) is why `timeoutSeconds` on the
+// api function is 300 — the stream is held open for the whole run.
+export function budgetForGames(gameCount: number): number {
+  return SINGLE_GAME_RUN_MS + EXTRA_MS_PER_GAME * (gameCount - 1)
+}
+
 export const AgentRunStatusSchema = z.enum([
   'queued',
   'running',
@@ -40,7 +64,17 @@ export const AgentRunStatusSchema = z.enum([
   'failed',
 ])
 
-export const RiskLevelSchema = z.enum(['conservative', 'moderate', 'aggressive'])
+export const RiskLevelSchema = z.enum([
+  'conservative',
+  'moderate',
+  'aggressive',
+])
+
+// The hard ceiling on a cross-game run, above whatever a tier allows. Six is
+// the leg-count maximum, so at this cap every leg can still come from its own
+// game and no larger number would buy anything. It also sets the run budget
+// (`maxRunMs` below) and, through it, the function timeout in index.ts.
+export const MAX_GAMES_PER_RUN = 6
 
 export type SourceStatus = 'ok' | 'unavailable' | 'indoor'
 
@@ -50,6 +84,16 @@ export type SourceStatus = 'ok' | 'unavailable' | 'indoor'
 // discarded once `anchored` is true.
 export type ProcessedLeg = AILeg & { anchored: boolean }
 
+// Everything gathered for one of a run's games. A single-game run carries one
+// of these; nothing reads `games[0]` as a special case.
+export interface AgentGameResult {
+  game: ScheduleGame
+  homeStats: TeamStats | null
+  awayStats: TeamStats | null
+  odds: OddsSnapshot | null
+  sources: { stats: SourceStatus; odds: SourceStatus; weather: SourceStatus }
+}
+
 export interface AgentResult {
   parlay: {
     legs: ProcessedLeg[]
@@ -57,11 +101,7 @@ export interface AgentResult {
     parlayConfidence: number
     gameSummary: AIAnalysis
   }
-  game: ScheduleGame
-  homeStats: TeamStats | null
-  awayStats: TeamStats | null
-  odds: OddsSnapshot | null
-  sources: { stats: SourceStatus; odds: SourceStatus; weather: SourceStatus }
+  games: AgentGameResult[]
   model: string
 }
 
@@ -74,7 +114,10 @@ export const AgentRunSchema = z.object({
   correlationId: z.string(),
   budget: AgentBudgetSchema,
   input: z.object({
-    gameId: z.string().min(1),
+    // Always an array, even for one game. Nothing downstream branches on the
+    // length: a single-game run is a one-element slate, which is what keeps the
+    // fan-out, the analysis shape and the step timeline uniform.
+    gameIds: z.array(z.string().min(1)).min(1).max(MAX_GAMES_PER_RUN),
     riskLevel: RiskLevelSchema,
     // Snapshotted from the user's entitlements when the run is created, rather
     // than read again mid-run. A subscription that lapses (or starts) while the

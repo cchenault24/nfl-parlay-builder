@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { MAX_GAMES_PER_RUN } from '../../agent/shared/schemas'
 
 export const BetTypeEnum = z.enum([
   'spread',
@@ -49,28 +50,66 @@ export const AILegSchema = z.object({
   reasoning: z.string(),
 })
 
-export const AIAnalysisSchema = z.object({
+export const GamePredictionSchema = z.object({
+  winner: z.string(),
+  projectedScore: z.object({
+    home: z.number().int(),
+    away: z.number().int(),
+  }),
+  winProbability: z.number().min(0).max(1),
+})
+
+// What the model is asked for, per game. Note the absence of a gameId: the
+// model is never asked to echo an identifier it would sooner or later invent.
+// `gamePrediction.winner` names a team, a team plays once a week, and that is
+// enough to derive which game the block belongs to — the same trick the legs
+// use (CONTRACT §2).
+export const ModelGameAnalysisSchema = z.object({
   matchupSummary: z.string(),
   keyFactors: z.array(z.string()).min(3).max(5),
-  gamePrediction: z.object({
-    winner: z.string(),
-    projectedScore: z.object({
-      home: z.number().int(),
-      away: z.number().int(),
-    }),
-    winProbability: z.number().min(0).max(1),
-  }),
+  gamePrediction: GamePredictionSchema,
+})
+
+export const ModelAnalysisSchema = z.object({
+  games: z.array(ModelGameAnalysisSchema).min(1).max(MAX_GAMES_PER_RUN),
+  // Nullable rather than optional: structured outputs require every property
+  // to be present. A single-game run sets it to null.
+  slateSummary: z.string().nullable(),
 })
 
 // analysisSummary comes first: structured-output generation fills fields in
-// schema order, so the model works out its read on the game before it has to
+// schema order, so the model works out its read on each game before it has to
 // commit to specific legs, rather than the other way around.
-export const AIGenerateResponseSchema = z.object({
-  analysisSummary: AIAnalysisSchema,
-  legs: z.array(AILegSchema).min(3).max(3),
-})
+//
+// The leg count is a parameter because the caller's tier decides it. It was
+// hardcoded to exactly three, which meant a Pro user asking for four legs got a
+// schema demanding three and a draft the validator then rejected for having the
+// wrong number.
+export function buildGenerateResponseSchema(legCount: number) {
+  return z.object({
+    analysisSummary: ModelAnalysisSchema,
+    legs: z.array(AILegSchema).min(legCount).max(legCount),
+  })
+}
 
-export type AIGenerateResponse = z.infer<typeof AIGenerateResponseSchema>
+export type AIGenerateResponse = z.infer<
+  ReturnType<typeof buildGenerateResponseSchema>
+>
 export type AILeg = z.infer<typeof AILegSchema>
-export type AIAnalysis = z.infer<typeof AIAnalysisSchema>
+export type ModelAnalysis = z.infer<typeof ModelAnalysisSchema>
+export type ModelGameAnalysis = z.infer<typeof ModelGameAnalysisSchema>
 export type BetType = z.infer<typeof BetTypeEnum>
+
+// The stored and API-facing shape: the model's blocks with their game resolved.
+// A single-game run carries an array of one — nothing varies by run size, which
+// is how the leg-count default bug happened the last time something did.
+export interface GameAnalysis extends ModelGameAnalysis {
+  // Empty when the block's winner matched no game in the run; `validateDraft`
+  // is the one place that reports it.
+  gameId: string
+}
+
+export interface AIAnalysis {
+  games: GameAnalysis[]
+  slateSummary: string | null
+}

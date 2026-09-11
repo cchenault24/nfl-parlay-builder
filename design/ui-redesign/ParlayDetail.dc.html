@@ -1,0 +1,139 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <style>
+    body { margin: 0; font-family: Inter, -apple-system, system-ui, sans-serif; }
+    a { color: #4caf50; } a:hover { color: #66bb6a; }
+    * { box-sizing: border-box; }
+  </style>
+</helmet>
+
+<div style="width: 393px; height: 852px; background: #121212; display: flex; flex-direction: column; overflow: hidden;">
+
+  <div style="height: 59px; flex-shrink: 0;"></div>
+
+  <!-- Nav bar -->
+  <div style="height: 44px; flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 0 8px; border-bottom: 1px solid rgba(255,255,255,0.14);">
+    <div style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4caf50" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+    </div>
+    <span style="font-size: 18px; line-height: 24px; font-weight: 600; letter-spacing: -0.1px; color: #ffffff; flex-grow: 1;">3-leg parlay</span>
+    <div style="min-height: 44px; display: flex; align-items: center; gap: 6px; padding: 0 8px;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4caf50" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1z"></path></svg>
+      <span style="font-size: 13px; line-height: 16px; font-weight: 500; color: #4caf50;">Save</span>
+    </div>
+  </div>
+
+  <!-- Scroll region -->
+  <div style="flex-grow: 1; overflow: hidden; padding: 16px; display: flex; flex-direction: column; gap: 8px;">
+
+    <!-- Result header: the number you came for, at the top -->
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <div style="display: flex; flex-direction: column; gap: 2px; flex-grow: 1;">
+        <span style="font-size: 13px; line-height: 16px; font-weight: 500; color: rgba(255,255,255,0.72);">CIN at BAL · Moderate</span>
+        <!-- The book every leg is priced at. Named because it may not be the
+             one requested: an unposted game falls through to the next book. -->
+        <span style="font-size: 12px; line-height: 16px; color: rgba(255,255,255,0.72);">Priced at <span style="color: #4caf50;">DraftKings</span></span>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px;">
+        <span style="font-size: 30px; line-height: 34px; font-weight: 700; letter-spacing: -0.6px; color: #4caf50; font-variant-numeric: tabular-nums;">+412</span>
+        <span style="font-size: 11px; line-height: 14px; font-weight: 500; color: rgba(255,255,255,0.72);">combined odds</span>
+      </div>
+    </div>
+
+    <!-- Overall confidence -->
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <span style="font-size: 12px; line-height: 16px; color: rgba(255,255,255,0.72);">Overall confidence</span>
+      <div style="flex-grow: 1; height: 6px; border-radius: 999px; background: #26262b; overflow: hidden;">
+        <div style="width: 61%; height: 100%; border-radius: 999px; background: #ffa726;"></div>
+      </div>
+      <span style="font-size: 13px; line-height: 18px; font-weight: 500; color: #ffffff; font-variant-numeric: tabular-nums;">61%</span>
+    </div>
+
+    <!-- Billing is conditional on anchored odds, so a run can land and still cost
+         nothing. Saying so turns the Estimate label into a partial refund. -->
+    <div style="display: flex; align-items: flex-start; gap: 8px; padding: 10px 12px; background: #0c0c0e; border: 1px solid #ffa726; border-radius: 10px;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffa726" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 1px;"><circle cx="12" cy="12" r="9.5"></circle><line x1="12" y1="7.5" x2="12" y2="13"></line><circle cx="12" cy="16.5" r="0.9" fill="#ffa726"></circle></svg>
+      <span style="font-size: 12px; line-height: 16px; color: rgba(255,255,255,0.72); flex-grow: 1;">One leg is priced by estimate, so this parlay didn&#39;t count against your 2 this week.</span>
+    </div>
+
+    <!-- AI analysis, collapsed. The legs are the point; the essay is evidence. -->
+    <div style="background: #1c1c20; border: 1px solid rgba(255,255,255,0.14); border-radius: 14px; padding: 16px; display: flex; align-items: center; gap: 8px;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4caf50" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 7"></polyline><polyline points="15 7 21 7 21 13"></polyline></svg>
+      <span style="font-size: 18px; line-height: 24px; font-weight: 600; letter-spacing: -0.1px; color: #ffffff; flex-grow: 1;">AI game analysis</span>
+      <div style="border: 1px solid #29b6f6; border-radius: 6px; padding: 4px 8px;"><span style="font-size: 11px; line-height: 14px; font-weight: 500; color: #29b6f6;">Close game</span></div>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.72)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+    </div>
+
+    <!-- Legs -->
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+
+      <div style="background: #121212; border: 1px solid rgba(255,255,255,0.14); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div style="width: 24px; height: 24px; background: #26262b; border: 1px solid rgba(255,255,255,0.14); border-radius: 6px; display: flex; align-items: center; justify-content: center;"><span style="font-size: 7.2px; font-weight: 700; color: rgba(255,255,255,0.72);">BAL</span></div>
+          <span style="font-size: 13px; line-height: 16px; font-weight: 500; color: rgba(255,255,255,0.72);">Leg 1</span>
+          <div style="border: 1px solid #4caf50; border-radius: 6px; padding: 4px 8px;"><span style="font-size: 11px; line-height: 14px; font-weight: 500; color: #4caf50; font-variant-numeric: tabular-nums;">-110</span></div>
+          <div style="border: 1px solid #4caf50; border-radius: 6px; padding: 4px 8px; margin-left: auto;"><span style="font-size: 11px; line-height: 14px; font-weight: 500; color: #4caf50;">spread</span></div>
+        </div>
+        <span style="font-size: 18px; line-height: 24px; font-weight: 600; letter-spacing: -0.1px; color: #ffffff;">Ravens -3.5</span>
+        <span style="font-size: 13px; line-height: 18px; color: rgba(255,255,255,0.72);">Baltimore ranks 2nd in points allowed; Cincinnati has covered once in five trips here.</span>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 12px; line-height: 16px; color: rgba(255,255,255,0.72);">Confidence</span>
+          <div style="flex-grow: 1; height: 6px; border-radius: 999px; background: #26262b; overflow: hidden;"><div style="width: 68%; height: 100%; border-radius: 999px; background: #66bb6a;"></div></div>
+          <span style="font-size: 13px; line-height: 18px; font-weight: 500; color: #ffffff; font-variant-numeric: tabular-nums; min-width: 40px; text-align: right;">68%</span>
+        </div>
+        <span style="font-size: 12px; line-height: 16px; color: rgba(255,255,255,0.72);">Book implies 52%</span>
+      </div>
+
+      <div style="background: #121212; border: 1px solid rgba(255,255,255,0.14); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div style="width: 24px; height: 24px; background: #26262b; border: 1px solid rgba(255,255,255,0.14); border-radius: 6px; display: flex; align-items: center; justify-content: center;"><span style="font-size: 7.2px; font-weight: 700; color: rgba(255,255,255,0.72);">CIN</span></div>
+          <span style="font-size: 13px; line-height: 16px; font-weight: 500; color: rgba(255,255,255,0.72);">Leg 2</span>
+          <div style="border: 1px solid #4caf50; border-radius: 6px; padding: 4px 8px;"><span style="font-size: 11px; line-height: 14px; font-weight: 500; color: #4caf50; font-variant-numeric: tabular-nums;">-108</span></div>
+          <div style="border: 1px solid #ff9800; border-radius: 6px; padding: 4px 8px; margin-left: auto;"><span style="font-size: 11px; line-height: 14px; font-weight: 500; color: #ff9800;">total</span></div>
+        </div>
+        <span style="font-size: 18px; line-height: 24px; font-weight: 600; letter-spacing: -0.1px; color: #ffffff;">Over 47.5</span>
+        <span style="font-size: 13px; line-height: 18px; color: rgba(255,255,255,0.72);">Two top-ten passing offences, and the forecast rules out weather.</span>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 12px; line-height: 16px; color: rgba(255,255,255,0.72);">Confidence</span>
+          <div style="flex-grow: 1; height: 6px; border-radius: 999px; background: #26262b; overflow: hidden;"><div style="width: 59%; height: 100%; border-radius: 999px; background: #ffa726;"></div></div>
+          <span style="font-size: 13px; line-height: 18px; font-weight: 500; color: #ffffff; font-variant-numeric: tabular-nums; min-width: 40px; text-align: right;">59%</span>
+        </div>
+      </div>
+
+      <div style="background: #121212; border: 1px solid rgba(255,255,255,0.14); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <div style="width: 24px; height: 24px; background: #26262b; border: 1px solid rgba(255,255,255,0.14); border-radius: 6px; display: flex; align-items: center; justify-content: center;"><span style="font-size: 7.2px; font-weight: 700; color: rgba(255,255,255,0.72);">BAL</span></div>
+          <span style="font-size: 13px; line-height: 16px; font-weight: 500; color: rgba(255,255,255,0.72);">Leg 3</span>
+          <div style="border: 1px solid #4caf50; border-radius: 6px; padding: 4px 8px;"><span style="font-size: 11px; line-height: 14px; font-weight: 500; color: #4caf50; font-variant-numeric: tabular-nums;">-175</span></div>
+          <div style="border: 1px solid #ffa726; border-radius: 6px; padding: 4px 8px;"><span style="font-size: 11px; line-height: 14px; font-weight: 500; color: #ffa726;">Estimate</span></div>
+          <div style="border: 1px solid #29b6f6; border-radius: 6px; padding: 4px 8px; margin-left: auto;"><span style="font-size: 11px; line-height: 14px; font-weight: 500; color: #29b6f6;">moneyline</span></div>
+        </div>
+        <span style="font-size: 18px; line-height: 24px; font-weight: 600; letter-spacing: -0.1px; color: #ffffff;">Ravens ML</span>
+        <span style="font-size: 13px; line-height: 18px; color: rgba(255,255,255,0.72);">Home favourite with the stronger defence; the book had not posted this market.</span>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- Pinned footer: one action, always reachable -->
+  <div style="flex-shrink: 0; background: rgba(28,28,32,0.86); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border-top: 1px solid rgba(255,255,255,0.14); padding: 12px 16px 16px 16px; display: flex; flex-direction: column; gap: 12px;">
+    <div style="min-height: 52px; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 8px 16px; border: 1px solid #4caf50; border-radius: 10px;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4caf50" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1z"></path></svg>
+      <span style="font-size: 16px; line-height: 20px; font-weight: 600; letter-spacing: 0.2px; color: #4caf50;">Save to History</span>
+    </div>
+    <span style="font-size: 12px; line-height: 16px; color: rgba(255,255,255,0.5); text-align: center;">Entertainment only · no actual betting occurs</span>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

@@ -1,0 +1,124 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <style>
+    body { margin: 0; font-family: Inter, -apple-system, system-ui, sans-serif; }
+    a { color: #4caf50; } a:hover { color: #66bb6a; }
+    * { box-sizing: border-box; }
+  </style>
+</helmet>
+
+<div style="width: 393px; height: 852px; background: #121212; display: flex; flex-direction: column; overflow: hidden; position: relative;">
+
+  <!-- Dimmed game detail behind the sheet -->
+  <div style="position: absolute; inset: 0; display: flex; flex-direction: column; opacity: 0.32;">
+    <div style="height: 59px;"></div>
+    <div style="height: 44px; display: flex; align-items: center; gap: 4px; padding: 0 16px 0 8px; border-bottom: 1px solid rgba(255,255,255,0.14);">
+      <div style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4caf50" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+      </div>
+      <span style="font-size: 18px; line-height: 24px; font-weight: 600; color: #ffffff;">CIN @ BAL</span>
+    </div>
+    <div style="padding: 16px; display: flex; align-items: center; gap: 8px;">
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; flex-grow: 1; flex-basis: 0;">
+        <div style="width: 40px; height: 40px; background: #26262b; border: 1px solid rgba(255,255,255,0.14); border-radius: 6px;"></div>
+        <span style="font-size: 18px; line-height: 24px; font-weight: 600; color: #ffffff;">Bengals</span>
+      </div>
+      <span style="font-size: 12px; line-height: 16px; color: rgba(255,255,255,0.5);">at</span>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; flex-grow: 1; flex-basis: 0;">
+        <div style="width: 40px; height: 40px; background: #26262b; border: 1px solid rgba(255,255,255,0.14); border-radius: 6px;"></div>
+        <span style="font-size: 18px; line-height: 24px; font-weight: 600; color: #ffffff;">Ravens</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="position: absolute; inset: 0; background: rgba(0,0,0,0.55);"></div>
+
+  <!-- Sheet -->
+  <div style="position: absolute; left: 0; right: 0; bottom: 0; background: rgba(28,28,32,0.92); backdrop-filter: blur(32px); -webkit-backdrop-filter: blur(32px); border-top: 1px solid rgba(255,255,255,0.14); border-radius: 14px 14px 0 0; padding: 10px 16px 16px 16px; display: flex; flex-direction: column; gap: 16px;">
+
+    <div style="width: 36px; height: 4px; border-radius: 999px; background: rgba(255,255,255,0.30); align-self: center;"></div>
+
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <span style="font-size: 24px; line-height: 28px; font-weight: 700; letter-spacing: -0.3px; color: #ffffff; flex-grow: 1;">Run settings</span>
+      <div style="min-height: 44px; display: flex; align-items: center; padding: 0 4px;">
+        <span style="font-size: 16px; line-height: 20px; font-weight: 600; letter-spacing: 0.2px; color: #4caf50;">Done</span>
+      </div>
+    </div>
+
+    <!-- Risk: all three open on Pro -->
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <span style="font-size: 13px; line-height: 16px; font-weight: 500; color: #ffffff;">Risk</span>
+      <div style="display: flex; background: #0c0c0e; border: 1px solid rgba(255,255,255,0.30); border-radius: 10px; overflow: hidden;">
+        <div style="flex-grow: 1; flex-basis: 0; min-height: 44px; display: flex; align-items: center; justify-content: center; padding: 8px;">
+          <span style="font-size: 13px; line-height: 16px; font-weight: 500; color: rgba(255,255,255,0.72); text-align: center;">Conservative</span>
+        </div>
+        <div style="flex-grow: 1; flex-basis: 0; min-height: 44px; display: flex; align-items: center; justify-content: center; padding: 8px; position: relative;">
+          <div style="position: absolute; left: 0; top: 8px; bottom: 8px; width: 1px; background: rgba(255,255,255,0.14);"></div>
+          <span style="font-size: 13px; line-height: 16px; font-weight: 500; color: rgba(255,255,255,0.72); text-align: center;">Moderate</span>
+        </div>
+        <div style="flex-grow: 1; flex-basis: 0; min-height: 44px; display: flex; align-items: center; justify-content: center; padding: 8px; background: #2e7d32;">
+          <span style="font-size: 13px; line-height: 16px; font-weight: 600; color: #ffffff; text-align: center;">Aggressive</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Legs: 2–6 open on Pro -->
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <span style="font-size: 13px; line-height: 16px; font-weight: 500; color: #ffffff;">Legs</span>
+      <div style="display: flex; gap: 8px;">
+        <div style="width: 64px; min-height: 44px; display: flex; align-items: center; justify-content: center; background: #0c0c0e; border: 1px solid rgba(255,255,255,0.30); border-radius: 10px;">
+          <span style="font-size: 13px; line-height: 16px; font-weight: 500; color: rgba(255,255,255,0.72); font-variant-numeric: tabular-nums;">2</span>
+        </div>
+        <div style="width: 64px; min-height: 44px; display: flex; align-items: center; justify-content: center; background: #0c0c0e; border: 1px solid rgba(255,255,255,0.30); border-radius: 10px;">
+          <span style="font-size: 13px; line-height: 16px; font-weight: 500; color: rgba(255,255,255,0.72); font-variant-numeric: tabular-nums;">3</span>
+        </div>
+        <div style="width: 64px; min-height: 44px; display: flex; align-items: center; justify-content: center; background: #2e7d32; border-radius: 10px;">
+          <span style="font-size: 13px; line-height: 16px; font-weight: 600; color: #ffffff; font-variant-numeric: tabular-nums;">4</span>
+        </div>
+        <div style="width: 64px; min-height: 44px; display: flex; align-items: center; justify-content: center; background: #0c0c0e; border: 1px solid rgba(255,255,255,0.30); border-radius: 10px;">
+          <span style="font-size: 13px; line-height: 16px; font-weight: 500; color: rgba(255,255,255,0.72); font-variant-numeric: tabular-nums;">5</span>
+        </div>
+        <div style="width: 64px; min-height: 44px; display: flex; align-items: center; justify-content: center; background: #0c0c0e; border: 1px solid rgba(255,255,255,0.30); border-radius: 10px;">
+          <span style="font-size: 13px; line-height: 16px; font-weight: 500; color: rgba(255,255,255,0.72); font-variant-numeric: tabular-nums;">6</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sportsbook: availability is per game. A book that has not posted this
+         game is disabled and says so — never silently swapped underneath a
+         Pro user who made an explicit choice. -->
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <span style="font-size: 13px; line-height: 16px; font-weight: 500; color: #ffffff;">Sportsbook</span>
+      <div style="display: flex; flex-wrap: nowrap; gap: 12px; flex-direction: row; overflow: auto">
+        <div style="min-height: 44px; flex-shrink: 0; display: flex; align-items: center; padding: 0 12px; background: #2e7d32; border-radius: 10px;">
+          <span style="font-size: 13px; line-height: 16px; font-weight: 600; color: #ffffff;">DraftKings</span>
+        </div>
+        <div style="min-height: 44px; flex-shrink: 0; display: flex; align-items: center; padding: 0 12px; background: #0c0c0e; border: 1px solid rgba(255,255,255,0.30); border-radius: 10px;">
+          <span style="font-size: 13px; line-height: 16px; font-weight: 500; color: rgba(255,255,255,0.72);">FanDuel</span>
+        </div>
+        <div style="min-height: 44px; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; padding: 4px 12px; background: #0c0c0e; border: 1px solid rgba(255,255,255,0.14); border-radius: 10px;">
+          <span style="font-size: 13px; line-height: 16px; font-weight: 500; color: rgba(255,255,255,0.5);">BetMGM</span>
+          <span style="font-size: 11px; line-height: 14px; font-weight: 500; color: rgba(255,255,255,0.5);">Not available</span>
+        </div>
+        <div style="min-height: 44px; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; padding: 4px 12px; background: #0c0c0e; border: 1px solid rgba(255,255,255,0.14); border-radius: 10px;">
+          <span style="font-size: 13px; line-height: 16px; font-weight: 500; color: rgba(255,255,255,0.5);">Caesars</span>
+          <span style="font-size: 11px; line-height: 14px; font-weight: 500; color: rgba(255,255,255,0.5);">Not available</span>
+        </div>
+      </div>
+      <span style="font-size: 12px; line-height: 16px; color: rgba(255,255,255,0.72);">Two books haven&#39;t posted CIN at BAL yet.</span>
+    </div>
+
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

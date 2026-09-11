@@ -4,40 +4,26 @@ import { useEffect, useState } from 'react'
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
 
 import { Card } from '@/components/ui/Card'
+import { waitEstimate } from '@/lib/build/quotaCopy'
+import { formatElapsed, STEP_ROWS, stepProgressLabel } from '@/lib/build/steps'
 import {
   colors,
   HIT_SLOP,
+  MIN_TARGET,
   PRESSED_OPACITY,
   radius,
   spacing,
   typography,
 } from '@/lib/theme/designTokens'
 
-// Mirrors the web ROWS table. `optional` steps are allowed to fail without
-// failing the run — they render as "unavailable — continuing" rather than as
-// an error, or a degraded run looks broken.
-const ROWS: { id: string; label: string; optional?: boolean }[] = [
-  { id: 'step_plan', label: 'Plan the run' },
-  { id: 'step_tool_espn_game', label: 'Load game, venue & forecast' },
-  { id: 'step_tool_espn_team_stats', label: 'Pull team statistics', optional: true },
-  { id: 'step_tool_espn_pregame', label: 'Check injuries & recent form', optional: true },
-  { id: 'step_tool_nflverse_epa', label: 'Pull EPA efficiency stats', optional: true },
-  { id: 'step_tool_odds', label: 'Fetch book lines', optional: true },
-  { id: 'step_draft', label: 'Draft the parlay' },
-  { id: 'step_validate', label: 'Check legs against the lines' },
-]
-
-function formatElapsed(ms: number): string {
-  const s = Math.floor(ms / 1000)
-  return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`
-}
-
 function StatusGlyph({ step }: { step?: AgentStep }) {
   if (!step) {
     return <View style={[styles.glyph, styles.glyphPending]} />
   }
   if (step.status === 'running') {
-    return <ActivityIndicator size="small" color={colors.primaryBright} style={styles.glyph} />
+    return (
+      <ActivityIndicator size="small" color={colors.primaryBright} style={styles.glyph} />
+    )
   }
   if (step.status === 'failed') {
     return (
@@ -55,17 +41,29 @@ function StatusGlyph({ step }: { step?: AgentStep }) {
 
 interface AgentProgressProps {
   steps: AgentStep[]
+  // Drives the wait estimate, and decides whether a row shows "4 of 6".
+  gameCount: number
+  // The run's own start, not this component's mount: the screen can be left and
+  // come back, and the clock has to keep telling the truth.
+  startedAt: number
   onCancel: () => void
 }
 
-export function AgentProgress({ steps, onCancel }: AgentProgressProps) {
-  const [startedAt] = useState(() => Date.now())
-  const [elapsed, setElapsed] = useState(0)
+export function AgentProgress({
+  steps,
+  gameCount,
+  startedAt,
+  onCancel,
+}: AgentProgressProps) {
+  // `now` rather than the elapsed value, so elapsed is derived during render
+  // and a change of run needs no setState from inside the effect.
+  const [now, setNow] = useState(() => Date.now())
+  const elapsed = Math.max(0, now - startedAt)
 
   useEffect(() => {
-    const t = setInterval(() => setElapsed(Date.now() - startedAt), 250)
-    return () => clearInterval(t)
-  }, [startedAt])
+    const id = setInterval(() => setNow(Date.now()), 250)
+    return () => clearInterval(id)
+  }, [])
 
   const byId = new Map(steps.map(s => [s.id, s]))
 
@@ -77,16 +75,19 @@ export function AgentProgress({ steps, onCancel }: AgentProgressProps) {
             Building your parlay
           </Text>
           <Text style={styles.subtitle}>
-            Each step reports as it finishes. Runs usually take 20–60 seconds.
+            Each step reports as it finishes. {waitEstimate(gameCount)}
           </Text>
         </View>
         <Text style={styles.elapsed}>{formatElapsed(elapsed)}</Text>
       </View>
 
       <View>
-        {ROWS.map((row, i) => {
+        {/* Eight rows however many games the run covers. A multi-game step
+            counts through them in the meta column instead (CONTRACT §9.3). */}
+        {STEP_ROWS.map((row, i) => {
           const step = byId.get(row.id)
           const failed = step?.status === 'failed'
+          const progress = stepProgressLabel(step)
           return (
             <View key={row.id} style={[styles.row, i > 0 && styles.rowDivider]}>
               <StatusGlyph step={step} />
@@ -104,9 +105,10 @@ export function AgentProgress({ steps, onCancel }: AgentProgressProps) {
                   ? row.optional
                     ? 'unavailable — continuing'
                     : (step.error?.message ?? 'failed')
-                  : step?.durationMs !== undefined
-                    ? `${(step.durationMs / 1000).toFixed(1)}s`
-                    : ''}
+                  : (progress ??
+                    (step?.durationMs !== undefined
+                      ? `${(step.durationMs / 1000).toFixed(1)}s`
+                      : ''))}
               </Text>
             </View>
           )
@@ -127,14 +129,30 @@ export function AgentProgress({ steps, onCancel }: AgentProgressProps) {
 
 const styles = StyleSheet.create({
   card: {},
-  header: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: spacing.md },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: spacing.md,
+  },
   headerText: { flex: 1, gap: spacing.xs },
   title: { ...typography.title, color: colors.text },
   subtitle: { ...typography.bodySmall, color: colors.textSecondary },
-  elapsed: { ...typography.numeric, color: colors.textSecondary, marginLeft: spacing.md },
+  elapsed: {
+    ...typography.numeric,
+    color: colors.textSecondary,
+    marginLeft: spacing.md,
+  },
 
-  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm },
-  rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  rowDivider: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.divider,
+  },
   glyph: {
     width: 20,
     height: 20,
@@ -148,14 +166,20 @@ const styles = StyleSheet.create({
   rowLabel: { ...typography.bodySmall, color: colors.text, flex: 1 },
   rowLabelPending: { color: colors.textDisabled },
   rowLabelRunning: { color: colors.text },
-  rowMeta: { ...typography.micro, fontVariant: ['tabular-nums'], color: colors.textSecondary, textAlign: 'right' },
+  rowMeta: {
+    ...typography.micro,
+    fontVariant: ['tabular-nums'],
+    color: colors.textSecondary,
+    textAlign: 'right',
+  },
   rowMetaFailed: { color: colors.warning },
 
   cancel: {
     alignSelf: 'flex-end',
     marginTop: spacing.md,
+    minHeight: MIN_TARGET,
+    justifyContent: 'center',
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
   },
   cancelText: { ...typography.label, color: colors.textSecondary },
   pressed: { opacity: PRESSED_OPACITY },

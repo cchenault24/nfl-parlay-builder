@@ -1,4 +1,4 @@
-import type { RiskLevel } from '../agent/shared/schemas'
+import { MAX_GAMES_PER_RUN, type RiskLevel } from '../agent/shared/schemas'
 
 // The authoritative tier definition. Clients never hardcode these numbers —
 // /entitlements hands them over — so this file is the only place a limit is
@@ -10,6 +10,9 @@ export interface TierCapabilities {
   generationsPerWeek: number | null
   riskLevels: RiskLevel[]
   legCount: { min: number; max: number; default: number }
+  // How many games one run may draw legs from. 1 means single-game only, which
+  // is what makes cross-game a Pro feature without needing a separate flag.
+  maxGamesPerRun: number
   playerProps: boolean
   chooseSportsbook: boolean
   historyDepth: number | null
@@ -31,6 +34,7 @@ const FREE: TierCapabilities = {
   generationsPerWeek: 2,
   riskLevels: ['moderate'],
   legCount: { min: 3, max: 3, default: 3 },
+  maxGamesPerRun: 1,
   playerProps: false,
   chooseSportsbook: false,
   historyDepth: 10,
@@ -43,6 +47,7 @@ const PRO: TierCapabilities = {
   generationsPerWeek: null,
   riskLevels: ['conservative', 'moderate', 'aggressive'],
   legCount: { min: 2, max: 6, default: 3 },
+  maxGamesPerRun: MAX_GAMES_PER_RUN,
   playerProps: true,
   chooseSportsbook: true,
   historyDepth: null,
@@ -55,8 +60,8 @@ export function capabilitiesFor(tier: Tier): TierCapabilities {
   return tier === 'pro' ? PRO : FREE
 }
 
-// Pro's "unlimited" is bounded by silent fair-use valves that are deliberately
-// never surfaced as a quota. Naming them here keeps the numbers in one place.
+// Pro's "unlimited" is bounded by fair-use valves. Naming them here keeps the
+// numbers in one place.
 //
 // The hourly figure bounds a burst. It does not bound a month: 20/hr permits
 // 14,400 runs, about $383 of model spend against $8.49 of net revenue, so on
@@ -64,11 +69,18 @@ export function capabilitiesFor(tier: Tier): TierCapabilities {
 //
 // The daily figure is what actually holds. At the measured $0.0266 a run, 10/day
 // is 300 runs a month costing $7.98 — still inside $8.49 net on Apple at the
-// absolute ceiling. 15/day would lose $3.48 there. Nobody watching a 19-39s
-// timeline reaches ten in a day, so this should never be felt; it exists so the
-// worst case is bounded rather than trusted.
+// absolute ceiling. 15/day would lose $3.48 there.
+//
+// These were originally documented as valves that should never be felt, on the
+// reasoning that nobody watching a 19-39s timeline reaches ten runs in a day.
+// Batch broke that: selecting six games spends six of them in one tap, so a Pro
+// user can now reach the daily limit deliberately and without noticing. Both
+// windows are served by `GET /agent/rate-limit` and stated before a batch runs,
+// because the alternative is runs five and six being refused halfway through.
 export const PRO_RUNS_PER_HOUR = 20
 export const PRO_RUNS_PER_DAY = 10
+export const RUN_WINDOW_HOUR_MS = 60 * 60_000
+export const RUN_WINDOW_DAY_MS = 24 * 60 * 60_000
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']

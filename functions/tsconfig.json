@@ -11,5 +11,9 @@
     "skipLibCheck": true,
     "resolveJsonModule": true
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*"],
+  // Tests and their fixtures are typechecked by `npm test` (vitest runs them
+  // through esbuild) but never compiled into lib/ — Firebase packages that
+  // directory verbatim and nothing there should ship.
+  "exclude": ["src/**/*.test.ts", "src/testing/**"]
 }

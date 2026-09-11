@@ -1,13 +1,9 @@
 import { Box, Link, Typography } from '@mui/material'
 import React from 'react'
-import useParlayStore from '@shared/store/parlayStore'
+import type { GeneratedParlay } from '../../types'
 import { LegalDisclaimer } from '../legal/LegalDisclaimer'
 
-const ParlayDisplayFooter: React.FC = () => {
-  const parlay = useParlayStore(state => state.parlay)
-  if (!parlay) {
-    return null
-  }
+const ParlayDisplayFooter: React.FC<{ parlay: GeneratedParlay }> = ({ parlay }) => {
   return (
     <Box
       sx={{
