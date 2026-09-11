@@ -31,8 +31,8 @@ quota-costing races, all now fixed. What still blocks submission is operational:
    everywhere, English (U.S.) localization "Pro" on both the product and the group. Status stays
    "Prepare for Submission" until the **review screenshot** is uploaded on the product page —
    capture the paywall on a device once billing is live, since that is the only place StoreKit
-   returns the price. Still his: the Server Notifications V2 URLs, a Sandbox Tester, the
-   screenshot, and one sandbox purchase + restore on a device. The first subscription is submitted
+   returns the price. The Server Notifications V2 URLs are set (both environments). Still his: a
+   Sandbox Tester, the screenshot, and one sandbox purchase + restore on a device. The first subscription is submitted
    together with the 1.0 version ("Add for Review").
 2. **Sign in with Apple — done in code.** Christian chose to add it. `expo-apple-authentication`,
    the entitlement, Apple's own button above Google on the sheet, a hashed nonce checked by
