@@ -1,3 +1,9 @@
+import { LegalDocumentSheet } from '@/components/legal/LegalDocumentSheet'
+import {
+  privacyPolicy,
+  termsOfService,
+  type LegalDocument,
+} from '@shared/legal/content'
 import { ErrorBanner } from '@/components/ui/ErrorBanner'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { useEntitlements } from '@shared/hooks/useEntitlements'
@@ -39,6 +45,7 @@ export function UpgradeSheet({
   const { entitlements } = useEntitlements()
   const { user } = useAuth()
   const insets = useSafeAreaInsets()
+  const [document, setDocument] = useState<LegalDocument | null>(null)
 
   // Written from the capabilities the server sends, not from sentences with the
   // numbers spelled into them — widening a limit server-side used to leave a
@@ -182,9 +189,31 @@ export function UpgradeSheet({
               </View>
             ) : null}
 
+            {/* Guideline 3.1.2 wants the subscription length and working links
+                to the EULA and the privacy policy on the purchase surface
+                itself, not only in Settings. */}
             <Text style={styles.legal}>
-              For entertainment only. No wagers are placed through ParlAId.
+              For entertainment only. No wagers are placed through ParlAId. Pro
+              renews monthly until cancelled, and can be cancelled any time in
+              Settings &gt; your name &gt; Subscriptions.
             </Text>
+            <View style={styles.legalLinks}>
+              <Pressable
+                onPress={() => setDocument(termsOfService)}
+                accessibilityRole="button"
+                hitSlop={HIT_SLOP}
+              >
+                <Text style={styles.legalLink}>Terms of Use</Text>
+              </Pressable>
+              <Text style={styles.legal}>·</Text>
+              <Pressable
+                onPress={() => setDocument(privacyPolicy)}
+                accessibilityRole="button"
+                hitSlop={HIT_SLOP}
+              >
+                <Text style={styles.legalLink}>Privacy Policy</Text>
+              </Pressable>
+            </View>
           </ScrollView>
 
           {canPurchase ? (
@@ -207,6 +236,8 @@ export function UpgradeSheet({
           ) : null}
         </View>
       </View>
+
+      <LegalDocumentSheet document={document} onClose={() => setDocument(null)} />
     </Modal>
   )
 }
@@ -255,4 +286,11 @@ const styles = StyleSheet.create({
   actions: { gap: spacing.sm },
   banner: { marginTop: spacing.md },
   legal: { ...typography.micro, color: colors.textSecondary, marginTop: spacing.md },
+  legalLinks: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+  },
+  legalLink: { ...typography.micro, color: colors.primaryBright },
 })
