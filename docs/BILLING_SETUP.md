@@ -1,5 +1,11 @@
 # Billing setup — required before selling Pro
 
+> **Not started, deliberately.** The Stripe account will be Christian's personal
+> one, kept separate from DebugDad, and does not exist yet. Billing therefore
+> stays off until immediately before the App Store launch: no secrets, nothing
+> bound, `/billing/*` answering 503, and both clients showing Pro's features with
+> "Not on sale yet." in place of an Upgrade button.
+
 > **Billing ships disabled.** None of these secrets are bound to the function, so
 > their absence cannot block a deploy. `/billing/*` answers `503
 > billing_not_configured`, `/entitlements` reports `billingAvailable: {stripe:
@@ -31,7 +37,7 @@ gcloud secrets list --project=nfl-parlay-builder --format="value(name.basename()
 ## 1. Stripe
 
 Create the product and price in the Stripe dashboard first — a recurring monthly
-price at **$4.99 USD**. Copy its price ID (`price_…`, not the product `prod_…`).
+price at **$9.99 USD**. Copy its price ID (`price_…`, not the product `prod_…`).
 
 | Secret | Where it comes from |
 |---|---|
@@ -100,10 +106,10 @@ com.debugdad.parlaid.pro.monthly
 ```
 
 It must match `PRO_PRODUCT_ID` in `mobile/src/lib/billing/iap.ts`, or StoreKit
-returns no products and the purchase sheet never opens. Price it at $4.99/month.
+returns no products and the purchase sheet never opens. Price it at $9.99/month.
 
 Enrol in the **Small Business Program** if you have not — it is the difference
-between Apple taking 15% and 30%, so ~$4.24 versus ~$3.49 net on $4.99.
+between Apple taking 15% and 30%, so ~$8.49 versus ~$6.99 net on $9.99.
 
 ### 5. The iOS build
 
@@ -135,8 +141,8 @@ build, so review fails if sandbox is not accepted.
 ## Still open
 
 - **Apple's cut is 15%** under the Small Business Program (needs enrolment;
-  otherwise 30%). At $4.99 that is ~$4.24 net versus ~$4.55 on Stripe, so web
-  signups are worth steering to Stripe — roughly $0.30/user/month.
+  otherwise 30%). At $9.99 that is ~$8.49 net versus ~$9.40 on Stripe, so web
+  signups are worth steering to Stripe — roughly $0.91/user/month.
 - **App Store review has not been validated.** No wagering happens in the app —
   it generates picks for entertainment — so Apple's gambling rules (5.3) should
   not apply, but expect an age-rating question at review. Worth confirming before

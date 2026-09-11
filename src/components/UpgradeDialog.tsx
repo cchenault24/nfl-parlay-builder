@@ -75,7 +75,7 @@ const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
           ParlAId Pro
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-          {canPurchase ? '$4.99 a month. Cancel any time.' : 'Not on sale yet.'}
+          {canPurchase ? '$9.99 a month. Cancel any time.' : 'Not on sale yet.'}
         </Typography>
       </DialogTitle>
 

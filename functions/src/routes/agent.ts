@@ -31,6 +31,12 @@ export const agentRouter = express.Router()
 const RUNS_PER_HOUR = 20
 const RATE_WINDOW_MS = 60 * 60_000
 const AGENT_RUNS_ROUTE = 'agent_runs_create'
+// The daily valve. See PRO_RUNS_PER_DAY in tiering/capabilities.ts for why the
+// hourly one alone left the month unbounded. Free is already held by its weekly
+// quota, so in practice this only ever applies to Pro.
+const RUNS_PER_DAY = 10
+const DAY_WINDOW_MS = 24 * 60 * 60_000
+const AGENT_RUNS_DAILY_ROUTE = 'agent_runs_create_daily'
 const isEmulator = () =>
   !!process.env.FUNCTIONS_EMULATOR || !!process.env.FIREBASE_AUTH_EMULATOR_HOST
 
@@ -81,7 +87,12 @@ async function ownedRun(req: AuthedRequest, res: express.Response) {
 agentRouter.post(
   '/agent/runs',
   verifyAuth,
-  ...(isEmulator() ? [] : [rateLimitByUser(RUNS_PER_HOUR, RATE_WINDOW_MS, AGENT_RUNS_ROUTE)]),
+  ...(isEmulator()
+    ? []
+    : [
+        rateLimitByUser(RUNS_PER_HOUR, RATE_WINDOW_MS, AGENT_RUNS_ROUTE),
+        rateLimitByUser(RUNS_PER_DAY, DAY_WINDOW_MS, AGENT_RUNS_DAILY_ROUTE),
+      ]),
   route(async (req, res) => {
     const { correlationId, user } = req
     if (!user) {

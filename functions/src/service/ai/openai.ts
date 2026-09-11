@@ -48,20 +48,17 @@ export async function draftParlay(
           { role: 'user', content: prompt },
         ],
         text: { format: zodTextFormat(AIGenerateResponseSchema, 'parlay') },
-        // The model defaults to medium effort, which spent ~1,570 reasoning
-        // tokens a run on a task that is mostly "read these numbers and follow
-        // the leg rules". Measured over 4 runs each on the real prompt:
+        // Explicit rather than relying on the default, which is medium today
+        // and is not ours to depend on — this app has already been bitten once
+        // by a silently wrong value it never set.
         //
-        //   medium  4/4 valid  2,317 output (1,572 reasoning)  $0.0311/run
-        //   low     4/4 valid  1,496 output (  716 reasoning)  $0.0213/run
-        //   none    2/4 valid    752 output (    0 reasoning)  $0.0123/run
-        //
-        // `low` is a third cheaper with no measured quality loss — the matchup
-        // summary came back longer, not shorter. `none` is not an option: both
-        // its failures put a player name on a market leg, the same conditional
-        // rule that makes gpt-5.6-luna unusable here (see docs/TIERING.md §8).
-        // Reasoning is what holds that rule.
-        reasoning: { effort: 'low' },
+        // `low` was tried and reverted. It measured 32% cheaper on a rebuilt
+        // prompt but only ~10% on the real one in production (n=5 vs 6, with
+        // ranges that overlapped almost entirely), because the production
+        // prompt is richer than the reconstruction the benchmark used. Not
+        // worth trading any reasoning quality for. `none` is off the table
+        // entirely: it put player names on market legs 2 runs in 4.
+        reasoning: { effort: 'medium' },
         max_output_tokens: 4000,
       },
       { signal, timeout: timeoutMs }
