@@ -26,10 +26,18 @@ export function useParlayPersistence(liveWeek: number): { hydrated: boolean } {
     let active = true
     setHydrated(false)
     loadEntries(AsyncStorage, liveWeek).then(entries => {
-      if (active) {
-        replaceEntries(entries)
-        setHydrated(true)
+      if (!active) {
+        return
       }
+      // Null means the stored blob was there but unreadable. Leaving the writer
+      // disarmed keeps it on disk: this session runs without the cache, and the
+      // next launch gets another chance at it. Arming would replace what we
+      // could not read with what we could not load.
+      if (!entries) {
+        return
+      }
+      replaceEntries(entries)
+      setHydrated(true)
     })
     return () => {
       active = false
