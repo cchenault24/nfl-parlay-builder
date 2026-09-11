@@ -29,7 +29,6 @@ function memoryStorage(initial: Record<string, string> = {}): EntryStorage & {
 function parlay(gameId: string, week = 5): GeneratedParlay {
   return {
     parlayId: `run_${gameId}`,
-    gameId,
     gameIds: [gameId],
     gameContext: 'CIN @ BAL — Week 5',
     week,
@@ -68,7 +67,7 @@ describe('parlayStore entries', () => {
     const entry = useParlayStore.getState().entries[key]
     expect(key).toBe('5:g1')
     expect(entry.status).toBe('ready')
-    expect(entry.parlay?.gameId).toBe('g1')
+    expect(entry.parlay?.gameIds).toEqual(['g1'])
   })
 
   it('leaves game A alone when game B is built', () => {
@@ -80,7 +79,7 @@ describe('parlayStore entries', () => {
 
     const { entries } = useParlayStore.getState()
     expect(Object.keys(entries).sort()).toEqual(['5:g1', '5:g2'])
-    expect(entries['5:g1'].parlay?.gameId).toBe('g1')
+    expect(entries['5:g1'].parlay?.gameIds).toEqual(['g1'])
   })
 
   it('keys a cross-game parlay on its whole set, not its first game', () => {

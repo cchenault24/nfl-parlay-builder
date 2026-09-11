@@ -24,8 +24,6 @@ export abstract class BaseParlayService {
     return {
       parlayId,
       gameIds: games.map(g => g.gameId),
-      // See GeneratedParlay.gameId: firestore.rules requires the field.
-      gameId: first.gameId,
       gameContext: gameContextFor(games),
       week: first.week,
       // The earliest kickoff, because that is when the parlay goes live.

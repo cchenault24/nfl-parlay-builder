@@ -24,9 +24,15 @@ service cloud.firestore {
       allow read, update, delete: if request.auth != null 
         && resource.data.userId == request.auth.uid;
       
+      // `gameIds`, not `gameId`: a parlay can span several games, and the
+      // sweeps that grade it and price its close read the list. Documents saved
+      // before cross-game parlays existed still carry the old single `gameId`
+      // and are normalized on read — this rule governs writes only.
       allow create: if request.auth != null 
         && request.resource.data.userId == request.auth.uid
-        && request.resource.data.keys().hasAll(['userId', 'gameId', 'legs', 'createdAt'])
+        && request.resource.data.keys().hasAll(['userId', 'gameIds', 'legs', 'createdAt'])
+        && request.resource.data.gameIds is list
+        && request.resource.data.gameIds.size() > 0
         && request.resource.data.createdAt == request.time;
     }
     

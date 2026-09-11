@@ -31,6 +31,9 @@ export type StoredParlay = Partial<
   legs?: StoredLeg[]
   gameSummary?: GameSummary | LegacyGameSummary
   estimatedOdds?: number | string
+  // Written by every client before cross-game parlays existed, and still on
+  // every document saved up to that point.
+  gameId?: string
 }
 
 function num(value: unknown): number {
@@ -77,12 +80,16 @@ export function normalizeStoredParlay(
   data: StoredParlay,
   docId: string
 ): GeneratedParlay {
-  const gameId = data.gameId ?? ''
-  // Saves from before cross-game parlays existed name one game.
-  const gameIds = data.gameIds?.length ? data.gameIds : gameId ? [gameId] : []
+  // Saves from before cross-game parlays existed name a single `gameId`. That
+  // field is no longer written, but documents carrying it outlive the change —
+  // normalizing it here is the whole job of this function.
+  const gameIds = data.gameIds?.length
+    ? data.gameIds
+    : data.gameId
+      ? [data.gameId]
+      : []
   return {
     parlayId: docId,
-    gameId,
     gameIds,
     gameContext: data.gameContext ?? '',
     week: typeof data.week === 'number' ? data.week : 0,
@@ -104,7 +111,7 @@ export function normalizeStoredParlay(
     })),
     combinedOdds: num(data.combinedOdds ?? data.estimatedOdds),
     parlayConfidence: num(data.parlayConfidence),
-    gameSummary: toGameSummary(data.gameSummary, gameId),
+    gameSummary: toGameSummary(data.gameSummary, gameIds[0] ?? ''),
     model: data.model ?? 'unknown',
     grading: data.grading,
     closingLines: data.closingLines,

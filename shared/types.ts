@@ -253,14 +253,10 @@ export interface GameSummary {
 
 export interface GeneratedParlay {
   parlayId: string
-  // Every game this parlay draws on, in the order they were requested.
+  // Every game this parlay draws on, in the order they were requested. A
+  // single-game parlay carries one; nothing reads `gameIds[0]` as a special
+  // case.
   gameIds: string[]
-  // `gameIds[0]`, and the only game for a single-game parlay. Kept as its own
-  // field because firestore.rules requires `gameId` on create, and that rule
-  // cannot be changed without a deploy that would break every client still
-  // running the old bundle. Once every client writes `gameIds`, the rule can
-  // require it and this can go.
-  gameId: string
   gameContext: string
   // Carried from the games so a saved parlay can be sorted/graded later
   // without needing to look them back up. `gameDateTime` is the earliest

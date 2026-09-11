@@ -28,6 +28,7 @@ jobs:
       - run: yarn install --frozen-lockfile
       - run: yarn lint
       - run: yarn type-check
+      - run: yarn test
 
   functions:
     name: Functions — lint & types

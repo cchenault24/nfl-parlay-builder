@@ -12,8 +12,7 @@ import {
 
 import { db } from '@/lib/firebase'
 
-// Firestore rules require userId, gameId, legs and a server-set createdAt. A
-// cross-game parlay satisfies that with `gameIds[0]`; see GeneratedParlay.
+// Firestore rules require userId, gameIds, legs and a server-set createdAt.
 export const saveParlayToUser = async (userId: string, parlay: GeneratedParlay) => {
   const ref = await addDoc(collection(db, 'parlays'), {
     ...parlay,
