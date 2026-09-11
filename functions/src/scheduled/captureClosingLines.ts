@@ -1,7 +1,7 @@
 import { onSchedule } from 'firebase-functions/v2/scheduler'
 import { computeClosingLines, type StoredLeg } from '../clv/computeClv'
 import { db } from '../firebase'
-import type { StoredParlay } from '../grading/sweep'
+import { parlayGameIds, type StoredParlay } from '../grading/sweep'
 import type { ParlayClosingLines } from '../grading/types'
 import { log } from '../observability/logger'
 import { getGame } from '../providers/espn/client'
@@ -41,12 +41,24 @@ export const captureClosingLinesSweep = onSchedule(
 
     // One game backs many parlays, so read its odds once for all of them.
     const byGame = new Map<string, typeof snap.docs>()
+    let skippedCrossGame = 0
     for (const doc of snap.docs) {
       const data = doc.data() as ParlayWithClosing
-      if (data.closingLines || !data.gameId || !Array.isArray(data.legs)) {
+      if (data.closingLines || !Array.isArray(data.legs)) {
         continue
       }
-      byGame.set(data.gameId, [...(byGame.get(data.gameId) ?? []), doc])
+      const gameIds = parlayGameIds(data)
+      // A cross-game parlay has no single close. Each of its legs closes at its
+      // own game's kickoff, and this sweep is keyed on one kickoff time, so
+      // capturing here would record a price taken hours before the later games
+      // actually closed. `closingLines` stays absent — already a supported
+      // state, and the only honest one until a per-game capture exists.
+      if (gameIds.length !== 1) {
+        skippedCrossGame += gameIds.length > 1 ? 1 : 0
+        continue
+      }
+      const [gameId] = gameIds
+      byGame.set(gameId, [...(byGame.get(gameId) ?? []), doc])
     }
 
     let captured = 0
@@ -67,6 +79,10 @@ export const captureClosingLinesSweep = onSchedule(
         captured++
       }
     }
-    log.info('scheduled.clv.captured', { games: byGame.size, parlays: captured })
+    log.info('scheduled.clv.captured', {
+      games: byGame.size,
+      parlays: captured,
+      skippedCrossGame,
+    })
   }
 )
