@@ -103,7 +103,14 @@ export const api = onRequest(
     // aborts functions and hosting together — which is precisely what happened
     // when tiering merged. See billing/config.ts for how to turn billing on.
     secrets: [OPENAI_API_KEY, ODDS_API_KEY],
-    timeoutSeconds: 120,
+    // The streaming route holds this request open for the whole agent run, so
+    // this ceiling is the run's real ceiling. A cross-game run is budgeted at
+    // 90s + 20s per extra game (agent/shared/schemas.ts), which reaches 190s at
+    // the six-game cap — past 120s, and the instance would be killed after the
+    // model tokens had already been spent. Raising it here lifts the ceiling for
+    // every route; splitting the stream into its own function is the better
+    // shape and is the follow-up if held instance-seconds show up in the bill.
+    timeoutSeconds: 300,
   },
   app
 )
