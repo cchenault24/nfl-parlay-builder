@@ -25,9 +25,16 @@ quota-costing races, all now fixed. What still blocks submission is operational:
    and `APPLE_ROOT_CA_G3` exist in Secret Manager (the CA's SHA-256 fingerprint was checked against
    Apple's published value) and all three Apple secrets are bound in `functions/src/index.ts`.
    `APPLE_APP_APPLE_ID` was created later the same day with the real value, so the branch is safe
-   to merge and the merge deploys billing. Still his in App Store Connect: the subscription product
-   `com.debugdad.parlaid.pro.monthly` at $9.99, the Server Notifications V2 URLs, a Sandbox Tester,
-   and one sandbox purchase + restore on a device before submitting.
+   to merge; merged and deployed (the CI account could not grant the function access to the new
+   secrets, so that grant was made by hand and the deploy re-run). In App Store Connect the
+   subscription exists: group "ParlAId Pro" (22377769), product `com.debugdad.parlaid.pro.monthly`
+   (Apple ID 6811151393), 1 month, $9.99 in all 175 regions, English (U.S.) localization on product
+   and group, a review screenshot and notes. Server Notifications V2 URLs set; a Sandbox Tester
+   exists; build 3 (v1.0.0) is in TestFlight via `eas submit`. **The blocker found on the device:
+   the Paid Apps Agreement is unsigned** (Business → Agreements shows "New"). Until it is Active,
+   StoreKit serves no products to any environment, so the paywall reads "The App Store did not
+   return a price." Signing it needs banking, tax and the EU DSA trader answer. After that: the
+   sandbox purchase + restore, and swap the review screenshot for one showing the price.
 2. **Sign in with Apple — done in code.** Christian chose to add it. `expo-apple-authentication`,
    the entitlement, Apple's own button above Google on the sheet, a hashed nonce checked by
    Firebase, and the first-sign-in name kept. The Apple provider is enabled on the Firebase
