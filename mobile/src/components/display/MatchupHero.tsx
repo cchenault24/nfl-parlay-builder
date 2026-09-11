@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons'
+import { formatKickoff } from '@shared/kickoff'
 import type { Game } from '@shared/types'
 import { StyleSheet, Text, View } from 'react-native'
 
@@ -48,14 +49,7 @@ export function MatchupHero({ game }: { game: Game }) {
       <View style={styles.info}>
         <InfoRow
           icon="time-outline"
-          text={`${new Date(dateTime).toLocaleString('en-US', {
-            timeZone: 'America/New_York',
-            weekday: 'short',
-            month: 'short',
-            day: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit',
-          })} ET`}
+          text={formatKickoff(dateTime)}
         />
         {venue ? (
           <InfoRow

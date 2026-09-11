@@ -77,17 +77,44 @@ describe('contact details', () => {
   })
 
   // The Account tab renders a tel: link from `dial`, so a helpline that claims
-  // a phone number without one is a dead tap.
-  it('gives every dialable helpline a tel target', () => {
+  // a phone number without one is a dead tap. A vanity number like
+  // 1-800-GAMBLER counts: it is dialable, but only via its digits.
+  it('gives every dialable helpline a numeric tel target', () => {
     for (const line of HELPLINES) {
-      if (/^[\d-]+$/.test(line.phone)) {
-        expect(line.dial).toBeTruthy()
+      if (/^[\dA-Z-]+$/.test(line.phone)) {
+        expect(line.dial).toMatch(/^\d+$/)
       }
     }
   })
 
   it('lists the national helpline first', () => {
     expect(HELPLINES[0].phone).toBe(HELPLINE)
+  })
+
+  it('lists 1-800-GAMBLER alongside it', () => {
+    const gambler = HELPLINES.find(h => h.phone === '1-800-GAMBLER')
+    expect(gambler?.dial).toBe('18004262537')
+  })
+})
+
+describe('terms of service', () => {
+  // The iOS paywall links here as "Terms of Use", which App Review expects to
+  // state how an auto-renewing subscription renews and is cancelled.
+  it('states the subscription terms', () => {
+    const section = termsOfService.sections.find(s => /Subscriptions/.test(s.title))
+    expect(section?.description).toMatch(/auto-renewing/)
+    expect(section?.description).toMatch(/24 hours/)
+    expect(section?.description).toMatch(/App Store/)
+  })
+})
+
+describe('privacy policy', () => {
+  // There is no analytics SDK and no audit program, so the policy must not
+  // claim either.
+  it('claims only what the service actually does', () => {
+    const text = privacyPolicy.sections.map(s => s.description).join(' ')
+    expect(text).not.toMatch(/usage analytics/)
+    expect(text).not.toMatch(/security audits/)
   })
 })
 

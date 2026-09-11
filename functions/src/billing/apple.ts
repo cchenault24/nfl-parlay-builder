@@ -40,12 +40,24 @@ function verifierFor(environment: Environment): SignedDataVerifier {
 // that looks broken. What it must not be is unconditional: an unqualified catch
 // retries a malformed payload, an expired certificate chain and a wrong bundle
 // id as though each were an environment mismatch, turning every verification
-// failure into two. Only INVALID_ENVIRONMENT means "try the other one".
+// failure into two. Only the two statuses below mean "try the other one".
+//
+// INVALID_APP_IDENTIFIER is in that set because the production verifier checks
+// appAppleId *before* it checks the environment, and sandbox payloads do not
+// carry an appAppleId — so a sandbox notification never reaches the environment
+// check and fails with the identifier status instead. The sandbox verifier
+// skips appAppleId but still enforces bundleId, so a payload for some other app
+// is still rejected on the retry.
 //
 // The environment is returned rather than discarded because a sandbox purchase
 // is free. Without recording it, a $0 sandbox transaction — available to any
 // TestFlight tester — writes a production entitlement indistinguishable from a
 // paid one, and nothing downstream can tell them apart or sweep them.
+const RETRY_WITH_SANDBOX: ReadonlyArray<VerificationStatus> = [
+  VerificationStatus.INVALID_ENVIRONMENT,
+  VerificationStatus.INVALID_APP_IDENTIFIER,
+]
+
 async function verify<T>(
   attempt: (verifier: SignedDataVerifier) => Promise<T>
 ): Promise<{ value: T; environment: Environment }> {
@@ -57,7 +69,7 @@ async function verify<T>(
   } catch (e) {
     if (
       !(e instanceof VerificationException) ||
-      e.status !== VerificationStatus.INVALID_ENVIRONMENT
+      !RETRY_WITH_SANDBOX.includes(e.status)
     ) {
       throw e
     }

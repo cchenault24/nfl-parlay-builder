@@ -5,7 +5,6 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,17 +12,13 @@ import {
   View,
 } from 'react-native'
 
+import { AppleSignInButton } from '@/components/auth/AppleSignInButton'
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton'
 import { Button } from '@/components/ui/Button'
+import { LinkButton } from '@/components/ui/LinkButton'
 import { googleSignInConfigured } from '@/lib/auth/useGoogleSignIn'
-import { signInWithEmail, signUpWithEmail } from '@/lib/firebase'
-import {
-  colors,
-  HIT_SLOP,
-  radius,
-  spacing,
-  typography,
-} from '@/lib/theme/designTokens'
+import { requestPasswordReset, signInWithEmail, signUpWithEmail } from '@/lib/firebase'
+import { colors, MIN_TARGET, radius, spacing, typography } from '@/lib/theme/designTokens'
 import { readableAuthError } from '@/lib/auth/authErrors'
 
 interface AuthSheetProps {
@@ -39,6 +34,7 @@ export function AuthSheet({ visible, startOnSignUp, onClose }: AuthSheetProps) {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
 
   // Reset on open, adjusted during render rather than in an effect. An effect
   // would paint one frame of the previous session's mode and error before
@@ -49,6 +45,7 @@ export function AuthSheet({ visible, startOnSignUp, onClose }: AuthSheetProps) {
     if (visible) {
       setIsSignUp(startOnSignUp)
       setError('')
+      setNotice('')
     }
   }
 
@@ -57,6 +54,26 @@ export function AuthSheet({ visible, startOnSignUp, onClose }: AuthSheetProps) {
     setPassword('')
     setConfirmPassword('')
     setError('')
+    setNotice('')
+  }
+
+  // The only way back into an account whose password is gone; without it a
+  // locked-out user's one recourse was deleting nothing and emailing support.
+  const forgotPassword = async () => {
+    if (!email.trim()) {
+      setError('Enter your email above first, and we will send a reset link.')
+      return
+    }
+    setLoading(true)
+    setError('')
+    try {
+      await requestPasswordReset(email.trim())
+      setNotice(`If an account uses ${email.trim()}, a reset link is on its way.`)
+    } catch (err) {
+      setError(readableAuthError(err))
+    } finally {
+      setLoading(false)
+    }
   }
 
   const submit = async () => {
@@ -101,6 +118,7 @@ export function AuthSheet({ visible, startOnSignUp, onClose }: AuthSheetProps) {
           {error ? (
             <ErrorBanner type="error" message={error} />
           ) : null}
+          {notice ? <ErrorBanner type="success" message={notice} /> : null}
 
           <View style={styles.field}>
             <Text style={styles.fieldLabel} nativeID="auth-email">
@@ -133,7 +151,17 @@ export function AuthSheet({ visible, startOnSignUp, onClose }: AuthSheetProps) {
               onChangeText={setPassword}
               secureTextEntry
               autoComplete={isSignUp ? 'new-password' : 'current-password'}
+              returnKeyType="go"
+              onSubmitEditing={isSignUp ? undefined : submit}
             />
+            {isSignUp ? null : (
+              <LinkButton
+                role="button"
+                label="Forgot password?"
+                onPress={() => void forgotPassword()}
+                style={styles.forgot}
+              />
+            )}
           </View>
 
           {isSignUp ? (
@@ -159,29 +187,31 @@ export function AuthSheet({ visible, startOnSignUp, onClose }: AuthSheetProps) {
             loading={loading}
           />
 
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or</Text>
+            <View style={styles.dividerLine} />
+          </View>
+          {/* Apple first, and never below Google: review expects it to be at
+              least as prominent as any other third-party option. */}
+          <AppleSignInButton onError={msg => setError(msg ?? '')} />
           {googleSignInConfigured ? (
-            <>
-              <View style={styles.dividerRow}>
-                <View style={styles.dividerLine} />
-                <Text style={styles.dividerText}>or</Text>
-                <View style={styles.dividerLine} />
-              </View>
-              <GoogleSignInButton onError={msg => setError(msg ?? '')} />
-            </>
+            <GoogleSignInButton onError={msg => setError(msg ?? '')} />
           ) : null}
 
-          <Pressable
-            onPress={() => setIsSignUp(v => !v)}
-            accessibilityRole="button"
-            hitSlop={HIT_SLOP}
-            style={styles.switch}
-          >
-            <Text style={styles.switchText}>
-              {isSignUp
+          <LinkButton
+            role="button"
+            label={
+              isSignUp
                 ? 'Already have an account? Sign in'
-                : "Don't have an account? Create one"}
-            </Text>
-          </Pressable>
+                : "Don't have an account? Create one"
+            }
+            onPress={() => {
+              setIsSignUp(v => !v)
+              setError('')
+              setNotice('')
+            }}
+          />
         </ScrollView>
       </KeyboardAvoidingView>
     </Modal>
@@ -205,19 +235,11 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
-    minHeight: 48,
+    minHeight: MIN_TARGET,
   },
+  forgot: { alignSelf: 'flex-end' },
 
   dividerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   dividerLine: { flex: 1, height: 1, backgroundColor: colors.divider },
   dividerText: { ...typography.bodySmall, color: colors.textSecondary },
-
-
-
-  switch: { paddingVertical: spacing.sm },
-  switchText: {
-    ...typography.bodySmall,
-    color: colors.primaryBright,
-    textAlign: 'center',
-  },
 })

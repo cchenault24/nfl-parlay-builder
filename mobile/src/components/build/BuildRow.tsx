@@ -1,6 +1,7 @@
 import { raisedSurface } from '@/components/ui/Card'
 import { SECOND_TICK, useNow } from '@/lib/useNow'
 import Ionicons from '@expo/vector-icons/Ionicons'
+import { formatKickoff } from '@shared/kickoff'
 import { formatOdds } from '@shared/odds'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 
@@ -17,15 +18,6 @@ import {
   spacing,
   typography,
 } from '@/lib/theme/designTokens'
-
-const formatKickoff = (iso: string) =>
-  new Date(iso).toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  })
 
 interface BuildRowProps {
   row: Row
@@ -61,13 +53,18 @@ export function BuildRow({
   const running = state === 'running'
   const elapsed = useElapsed(running ? entry?.startedAt : undefined)
   const closed = state === 'closed'
+  // A game that has kicked off cannot be built for, but a parlay built before
+  // kickoff is still the user's to open. Keyed on the entry rather than the
+  // row state, which reads "closed" for both.
+  const ready = entry?.status === 'ready' && Boolean(entry.parlay)
   // Re-running a game you already own costs quota for something you have.
   const selectable = !closed && state !== 'ready' && state !== 'running'
+  const inert = (closed && !ready) || (selectMode && !selectable)
 
   const accessibilityLabel = [
     `${game.away.abbrev} at ${game.home.abbrev}`,
     formatKickoff(game.dateTime),
-    state === 'ready' ? 'parlay ready' : undefined,
+    ready ? 'parlay ready' : undefined,
     state === 'failed' ? 'run failed' : undefined,
     running ? 'building' : undefined,
     closed ? game.status.replace('_', ' ') : undefined,
@@ -77,21 +74,21 @@ export function BuildRow({
 
   return (
     <Pressable
-      disabled={closed || (selectMode && !selectable)}
+      disabled={inert}
       onPress={selectMode ? onToggleSelect : onPress}
       accessibilityRole={selectMode ? 'checkbox' : 'button'}
       accessibilityState={{
-        disabled: closed || (selectMode && !selectable),
+        disabled: inert,
         checked: selectMode ? selected : undefined,
       }}
       accessibilityLabel={accessibilityLabel}
       style={({ pressed }) => [
         styles.row,
-        state === 'ready' && styles.rowReady,
+        ready && styles.rowReady,
         state === 'failed' && styles.rowFailed,
-        closed && styles.rowClosed,
+        closed && !ready && styles.rowClosed,
         selectMode && !selectable && styles.rowClosed,
-        pressed && !closed && styles.pressed,
+        pressed && !inert && styles.pressed,
       ]}
     >
       <View style={styles.matchup}>
@@ -109,14 +106,14 @@ export function BuildRow({
         <TeamLogo teamName={game.home.name} size="small" />
 
         <View style={styles.trailing}>
-          {state === 'ready' && entry?.parlay ? (
+          {ready && entry?.parlay ? (
             <Chip
               label={formatOdds(entry.parlay.combinedOdds)}
               tint={colors.primaryBright}
               numeric
             />
           ) : null}
-          {!selectMode && !closed ? (
+          {!selectMode && !inert ? (
             <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
           ) : null}
         </View>
@@ -127,7 +124,7 @@ export function BuildRow({
         {closed ? ` · ${game.status.replace('_', ' ')}` : ''}
       </Text>
 
-      {state === 'ready' && entry?.parlay ? (
+      {ready && entry?.parlay ? (
         <Text style={styles.ready}>
           {entry.parlay.legs.length}-leg parlay ready
           {entry.gameIds.length > 1 ? ` · ${entry.gameIds.length} games` : ''}
@@ -172,8 +169,11 @@ export function BuildRow({
 
       {state === 'failed' ? (
         <View style={styles.failedRow}>
+          {/* Not "quota not spent": on a dropped connection the server may
+              have finished and billed the run after the stream closed, and
+              the client cannot tell. The parlay screen states the rule. */}
           <Text style={styles.failed} numberOfLines={2}>
-            Run failed — quota not spent
+            Run failed — tap to retry
           </Text>
           <Chip label="Retry" tint={colors.warning} />
         </View>

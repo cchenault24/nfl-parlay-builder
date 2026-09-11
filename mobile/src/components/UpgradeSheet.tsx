@@ -13,9 +13,17 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { Button } from '@/components/ui/Button'
+import { LinkButton } from '@/components/ui/LinkButton'
 import { useAuth } from '@/lib/auth/useAuth'
 import { proPrice, purchasePro, reconcilePurchases } from '@/lib/billing/iap'
-import { colors, HIT_SLOP, radius, spacing, typography } from '@/lib/theme/designTokens'
+import {
+  colors,
+  HIT_SLOP,
+  MIN_TARGET,
+  radius,
+  spacing,
+  typography,
+} from '@/lib/theme/designTokens'
 
 interface UpgradeSheetProps {
   visible: boolean
@@ -41,7 +49,9 @@ export function UpgradeSheet({
   const [notice, setNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [restoring, setRestoring] = useState(false)
-  const [price, setPrice] = useState<string | null>(null)
+  // Undefined until StoreKit answers; null once it has answered with nothing.
+  // Conflating the two flashed the missing-price error on every open.
+  const [price, setPrice] = useState<string | null | undefined>(undefined)
   const { entitlements } = useEntitlements()
   const { user } = useAuth()
   const insets = useSafeAreaInsets()
@@ -70,7 +80,11 @@ export function UpgradeSheet({
           setPrice(value)
         }
       },
-      () => {}
+      () => {
+        if (active) {
+          setPrice(null)
+        }
+      }
     )
     return () => {
       active = false
@@ -127,6 +141,10 @@ export function UpgradeSheet({
     }
   }
 
+  // A purchase surface with no price is not one Apple lets us sell from, and a
+  // button that would charge an unstated amount is worse than a disabled one.
+  const priceMissing = canPurchase && price === null
+
   return (
     <Modal
       visible={visible}
@@ -150,25 +168,37 @@ export function UpgradeSheet({
           <View style={styles.header}>
             <View>
               <Text style={styles.title}>ParlAId Pro</Text>
-              <Text style={styles.price}>
-                {!canPurchase
-                  ? 'Not on sale yet.'
-                  : price
-                    ? `${price} a month. Cancel any time.`
-                    : 'Monthly subscription. Cancel any time.'}
-              </Text>
+              {priceMissing ? null : (
+                <Text style={styles.price}>
+                  {!canPurchase
+                    ? 'Not on sale yet.'
+                    : price
+                      ? `${price} a month. Cancel any time.`
+                      : 'Monthly subscription. Cancel any time.'}
+                </Text>
+              )}
             </View>
             <Pressable
               onPress={onClose}
               accessibilityRole="button"
               accessibilityLabel="Close"
               hitSlop={HIT_SLOP}
+              style={styles.close}
             >
               <Ionicons name="close" size={24} color={colors.textSecondary} />
             </Pressable>
           </View>
 
           <ScrollView style={styles.body}>
+            {priceMissing ? (
+              <View style={styles.banner}>
+                <ErrorBanner
+                  type="error"
+                  message="The App Store did not return a price. Try again in a moment."
+                />
+              </View>
+            ) : null}
+
             {reason ? <Text style={styles.reason}>{reason}</Text> : null}
 
             {features.map(feature => (
@@ -198,21 +228,19 @@ export function UpgradeSheet({
               Settings &gt; your name &gt; Subscriptions.
             </Text>
             <View style={styles.legalLinks}>
-              <Pressable
+              <LinkButton
+                label="Terms of service"
                 onPress={() => setDocument(termsOfService)}
-                accessibilityRole="button"
-                hitSlop={HIT_SLOP}
-              >
-                <Text style={styles.legalLink}>Terms of Use</Text>
-              </Pressable>
-              <Text style={styles.legal}>·</Text>
-              <Pressable
+                role="button"
+                textStyle={styles.legalLink}
+              />
+              <Text style={styles.legalDot}>·</Text>
+              <LinkButton
+                label="Privacy policy"
                 onPress={() => setDocument(privacyPolicy)}
-                accessibilityRole="button"
-                hitSlop={HIT_SLOP}
-              >
-                <Text style={styles.legalLink}>Privacy Policy</Text>
-              </Pressable>
+                role="button"
+                textStyle={styles.legalLink}
+              />
             </View>
           </ScrollView>
 
@@ -221,7 +249,7 @@ export function UpgradeSheet({
               <Button
                 label={busy ? 'Contacting the App Store…' : 'Upgrade'}
                 onPress={buy}
-                disabled={busy || restoring}
+                disabled={busy || restoring || priceMissing}
               />
               {/* Guideline 3.1.1 wants this reachable from the purchase
                   surface, not only buried in settings. */}
@@ -272,6 +300,15 @@ const styles = StyleSheet.create({
   },
   title: { ...typography.title, color: colors.text },
   price: { ...typography.bodySmall, color: colors.textSecondary, marginTop: spacing.xxs },
+  close: {
+    minWidth: MIN_TARGET,
+    minHeight: MIN_TARGET,
+    alignItems: 'center',
+    justifyContent: 'center',
+    // Pulls the 44pt box back so the glyph stays where the 24pt one sat.
+    marginTop: -spacing.sm,
+    marginRight: -spacing.sm,
+  },
   body: {
     marginBottom: spacing.md,
   },
@@ -289,8 +326,8 @@ const styles = StyleSheet.create({
   legalLinks: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
-    marginTop: spacing.xs,
+    gap: spacing.md,
   },
-  legalLink: { ...typography.micro, color: colors.primaryBright },
+  legalDot: { ...typography.micro, color: colors.textSecondary },
+  legalLink: { ...typography.micro },
 })

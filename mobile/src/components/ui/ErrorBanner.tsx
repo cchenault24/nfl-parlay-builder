@@ -1,5 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons'
-import { StyleSheet, Text, View } from 'react-native'
+import { useEffect } from 'react'
+import { AccessibilityInfo, StyleSheet, Text, View } from 'react-native'
 
 import { colors, radius, spacing, typography } from '@/lib/theme/designTokens'
 
@@ -25,11 +26,20 @@ interface ErrorBannerProps {
 
 export function ErrorBanner({ type, title, message, countdown }: ErrorBannerProps) {
   const tone = TONE[type]
+  // Only a failure interrupts. `accessibilityLiveRegion` is Android-only, so
+  // VoiceOver hears it through an explicit announcement.
+  const urgent = type === 'error' || type === 'rate_limit_reached'
+
+  useEffect(() => {
+    if (urgent) {
+      AccessibilityInfo.announceForAccessibility(title ? `${title}. ${message}` : message)
+    }
+  }, [urgent, title, message])
+
   return (
     <View
       style={[styles.banner, { borderColor: tone.color }]}
-      // Announced when it appears rather than waiting to be swiped onto.
-      accessibilityRole="alert"
+      accessibilityRole={urgent ? 'alert' : undefined}
       accessibilityLiveRegion="polite"
     >
       <Ionicons name={tone.icon} size={18} color={tone.color} style={styles.icon} />

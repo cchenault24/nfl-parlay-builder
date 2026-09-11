@@ -5,11 +5,6 @@ import { StyleSheet, Text, View } from 'react-native'
 import { Card } from '@/components/ui/Card'
 import { colors, radius, spacing, typography } from '@/lib/theme/designTokens'
 
-/* eslint-disable react/no-array-index-key --
-   Position is the only identity these have, and it is a stable one: the block
-   at index 1 stays the block at index 1 while its text grows a token at a time.
-   Keying on content would remount every row on every keystroke. */
-
 /**
  * The draft as the model writes it.
  *

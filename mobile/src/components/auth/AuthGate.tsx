@@ -21,19 +21,19 @@ const FEATURES = [
     icon: 'american-football-outline',
     title: 'Real-Time NFL Data',
     description:
-      'Live roster data and current season stats ensure accurate player props and up-to-date betting information.',
+      'Current season stats, matchup rankings and live sportsbook lines behind every pick.',
   },
   {
     icon: 'time-outline',
     title: 'Parlay History',
     description:
-      'Save and track your generated parlays. Build your betting portfolio and analyze AI recommendations over time.',
+      'Save the parlays you build and see how each leg graded once the games are final.',
   },
   {
     icon: 'shield-checkmark-outline',
     title: 'Secure & Private',
     description:
-      'Your data is protected with enterprise-grade security. Only you can access your saved parlays and betting history.',
+      'Your saved parlays and history are yours alone. Delete your account any time from inside the app.',
   },
 ] as const
 
@@ -72,8 +72,8 @@ export function AuthGate() {
             accessibilityLabel="ParlAId — AI powered NFL parlay generator"
           />
           <Text style={styles.tagline}>
-            Harness the power of AI to generate intelligent 3-leg parlays for
-            NFL games. Get data-driven insights and build your winning strategy.
+            AI-built NFL parlays with the reasoning behind every leg, for
+            entertainment. Pick a game, watch the analysis, keep what you like.
           </Text>
 
           <Button
@@ -119,12 +119,11 @@ export function AuthGate() {
 
         <View style={styles.cta}>
           <Text style={styles.ctaTitle} accessibilityRole="header">
-            Ready to build winning parlays?
+            Ready to build your first parlay?
           </Text>
           <Text style={styles.ctaBody}>
-            Join thousands of bettors using AI to make smarter NFL parlay
-            decisions. Create your free account and start generating parlays in
-            seconds.
+            Create a free account and build a parlay for any game this week.
+            No wagers are placed here — it is analysis for entertainment.
           </Text>
           <Button
             label="Create free account"

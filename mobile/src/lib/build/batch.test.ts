@@ -78,6 +78,22 @@ describe('runBatch', () => {
     expect(outcome.skipped).toEqual([['b'], ['c'], ['d']])
   })
 
+  // The weekly quota and an expired session refuse every remaining group the
+  // same way; the batch used to fire them all and report N failures.
+  it.each(['quota_exhausted', 'unauthorized'])('stops on %s as well', async code => {
+    const run = vi.fn(async (ids: string[]) => {
+      if (ids[0] === 'b') {
+        throw runError(code, 403, 'Refused.')
+      }
+    })
+
+    const outcome = await runBatch(batchGroups('separate', ['a', 'b', 'c']), run)
+
+    expect(run).toHaveBeenCalledTimes(2)
+    expect(outcome.stoppedBy).toBe(code)
+    expect(outcome.skipped).toEqual([['b'], ['c']])
+  })
+
   it('reports a cross-game run as one outcome', async () => {
     const outcome = await runBatch(batchGroups('cross', ['a', 'b']), async () => undefined)
     expect(outcome.succeeded).toEqual([['a', 'b']])

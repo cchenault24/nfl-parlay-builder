@@ -14,10 +14,9 @@ import { loadEntries, saveEntries } from './persistence'
 // this week's parlays.
 //
 // Everything is scoped to the signed-in uid — both the storage key and the
-// in-memory store. The store is a module singleton that outlives a sign-out, so
-// without the reset below the next account to sign in on the same device would
-// see the previous one's parlays until its own hydrate landed, and would see
-// them again after an account deletion the server had already honoured.
+// in-memory store. The store is a module singleton that outlives a sign-out;
+// the root navigator empties it when the account goes away, because this hook
+// unmounts with the tabs before it could.
 export function useParlayPersistence(liveWeek: number): { hydrated: boolean } {
   // Which account's data is in the store, rather than a bare boolean. Derived
   // comparison means an account change makes `hydrated` false on the very
@@ -39,7 +38,6 @@ export function useParlayPersistence(liveWeek: number): { hydrated: boolean } {
   useEffect(() => {
     if (!uid) {
       hydratedFor.current = null
-      replaceEntries({})
       return
     }
     const target = `${uid}:${liveWeek}`

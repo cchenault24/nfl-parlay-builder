@@ -1,6 +1,6 @@
 import { SheetHeader } from '@/components/ui/SheetHeader'
 import Ionicons from '@expo/vector-icons/Ionicons'
-import { Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Linking, Modal, ScrollView, StyleSheet, Text, View } from 'react-native'
 
 import {
   HELPLINES,
@@ -9,12 +9,8 @@ import {
   type Helpline,
 } from '@shared/legal/content'
 import { Card } from '@/components/ui/Card'
-import {
-  colors,
-  PRESSED_OPACITY,
-  spacing,
-  typography,
-} from '@/lib/theme/designTokens'
+import { LinkButton } from '@/components/ui/LinkButton'
+import { colors, spacing, typography } from '@/lib/theme/designTokens'
 
 function HelplineCard({ helpline }: { helpline: Helpline }) {
   return (
@@ -23,26 +19,24 @@ function HelplineCard({ helpline }: { helpline: Helpline }) {
       <Text style={styles.cardBody}>{helpline.description}</Text>
       <View style={styles.cardActions}>
         {helpline.dial ? (
-          <Pressable
+          <LinkButton
+            icon="call-outline"
+            label={helpline.phone}
             onPress={() => Linking.openURL(`tel:${helpline.dial}`)}
-            style={({ pressed }) => [styles.action, pressed && styles.pressed]}
-          >
-            <Ionicons name="call-outline" size={16} color={colors.primaryBright} />
-            <Text style={styles.actionText}>{helpline.phone}</Text>
-          </Pressable>
+            textStyle={styles.actionText}
+          />
         ) : (
           <View style={styles.action}>
             <Ionicons name="people-outline" size={16} color={colors.textSecondary} />
             <Text style={styles.actionMuted}>{helpline.phone}</Text>
           </View>
         )}
-        <Pressable
+        <LinkButton
+          icon="open-outline"
+          label={helpline.website}
           onPress={() => Linking.openURL(`https://${helpline.website}`)}
-          style={({ pressed }) => [styles.action, pressed && styles.pressed]}
-        >
-          <Ionicons name="open-outline" size={16} color={colors.primaryBright} />
-          <Text style={styles.actionText}>{helpline.website}</Text>
-        </Pressable>
+          textStyle={styles.actionText}
+        />
       </View>
     </Card>
   )
@@ -122,12 +116,10 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     paddingVertical: spacing.xs,
   },
-  actionText: { ...typography.bodySmall, color: colors.primaryBright },
+  actionText: { ...typography.bodySmall },
   actionMuted: { ...typography.bodySmall, color: colors.textSecondary },
 
   listRow: { flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start' },
   listIcon: { marginTop: 2 },
   listText: { ...typography.bodySmall, color: colors.textSecondary, flex: 1 },
-
-  pressed: { opacity: PRESSED_OPACITY },
 })

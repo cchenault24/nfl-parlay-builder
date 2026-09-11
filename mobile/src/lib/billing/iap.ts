@@ -82,8 +82,12 @@ async function redeemAndFinish(purchase: Purchase): Promise<void> {
 }
 
 /**
- * Redeems every Pro purchase StoreKit is still holding, and returns how many
- * were taken.
+ * Redeems every Pro purchase StoreKit reports as current, and returns how many
+ * were taken. expo-iap's `getAvailablePurchases` returns the active
+ * entitlements whether or not they were finished, so an existing subscriber
+ * re-redeems on every launch; the server treats a same-account repeat as a
+ * no-op, and that repeat is exactly what heals a subscription whose renewal
+ * notification never arrived.
  *
  * This is the recovery path, and nothing else provides one. A purchase whose
  * server redemption fails is deliberately left unfinished so it survives, but

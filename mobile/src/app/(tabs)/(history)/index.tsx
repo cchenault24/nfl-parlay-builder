@@ -1,51 +1,38 @@
 import { EmptyState, ScreenLoading } from '@/components/ui/ScreenState'
 import { requestGrading } from '@shared/api/GradingService'
-import { getBetTypeColor } from '@shared/betColors'
+import { betTypeLabel, getBetTypeColor } from '@shared/betColors'
 import { useEntitlements } from '@shared/hooks/useEntitlements'
 import { formatOdds } from '@shared/odds'
-import type { GeneratedParlay, LegOutcome, ParlayOutcome } from '@shared/types'
+import { parlayStatus } from '@shared/parlays'
+import type { GeneratedParlay, LegOutcome } from '@shared/types'
+import { router } from 'expo-router'
 import { useEffect, useState } from 'react'
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native'
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { ErrorBanner } from '@/components/ui/ErrorBanner'
 import { UpgradeSheet } from '@/components/UpgradeSheet'
+import { Button } from '@/components/ui/Button'
+import { ParlayStatusChip } from '@/components/display/ParlayStatusChip'
 import { Card } from '@/components/ui/Card'
 import { Chip } from '@/components/ui/Chip'
+import { LinkButton } from '@/components/ui/LinkButton'
 import { useAuth } from '@/lib/auth/useAuth'
 import { auth } from '@/lib/firebase'
 import { getUserParlays } from '@/lib/parlays'
-import { colors, semanticColor, spacing, typography } from '@/lib/theme/designTokens'
-
-const OUTCOME: Record<ParlayOutcome | 'pending', { label: string; color: string }> = {
-  won: { label: 'Won', color: colors.success },
-  lost: { label: 'Lost', color: colors.error },
-  push: { label: 'Push', color: colors.textSecondary },
-  partial: { label: 'Partial', color: colors.warning },
-  pending: { label: 'Pending', color: colors.info },
-}
+import {
+  colors,
+  PRESSED_OPACITY,
+  semanticColor,
+  spacing,
+  typography,
+} from '@/lib/theme/designTokens'
 
 const LEG_OUTCOME: Record<LegOutcome, { label: string; color: string }> = {
   won: { label: 'Won', color: colors.success },
   lost: { label: 'Lost', color: colors.error },
   push: { label: 'Push', color: colors.textSecondary },
   ungraded: { label: 'Ungraded', color: colors.warning },
-}
-
-function OutcomeChip({ parlay }: { parlay: GeneratedParlay }) {
-  const outcome =
-    parlay.grading?.status === 'graded' ? parlay.grading.parlayOutcome : 'pending'
-  if (!outcome) {
-    return null
-  }
-  const style = OUTCOME[outcome]
-  return <Chip label={style.label} tint={style.color} />
 }
 
 export default function HistoryScreen() {
@@ -126,11 +113,14 @@ export default function HistoryScreen() {
         {/* Surfaced rather than worked around: without the plan there is no
             honest amount of history to show. */}
         {entitlementsError && !isLoading ? (
-          <ErrorBanner
-            type="error"
-            title="Couldn't load your plan"
-            message={entitlementsError}
-          />
+          <>
+            <ErrorBanner
+              type="error"
+              title="Couldn't load your plan"
+              message={entitlementsError}
+            />
+            <Button variant="outline" label="Try again" onPress={() => void refetch()} />
+          </>
         ) : null}
 
         {parlays === null || isLoading || !depthKnown ? (
@@ -143,18 +133,33 @@ export default function HistoryScreen() {
           />
         ) : (
           parlays.map(parlay => (
-            <Card key={parlay.parlayId} style={styles.card}>
-              <View style={styles.cardHeader}>
-                <Text style={styles.context} numberOfLines={2}>
-                  {parlay.gameContext || 'NFL parlay'}
-                </Text>
-                <OutcomeChip parlay={parlay} />
-                <Chip
-                  label={formatOdds(parlay.combinedOdds)}
-                  tint={colors.primaryBright}
-                  numeric
-                />
-              </View>
+            <Pressable
+              key={parlay.parlayId}
+              onPress={() => router.push(`/saved/${parlay.parlayId}`)}
+              accessibilityRole="button"
+              accessibilityLabel={`${parlay.gameContext || 'NFL parlay'}, ${parlayStatus(parlay).label}, ${formatOdds(parlay.combinedOdds)}`}
+              style={({ pressed }) => pressed && styles.pressed}
+            >
+              <Card style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <View style={styles.cardTitle}>
+                    <Text style={styles.context} numberOfLines={2}>
+                      {parlay.gameContext || 'NFL parlay'}
+                    </Text>
+                    {/* Absent on parlays saved before the book was recorded. */}
+                    {parlay.bookmaker ? (
+                      <Text style={styles.book}>{parlay.bookmaker}</Text>
+                    ) : null}
+                  </View>
+                  <View style={styles.cardChips}>
+                    <Chip
+                      label={formatOdds(parlay.combinedOdds)}
+                      tint={colors.primaryBright}
+                      numeric
+                    />
+                    <ParlayStatusChip status={parlayStatus(parlay)} />
+                  </View>
+                </View>
 
               {/* A compact row rather than ParlayLegView: that component is a
                   detail card carrying reasoning, a confidence bar and the
@@ -179,7 +184,7 @@ export default function HistoryScreen() {
                       </Text>
                     </View>
                     <View style={styles.legMeta}>
-                      <Chip label={leg.betType.replace(/_/g, ' ')} tint={tint} />
+                      <Chip label={betTypeLabel(leg.betType)} tint={tint} />
                       {leg.anchored === false ? (
                         <Chip label="Estimate" tint={colors.warning} />
                       ) : null}
@@ -192,17 +197,21 @@ export default function HistoryScreen() {
                   </View>
                 )
               })}
-            </Card>
+              </Card>
+            </Pressable>
           ))
         )}
 
         {depth != null && parlays !== null && parlays.length === depth ? (
-          <Pressable onPress={() => setUpgradeVisible(true)}>
-            <Text style={styles.depthNote}>
-              Showing your last {depth}.{' '}
-              <Text style={styles.depthLink}>Pro keeps every parlay, every season.</Text>
-            </Text>
-          </Pressable>
+          <View style={styles.depthNote}>
+            <Text style={styles.depthText}>Showing your last {depth}.</Text>
+            <LinkButton
+              label="Pro keeps every parlay, every season."
+              onPress={() => setUpgradeVisible(true)}
+              role="button"
+              textStyle={styles.depthLink}
+            />
+          </View>
         ) : null}
       </ScrollView>
 
@@ -221,17 +230,17 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   body: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xxl },
   screenTitle: { ...typography.heading, color: colors.text },
-  depthNote: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    paddingVertical: spacing.sm,
-  },
-  depthLink: { color: colors.primaryBright },
+  depthNote: { alignItems: 'center' },
+  depthText: { ...typography.caption, color: colors.textSecondary, textAlign: 'center' },
+  depthLink: { ...typography.caption, textAlign: 'center' },
 
   card: { gap: spacing.sm },
+  pressed: { opacity: PRESSED_OPACITY },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  context: { ...typography.label, color: colors.text, flex: 1 },
+  cardTitle: { flex: 1, gap: spacing.xxs },
+  cardChips: { alignItems: 'flex-end', gap: spacing.xs },
+  context: { ...typography.label, color: colors.text },
+  book: { ...typography.caption, color: colors.textSecondary },
 
   leg: {
     borderTopWidth: StyleSheet.hairlineWidth,

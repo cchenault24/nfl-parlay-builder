@@ -18,6 +18,7 @@ const SHARED = 'sharedParlays'
 interface OwnedParlay {
   userId?: string
   shareId?: string
+  bookmaker?: string | null
   [key: string]: unknown
 }
 
@@ -32,6 +33,7 @@ function publicView(parlay: OwnedParlay, shareId: string) {
     parlayConfidence: parlay.parlayConfidence ?? null,
     gameSummary: parlay.gameSummary ?? null,
     model: parlay.model ?? null,
+    bookmaker: parlay.bookmaker ?? null,
     grading: parlay.grading ?? null,
     closingLines: parlay.closingLines ?? null,
     sharedAt: new Date().toISOString(),

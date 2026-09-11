@@ -87,7 +87,7 @@ export function ChipStrip<T extends string | number>({
             accessibilityRole="radio"
             accessibilityState={{
               checked: selected,
-              disabled: option.disabled || option.locked,
+              disabled: option.disabled,
             }}
             accessibilityLabel={
               option.locked ? `${option.label}. Pro feature` : option.label

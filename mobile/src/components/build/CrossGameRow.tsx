@@ -22,9 +22,13 @@ import {
 export function CrossGameRow({
   entry,
   onPress,
+  disabled = false,
 }: {
   entry: ParlayEntry
   onPress: () => void
+  // In select mode the tab bar is hidden for the batch bar; opening a parlay
+  // from here would push a screen whose pinned bar sits on the home indicator.
+  disabled?: boolean
 }) {
   const matchups = entry.games?.map(g => `${g.game.away.abbrev} @ ${g.game.home.abbrev}`)
   const subtitle =
@@ -33,7 +37,9 @@ export function CrossGameRow({
   return (
     <Pressable
       onPress={onPress}
+      disabled={disabled}
       accessibilityRole="button"
+      accessibilityState={{ disabled }}
       accessibilityLabel={`Cross-game parlay across ${entry.gameIds.length} games. ${subtitle}`}
       style={({ pressed }) => [
         styles.row,
@@ -61,7 +67,7 @@ export function CrossGameRow({
         <Text style={styles.status}>{currentStepLabel(entry.steps)}</Text>
       ) : null}
       {entry.status === 'failed' ? (
-        <Text style={styles.statusFailed}>Run failed — quota not spent</Text>
+        <Text style={styles.statusFailed}>Run failed — open to see why</Text>
       ) : null}
     </Pressable>
   )

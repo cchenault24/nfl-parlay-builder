@@ -27,7 +27,6 @@ const styles = StyleSheet.create({
   },
   text: {
     ...typography.micro,
-    fontSize: 10,
     letterSpacing: 0.4,
     color: colors.background,
   },

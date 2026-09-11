@@ -60,7 +60,7 @@ export function AgentProgress({
   const byId = new Map(steps.map(s => [s.id, s]))
 
   return (
-    <Card style={styles.card}>
+    <Card>
       <View style={styles.header}>
         <View style={styles.headerText}>
           <Text style={styles.title} accessibilityRole="header">
@@ -113,7 +113,6 @@ export function AgentProgress({
 }
 
 const styles = StyleSheet.create({
-  card: {},
   header: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -145,7 +144,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  glyphPending: { borderWidth: 1.5, borderColor: colors.divider },
+  glyphPending: { borderWidth: 1.5, borderColor: colors.border },
   glyphDone: { backgroundColor: colors.primary },
   glyphFailed: { backgroundColor: colors.warning },
   rowLabel: { ...typography.bodySmall, color: colors.text, flex: 1 },

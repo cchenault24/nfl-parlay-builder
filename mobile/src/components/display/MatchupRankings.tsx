@@ -30,9 +30,17 @@ interface MatchupRankingsProps {
   game: Game
   homeStats: TeamStats | null
   awayStats: TeamStats | null
+  // Eight rows of "—" look the same whether the numbers are still loading or
+  // never came; the note under the title says which.
+  status?: 'loading' | 'error'
 }
 
-export function MatchupRankings({ game, homeStats, awayStats }: MatchupRankingsProps) {
+export function MatchupRankings({
+  game,
+  homeStats,
+  awayStats,
+  status,
+}: MatchupRankingsProps) {
   const { home, away } = game
   const statsSeason = homeStats?.season ?? awayStats?.season
   const priorSeason = statsSeason !== undefined && statsSeason < game.season
@@ -47,6 +55,10 @@ export function MatchupRankings({ game, homeStats, awayStats }: MatchupRankingsP
           <Text style={[styles.muted, styles.headerNote]}>
             {statsSeason} season{priorSeason ? ' (no games played yet this year)' : ''}
           </Text>
+        ) : status === 'loading' ? (
+          <Text style={[styles.muted, styles.headerNote]}>Loading…</Text>
+        ) : status === 'error' ? (
+          <Text style={[styles.muted, styles.headerNote]}>Stats unavailable right now</Text>
         ) : null}
       </View>
 

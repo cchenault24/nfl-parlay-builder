@@ -14,7 +14,8 @@ class FakeVerificationException extends Error {
 
 vi.mock('@apple/app-store-server-library', () => ({
   Environment: { PRODUCTION: 'Production', SANDBOX: 'Sandbox' },
-  // Mirrors the library's own enum; only INVALID_ENVIRONMENT is load-bearing.
+  // Mirrors the library's own enum; INVALID_ENVIRONMENT and
+  // INVALID_APP_IDENTIFIER are the load-bearing ones.
   VerificationStatus: {
     OK: 0,
     VERIFICATION_FAILURE: 1,
@@ -29,6 +30,7 @@ vi.mock('@apple/app-store-server-library', () => ({
   },
 }))
 
+const INVALID_APP_IDENTIFIER = 3
 const INVALID_ENVIRONMENT = 4
 const INVALID_CERTIFICATE = 6
 
@@ -361,6 +363,41 @@ describe('handleAppleNotification', () => {
     await handleAppleNotification('signed')
 
     expect(findUidByAppleTransaction).not.toHaveBeenCalled()
+    expect(setEntitlement).not.toHaveBeenCalled()
+  })
+
+  // A sandbox notification carries no appAppleId, and the production verifier
+  // checks that before the environment — so the status it fails with is
+  // INVALID_APP_IDENTIFIER, never INVALID_ENVIRONMENT. Retrying only on the
+  // latter meant every sandbox notification, including Apple's own review
+  // traffic, came back as a 500.
+  it('falls back to the sandbox verifier when production rejects the app identifier', async () => {
+    verifyNotification
+      .mockRejectedValueOnce(new FakeVerificationException(INVALID_APP_IDENTIFIER))
+      .mockResolvedValueOnce(notification('DID_RENEW'))
+    verifyTransaction
+      .mockRejectedValueOnce(new FakeVerificationException(INVALID_APP_IDENTIFIER))
+      .mockResolvedValueOnce(transaction())
+    findUidByAppleTransaction.mockResolvedValue('uid-1')
+
+    await handleAppleNotification('signed')
+
+    expect(verifyNotification).toHaveBeenCalledTimes(2)
+    expect(setEntitlement).toHaveBeenCalledWith(
+      'uid-1',
+      expect.objectContaining({ tier: 'pro', appleEnvironment: 'Sandbox' })
+    )
+  })
+
+  it('does not retry a notification that fails for any other reason', async () => {
+    verifyNotification.mockRejectedValue(
+      new FakeVerificationException(INVALID_CERTIFICATE)
+    )
+
+    await expect(handleAppleNotification('signed')).rejects.toThrow(
+      /verification failed/
+    )
+    expect(verifyNotification).toHaveBeenCalledTimes(1)
     expect(setEntitlement).not.toHaveBeenCalled()
   })
 })

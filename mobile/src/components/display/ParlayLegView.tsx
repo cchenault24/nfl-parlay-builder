@@ -1,4 +1,4 @@
-import { getBetTypeColor, getConfidenceColor } from '@shared/betColors'
+import { betTypeLabel, getBetTypeColor, getConfidenceColor } from '@shared/betColors'
 import { formatOdds, impliedProbability } from '@shared/odds'
 import type { ParlayLeg } from '@shared/types'
 import { StyleSheet, Text, View } from 'react-native'
@@ -30,7 +30,7 @@ export function ParlayLegView({ leg, index }: { leg: ParlayLeg; index: number })
         <Chip label={formatOdds(leg.odds)} tint={colors.primaryBright} numeric />
         {!leg.anchored ? <Chip label="Estimate" tint={colors.warning} /> : null}
         <Chip
-          label={leg.betType.replace(/_/g, ' ')}
+          label={betTypeLabel(leg.betType)}
           tint={betTint}
           style={styles.betChip}
         />

@@ -6,7 +6,10 @@ import type {
   ParlayGenerationResult,
 } from '../types'
 import { AgentRunService, type RunStreamEvent } from './AgentRunService'
-import { BaseParlayService } from './BaseParlayService'
+import { BaseParlayService, bookmakerFor } from './BaseParlayService'
+
+// The Cloud Function's own timeout: nothing can still be running past it.
+export const STREAM_DEADLINE_MS = 300_000
 
 export class AgentParlayService extends BaseParlayService {
   private readonly runs = new AgentRunService()
@@ -40,7 +43,8 @@ export class AgentParlayService extends BaseParlayService {
         runId,
         result.games.map(g => g.game),
         result.parlay,
-        result.model
+        result.model,
+        bookmakerFor(result.games)
       ),
       games: result.games,
       ...(rateLimit ? { rateLimit } : {}),
@@ -56,15 +60,30 @@ export class AgentParlayService extends BaseParlayService {
     token: string,
     options: ParlayGenerationOptions
   ): Promise<AgentResult> {
+    // A cancel that landed while the run was still being created has nothing
+    // to abort yet, and an `abort` listener added now would never fire. Left
+    // alone, the stream would open and drive the run to a billable end whose
+    // result nobody was waiting for.
+    if (options.signal?.aborted) {
+      void this.runs.cancelRun(runId, token).catch(() => undefined)
+      return Promise.reject(new Error('Parlay generation canceled.'))
+    }
+
     return new Promise((resolve, reject) => {
       let settled = false
       const settle = (fn: () => void) => {
         if (!settled) {
           settled = true
+          clearTimeout(deadline)
           stop()
           fn()
         }
       }
+
+      // The token was minted when the run began and a run can outlive its
+      // remaining life; reconciling with a stale one turned a finished, billed
+      // run into "Authentication failed".
+      const freshToken = async () => (await sharedRuntime().getIdToken()) ?? token
 
       const onEvent = (evt: RunStreamEvent) => {
         if (evt.type === 'step') {
@@ -83,7 +102,7 @@ export class AgentParlayService extends BaseParlayService {
           return
         }
         try {
-          const run = await this.runs.getRun(runId, token)
+          const run = await this.runs.getRun(runId, await freshToken())
           if (run.status === 'succeeded' && run.result) {
             settle(() => resolve(run.result as AgentResult))
           } else if (run.status === 'failed' || run.status === 'canceled') {
@@ -102,6 +121,16 @@ export class AgentParlayService extends BaseParlayService {
 
       const stop = this.runs.streamRun(runId, token, onEvent, onClose)
 
+      // A socket that is neither delivering nor closing — an evicted instance,
+      // a middlebox holding the connection — would otherwise leave the entry
+      // "running" until the next relaunch. The server's own ceiling is the
+      // function timeout, so past it the run has ended one way or the other and
+      // the stored run says which.
+      const deadline = setTimeout(() => {
+        stop()
+        void onClose()
+      }, STREAM_DEADLINE_MS)
+
       options.signal?.addEventListener('abort', () => {
         settle(() => {
           // Closing the stream is what actually stops the run — it's the
@@ -109,7 +138,9 @@ export class AgentParlayService extends BaseParlayService {
           // The explicit cancel call is a best-effort backstop for a run
           // being watched from another tab or device.
           stop()
-          void this.runs.cancelRun(runId, token).catch(() => undefined)
+          void freshToken()
+            .then(fresh => this.runs.cancelRun(runId, fresh))
+            .catch(() => undefined)
           reject(new Error('Parlay generation canceled.'))
         })
       })

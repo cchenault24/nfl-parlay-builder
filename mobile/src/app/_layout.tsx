@@ -11,6 +11,8 @@ import {
   useQueryClient,
 } from '@tanstack/react-query'
 import { ENTITLEMENTS_QUERY_KEY } from '@shared/hooks/useEntitlements'
+import { cancelParlayRun } from '@shared/hooks/useParlayGenerator'
+import useParlayStore from '@shared/store/parlayStore'
 import { DarkTheme, Stack, ThemeProvider } from 'expo-router'
 import * as SplashScreen from 'expo-splash-screen'
 import { StatusBar } from 'expo-status-bar'
@@ -23,6 +25,7 @@ import { reconcilePurchases } from '@/lib/billing/iap'
 import { useAgeVerification } from '@/lib/legal/useAgeVerification'
 import { installSharedRuntime } from '@/lib/runtime'
 import { colors } from '@/lib/theme/designTokens'
+import useRateLimitStore from '@/store/rateLimitStore'
 
 SplashScreen.preventAutoHideAsync()
 installSharedRuntime()
@@ -44,20 +47,37 @@ const navigationTheme = {
 }
 
 function RootNavigator() {
-  const { user, loading } = useAuth()
+  const { user } = useAuth()
   const queryClient = useQueryClient()
   const uid = user?.uid
+  // The first auth state, not the profile fetch: `loading` also covers the two
+  // Firestore reads that follow a sign-in, and gating on it unmounted the whole
+  // navigator — tabs, queries, persistence — for their duration, then mounted
+  // it again. The Account screen still waits on the profile; nothing else does.
+  const authResolved = user !== undefined
 
   useEffect(() => {
     // Hold the splash until the first auth state lands, so a signed-in user
     // never sees the sign-in screen flash before their session restores.
-    if (!loading) {
+    if (authResolved) {
       SplashScreen.hideAsync()
     }
-  }, [loading])
+  }, [authResolved])
 
   useEffect(() => {
     if (!uid) {
+      // Done here because this component is mounted on both sides of a
+      // sign-out. The Build list used to own this reset, but the tabs unmount
+      // the moment `user` goes null, so its effect never saw the sign-out and
+      // the module-singleton stores carried one account's runs into the next.
+      if (authResolved) {
+        const entries = useParlayStore.getState().entries
+        Object.values(entries)
+          .filter(entry => entry.status === 'running')
+          .forEach(entry => cancelParlayRun(entry.key))
+        useParlayStore.getState().replaceEntries({})
+        useRateLimitStore.getState().setRateLimit(null)
+      }
       return
     }
     // A purchase whose server redemption failed is left unfinished on purpose,
@@ -78,9 +98,9 @@ function RootNavigator() {
     return () => {
       active = false
     }
-  }, [uid, queryClient])
+  }, [uid, authResolved, queryClient])
 
-  if (loading) {
+  if (!authResolved) {
     return null
   }
 

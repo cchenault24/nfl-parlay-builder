@@ -25,7 +25,8 @@ export const colors = {
   textDisabled: 'rgba(255, 255, 255, 0.5)',
 
   // Two hairline weights. `divider` is structural (card edges, list rules);
-  // `border` bounds an actual control and clears 1.4.11's 3:1 on its own.
+  // `border` bounds an actual control. It measures 2.67:1 on the page, so a
+  // control still needs its fill or its label to reach 1.4.11's 3:1.
   divider: 'rgba(255, 255, 255, 0.14)',
   border: 'rgba(255, 255, 255, 0.30)',
 
@@ -33,6 +34,9 @@ export const colors = {
   success: '#66bb6a',
   warning: '#ffa726',
   error: '#f44336',
+  // `error` is 4.09:1 on `surfaceRaised`, so red text on a raised row reads
+  // from this instead (MUI red 300 — 5.04:1 there).
+  errorBright: '#e57373',
   // The scrim behind a modal. Two literals were in use — 0.55 and 0.6 — which is
   // how one becomes three.
   scrim: 'rgba(0, 0, 0, 0.55)',
