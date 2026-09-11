@@ -24,10 +24,8 @@ quota-costing races, all now fixed. What still blocks submission is operational:
 1. **Billing — in progress.** Christian chose to enable Apple billing for 1.0. `APPLE_BUNDLE_ID`
    and `APPLE_ROOT_CA_G3` exist in Secret Manager (the CA's SHA-256 fingerprint was checked against
    Apple's published value) and all three Apple secrets are bound in `functions/src/index.ts`.
-   **Do not merge until `APPLE_APP_APPLE_ID` exists** — a bound secret with no value aborts the
-   whole deploy. Still his: the numeric Apple ID from App Store Connect → App Information (then
-   `printf '<id>' | gcloud secrets create APPLE_APP_APPLE_ID --project=nfl-parlay-builder
-   --replication-policy=automatic --data-file=-`), the subscription product
+   `APPLE_APP_APPLE_ID` was created later the same day with the real value, so the branch is safe
+   to merge and the merge deploys billing. Still his in App Store Connect: the subscription product
    `com.debugdad.parlaid.pro.monthly` at $9.99, the Server Notifications V2 URLs, a Sandbox Tester,
    and one sandbox purchase + restore on a device before submitting.
 2. **Sign in with Apple — done in code.** Christian chose to add it. `expo-apple-authentication`,
