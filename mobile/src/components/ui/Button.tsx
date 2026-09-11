@@ -35,6 +35,9 @@ interface ButtonProps {
   onPress: () => void
   variant?: ButtonVariant
   icon?: keyof typeof Ionicons.glyphMap
+  // Square, icon-only: `label` becomes the accessible name rather than type.
+  // Only for actions whose icon is unambiguous on its own (a trash can).
+  iconOnly?: boolean
   loading?: boolean
   disabled?: boolean
   accessibilityLabel?: string
@@ -54,6 +57,7 @@ export function Button({
   onPress,
   variant = 'primary',
   icon,
+  iconOnly = false,
   loading = false,
   disabled = false,
   accessibilityLabel,
@@ -73,6 +77,7 @@ export function Button({
       accessibilityState={{ disabled: inert, busy: loading }}
       style={({ pressed }) => [
         styles.base,
+        iconOnly && styles.iconOnly,
         styles[variant],
         inert && styles[`${variant}Disabled` as const],
         pressed && !inert && styles.pressed,
@@ -83,10 +88,12 @@ export function Button({
         <ActivityIndicator color={tint} />
       ) : (
         <>
-          {icon ? <Ionicons name={icon} size={20} color={tint} /> : null}
-          <Text style={[styles.label, { color: tint }]} numberOfLines={1}>
-            {label}
-          </Text>
+          {icon ? <Ionicons name={icon} size={iconOnly ? 22 : 20} color={tint} /> : null}
+          {iconOnly ? null : (
+            <Text style={[styles.label, { color: tint }]} numberOfLines={1}>
+              {label}
+            </Text>
+          )}
         </>
       )}
     </Pressable>
@@ -104,6 +111,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderRadius: radius.md,
   },
+  iconOnly: { width: MIN_TARGET + 8, paddingHorizontal: 0 },
   label: { ...typography.button },
   pressed: { opacity: PRESSED_OPACITY },
 
