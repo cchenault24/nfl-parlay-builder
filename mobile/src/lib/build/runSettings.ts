@@ -65,10 +65,14 @@ export function bookOptions(params: {
   }))
 }
 
-// The book the sheet should show as selected. Free is pinned. Pro gets its
-// choice when that book has posted this game, and otherwise falls to the next
-// one in priority order that has — mirroring what the server would do, so the
-// sheet never shows a selection the run will not honour (DESIGN #21).
+// The book the sheet should show as selected, and the only place the rule is
+// written. Free is pinned. Pro gets its choice when that book has posted this
+// game, and otherwise falls to the next one in priority order that has —
+// mirroring what the server would do, so the sheet never shows a selection the
+// run will not honour (DESIGN #21).
+//
+// It resolves over the server's own `sportsbooks` order rather than over the
+// lines, which is what lets it answer before the week's lines have loaded.
 export function effectiveBookKey(params: {
   sportsbooks: Sportsbook[]
   capabilities: TierCapabilities | undefined

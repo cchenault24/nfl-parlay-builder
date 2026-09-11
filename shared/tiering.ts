@@ -68,17 +68,6 @@ export interface Entitlements {
   accessEndsAt?: string
 }
 
-export function canUseRiskLevel(
-  capabilities: TierCapabilities,
-  risk: RiskLevel
-): boolean {
-  return capabilities.riskLevels.includes(risk)
-}
-
-export function hasGenerationsLeft(quota: QuotaState): boolean {
-  return quota.remaining === null || quota.remaining > 0
-}
-
 // What the user picked. Every field is optional in the sense that it may hold a
 // value their plan no longer allows: settings persist, and a subscription can
 // lapse or be refunded while they are sitting on the Build tab.

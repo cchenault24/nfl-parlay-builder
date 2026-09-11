@@ -19,7 +19,7 @@ export interface StripOption<T extends string | number> {
   // `accent` marks something worth looking at ("now"); `muted` explains why a
   // chip is unavailable, where orange would read as a warning about the game
   // rather than a statement about the book.
-  captionTone?: 'accent' | 'muted'
+  captionTone?: 'muted'
   disabled?: boolean
   locked?: boolean
 }

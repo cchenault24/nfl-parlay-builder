@@ -18,7 +18,6 @@ interface SheetProps {
   children: React.ReactNode
   // Label for the confirming action. It only ever dismisses — every control in
   // a sheet applies as it is touched, so there is nothing to commit.
-  doneLabel?: string
 }
 
 /**
@@ -26,7 +25,7 @@ interface SheetProps {
  * and `Done` is a real 44pt control rather than a bare word — both were caught
  * in the canvas review.
  */
-export function Sheet({ visible, title, onClose, children, doneLabel = 'Done' }: SheetProps) {
+export function Sheet({ visible, title, onClose, children }: SheetProps) {
   const insets = useSafeAreaInsets()
 
   return (
@@ -55,7 +54,7 @@ export function Sheet({ visible, title, onClose, children, doneLabel = 'Done' }:
               accessibilityRole="button"
               style={({ pressed }) => [styles.done, pressed && styles.pressed]}
             >
-              <Text style={styles.doneText}>{doneLabel}</Text>
+              <Text style={styles.doneText}>Done</Text>
             </Pressable>
           </View>
           <ScrollView

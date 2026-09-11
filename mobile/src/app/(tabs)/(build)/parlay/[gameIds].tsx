@@ -1,3 +1,7 @@
+import {
+  PinnedActions,
+  PINNED_ACTIONS_SPACE,
+} from '@/components/ui/PinnedActions'
 import { useDerivedCurrentWeek } from '@shared/hooks/useDerivedCurrentWeek'
 import { useEntitlements } from '@shared/hooks/useEntitlements'
 import { formatOdds } from '@shared/odds'
@@ -13,7 +17,6 @@ import { GameSummaryView } from '@/components/display/GameSummaryView'
 import { ParlayDisplayFooter } from '@/components/display/ParlayDisplayFooter'
 import { ParlayLegView } from '@/components/display/ParlayLegView'
 import { Button } from '@/components/ui/Button'
-import { GlassSurface } from '@/components/ui/GlassSurface'
 import { useAuth } from '@/lib/auth/useAuth'
 import { unbilledNotice } from '@/lib/build/quotaCopy'
 import { saveParlayToUser } from '@/lib/parlays'
@@ -210,7 +213,7 @@ export default function ParlayDetailScreen() {
         <ParlayDisplayFooter parlay={parlay} />
       </ScrollView>
 
-      <GlassSurface style={styles.actions}>
+      <PinnedActions>
         <Button
           variant="outline"
           label={alreadySaved ? 'Saved to History' : 'Save to History'}
@@ -219,7 +222,7 @@ export default function ParlayDetailScreen() {
           disabled={alreadySaved}
           onPress={save}
         />
-      </GlassSurface>
+      </PinnedActions>
     </View>
   )
 }
@@ -233,7 +236,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     padding: spacing.lg,
   },
-  body: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xxl * 3 },
+  body: { padding: spacing.md, gap: spacing.md, paddingBottom: PINNED_ACTIONS_SPACE },
   muted: { ...typography.bodySmall, color: colors.textSecondary },
 
   header: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
@@ -262,17 +265,4 @@ const styles = StyleSheet.create({
   },
 
   legs: { gap: spacing.sm },
-  // No safe-area inset here. This bar is pinned to the bottom of a screen
-  // inside the tab navigator, so the tab bar already sits between it and the
-  // home indicator and has already absorbed that inset — adding it again pads
-  // for a gap something else is filling.
-  actions: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.divider,
-    padding: spacing.md,
-  },
 })

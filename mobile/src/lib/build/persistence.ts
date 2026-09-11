@@ -1,8 +1,4 @@
-import {
-  persistableEntries,
-  type ParlayEntry,
-  type ParlayEntryStatus,
-} from '@shared/store/parlayStore'
+import { persistableEntries, type ParlayEntry } from '@shared/store/parlayStore'
 
 // This week's working set, kept across relaunches so a spent generation is never
 // lost to closing the app. History remains the durable, graded record — see
@@ -72,11 +68,10 @@ export function parseEntries(
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
     return {}
   }
-  const ready: ParlayEntryStatus = 'ready'
   return Object.fromEntries(
     Object.entries(parsed as Record<string, unknown>).filter(
       (pair): pair is [string, ParlayEntry] =>
-        isEntry(pair[1]) && pair[1].week >= minWeek && pair[1].status === ready
+        isEntry(pair[1]) && pair[1].week >= minWeek && pair[1].status === 'ready'
     )
   )
 }

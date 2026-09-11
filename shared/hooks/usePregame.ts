@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { PregameService } from '../api/PregameService'
-import type { BookLines, GameBookLines } from '../types'
+import type { GameBookLines } from '../types'
 
 const service = new PregameService()
 
@@ -28,20 +28,6 @@ export function gameBookLines(
   gameId: string
 ): GameBookLines | undefined {
   return games?.find(g => g.gameId === gameId)
-}
-
-// The book a run would actually price this game at, given a preference: the
-// chosen one when it has posted, otherwise the first one that has. Mirrors the
-// server's fallthrough so the UI can name the book before the run happens.
-export function resolveBook(
-  books: BookLines[] | undefined,
-  preferred: string | undefined
-): BookLines | undefined {
-  if (!books) {
-    return undefined
-  }
-  const chosen = books.find(b => b.key === preferred && b.posted)
-  return chosen ?? books.find(b => b.posted)
 }
 
 // Both teams' season stats for one game. Same reasoning as the lines above: the

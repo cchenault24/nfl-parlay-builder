@@ -10,18 +10,17 @@ interface ChipProps {
   // percentages so they stop shifting as values change.
   numeric?: boolean
   style?: StyleProp<ViewStyle>
-  numberOfLines?: number
 }
 
 // One chip. Odds, outcomes, ranks, bet types and the legal badges were each
 // carrying their own padding (6/2, 8/3, 6/2, 8/3) and their own font size.
-export function Chip({ label, tint, numeric, style, numberOfLines = 1 }: ChipProps) {
+export function Chip({ label, tint, numeric, style }: ChipProps) {
   const color = tint ?? colors.textSecondary
   return (
     <View style={[styles.chip, { borderColor: color }, style]}>
       <Text
         style={[numeric ? styles.numeric : styles.label, { color }]}
-        numberOfLines={numberOfLines}
+        numberOfLines={1}
       >
         {label}
       </Text>

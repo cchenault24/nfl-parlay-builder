@@ -68,9 +68,8 @@ export default function BuildScreen() {
   const [batchNotice, setBatchNotice] = useState<string | null>(null)
   const [upgradeReason, setUpgradeReason] = useState<string | null>(null)
 
-  // The batch bar *replaces* the tab bar rather than stacking above it: two
-  // bottom bars eat ~150pt and read as clutter, and select mode is modal by
-  // nature — Done is the way out (DESIGN #11).
+  // Hides the tab bar in select mode, because BatchBar takes its place rather
+  // than stacking above it — see BatchBar for why.
   const navigation = useNavigation()
   useEffect(() => {
     const tabs = navigation.getParent()
@@ -150,6 +149,20 @@ export default function BuildScreen() {
       const left = outcome.skipped.length
       setBatchNotice(
         `Stopped after ${outcome.succeeded.length} — you have hit the run limit. ${left} game${left === 1 ? '' : 's'} not started. Try again in ${getTimeUntilReset() || 'a little while'}.`
+      )
+      return
+    }
+    // A partially failed batch is a normal outcome, and the count is the only
+    // way the user learns it happened: the successful rows appear and the failed
+    // ones simply are not there. `outcome.failed` was accumulated on every
+    // failure and read by nobody.
+    if (outcome.failed.length > 0) {
+      const failed = outcome.failed.length
+      // Stays in select mode with the selection intact, exactly as the
+      // rate-limited branch does, so Run can be pressed again — and because
+      // exitSelectMode() clears the notice this is about to set.
+      setBatchNotice(
+        `${outcome.succeeded.length} built, ${failed} failed. Run again to retry — a run that does not come back with live book prices is not charged.`
       )
       return
     }
@@ -263,7 +276,6 @@ export default function BuildScreen() {
           onModeChange={setMode}
           gameCount={selected.length}
           allowance={allowance}
-          crossGameLocked={maxGamesPerRun < 2}
           maxGamesPerRun={maxGamesPerRun}
           running={batchRunning}
           onRun={() => void runBatchNow()}

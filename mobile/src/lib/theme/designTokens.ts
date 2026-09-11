@@ -9,7 +9,6 @@ export const colors = {
   // green icons use `primaryBright` (6.8:1 on the page) instead.
   primary: '#2e7d32', // NFL green
   primaryBright: '#4caf50',
-  primaryMuted: '#1b5e20',
   secondary: '#ff9800', // orange accent
 
   // Surfaces. The steps are small by necessity on an OLED-black page, so a

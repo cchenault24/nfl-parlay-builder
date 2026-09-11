@@ -20,7 +20,6 @@ interface BatchBarProps {
   // refuse a run first. Null while nothing is known.
   allowance: Allowance | null
   // Cross-game is a Pro feature; a locked segment still shows, and explains.
-  crossGameLocked: boolean
   maxGamesPerRun: number
   running: boolean
   onRun: () => void
@@ -29,15 +28,18 @@ interface BatchBarProps {
 
 /**
  * Replaces the tab bar in select mode rather than stacking above it: two bottom
- * bars eat ~150pt and read as clutter, and select mode is modal by nature
- * (DESIGN #11).
+ * bars eat ~150pt and read as clutter, and select mode is modal by nature —
+ * Done is the way out (DESIGN #11). The Build list hides the tab bar to match.
+ *
+ * That is also why this keeps its own geometry rather than using PinnedActions:
+ * a bar standing *in place of* the tab bar pads differently from one sitting
+ * above it.
  */
 export function BatchBar({
   mode,
   onModeChange,
   gameCount,
   allowance,
-  crossGameLocked,
   maxGamesPerRun,
   running,
   onRun,
@@ -54,7 +56,7 @@ export function BatchBar({
       value: 'separate',
       label: gameCount === 1 ? '1 parlay' : `${gameCount} parlays`,
     },
-    { value: 'cross', label: 'One cross-game', locked: crossGameLocked },
+    { value: 'cross', label: 'One cross-game', locked: maxGamesPerRun < 2 },
   ]
 
   const costLine = overCap

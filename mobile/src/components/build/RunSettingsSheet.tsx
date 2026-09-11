@@ -46,7 +46,7 @@ export function RunSettingsSheet({
   const setBookmaker = useParlayStore(state => state.setBookmaker)
   const { capabilities, entitlements } = useEntitlements()
 
-  const sportsbooks = [...(entitlements?.sportsbooks ?? [])]
+  const sportsbooks = entitlements?.sportsbooks ?? []
   const canChooseBook = capabilities?.chooseSportsbook ?? false
   const books = bookOptions({ sportsbooks, capabilities, chosen: bookmaker, lines })
   const selectedBook = effectiveBookKey({

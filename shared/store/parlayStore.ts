@@ -185,9 +185,6 @@ const useParlayStore = create<ParlayStore>(set => ({
   setSaveParlayError: saveParlayError => set({ saveParlayError }),
 }))
 
-export const selectEntry = (key: string | null) => (state: ParlayStore) =>
-  key ? state.entries[key] : undefined
-
 // Everything worth keeping across a relaunch: a finished parlay. A run that was
 // still going, or that failed, is session state — it cannot be resumed, and
 // restoring it would show a spinner for a run nobody is driving.
@@ -199,6 +196,5 @@ export function persistableEntries(
   )
 }
 
-export const getParlayState = () => useParlayStore.getState()
 
 export default useParlayStore
