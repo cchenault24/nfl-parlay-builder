@@ -1,3 +1,5 @@
+import { useEntitlements } from '@shared/hooks/useEntitlements'
+import { proFeatures } from '@shared/proFeatures'
 import CheckIcon from '@mui/icons-material/Check'
 import {
   Alert,
@@ -19,17 +21,9 @@ import React, { useState } from 'react'
 
 const service = new EntitlementsService()
 
-// Written as what Pro does, not as a feature matrix — the matrix lives in the
-// tiering doc. Order is deliberate: the volume limit is what most people hit
-// first, and props are the hook the spec identifies as Pro's strongest.
-const PRO_FEATURES = [
-  'Unlimited parlays — no weekly limit',
-  'Player props, on top of the game markets',
-  'Conservative, moderate and aggressive risk levels',
-  'Parlays from 2 to 6 legs',
-  'Price every leg on your own sportsbook',
-  'Your full history, every season, with win rate and ROI',
-]
+// Written from the capabilities the server sends rather than as sentences with
+// the numbers spelled into them — the matrix lives in the tiering doc, and a
+// limit widened server-side used to leave a paid feature unadvertised here.
 
 interface UpgradeDialogProps {
   open: boolean
@@ -51,6 +45,10 @@ const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
 }) => {
   const [error, setError] = useState<string | null>(null)
   const [starting, setStarting] = useState(false)
+  const { entitlements } = useEntitlements()
+  const features = entitlements
+    ? proFeatures(entitlements.proCapabilities, entitlements.capabilities)
+    : []
 
   const startCheckout = async () => {
     setStarting(true)
@@ -75,7 +73,9 @@ const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
           ParlAId Pro
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-          {canPurchase ? '$9.99 a month. Cancel any time.' : 'Not on sale yet.'}
+          {canPurchase
+            ? 'Monthly subscription. Cancel any time.'
+            : 'Not on sale yet.'}
         </Typography>
       </DialogTitle>
 
@@ -87,7 +87,7 @@ const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
         )}
 
         <List dense disablePadding>
-          {PRO_FEATURES.map(feature => (
+          {features.map(feature => (
             <ListItem key={feature} disableGutters sx={{ py: 0.25 }}>
               <ListItemIcon sx={{ minWidth: 28 }}>
                 <CheckIcon sx={{ fontSize: 18, color: 'primary.main' }} />

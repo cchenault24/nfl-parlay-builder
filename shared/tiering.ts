@@ -47,6 +47,10 @@ export interface Sportsbook {
 export interface Entitlements {
   tier: Tier
   capabilities: TierCapabilities
+  // What Pro grants, whatever tier this user is on — so a locked control and
+  // the upgrade sheet can say what upgrading actually buys without the client
+  // restating a limit the server owns.
+  proCapabilities: TierCapabilities
   quota: QuotaState
   // The books a Pro user may price against. Served by the API so adding one
   // does not need an app release on two platforms.

@@ -1,21 +1,12 @@
 import Ionicons from '@expo/vector-icons/Ionicons'
-import { useState } from 'react'
+import { useEntitlements } from '@shared/hooks/useEntitlements'
+import { proFeatures } from '@shared/proFeatures'
+import { useEffect, useState } from 'react'
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 
 import { Button } from '@/components/ui/Button'
-import { purchasePro, reconcilePurchases } from '@/lib/billing/iap'
+import { proPrice, purchasePro, reconcilePurchases } from '@/lib/billing/iap'
 import { colors, HIT_SLOP, radius, spacing, typography } from '@/lib/theme/designTokens'
-
-// Written as what Pro does, not as a feature matrix. Order is deliberate: the
-// weekly limit is what most people hit first, and props are the strongest hook.
-const PRO_FEATURES = [
-  'Unlimited parlays — no weekly limit',
-  'Player props, on top of the game markets',
-  'Conservative, moderate and aggressive risk levels',
-  'Parlays from 2 to 6 legs',
-  'Price every leg on your own sportsbook',
-  'Your full history, every season, with win rate and ROI',
-]
 
 interface UpgradeSheetProps {
   visible: boolean
@@ -41,6 +32,35 @@ export default function UpgradeSheet({
   const [notice, setNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [restoring, setRestoring] = useState(false)
+  const [price, setPrice] = useState<string | null>(null)
+  const { entitlements } = useEntitlements()
+
+  // Written from the capabilities the server sends, not from sentences with the
+  // numbers spelled into them — widening a limit server-side used to leave a
+  // paid feature unadvertised on both clients.
+  const features = entitlements
+    ? proFeatures(entitlements.proCapabilities, entitlements.capabilities)
+    : []
+
+  useEffect(() => {
+    if (!visible || !canPurchase) {
+      return
+    }
+    let active = true
+    // StoreKit's own localized price. A hardcoded one quotes dollars to a
+    // storefront that will charge pounds.
+    proPrice().then(
+      value => {
+        if (active) {
+          setPrice(value)
+        }
+      },
+      () => {}
+    )
+    return () => {
+      active = false
+    }
+  }, [visible, canPurchase])
 
   const buy = async () => {
     setBusy(true)
@@ -100,7 +120,11 @@ export default function UpgradeSheet({
             <View>
               <Text style={styles.title}>ParlAId Pro</Text>
               <Text style={styles.price}>
-                {canPurchase ? '$9.99 a month. Cancel any time.' : 'Not on sale yet.'}
+                {!canPurchase
+                  ? 'Not on sale yet.'
+                  : price
+                    ? `${price} a month. Cancel any time.`
+                    : 'Monthly subscription. Cancel any time.'}
               </Text>
             </View>
             <Pressable
@@ -116,7 +140,7 @@ export default function UpgradeSheet({
           <ScrollView style={styles.body}>
             {reason ? <Text style={styles.reason}>{reason}</Text> : null}
 
-            {PRO_FEATURES.map(feature => (
+            {features.map(feature => (
               <View key={feature} style={styles.featureRow}>
                 <Ionicons name="checkmark" size={16} color={colors.primaryBright} />
                 <Text style={styles.featureText}>{feature}</Text>

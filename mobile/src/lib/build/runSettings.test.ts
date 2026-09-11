@@ -152,17 +152,37 @@ describe('riskOptions', () => {
 })
 
 describe('legCountOptions', () => {
-  it('offers 2 through 6 on Pro', () => {
-    expect(legCountOptions(PRO).map(o => o.value)).toEqual([2, 3, 4, 5, 6])
-    expect(legCountOptions(PRO).every(o => !o.locked)).toBe(true)
+  // The widest range is Pro's, and the server sends it. Nothing here restates
+  // it: widening Pro's range server-side used to leave the extra chips
+  // unrendered against a hardcoded { min: 2, max: 6 } default.
+  const PRO_RANGE = PRO.legCount
+
+  it('offers Pro’s full range on Pro', () => {
+    expect(legCountOptions(PRO, PRO_RANGE).map(o => o.value)).toEqual([2, 3, 4, 5, 6])
+    expect(legCountOptions(PRO, PRO_RANGE).every(o => !o.locked)).toBe(true)
   })
 
   // The sheet says "2-6 with Pro", so all five have to be on screen — the
   // canvas review caught a version that showed four.
   it('shows every count on free with only 3 unlocked', () => {
-    const options = legCountOptions(FREE)
+    const options = legCountOptions(FREE, PRO_RANGE)
     expect(options.map(o => o.value)).toEqual([2, 3, 4, 5, 6])
     expect(options.filter(o => !o.locked).map(o => o.value)).toEqual([3])
+  })
+
+  it('renders a widened Pro range without a client change', () => {
+    const options = legCountOptions(FREE, { min: 2, max: 8 })
+    expect(options.map(o => o.value)).toEqual([2, 3, 4, 5, 6, 7, 8])
+  })
+
+  // Before entitlements land there is no range to show, and inventing one is
+  // what the "clients never hardcode a limit" rule exists to stop.
+  it('renders nothing at all before entitlements load', () => {
+    expect(legCountOptions(undefined, undefined)).toEqual([])
+  })
+
+  it('falls back to the plan’s own range when Pro’s is unknown', () => {
+    expect(legCountOptions(FREE, undefined).map(o => o.value)).toEqual([3])
   })
 })
 

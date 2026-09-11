@@ -103,13 +103,25 @@ export function riskOptions(
 // Every leg count the product offers, with the ones this plan cannot reach
 // marked. Locked options stay visible: the conversion moment is a control the
 // user already wants, not an empty state (DESIGN #8).
+//
+// The widest range is Pro's, and it comes from the server — `/entitlements`
+// sends `proCapabilities` for exactly this. It used to default to a hardcoded
+// { min: 2, max: 6 }, so widening Pro's range server-side left the extra chips
+// unrendered: a paid feature that existed, was unreachable, and was unadvertised
+// on both clients.
 export function legCountOptions(
   capabilities: TierCapabilities | undefined,
-  widest: { min: number; max: number } = { min: 2, max: 6 }
+  widest: { min: number; max: number } | undefined
 ): ChoiceOption<number>[] {
   const allowed = capabilities?.legCount
+  // Nothing known yet — render only what this plan permits rather than invent a
+  // range, matching the fail-closed default the other option lists use.
+  const range = widest ?? allowed
+  if (!range) {
+    return []
+  }
   const counts: number[] = []
-  for (let n = widest.min; n <= widest.max; n++) {
+  for (let n = range.min; n <= range.max; n++) {
     counts.push(n)
   }
   return counts.map(value => ({

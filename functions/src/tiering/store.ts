@@ -127,6 +127,12 @@ export async function getQuotaUsage(uid: string, now = new Date()): Promise<numb
 export interface EntitlementView {
   tier: Tier
   capabilities: TierCapabilities
+  // What Pro grants, regardless of the tier this user is on. The upgrade sheet
+  // and the locked controls need it to say what upgrading buys — a free user's
+  // own `capabilities` describe only what they already have, so the clients used
+  // to restate Pro's limits as English sentences and a `{ min: 2, max: 6 }`
+  // default, which this file's own header forbids.
+  proCapabilities: TierCapabilities
   // Served rather than hardcoded in each client, for the same reason the limits
   // are: adding a book should not need an app release on two platforms.
   sportsbooks: ReadonlyArray<{ key: string; title: string }>
@@ -157,6 +163,7 @@ export async function getEntitlementView(
   return {
     tier: entitlement.tier,
     capabilities,
+    proCapabilities: capabilitiesFor('pro'),
     sportsbooks: SUPPORTED_BOOKMAKERS,
     billingAvailable: { stripe: stripeConfigured(), apple: appleConfigured() },
     quota: {

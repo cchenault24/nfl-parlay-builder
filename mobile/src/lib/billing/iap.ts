@@ -2,6 +2,7 @@ import { EntitlementsService } from '@shared/api/EntitlementsService'
 import { sharedRuntime } from '@shared/runtime'
 import {
   ErrorCode,
+  fetchProducts,
   finishTransaction,
   getAvailablePurchases,
   initConnection,
@@ -98,6 +99,30 @@ export async function reconcilePurchases(): Promise<number> {
     redeemed += 1
   }
   return redeemed
+}
+
+/**
+ * The subscription's price, localized by StoreKit, or null when the store has
+ * nothing to say.
+ *
+ * Never a hardcoded string. The paywall used to read "$9.99 a month" to every
+ * storefront, so a user in the UK was quoted dollars and charged pounds, and any
+ * App Store Connect price change or introductory offer desynced the number from
+ * what the sheet actually charges — which is a 3.1.2 rejection as well as a lie.
+ */
+export async function proPrice(): Promise<string | null> {
+  try {
+    await connect()
+    const products = await fetchProducts({ skus: [PRO_PRODUCT_ID], type: 'subs' })
+    const product = (products as { id?: string; displayPrice?: string }[]).find(
+      p => p.id === PRO_PRODUCT_ID
+    )
+    return product?.displayPrice ?? null
+  } catch {
+    // The features are still worth showing without a price; a wrong price is
+    // worse than none.
+    return null
+  }
 }
 
 // expo-iap delivers the outcome through listeners rather than the requestPurchase
