@@ -130,6 +130,13 @@ export const AgentRunSchema = z.object({
     // priority. Only a plan that can choose ever sets it.
     bookmaker: z.string().optional(),
   }),
+  // The quota window this run reserved its generation from, set when it was
+  // created. A run holds its slot for its whole life and gives it back if it
+  // ends without delivering — carrying the window means a release that arrives
+  // after the Tuesday rollover can tell that its bucket is gone, instead of
+  // refunding into the new one. Absent on runs created before reservation
+  // existed, which are billed the old way at success.
+  quotaWindow: z.string().optional(),
   tokensInput: z.number().int().nonnegative().default(0),
   tokensOutput: z.number().int().nonnegative().default(0),
   result: z.custom<AgentResult>().optional(),

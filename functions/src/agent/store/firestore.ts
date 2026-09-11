@@ -1,6 +1,6 @@
 import type { Transaction } from 'firebase-admin/firestore'
 import { db } from '../../firebase'
-import { commitGenerationInTx } from '../../tiering/store'
+import { releaseGenerationInTx, reserveGenerationInTx } from '../../tiering/store'
 import { AgentRun, AgentRunSchema, AgentStep } from '../shared/schemas'
 
 function runs() {
@@ -11,10 +11,33 @@ function stripUndefined<T extends object>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
 }
 
-export async function createRun(run: AgentRun): Promise<void> {
-  await runs()
-    .doc(run.id)
-    .set(stripUndefined(AgentRunSchema.parse(run)))
+/**
+ * Creates a run and takes its generation slot in one transaction, or returns
+ * false when the user's quota is already spent.
+ *
+ * The check and the debit have to be the same write. Doing them in separate
+ * requests — the old shape, where `resolveRunInput` read `remaining` at POST
+ * and `finishRun` debited at success — left a window of seconds to minutes in
+ * which every concurrent request read the same `used` and passed.
+ *
+ * `limit` is the tier's generationsPerWeek; null means unbounded, and the run
+ * still records the window so the release path stays uniform.
+ */
+export async function createRun(
+  run: AgentRun,
+  limit: number | null
+): Promise<boolean> {
+  return db().runTransaction(async tx => {
+    const windowStart = await reserveGenerationInTx(tx, run.userId, limit)
+    if (windowStart === null) {
+      return false
+    }
+    tx.set(
+      runs().doc(run.id),
+      stripUndefined(AgentRunSchema.parse({ ...run, quotaWindow: windowStart }))
+    )
+    return true
+  })
 }
 
 export async function getRun(runId: string): Promise<AgentRun | null> {
@@ -110,26 +133,48 @@ export function isBillable(updates: Partial<AgentRun>): boolean {
   )
 }
 
+// Hands the reserved slot back on any terminal outcome that is not billable.
+// Exported because the stale-run sweep ends runs too, and a reaped run that
+// kept its slot would cost the user a generation for a run that never produced
+// anything.
+// The slot was taken at creation, so a billable run needs no further write —
+// it simply keeps what it already holds.
+export function refundUnlessBillable(
+  updates: Partial<AgentRun>
+): ((tx: Transaction, current: AgentRun) => Promise<void>) | undefined {
+  if (isBillable(updates)) {
+    return undefined
+  }
+  return async (tx, current) => {
+    if (current.quotaWindow) {
+      await releaseGenerationInTx(tx, current.userId, current.quotaWindow)
+    }
+  }
+}
+
 export async function finishRun(
   runId: string,
   updates: Partial<AgentRun>
 ): Promise<boolean> {
-  const billable = isBillable(updates)
   const result = await transitionRun(
     runId,
     ['running'],
     updates,
-    billable
-      ? async (tx, current) => commitGenerationInTx(tx, current.userId)
-      : undefined
+    refundUnlessBillable(updates)
   )
   return result !== null
 }
 
 export async function cancelRun(runId: string): Promise<boolean> {
-  const result = await transitionRun(runId, ['queued', 'running'], {
+  const updates: Partial<AgentRun> = {
     status: 'canceled',
     error: { code: 'canceled', message: 'Run was canceled' },
-  })
+  }
+  const result = await transitionRun(
+    runId,
+    ['queued', 'running'],
+    updates,
+    refundUnlessBillable(updates)
+  )
   return result !== null
 }

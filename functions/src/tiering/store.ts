@@ -171,23 +171,60 @@ export async function getEntitlementView(
   }
 }
 
-// Increments the bucket inside a caller-supplied transaction. It is written this
-// way so the commit can share the transaction that moves a run to 'succeeded':
-// that transition happens exactly once, so sharing it makes the increment
-// exactly-once too. Committing afterwards in its own transaction could double
-// count on a retry, which would silently cost a free user a generation.
+// Takes a slot inside a caller-supplied transaction, refusing when the bucket is
+// already full. Returns the window the slot was taken from, or null when there
+// was nothing left.
+//
+// Reserving at creation rather than committing at success is what makes the
+// quota enforceable at all. Checking `remaining` in one HTTP request and
+// debiting in another leaves the two seconds-to-minutes apart, so N concurrent
+// POSTs all read the same `used` and all pass — a free user with 2 a week could
+// take as many generations as the rate limiter allowed. The check and the debit
+// have to be the same write.
 //
 // The read has to happen before any write in the transaction, which is why this
 // takes the transaction rather than a batch.
-export async function commitGenerationInTx(
+export async function reserveGenerationInTx(
   tx: Transaction,
   uid: string,
+  limit: number | null,
   now = new Date()
-): Promise<void> {
+): Promise<string | null> {
   const ref = quotaRef(uid)
   const snap = await tx.get(ref)
   const windowStart = quotaWindowStart(now)
   const record = snap.exists ? (snap.data() as QuotaRecord) : undefined
   const used = record && record.windowStart === windowStart ? record.used : 0
+  // null is unbounded, which is not the same as a limit of zero.
+  if (limit !== null && used >= limit) {
+    return null
+  }
   tx.set(ref, { windowStart, used: used + 1 })
+  return windowStart
+}
+
+// Gives a reserved slot back, for a run that ended without delivering what the
+// tier promises: a failure, a cancellation, or a success that fell back to
+// AI-estimated prices because the odds tool was unavailable.
+//
+// `windowStart` is the window the slot was taken from, carried on the run. A
+// release into a *different* window is dropped rather than applied: the bucket
+// it belongs to no longer exists, and decrementing the current one would hand
+// the user a free generation every time a run straddled the Tuesday rollover.
+export async function releaseGenerationInTx(
+  tx: Transaction,
+  uid: string,
+  windowStart: string,
+  now = new Date()
+): Promise<void> {
+  if (windowStart !== quotaWindowStart(now)) {
+    return
+  }
+  const ref = quotaRef(uid)
+  const snap = await tx.get(ref)
+  const record = snap.exists ? (snap.data() as QuotaRecord) : undefined
+  if (!record || record.windowStart !== windowStart) {
+    return
+  }
+  tx.set(ref, { windowStart, used: Math.max(0, record.used - 1) })
 }
