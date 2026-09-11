@@ -3,9 +3,9 @@ import { useEntitlements } from '@shared/hooks/useEntitlements'
 import { formatOdds } from '@shared/odds'
 import useParlayStore, { parlayKey } from '@shared/store/parlayStore'
 import { cancelParlayRun } from '@shared/hooks/useParlayGenerator'
-import { Stack, useLocalSearchParams } from 'expo-router'
+import { Stack, router, useLocalSearchParams } from 'expo-router'
 import { useState } from 'react'
-import { ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Alert, InteractionManager, ScrollView, StyleSheet, Text, View } from 'react-native'
 
 import { ErrorBanner } from '@/components/ErrorBanner'
 import { AgentProgress } from '@/components/display/AgentProgress'
@@ -34,6 +34,7 @@ export default function ParlayDetailScreen() {
   const ids = (gameIds ?? '').split('+').filter(Boolean)
   const key = parlayKey(activeWeek, ids)
   const entry = useParlayStore(state => state.entries[key])
+  const clearRun = useParlayStore(state => state.clearRun)
 
   const [saving, setSaving] = useState(false)
   const [savedId, setSavedId] = useState<string | null>(null)
@@ -96,6 +97,27 @@ export default function ParlayDetailScreen() {
   const contextFor = (gameId: string) => {
     const game = entry.games?.find(g => g.game.gameId === gameId)?.game
     return game ? `${game.away.name} @ ${game.home.name} — Week ${game.week}` : parlay.gameContext
+  }
+
+  const discard = () => {
+    router.back()
+    // Removing the entry takes this screen's subject away, so do it once the
+    // pop has finished — clearing it first re-renders the screen into the
+    // "no longer in this week's working set" message while it slides away.
+    InteractionManager.runAfterInteractions(() => clearRun(key))
+  }
+
+  const confirmDiscard = () => {
+    Alert.alert(
+      'Discard this parlay?',
+      alreadySaved
+        ? 'It stays under History. This only clears it from this week\u2019s board.'
+        : 'It was never saved to History, so it is gone. Building it again spends another generation.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Discard', style: 'destructive', onPress: discard },
+      ]
+    )
   }
 
   const save = async () => {
@@ -199,14 +221,25 @@ export default function ParlayDetailScreen() {
       </ScrollView>
 
       <GlassSurface style={styles.actions}>
-        <Button
-          variant="outline"
-          label={alreadySaved ? 'Saved to History' : 'Save to History'}
-          icon={alreadySaved ? 'checkmark' : 'bookmark-outline'}
-          loading={saving}
-          disabled={alreadySaved}
-          onPress={save}
-        />
+        <View style={styles.actionRow}>
+          <Button
+            variant="outline"
+            label={alreadySaved ? 'Saved to History' : 'Save to History'}
+            icon={alreadySaved ? 'checkmark' : 'bookmark-outline'}
+            loading={saving}
+            disabled={alreadySaved}
+            onPress={save}
+            style={styles.saveAction}
+          />
+          <Button
+            variant="danger"
+            iconOnly
+            icon="trash-outline"
+            label="Discard parlay"
+            onPress={confirmDiscard}
+            style={styles.discardAction}
+          />
+        </View>
       </GlassSurface>
     </View>
   )
@@ -263,4 +296,10 @@ const styles = StyleSheet.create({
     borderTopColor: colors.divider,
     padding: spacing.md,
   },
+  actionRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  saveAction: { flex: 1 },
+  // Neutral container, red glyph. The border is what makes it read as a button
+  // beside the bordered Save; keeping it neutral is what keeps it from
+  // outweighing the safe action next to it.
+  discardAction: { borderWidth: 1, borderColor: colors.border },
 })
