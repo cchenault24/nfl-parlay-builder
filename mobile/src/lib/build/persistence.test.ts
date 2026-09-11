@@ -7,11 +7,13 @@ import type { AgentGameResult, GeneratedParlay } from '@shared/types'
 import {
   loadEntries,
   parseEntries,
-  PARLAY_STORAGE_KEY,
+  parlayStorageKey,
   saveEntries,
   serializeEntries,
   type EntryStorage,
 } from './persistence'
+
+const UID = 'uid-1'
 
 function memoryStorage(initial: Record<string, string> = {}): EntryStorage & {
   values: Record<string, string>
@@ -144,25 +146,25 @@ describe('persistence', () => {
 
   it('round-trips through storage', async () => {
     const storage = memoryStorage()
-    await saveEntries(storage, { '5:g1': readyEntry('g1') })
-    expect(await loadEntries(storage, 5)).toEqual({ '5:g1': readyEntry('g1') })
+    await saveEntries(storage, UID, { '5:g1': readyEntry('g1') })
+    expect(await loadEntries(storage, UID, 5)).toEqual({ '5:g1': readyEntry('g1') })
   })
 
   it('drops a week that has already been played', async () => {
     const storage = memoryStorage()
-    await saveEntries(storage, { '4:g9': readyEntry('g9', 4) })
-    expect(await loadEntries(storage, 5)).toEqual({})
+    await saveEntries(storage, UID, { '4:g9': readyEntry('g9', 4) })
+    expect(await loadEntries(storage, UID, 5)).toEqual({})
   })
 
   // Looking at next week's slate must not delete this week's parlays, which is
   // what pruning to the *browsed* week rather than the live one would do.
   it('keeps a week the user browsed ahead to', async () => {
     const storage = memoryStorage()
-    await saveEntries(storage, {
+    await saveEntries(storage, UID, {
       '5:g1': readyEntry('g1', 5),
       '6:g2': readyEntry('g2', 6),
     })
-    const loaded = await loadEntries(storage, 5)
+    const loaded = await loadEntries(storage, UID, 5)
     expect(Object.keys(loaded ?? {}).sort()).toEqual(['5:g1', '6:g2'])
   })
 
@@ -198,13 +200,38 @@ describe('persistence', () => {
         throw new Error('no disk')
       },
     }
-    await expect(saveEntries(broken, {})).resolves.toBeUndefined()
-    expect(await loadEntries(broken, 5)).toBeNull()
+    await expect(saveEntries(broken, UID, {})).resolves.toBeUndefined()
+    // Null, not `{}`: unreadable storage must not be mirrored back as empty.
+    expect(await loadEntries(broken, UID, 5)).toBeNull()
   })
 
   it('stores under a versioned key', async () => {
     const storage = memoryStorage()
-    await saveEntries(storage, {})
-    expect(Object.keys(storage.values)).toEqual([PARLAY_STORAGE_KEY])
+    await saveEntries(storage, UID, {})
+    expect(Object.keys(storage.values)).toEqual([parlayStorageKey(UID)])
+  })
+
+  // The leak this closes: on a shared device, the next person to sign in
+  // hydrated the previous one's parlays — their picks, odds and AI reasoning —
+  // into their own Build list, and a deleted account's content stayed on the
+  // device after the server had wiped it.
+  it('does not hand one account the parlays of another', async () => {
+    const storage = memoryStorage()
+    await saveEntries(storage, 'uid-a', { '5:g1': readyEntry('g1') })
+
+    expect(await loadEntries(storage, 'uid-b', 5)).toEqual({})
+  })
+
+  it('keeps each account’s own cache when both have used the device', async () => {
+    const storage = memoryStorage()
+    await saveEntries(storage, 'uid-a', { '5:g1': readyEntry('g1') })
+    await saveEntries(storage, 'uid-b', { '5:g2': readyEntry('g2') })
+
+    expect(await loadEntries(storage, 'uid-a', 5)).toEqual({ '5:g1': readyEntry('g1') })
+    expect(await loadEntries(storage, 'uid-b', 5)).toEqual({ '5:g2': readyEntry('g2') })
+  })
+
+  it('gives each account a distinct key', () => {
+    expect(parlayStorageKey('uid-a')).not.toBe(parlayStorageKey('uid-b'))
   })
 })

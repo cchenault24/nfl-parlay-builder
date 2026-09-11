@@ -1,4 +1,9 @@
-import AsyncStorage from '@react-native-async-storage/async-storage'
+import { secureAuthStorage } from '@/lib/auth/secureStorage'
+import {
+  toUserProfile,
+  userProfileDocument,
+  type StoredUserProfile,
+} from '@shared/firestoreDocs'
 // Auth is imported from the scoped package, not `firebase/auth`: the umbrella
 // package's exports map has no `react-native` condition, so Metro would hand
 // us the browser build, which has no getReactNativePersistence. Without that,
@@ -23,16 +28,10 @@ import {
   Timestamp,
 } from 'firebase/firestore'
 
-// Depends on the Firestore SDK's Timestamp, which `shared/` deliberately
-// stays free of, so it is declared here rather than imported from @shared.
-export interface UserProfile {
-  uid: string
-  displayName: string
-  email: string
-  photoURL?: string
-  createdAt: Timestamp
-  savedParlays?: string[]
-}
+// The Firestore SDK's Timestamp is the one piece `shared/` cannot name — it
+// deliberately stays free of the SDK — so the shape is generic there and gets
+// its timestamp type here.
+export type UserProfile = StoredUserProfile<Timestamp>
 
 // Every var has to be read as a literal `process.env.EXPO_PUBLIC_*` expression.
 // babel-preset-expo substitutes those at build time and leaves a computed
@@ -70,10 +69,16 @@ const app = initializeApp({
   appId: requireEnv('EXPO_PUBLIC_FIREBASE_APP_ID', process.env.EXPO_PUBLIC_FIREBASE_APP_ID),
 })
 
-// initializeAuth rather than getAuth: getAuth would pick the default
-// in-memory persistence before we get a chance to supply AsyncStorage.
+// initializeAuth rather than getAuth: getAuth would pick the default in-memory
+// persistence before we get a chance to supply our own.
+//
+// The store is the iOS keychain, not AsyncStorage. What Firebase persists here
+// includes a refresh token that mints fresh ID tokens indefinitely and never
+// expires on its own, and AsyncStorage on iOS is a plain file in the app's
+// Documents directory that goes into device backups — so an unencrypted backup
+// or a lost phone was full account takeover with no password.
 export const auth = initializeAuth(app, {
-  persistence: getReactNativePersistence(AsyncStorage),
+  persistence: getReactNativePersistence(secureAuthStorage),
 })
 
 export const db = getFirestore(app)
@@ -92,44 +97,19 @@ export const logOut = () => signOut(auth)
 export const onAuthUserChanged = (callback: (user: User | null) => void) =>
   onAuthStateChanged(auth, callback)
 
-// Mirrors the web app's createUserProfile so both clients write the same
-// shape into `users/{uid}`.
+// Thin SDK plumbing. The document shape and the profile validation live in
+// shared/firestoreDocs.ts, so both clients write and read `users/{uid}` the
+// same way by construction rather than by two matching copies.
 export const createUserProfile = async (user: User) => {
   const userRef = doc(db, 'users', user.uid)
   const userSnap = await getDoc(userRef)
   if (!userSnap.exists()) {
-    const { displayName, email, photoURL } = user
-    await setDoc(userRef, {
-      displayName: displayName || email?.split('@')[0] || 'User',
-      email,
-      // Null rather than a generated avatar URL. The previous fallback embedded
-      // the user's email address in a query string to api.dicebear.com, so every
-      // email/password signup shipped their email to a third party on each
-      // avatar render, and the URL was stored in Firestore permanently. Both
-      // clients already fall back locally — a person icon on iOS, the first
-      // initial on web — so the remote call bought nothing.
-      photoURL: photoURL ?? null,
-      createdAt: Timestamp.now(),
-    })
+    await setDoc(userRef, userProfileDocument(user, Timestamp.now()))
   }
   return userRef
 }
 
 export const getUserProfile = async (userId: string): Promise<UserProfile | null> => {
   const snap = await getDoc(doc(db, 'users', userId))
-  if (!snap.exists()) {
-    return null
-  }
-  const data = snap.data()
-  if (!data.displayName || !data.email || !data.createdAt) {
-    return null
-  }
-  return {
-    uid: userId,
-    displayName: data.displayName,
-    email: data.email,
-    photoURL: data.photoURL || undefined,
-    createdAt: data.createdAt,
-    savedParlays: data.savedParlays || [],
-  }
+  return toUserProfile<Timestamp>(userId, snap.data())
 }

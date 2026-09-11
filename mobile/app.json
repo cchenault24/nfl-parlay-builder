@@ -43,7 +43,8 @@
         }
       ],
       "./plugins/withStaticExpoModules",
-      "expo-iap"
+      "expo-iap",
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,

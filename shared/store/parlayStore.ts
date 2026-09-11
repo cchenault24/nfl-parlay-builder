@@ -54,6 +54,11 @@ interface ParlayStore {
   // priority. Only a plan that can choose ever sets it.
   bookmaker: string | undefined
   entries: Record<string, ParlayEntry>
+  // Web drives these; iOS keeps the same two facts in component state on the
+  // one screen that can save. Two mechanisms for one kind of state is a real
+  // inconsistency, but consolidating would mean either putting screen-local UI
+  // state in a cross-client store or removing a slice web uses — neither is an
+  // improvement, so what is shared is the copy rather than the mechanism.
   saveParlaySuccess: boolean
   saveParlayError: string
 
@@ -186,14 +191,29 @@ const useParlayStore = create<ParlayStore>(set => ({
       ),
     })),
 
-  replaceEntries: entries => set({ entries }),
+  // Loaded entries replace the working set, EXCEPT anything still in flight.
+  //
+  // Re-hydration happens when the live week ticks over mid-session, which can
+  // land while a run is streaming. Storage holds only finished parlays by
+  // design (`persistableEntries`), so a wholesale overwrite deleted the running
+  // entry — `upsertStep`, `setResult` and `failRun` then all no-op on a missing
+  // key, the screen reads "no longer in this week's working set", and the
+  // generation the server is about to bill is unrecoverable.
+  replaceEntries: entries =>
+    set(state => ({
+      entries: {
+        ...entries,
+        ...Object.fromEntries(
+          Object.entries(state.entries).filter(
+            ([, entry]) => entry.status === 'running'
+          )
+        ),
+      },
+    })),
 
   setSaveParlaySuccess: saveParlaySuccess => set({ saveParlaySuccess }),
   setSaveParlayError: saveParlayError => set({ saveParlayError }),
 }))
-
-export const selectEntry = (key: string | null) => (state: ParlayStore) =>
-  key ? state.entries[key] : undefined
 
 // Everything worth keeping across a relaunch: a finished parlay. A run that was
 // still going, or that failed, is session state — it cannot be resumed, and
@@ -206,6 +226,9 @@ export function persistableEntries(
   )
 }
 
-export const getParlayState = () => useParlayStore.getState()
 
 export default useParlayStore
+
+// Said by both clients when a save fails, so the two cannot drift into
+// describing the same failure differently.
+export const SAVE_PARLAY_ERROR = 'Failed to save parlay. Please try again.'

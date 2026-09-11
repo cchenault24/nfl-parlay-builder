@@ -1,8 +1,9 @@
+import { Card } from '@/components/ui/Card'
 import { formatOdds } from '@shared/odds'
 import type { BookLines, Game } from '@shared/types'
 import { StyleSheet, Text, View } from 'react-native'
 
-import { colors, radius, spacing, typography } from '@/lib/theme/designTokens'
+import { colors, spacing, typography } from '@/lib/theme/designTokens'
 
 interface BookLinesPanelProps {
   game: Game
@@ -26,7 +27,7 @@ export function BookLinesPanel({ game, book, fellBackFrom }: BookLinesPanelProps
   const { home, away } = game
 
   return (
-    <View style={styles.panel}>
+    <Card tone="inset" style={styles.panel}>
       <Text style={styles.title} accessibilityRole="header">
         Book lines · {book.title}
         {fellBackFrom ? ` (your book had no line)` : ''}
@@ -51,19 +52,13 @@ export function BookLinesPanel({ game, book, fellBackFrom }: BookLinesPanelProps
             : '—'}
         </Text>
       </View>
-    </View>
+    </Card>
   )
 }
 
 const styles = StyleSheet.create({
-  panel: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.divider,
-    borderRadius: radius.md,
-    backgroundColor: colors.background,
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
+  // Geometry and fill come from Card tone="inset"; only the gap is ours.
+  panel: { gap: spacing.sm },
   title: { ...typography.label, color: colors.text },
   lines: { gap: spacing.xs },
   line: { ...typography.numericSmall, color: colors.textSecondary },

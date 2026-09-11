@@ -1,3 +1,5 @@
+import { EmptyState, ScreenLoading } from '@/components/ui/ScreenState'
+import { PinnedActions } from '@/components/ui/PinnedActions'
 import { useEntitlements } from '@shared/hooks/useEntitlements'
 import { useParlayGenerator } from '@shared/hooks/useParlayGenerator'
 import { useGameStats, useWeekOdds, gameBookLines } from '@shared/hooks/usePregame'
@@ -6,17 +8,16 @@ import { useDerivedCurrentWeek } from '@shared/hooks/useDerivedCurrentWeek'
 import useParlayStore from '@shared/store/parlayStore'
 import { router, Stack, useLocalSearchParams } from 'expo-router'
 import { useState } from 'react'
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { ScrollView, StyleSheet, Text, View } from 'react-native'
 
-import { ErrorBanner } from '@/components/ErrorBanner'
-import UpgradeSheet from '@/components/UpgradeSheet'
+import { ErrorBanner } from '@/components/ui/ErrorBanner'
+import { UpgradeSheet } from '@/components/UpgradeSheet'
 import { RunSettingsRow } from '@/components/build/RunSettingsRow'
 import { RunSettingsSheet } from '@/components/build/RunSettingsSheet'
 import { BookLinesPanel } from '@/components/display/BookLinesPanel'
 import { MatchupHero } from '@/components/display/MatchupHero'
 import { MatchupRankings } from '@/components/display/MatchupRankings'
 import { Button } from '@/components/ui/Button'
-import { GlassSurface } from '@/components/ui/GlassSurface'
 import { getParlayService } from '@/lib/api/parlayService'
 import { generationCostLine } from '@/lib/build/quotaCopy'
 import {
@@ -54,7 +55,7 @@ export default function GameDetailScreen() {
   const { capabilities, quota, entitlements, refetch } = useEntitlements()
   const { generate, isPending, error } = useParlayGenerator(getParlayService())
 
-  const sportsbooks = [...(entitlements?.sportsbooks ?? [])]
+  const sportsbooks = entitlements?.sportsbooks ?? []
   const lines = gameBookLines(weekOdds?.games, gameId)?.books
   const bookKey = effectiveBookKey({ sportsbooks, capabilities, chosen: bookmaker, lines })
   const book = lines?.find(b => b.key === bookKey) ?? null
@@ -72,9 +73,9 @@ export default function GameDetailScreen() {
       <View style={styles.centered}>
         <Stack.Screen options={{ title: '' }} />
         {isLoading ? (
-          <ActivityIndicator color={colors.primaryBright} />
+          <ScreenLoading />
         ) : (
-          <Text style={styles.muted}>That game is no longer in this week.</Text>
+          <EmptyState title="That game is no longer in this week." />
         )}
       </View>
     )
@@ -125,8 +126,7 @@ export default function GameDetailScreen() {
 
       {/* Pinned, so the button that acts on this game is never below a
           screenful of the data you used to decide (DESIGN fault 1). */}
-      <GlassSurface
-        style={styles.actions}
+      <PinnedActions
         onLayout={e => setActionsHeight(e.nativeEvent.layout.height)}
       >
         <RunSettingsRow
@@ -157,7 +157,7 @@ export default function GameDetailScreen() {
           }
         />
         {costLine ? <Text style={styles.cost}>{costLine}</Text> : null}
-      </GlassSurface>
+      </PinnedActions>
 
       <RunSettingsSheet
         visible={settingsOpen}
@@ -191,19 +191,5 @@ const styles = StyleSheet.create({
   },
   body: { padding: spacing.md, gap: spacing.md },
   muted: { ...typography.body, color: colors.textSecondary, textAlign: 'center' },
-  // No safe-area inset here. This bar is pinned to the bottom of a screen
-  // inside the tab navigator, so the tab bar already sits between it and the
-  // home indicator and has already absorbed that inset — adding it again pads
-  // for a gap something else is filling.
-  actions: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.divider,
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
   cost: { ...typography.caption, color: colors.textSecondary, textAlign: 'center' },
 })

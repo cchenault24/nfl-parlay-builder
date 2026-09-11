@@ -1,18 +1,14 @@
 import { Box, Link, Typography } from '@mui/material'
 import type { QuotaState } from '@shared/index'
+import {
+  quotaRemainingLabel,
+  quotaResetLabel,
+} from '@shared/rateLimits'
 import React from 'react'
 
 interface QuotaIndicatorProps {
   quota: QuotaState
   onUpgrade: () => void
-}
-
-function resetLabel(resetsAt: string): string {
-  const days = Math.ceil((Date.parse(resetsAt) - Date.now()) / (24 * 60 * 60 * 1000))
-  if (days <= 1) {
-    return 'Resets tomorrow'
-  }
-  return `Resets in ${days} days`
 }
 
 // Pro's allowance is uncapped and its fair-use valve is deliberately never
@@ -43,13 +39,11 @@ const QuotaIndicator: React.FC<QuotaIndicatorProps> = ({ quota, onUpgrade }) => 
           color: exhausted ? 'text.secondary' : 'text.primary',
         }}
       >
-        {exhausted
-          ? 'No parlays left this week'
-          : `${quota.remaining} of ${quota.limit} parlays left this week`}
+        {quotaRemainingLabel(quota.remaining, quota.limit)}
       </Typography>
 
       <Typography variant="caption" color="text.secondary">
-        {resetLabel(quota.resetsAt)}
+        {quotaResetLabel(quota.resetsAt)}
       </Typography>
 
       <Link

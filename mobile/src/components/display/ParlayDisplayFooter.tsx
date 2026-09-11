@@ -21,13 +21,12 @@ function ExternalLink({ label, url }: { label: string; url: string }) {
   )
 }
 
+// No confidence line here: the parlay screen renders it as a ConfidenceBar at
+// the top, and stating the same headline number twice on one screen reads as
+// two different figures until you check.
 export function ParlayDisplayFooter({ parlay }: { parlay: GeneratedParlay }) {
   return (
     <View style={styles.footer}>
-      <Text style={styles.meta}>
-        Overall confidence {Math.round(parlay.parlayConfidence * 100)}%
-      </Text>
-
       <LegalDisclaimer />
 
       {/* nflverse data is CC BY 4.0 — attribution is a licence condition

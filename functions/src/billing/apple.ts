@@ -1,11 +1,17 @@
 import {
   Environment,
   SignedDataVerifier,
+  VerificationException,
+  VerificationStatus,
   type JWSTransactionDecodedPayload,
   type ResponseBodyV2DecodedPayload,
 } from '@apple/app-store-server-library'
 import { log } from '../observability/logger'
-import { findUidByAppleTransaction, setEntitlement } from '../tiering/store'
+import {
+  findUidByAppleAccountToken,
+  findUidByAppleTransaction,
+  setEntitlement,
+} from '../tiering/store'
 import { billingSecret } from './config'
 
 // Production and sandbox transactions are signed by the same root but carry
@@ -26,22 +32,60 @@ function verifierFor(environment: Environment): SignedDataVerifier {
   )
 }
 
-// Tries production first, then sandbox. Apple's own guidance is to treat a
-// production rejection as "might be sandbox" rather than as a forgery.
+// Tries production first, then sandbox, and says which one answered.
+//
+// Apple's guidance is to treat a production rejection as "might be sandbox"
+// rather than as a forgery, and reviewers do test sandbox purchases against a
+// production build — so the fallback has to exist or review fails on a purchase
+// that looks broken. What it must not be is unconditional: an unqualified catch
+// retries a malformed payload, an expired certificate chain and a wrong bundle
+// id as though each were an environment mismatch, turning every verification
+// failure into two. Only INVALID_ENVIRONMENT means "try the other one".
+//
+// The environment is returned rather than discarded because a sandbox purchase
+// is free. Without recording it, a $0 sandbox transaction — available to any
+// TestFlight tester — writes a production entitlement indistinguishable from a
+// paid one, and nothing downstream can tell them apart or sweep them.
 async function verify<T>(
   attempt: (verifier: SignedDataVerifier) => Promise<T>
-): Promise<T> {
+): Promise<{ value: T; environment: Environment }> {
   try {
-    return await attempt(verifierFor(Environment.PRODUCTION))
-  } catch {
-    return await attempt(verifierFor(Environment.SANDBOX))
+    return {
+      value: await attempt(verifierFor(Environment.PRODUCTION)),
+      environment: Environment.PRODUCTION,
+    }
+  } catch (e) {
+    if (
+      !(e instanceof VerificationException) ||
+      e.status !== VerificationStatus.INVALID_ENVIRONMENT
+    ) {
+      throw e
+    }
+    return {
+      value: await attempt(verifierFor(Environment.SANDBOX)),
+      environment: Environment.SANDBOX,
+    }
   }
 }
+
+// The App Store product that maps to ParlAId Pro. The client holds the same
+// string (mobile/src/lib/billing/iap.ts) and cannot share this one: `functions/`
+// compiles with rootDir "src" and Firebase packages only that directory, so it
+// cannot import from shared/. Two copies across a build boundary that has no
+// bridge — change both together.
+export const PRO_PRODUCT_ID = 'com.debugdad.parlaid.pro.monthly'
 
 function grantFrom(payload: JWSTransactionDecodedPayload): {
   tier: 'pro' | 'free'
   accessEndsAt: string | null
 } {
+  // A refunded or revoked transaction stays cryptographically valid and keeps
+  // its original expiresDate, so the date alone would re-grant Pro to someone
+  // Apple already took the money back from — replayable for as long as the
+  // period runs.
+  if (payload.revocationDate) {
+    return { tier: 'free', accessEndsAt: null }
+  }
   // An auto-renewing subscription is entitled until expiresDate. Apple sends
   // renewals ahead of that date, so a lapsed one simply stops being renewed
   // rather than being revoked — which is why an elapsed date demotes on read.
@@ -62,7 +106,37 @@ export async function redeemAppleTransaction(
   uid: string,
   signedTransaction: string
 ): Promise<{ tier: 'pro' | 'free'; accessEndsAt: string | null }> {
-  const payload = await verify(v => v.verifyAndDecodeTransaction(signedTransaction))
+  const { value: payload, environment } = await verify(v =>
+    v.verifyAndDecodeTransaction(signedTransaction)
+  )
+
+  // A verified signature proves Apple issued *a* transaction, not that it was
+  // for the thing being granted. Without this, any signed auto-renewing
+  // transaction for this bundle grants Pro.
+  if (payload.productId !== PRO_PRODUCT_ID) {
+    throw new Error(`Transaction is for ${payload.productId ?? 'no product'}, not Pro`)
+  }
+
+  // Nor does a signature prove the *caller* made the purchase. A JWS can be
+  // lifted off one device and posted from another account, which would turn one
+  // subscription into unlimited Pro grants — and because findUidByAppleTransaction
+  // resolves one uid, a later REFUND would demote exactly one of them and leave
+  // the rest entitled forever.
+  const holder = payload.originalTransactionId
+    ? await findUidByAppleTransaction(payload.originalTransactionId)
+    : undefined
+  if (holder && holder !== uid) {
+    log.warn('billing.apple.transaction_already_claimed', {
+      correlationId: payload.originalTransactionId ?? 'unknown',
+      uid,
+      error: {
+        code: 'transaction_already_claimed',
+        message: `Apple transaction ${payload.originalTransactionId} is held by another account`,
+      },
+    })
+    throw new Error('That subscription is already attached to a different account.')
+  }
+
   const grant = grantFrom(payload)
 
   await setEntitlement(uid, {
@@ -71,6 +145,10 @@ export async function redeemAppleTransaction(
     // Stored so a later renewal notification, which arrives with no uid, can be
     // attributed back to this user.
     appleOriginalTransactionId: payload.originalTransactionId,
+    // A sandbox grant costs nothing to obtain. Recorded so it can be told apart
+    // from a paid one and swept, rather than sitting in production looking
+    // identical.
+    appleEnvironment: environment,
     ...(payload.appAccountToken ? { appleAccountToken: payload.appAccountToken } : {}),
     accessEndsAt: grant.accessEndsAt,
   })
@@ -88,7 +166,7 @@ export async function redeemAppleTransaction(
 // 2xx; anything else is retried for days, so an event this cannot attribute is
 // logged and accepted rather than failed.
 export async function handleAppleNotification(signedPayload: string): Promise<void> {
-  const payload: ResponseBodyV2DecodedPayload = await verify(v =>
+  const { value: payload } = await verify<ResponseBodyV2DecodedPayload>(v =>
     v.verifyAndDecodeNotification(signedPayload)
   )
 
@@ -101,7 +179,7 @@ export async function handleAppleNotification(signedPayload: string): Promise<vo
     return
   }
 
-  const transaction = await verify(v =>
+  const { value: transaction, environment } = await verify(v =>
     v.verifyAndDecodeTransaction(signedTransaction)
   )
   const originalTransactionId = transaction.originalTransactionId
@@ -110,8 +188,15 @@ export async function handleAppleNotification(signedPayload: string): Promise<vo
   }
 
   // The originalTransactionId was recorded when the app redeemed the purchase,
-  // which is what makes an otherwise anonymous renewal attributable.
-  const uid = await findUidByAppleTransaction(originalTransactionId)
+  // which is what makes an otherwise anonymous renewal attributable. The
+  // appAccountToken the app set on the purchase is the fallback: Apple echoes it
+  // back on every event, so a record whose transaction id was never written — or
+  // was overwritten — is still reachable.
+  const uid =
+    (await findUidByAppleTransaction(originalTransactionId)) ??
+    (transaction.appAccountToken
+      ? await findUidByAppleAccountToken(transaction.appAccountToken)
+      : undefined)
   if (!uid) {
     log.error('billing.apple.unattributed_notification', {
       correlationId: payload.notificationUUID ?? 'unknown',
@@ -133,6 +218,10 @@ export async function handleAppleNotification(signedPayload: string): Promise<vo
     tier: revoked ? 'free' : grant.tier,
     source: 'iap',
     appleOriginalTransactionId: originalTransactionId,
+    appleEnvironment: environment,
+    ...(transaction.appAccountToken
+      ? { appleAccountToken: transaction.appAccountToken }
+      : {}),
     accessEndsAt: revoked ? null : grant.accessEndsAt,
   })
 

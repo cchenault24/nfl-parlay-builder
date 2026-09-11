@@ -1,4 +1,8 @@
-import { normalizeStoredParlay, type StoredParlay } from '@shared/parlays'
+import {
+  parlayDocument,
+  sortedParlays,
+  type TimestampedParlay,
+} from '@shared/firestoreDocs'
 import type { GeneratedParlay } from '@shared/types'
 import {
   addDoc,
@@ -6,32 +10,24 @@ import {
   onSnapshot,
   query,
   serverTimestamp,
-  Timestamp,
   where,
 } from 'firebase/firestore'
 
 import { db } from '@/lib/firebase'
 
-// Firestore rules require userId, gameIds, legs and a server-set createdAt.
+// Thin SDK plumbing. The document shape and the read transform live in
+// shared/firestoreDocs.ts, because those are what a rules or schema change
+// touches and what the two clients used to duplicate.
+
 export const saveParlayToUser = async (userId: string, parlay: GeneratedParlay) => {
-  const ref = await addDoc(collection(db, 'parlays'), {
-    ...parlay,
-    userId,
-    createdAt: serverTimestamp(),
-  })
+  const ref = await addDoc(
+    collection(db, 'parlays'),
+    parlayDocument(userId, parlay, serverTimestamp())
+  )
   return ref.id
 }
 
-// Firestore may return a doc with either timestamp field, and neither is part
-// of the domain type — the sort below is the only thing that reads them.
-type TimestampedParlay = StoredParlay & {
-  createdAt?: Timestamp
-  savedAt?: Timestamp
-}
-
-// `depth` is the tier's history depth, newest first; null means unbounded. See
-// the web copy in src/config/firebase.ts for why it is sliced here rather than
-// limited in the query.
+// `depth` is the tier's history depth, newest first; null means unbounded.
 export const getUserParlays = (
   userId: string,
   callback: (parlays: GeneratedParlay[]) => void,
@@ -41,13 +37,15 @@ export const getUserParlays = (
   onSnapshot(
     query(collection(db, 'parlays'), where('userId', '==', userId)),
     snapshot => {
-      const savedAtMs = (d: TimestampedParlay) =>
-        (d.createdAt ?? d.savedAt)?.toMillis?.() ?? 0
-      const parlays = snapshot.docs
-        .map(docSnap => ({ data: docSnap.data() as TimestampedParlay, id: docSnap.id }))
-        .sort((a, b) => savedAtMs(b.data) - savedAtMs(a.data))
-        .map(({ data, id }) => normalizeStoredParlay(data, id))
-      callback(depth === null ? parlays : parlays.slice(0, depth))
+      callback(
+        sortedParlays(
+          snapshot.docs.map(docSnap => ({
+            id: docSnap.id,
+            data: docSnap.data() as TimestampedParlay,
+          })),
+          depth
+        )
+      )
     },
     // Web logs and returns an empty list here, which is indistinguishable from
     // "no saved parlays". Surface it instead.

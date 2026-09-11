@@ -1,18 +1,13 @@
-import Ionicons from '@expo/vector-icons/Ionicons'
-import { Pressable, StyleSheet, Text } from 'react-native'
-
+import { Button } from '@/components/ui/Button'
 import { useGoogleSignIn } from '@/lib/auth/useGoogleSignIn'
-import {
-  colors,
-  MIN_TARGET,
-  PRESSED_OPACITY,
-  radius,
-  spacing,
-  typography,
-} from '@/lib/theme/designTokens'
 
 // Only mount this when googleSignInConfigured is true — the auth-session hook
 // inside useGoogleSignIn throws during render without an iOS client id.
+//
+// Built from Button rather than hand-rolled. The previous version reproduced
+// Button's geometry property for property and its `neutral` outline, differing
+// only by a fill — and had no busy state at all, so a user who tapped twice
+// during the browser round trip got no feedback either time.
 export function GoogleSignInButton({
   onError,
 }: {
@@ -21,36 +16,12 @@ export function GoogleSignInButton({
   const google = useGoogleSignIn(onError)
 
   return (
-    <Pressable
-      style={({ pressed }) => [
-        styles.button,
-        (pressed || google.disabled) && styles.pressed,
-      ]}
+    <Button
+      variant="neutral"
+      icon="logo-google"
+      label="Continue with Google"
+      loading={google.disabled}
       onPress={google.signIn}
-      disabled={google.disabled}
-      accessibilityRole="button"
-      accessibilityState={{ disabled: google.disabled }}
-    >
-      <Ionicons name="logo-google" size={20} color={colors.text} />
-      <Text style={styles.text}>Continue with Google</Text>
-    </Pressable>
+    />
   )
 }
-
-const styles = StyleSheet.create({
-  button: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    minHeight: MIN_TARGET + 8,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-  text: { ...typography.button, color: colors.text },
-  pressed: { opacity: PRESSED_OPACITY },
-})

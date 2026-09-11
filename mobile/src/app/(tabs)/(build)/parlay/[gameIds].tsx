@@ -1,20 +1,25 @@
+import { EmptyState } from '@/components/ui/ScreenState'
+import { ConfidenceBar } from '@/components/ui/ConfidenceBar'
+import { PinnedActions } from '@/components/ui/PinnedActions'
 import { useDerivedCurrentWeek } from '@shared/hooks/useDerivedCurrentWeek'
 import { useEntitlements } from '@shared/hooks/useEntitlements'
 import { formatOdds } from '@shared/odds'
-import useParlayStore, { parlayKey } from '@shared/store/parlayStore'
+import useParlayStore, {
+  parlayKey,
+  SAVE_PARLAY_ERROR,
+} from '@shared/store/parlayStore'
 import { cancelParlayRun } from '@shared/hooks/useParlayGenerator'
 import { Stack, router, useLocalSearchParams } from 'expo-router'
 import { useState } from 'react'
 import { Alert, InteractionManager, ScrollView, StyleSheet, Text, View } from 'react-native'
 
-import { ErrorBanner } from '@/components/ErrorBanner'
+import { ErrorBanner } from '@/components/ui/ErrorBanner'
 import { AgentProgress } from '@/components/display/AgentProgress'
 import { DraftPreviewView } from '@/components/display/DraftPreviewView'
 import { GameSummaryView } from '@/components/display/GameSummaryView'
 import { ParlayDisplayFooter } from '@/components/display/ParlayDisplayFooter'
 import { ParlayLegView } from '@/components/display/ParlayLegView'
 import { Button } from '@/components/ui/Button'
-import { GlassSurface } from '@/components/ui/GlassSurface'
 import { useAuth } from '@/lib/auth/useAuth'
 import { unbilledNotice } from '@/lib/build/quotaCopy'
 import { saveParlayToUser } from '@/lib/parlays'
@@ -51,10 +56,10 @@ export default function ParlayDetailScreen() {
     return (
       <View style={styles.centered}>
         <Stack.Screen options={{ title }} />
-        <Text style={styles.muted}>
-          This parlay is no longer in this week&apos;s working set. Saved parlays live
-          under History.
-        </Text>
+        <EmptyState
+          title="No longer in this week's working set"
+          body="Saved parlays live under History."
+        />
       </View>
     )
   }
@@ -88,9 +93,14 @@ export default function ParlayDetailScreen() {
           title="Parlay generation failed"
           message={entry.error ?? 'The run ended without a parlay.'}
         />
+        {/* Deliberately not "nothing was charged". On a lost connection the
+            client does not know: the server may have finished and billed the
+            run after the stream dropped. Stating the rule is true in every
+            case; asserting the outcome is not. The quota is refetched when a
+            run fails, so the Build tab's count is the answer. */}
         <Text style={styles.muted}>
-          Nothing was charged for this — a run only counts once it comes back with
-          live book prices.
+          A run only counts against your weekly parlays once it comes back with
+          live book prices. Your remaining count is on the Build tab.
         </Text>
       </View>
     )
@@ -136,7 +146,7 @@ export default function ParlayDetailScreen() {
       await saveParlayToUser(user.uid, parlay)
       setSavedId(parlay.parlayId)
     } catch {
-      setSaveError('Failed to save parlay. Please try again.')
+      setSaveError(SAVE_PARLAY_ERROR)
     } finally {
       setSaving(false)
     }
@@ -162,27 +172,21 @@ export default function ParlayDetailScreen() {
           <Text style={styles.odds}>{formatOdds(parlay.combinedOdds)}</Text>
         </View>
 
-        <View style={styles.confidenceRow}>
-          <Text style={styles.confidenceLabel}>Overall confidence</Text>
-          <View style={styles.track}>
-            <View
-              style={[
-                styles.fill,
-                { width: `${Math.round(parlay.parlayConfidence * 100)}%` },
-              ]}
-            />
-          </View>
-          <Text style={styles.confidenceValue}>
-            {Math.round(parlay.parlayConfidence * 100)}%
-          </Text>
-        </View>
+        <ConfidenceBar label="Overall confidence" value={parlay.parlayConfidence} />
 
-        {hasEstimate ? (
+        {/* Two independent facts, and they do not always travel together. The
+            banner used to render only on `hasEstimate` (an unanchored leg) with
+            the refund line nested inside it — but billing keys off the odds
+            source, so a run where every leg anchored yet a game's odds degraded
+            was never billed and never said so. */}
+        {hasEstimate || unbilled ? (
           <ErrorBanner
             type="rate_limit_reached"
-            title="Contains estimated prices"
+            title={hasEstimate ? 'Contains estimated prices' : 'This one was free'}
             message={[
-              'One or more legs are marked “Estimate” — the book hadn’t posted a line for that market, so the price is an AI estimate rather than a real one.',
+              hasEstimate
+                ? 'One or more legs are marked “Estimate” — the book hadn’t posted a line for that market, so the price is an AI estimate rather than a real one.'
+                : null,
               unbilled,
             ]
               .filter(Boolean)
@@ -231,8 +235,7 @@ export default function ParlayDetailScreen() {
         <ParlayDisplayFooter parlay={parlay} />
       </ScrollView>
 
-      <GlassSurface
-        style={styles.actions}
+      <PinnedActions
         onLayout={e => setActionsHeight(e.nativeEvent.layout.height)}
       >
         <View style={styles.actionRow}>
@@ -254,7 +257,7 @@ export default function ParlayDetailScreen() {
             style={styles.discardAction}
           />
         </View>
-      </GlassSurface>
+      </PinnedActions>
     </View>
   )
 }
@@ -279,37 +282,8 @@ const styles = StyleSheet.create({
   // edge where the eye lands last.
   odds: { ...typography.display, color: colors.primaryBright, fontVariant: ['tabular-nums'] },
 
-  confidenceRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  confidenceLabel: { ...typography.caption, color: colors.textSecondary },
-  track: {
-    flex: 1,
-    height: 6,
-    borderRadius: 999,
-    backgroundColor: colors.surfaceRaised,
-    overflow: 'hidden',
-  },
-  fill: { height: '100%', borderRadius: 999, backgroundColor: colors.primaryBright },
-  confidenceValue: {
-    ...typography.numericSmall,
-    color: colors.text,
-    minWidth: 40,
-    textAlign: 'right',
-  },
 
   legs: { gap: spacing.sm },
-  // No safe-area inset here. This bar is pinned to the bottom of a screen
-  // inside the tab navigator, so the tab bar already sits between it and the
-  // home indicator and has already absorbed that inset — adding it again pads
-  // for a gap something else is filling.
-  actions: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.divider,
-    padding: spacing.md,
-  },
   actionRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   saveAction: { flex: 1 },
   // Neutral container, red glyph. The border is what makes it read as a button

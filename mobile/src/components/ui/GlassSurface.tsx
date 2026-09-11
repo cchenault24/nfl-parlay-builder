@@ -14,7 +14,6 @@ const LIQUID_GLASS = (() => {
   }
 })()
 
-export const glassAvailable = LIQUID_GLASS
 
 /**
  * Native chrome — the tab bar, pinned action areas and sheets — where iOS 26

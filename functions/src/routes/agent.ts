@@ -63,7 +63,18 @@ const route =
         error: { code: 'internal_error', message },
       })
       if (!res.headersSent) {
-        errorResponse(res, 500, 'internal_error', message, authed.correlationId)
+        // A fixed message, never `message`. The underlying text is Stripe API
+        // prose, a Firestore index or permission error, or `APPLE_APP_APPLE_ID
+        // is not configured` — which maps out the backend and enumerates which
+        // credentials exist. The detail stays in the log line above, and the
+        // correlation id already returned is how the two are joined up.
+        errorResponse(
+          res,
+          500,
+          'internal_error',
+          'Something went wrong on our end. Please try again.',
+          authed.correlationId
+        )
       }
     }
   }
@@ -181,7 +192,21 @@ agentRouter.post(
       }),
       input,
     })
-    await createRun(run)
+    // The quota slot is taken here, in the same transaction that creates the
+    // run — `resolveRunInput`'s own quota check is a fast path for a clear
+    // refusal, not the boundary. Concurrent requests all pass that check
+    // against the same `used`; only one of them can win this write.
+    const reserved = await createRun(run, entitlements.quota.limit)
+    if (!reserved) {
+      return errorResponse(
+        res,
+        403,
+        'quota_exhausted',
+        `You have used all ${entitlements.quota.limit} generations for this week. Your next ones arrive Tuesday.`,
+        correlationId,
+        { resetsAt: entitlements.quota.resetsAt, tier: entitlements.tier }
+      )
+    }
     log.info('api.agent.create', {
       correlationId,
       runId: run.id,

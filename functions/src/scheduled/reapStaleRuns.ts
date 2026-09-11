@@ -1,6 +1,6 @@
 import { onSchedule } from 'firebase-functions/v2/scheduler'
 import type { AgentRun } from '../agent/shared/schemas'
-import { transitionRun } from '../agent/store/firestore'
+import { refundUnlessBillable, transitionRun } from '../agent/store/firestore'
 import { db } from '../firebase'
 import { log } from '../observability/logger'
 
@@ -46,16 +46,26 @@ export const reapStaleRunsSweep = onSchedule(
 
     let reaped = 0
     for (const doc of snap.docs) {
-      // Atomic and scoped to the statuses we queried, so a run that reached a
-      // real outcome between the query and now keeps it.
-      const result = await transitionRun(doc.id, STUCK_STATUSES, {
+      const updates: Partial<AgentRun> = {
         status: 'failed',
         error: {
           code: 'abandoned',
           message:
             'Run stopped making progress and was ended by the stale-run sweep',
         },
-      })
+      }
+      // Atomic and scoped to the statuses we queried, so a run that reached a
+      // real outcome between the query and now keeps it. The refund rides the
+      // same transaction: a run holds its generation slot from creation, and an
+      // abandoned one delivered nothing to charge for — without this, the one
+      // failure mode nothing else can clean up is also the one that silently
+      // costs a free user a generation.
+      const result = await transitionRun(
+        doc.id,
+        STUCK_STATUSES,
+        updates,
+        refundUnlessBillable(updates)
+      )
       if (result) {
         reaped += 1
       }

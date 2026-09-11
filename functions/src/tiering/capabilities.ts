@@ -114,10 +114,52 @@ export function quotaWindowStart(now: Date = new Date()): string {
     .slice(0, 10)
 }
 
+// How far America/New_York is from UTC at a given instant: what the wall clock
+// there reads, parsed as if it were UTC, minus the real instant. Negative in
+// both EST (-5h) and EDT (-4h).
+function easternOffsetMs(at: Date): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(at)
+  const get = (type: string) => parts.find(p => p.type === type)?.value ?? '00'
+  const asUtc = Date.parse(
+    `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}:${get('second')}Z`
+  )
+  return asUtc - at.getTime()
+}
+
+// The real instant of midnight in New York on a given calendar date.
+//
+// `quotaWindowStart` anchors its *label* on UTC midnight of the Eastern date,
+// which is correct and DST-proof for a bucket key. Reusing that anchor as an
+// instant is what was wrong: it put the rollover at UTC midnight, four or five
+// hours before the Eastern midnight the bucket actually turns over at. Every
+// week, `resetsAt` was that much early — so a user at 21:00 ET on Monday was
+// told their allowance had already reset while the server kept refusing runs.
+function easternMidnight(date: string): Date {
+  const naive = Date.parse(`${date}T00:00:00Z`)
+  // Correct twice: the first pass uses the offset at the UTC instant, which can
+  // be on the wrong side of a DST transition; the second uses the offset at the
+  // instant that produced. Midnight is never inside the ambiguous hour of
+  // either US transition (2am), so this settles.
+  const first = naive - easternOffsetMs(new Date(naive))
+  return new Date(naive - easternOffsetMs(new Date(first)))
+}
+
 // The instant the current bucket rolls over, so a client can render "resets
 // Tuesday" without re-deriving the NFL week boundary itself.
 export function quotaWindowEnd(now: Date = new Date()): string {
-  return new Date(
+  const nextStart = new Date(
     Date.parse(`${quotaWindowStart(now)}T00:00:00Z`) + 7 * DAY_MS
-  ).toISOString()
+  )
+    .toISOString()
+    .slice(0, 10)
+  return easternMidnight(nextStart).toISOString()
 }

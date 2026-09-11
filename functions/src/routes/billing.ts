@@ -58,7 +58,18 @@ const route =
         error: { code: 'billing_error', message },
       })
       if (!res.headersSent) {
-        errorResponse(res, 500, 'billing_error', message, authed.correlationId)
+        // A fixed message, never `message`. The underlying text is Stripe API
+        // prose, a Firestore index or permission error, or `APPLE_APP_APPLE_ID
+        // is not configured` — which maps out the backend and enumerates which
+        // credentials exist. The detail stays in the log line above, and the
+        // correlation id already returned is how the two are joined up.
+        errorResponse(
+          res,
+          500,
+          'billing_error',
+          'Something went wrong on our end. Please try again.',
+          authed.correlationId
+        )
       }
     }
   }
@@ -100,8 +111,11 @@ billingRouter.post(
     if (!user) {
       return errorResponse(res, 401, 'unauthorized', 'Missing user', correlationId)
     }
-    const signedTransaction = String(req.body?.signedTransaction ?? '')
-    if (!signedTransaction) {
+    // Checked as a string rather than coerced: String({}) is "[object Object]",
+    // which is truthy, so a non-string body would sail past this guard and reach
+    // the verifier as gibberish.
+    const signedTransaction = req.body?.signedTransaction
+    if (typeof signedTransaction !== 'string' || !signedTransaction) {
       return errorResponse(
         res,
         400,

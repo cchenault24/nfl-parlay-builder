@@ -9,7 +9,6 @@ export const colors = {
   // green icons use `primaryBright` (6.8:1 on the page) instead.
   primary: '#2e7d32', // NFL green
   primaryBright: '#4caf50',
-  primaryMuted: '#1b5e20',
   secondary: '#ff9800', // orange accent
 
   // Surfaces. The steps are small by necessity on an OLED-black page, so a
@@ -34,6 +33,9 @@ export const colors = {
   success: '#66bb6a',
   warning: '#ffa726',
   error: '#f44336',
+  // The scrim behind a modal. Two literals were in use — 0.55 and 0.6 — which is
+  // how one becomes three.
+  scrim: 'rgba(0, 0, 0, 0.55)',
   info: '#29b6f6',
 } as const
 
@@ -80,8 +82,7 @@ export const radius = {
 export const HIT_SLOP = { top: 8, bottom: 8, left: 8, right: 8 } as const
 export const MIN_TARGET = 44
 
-// One pressed treatment for the whole app — it used to be 0.6, 0.7 and 0.75
-// depending on which file you landed in.
+// One pressed treatment for the whole app.
 export const PRESSED_OPACITY = 0.7
 
 export const fonts = {
@@ -92,8 +93,8 @@ export const fonts = {
 } as const
 
 // Eight steps, each with its own line height. Components take a role from here
-// rather than overriding fontSize inline — that is how the old scale grew to
-// eleven rendered sizes (32/26/22/18/17/16/15/13/12/11/10).
+// and never override fontSize inline — an inline override is a ninth size that
+// belongs to no scale.
 //
 // Weight comes from `fontFamily`, never from `fontWeight`: the app loads four
 // named Inter faces, so a bare `fontWeight: '700'` silently falls back to

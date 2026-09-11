@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import type { TierCapabilities } from '@shared/tiering'
 import type { BookLines } from '@shared/types'
 import {
-  bookmakerForRequest,
   bookOptions,
   effectiveBookKey,
   effectiveLegCount,
@@ -55,29 +54,6 @@ const lines = (posted: Record<string, boolean>): BookLines[] =>
 
 const ALL_POSTED = lines({ draftkings: true, fanduel: true, betmgm: true, caesars: true })
 const HALF_POSTED = lines({ draftkings: true, fanduel: true })
-
-describe('bookmakerForRequest', () => {
-  // agent.ts answers 403 sportsbook_locked to a *requested* book from a plan
-  // that cannot choose, so sending the pinned book to match the label would
-  // break every free run.
-  it('sends nothing on free, even though the sheet names DraftKings', () => {
-    expect(bookmakerForRequest(FREE, 'draftkings')).toBeUndefined()
-    expect(bookmakerForRequest(FREE, undefined)).toBeUndefined()
-  })
-
-  it('sends nothing before entitlements have loaded', () => {
-    expect(bookmakerForRequest(undefined, 'fanduel')).toBeUndefined()
-  })
-
-  it('sends the choice on Pro', () => {
-    expect(bookmakerForRequest(PRO, 'fanduel')).toBe('fanduel')
-  })
-
-  it('sends nothing when Pro has expressed no preference', () => {
-    expect(bookmakerForRequest(PRO, undefined)).toBeUndefined()
-    expect(bookmakerForRequest(PRO, '')).toBeUndefined()
-  })
-})
 
 describe('bookOptions on free', () => {
   const options = () =>
@@ -176,17 +152,37 @@ describe('riskOptions', () => {
 })
 
 describe('legCountOptions', () => {
-  it('offers 2 through 6 on Pro', () => {
-    expect(legCountOptions(PRO).map(o => o.value)).toEqual([2, 3, 4, 5, 6])
-    expect(legCountOptions(PRO).every(o => !o.locked)).toBe(true)
+  // The widest range is Pro's, and the server sends it. Nothing here restates
+  // it: widening Pro's range server-side used to leave the extra chips
+  // unrendered against a hardcoded { min: 2, max: 6 } default.
+  const PRO_RANGE = PRO.legCount
+
+  it('offers Pro’s full range on Pro', () => {
+    expect(legCountOptions(PRO, PRO_RANGE).map(o => o.value)).toEqual([2, 3, 4, 5, 6])
+    expect(legCountOptions(PRO, PRO_RANGE).every(o => !o.locked)).toBe(true)
   })
 
   // The sheet says "2-6 with Pro", so all five have to be on screen — the
   // canvas review caught a version that showed four.
   it('shows every count on free with only 3 unlocked', () => {
-    const options = legCountOptions(FREE)
+    const options = legCountOptions(FREE, PRO_RANGE)
     expect(options.map(o => o.value)).toEqual([2, 3, 4, 5, 6])
     expect(options.filter(o => !o.locked).map(o => o.value)).toEqual([3])
+  })
+
+  it('renders a widened Pro range without a client change', () => {
+    const options = legCountOptions(FREE, { min: 2, max: 8 })
+    expect(options.map(o => o.value)).toEqual([2, 3, 4, 5, 6, 7, 8])
+  })
+
+  // Before entitlements land there is no range to show, and inventing one is
+  // what the "clients never hardcode a limit" rule exists to stop.
+  it('renders nothing at all before entitlements load', () => {
+    expect(legCountOptions(undefined, undefined)).toEqual([])
+  })
+
+  it('falls back to the plan’s own range when Pro’s is unknown', () => {
+    expect(legCountOptions(FREE, undefined).map(o => o.value)).toEqual([3])
   })
 })
 

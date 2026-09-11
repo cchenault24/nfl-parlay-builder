@@ -1,54 +1,37 @@
+import {
+  AGE_VERIFICATION_KEY,
+  isVerified as recordIsVerified,
+  newVerification,
+} from '@shared/legal/ageVerification'
 import { useEffect, useState } from 'react'
 
-const AGE_VERIFICATION_KEY = 'nfl-parlay-age-verified'
-const VERIFICATION_EXPIRY_DAYS = 30 // Re-verify every 30 days
-
-interface AgeVerificationData {
-  verified: boolean
-  timestamp: number
-}
-
+// The rule lives in shared/legal/ageVerification.ts. Only the storage backend
+// differs from the iOS hook — localStorage here, AsyncStorage there — and the
+// policy must not, because the two clients gate the same content for the same
+// account.
 export const useAgeVerification = () => {
   const [isVerified, setIsVerified] = useState<boolean>(false)
   const [isLoading, setIsLoading] = useState<boolean>(true)
 
   useEffect(() => {
-    checkVerificationStatus()
+    let stored: string | null = null
+    try {
+      stored = localStorage.getItem(AGE_VERIFICATION_KEY)
+    } catch {
+      // Storage disabled or unavailable fails closed, same as an unreadable
+      // record.
+      stored = null
+    }
+    const ok = recordIsVerified(stored)
+    if (!ok && stored) {
+      localStorage.removeItem(AGE_VERIFICATION_KEY)
+    }
+    setIsVerified(ok)
+    setIsLoading(false)
   }, [])
 
-  const checkVerificationStatus = () => {
-    try {
-      const stored = localStorage.getItem(AGE_VERIFICATION_KEY)
-      if (!stored) {
-        setIsVerified(false)
-        setIsLoading(false)
-        return
-      }
-
-      const data: AgeVerificationData = JSON.parse(stored)
-      const now = Date.now()
-      const daysSinceVerification =
-        (now - data.timestamp) / (1000 * 60 * 60 * 24)
-
-      if (data.verified && daysSinceVerification < VERIFICATION_EXPIRY_DAYS) {
-        setIsVerified(true)
-      } else {
-        // Verification expired, remove old data
-        localStorage.removeItem(AGE_VERIFICATION_KEY)
-        setIsVerified(false)
-      }
-    } catch {
-      setIsVerified(false)
-    }
-    setIsLoading(false)
-  }
-
   const setVerified = () => {
-    const data: AgeVerificationData = {
-      verified: true,
-      timestamp: Date.now(),
-    }
-    localStorage.setItem(AGE_VERIFICATION_KEY, JSON.stringify(data))
+    localStorage.setItem(AGE_VERIFICATION_KEY, JSON.stringify(newVerification()))
     setIsVerified(true)
   }
 

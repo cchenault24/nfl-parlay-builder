@@ -23,12 +23,18 @@ export interface EntitlementRecord {
   accessEndsAt?: string
   stripeCustomerId?: string
   stripeSubscriptionId?: string
-  // Apple has no idea what a Firebase uid is. The app generates this UUID once,
-  // passes it as StoreKit's appAccountToken on purchase, and Apple echoes it
-  // back on every transaction and server notification — so it is the only way
-  // to attribute an Apple renewal to a user.
+  // Apple has no idea what a Firebase uid is. The app derives this UUID from the
+  // uid, passes it as StoreKit's appAccountToken on purchase, and Apple echoes
+  // it back on every transaction and server notification — so it is the second
+  // way to attribute a renewal, behind the originalTransactionId index and
+  // reachable when that one cannot answer.
   appleAccountToken?: string
   appleOriginalTransactionId?: string
+  // Which App Store environment signed the transaction. A sandbox purchase is
+  // free and available to any TestFlight tester, so a grant from one must stay
+  // distinguishable from a paid production grant rather than silently looking
+  // identical to it.
+  appleEnvironment?: string
   updatedAt: string
 }
 
@@ -112,6 +118,22 @@ export async function findUidByAppleTransaction(
   return snap.empty ? undefined : snap.docs[0].id
 }
 
+// The second way in. The app sets `appAccountToken` on the purchase and Apple
+// echoes it back on every transaction and notification, so an event whose
+// originalTransactionId is missing or was never recorded can still be
+// attributed. Without it, every such event fell into the unknown_subscriber
+// branch with nothing to try next.
+export async function findUidByAppleAccountToken(
+  appleAccountToken: string
+): Promise<string | undefined> {
+  const snap = await db()
+    .collection('entitlements')
+    .where('appleAccountToken', '==', appleAccountToken)
+    .limit(1)
+    .get()
+  return snap.empty ? undefined : snap.docs[0].id
+}
+
 // Reads the current bucket, treating a stale `windowStart` as zero rather than
 // writing a reset. Nothing needs to be persisted until a generation is actually
 // committed, so a user who never generates never causes a write.
@@ -127,6 +149,12 @@ export async function getQuotaUsage(uid: string, now = new Date()): Promise<numb
 export interface EntitlementView {
   tier: Tier
   capabilities: TierCapabilities
+  // What Pro grants, regardless of the tier this user is on. The upgrade sheet
+  // and the locked controls need it to say what upgrading buys — a free user's
+  // own `capabilities` describe only what they already have, so the clients used
+  // to restate Pro's limits as English sentences and a `{ min: 2, max: 6 }`
+  // default, which this file's own header forbids.
+  proCapabilities: TierCapabilities
   // Served rather than hardcoded in each client, for the same reason the limits
   // are: adding a book should not need an app release on two platforms.
   sportsbooks: ReadonlyArray<{ key: string; title: string }>
@@ -157,6 +185,7 @@ export async function getEntitlementView(
   return {
     tier: entitlement.tier,
     capabilities,
+    proCapabilities: capabilitiesFor('pro'),
     sportsbooks: SUPPORTED_BOOKMAKERS,
     billingAvailable: { stripe: stripeConfigured(), apple: appleConfigured() },
     quota: {
@@ -171,23 +200,60 @@ export async function getEntitlementView(
   }
 }
 
-// Increments the bucket inside a caller-supplied transaction. It is written this
-// way so the commit can share the transaction that moves a run to 'succeeded':
-// that transition happens exactly once, so sharing it makes the increment
-// exactly-once too. Committing afterwards in its own transaction could double
-// count on a retry, which would silently cost a free user a generation.
+// Takes a slot inside a caller-supplied transaction, refusing when the bucket is
+// already full. Returns the window the slot was taken from, or null when there
+// was nothing left.
+//
+// Reserving at creation rather than committing at success is what makes the
+// quota enforceable at all. Checking `remaining` in one HTTP request and
+// debiting in another leaves the two seconds-to-minutes apart, so N concurrent
+// POSTs all read the same `used` and all pass — a free user with 2 a week could
+// take as many generations as the rate limiter allowed. The check and the debit
+// have to be the same write.
 //
 // The read has to happen before any write in the transaction, which is why this
 // takes the transaction rather than a batch.
-export async function commitGenerationInTx(
+export async function reserveGenerationInTx(
   tx: Transaction,
   uid: string,
+  limit: number | null,
   now = new Date()
-): Promise<void> {
+): Promise<string | null> {
   const ref = quotaRef(uid)
   const snap = await tx.get(ref)
   const windowStart = quotaWindowStart(now)
   const record = snap.exists ? (snap.data() as QuotaRecord) : undefined
   const used = record && record.windowStart === windowStart ? record.used : 0
+  // null is unbounded, which is not the same as a limit of zero.
+  if (limit !== null && used >= limit) {
+    return null
+  }
   tx.set(ref, { windowStart, used: used + 1 })
+  return windowStart
+}
+
+// Gives a reserved slot back, for a run that ended without delivering what the
+// tier promises: a failure, a cancellation, or a success that fell back to
+// AI-estimated prices because the odds tool was unavailable.
+//
+// `windowStart` is the window the slot was taken from, carried on the run. A
+// release into a *different* window is dropped rather than applied: the bucket
+// it belongs to no longer exists, and decrementing the current one would hand
+// the user a free generation every time a run straddled the Tuesday rollover.
+export async function releaseGenerationInTx(
+  tx: Transaction,
+  uid: string,
+  windowStart: string,
+  now = new Date()
+): Promise<void> {
+  if (windowStart !== quotaWindowStart(now)) {
+    return
+  }
+  const ref = quotaRef(uid)
+  const snap = await tx.get(ref)
+  const record = snap.exists ? (snap.data() as QuotaRecord) : undefined
+  if (!record || record.windowStart !== windowStart) {
+    return
+  }
+  tx.set(ref, { windowStart, used: Math.max(0, record.used - 1) })
 }

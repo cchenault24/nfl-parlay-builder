@@ -1,4 +1,5 @@
-import Ionicons from '@expo/vector-icons/Ionicons'
+import { SheetHeader } from '@/components/ui/SheetHeader'
+import { ErrorBanner } from '@/components/ui/ErrorBanner'
 import { useState } from 'react'
 import {
   KeyboardAvoidingView,
@@ -23,22 +24,7 @@ import {
   spacing,
   typography,
 } from '@/lib/theme/designTokens'
-
-interface FirebaseAuthError {
-  code?: string
-  message?: string
-}
-
-// Matches the web AuthModal: turn `auth/invalid-credential` into
-// `invalid credential` rather than showing a raw Firebase code.
-function readableAuthError(err: unknown): string {
-  const authError = err as FirebaseAuthError
-  return (
-    authError.code?.replace('auth/', '').replace(/-/g, ' ') ||
-    authError.message ||
-    'Authentication failed'
-  )
-}
+import { readableAuthError } from '@/lib/auth/authErrors'
 
 interface AuthSheetProps {
   visible: boolean
@@ -106,25 +92,14 @@ export function AuthSheet({ visible, startOnSignUp, onClose }: AuthSheetProps) {
         style={styles.sheet}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.header}>
-          <Text style={styles.title} accessibilityRole="header">
-            {isSignUp ? 'Create account' : 'Sign in'}
-          </Text>
-          <Pressable
-            onPress={onClose}
-            hitSlop={HIT_SLOP}
-            accessibilityRole="button"
-            accessibilityLabel="Close"
-          >
-            <Ionicons name="close" size={24} color={colors.textSecondary} />
-          </Pressable>
-        </View>
+        <SheetHeader
+          title={isSignUp ? 'Create account' : 'Sign in'}
+          onClose={onClose}
+        />
 
         <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
           {error ? (
-            <View style={styles.errorBox}>
-              <Text style={styles.errorText}>{error}</Text>
-            </View>
+            <ErrorBanner type="error" message={error} />
           ) : null}
 
           <View style={styles.field}>
@@ -215,15 +190,6 @@ export function AuthSheet({ visible, startOnSignUp, onClose }: AuthSheetProps) {
 
 const styles = StyleSheet.create({
   sheet: { flex: 1, backgroundColor: colors.background },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.divider,
-  },
-  title: { ...typography.heading, color: colors.text },
   body: { padding: spacing.md, gap: spacing.md },
 
   field: { gap: spacing.xs },
@@ -247,14 +213,6 @@ const styles = StyleSheet.create({
   dividerText: { ...typography.bodySmall, color: colors.textSecondary },
 
 
-  errorBox: {
-    backgroundColor: 'rgba(244, 67, 54, 0.12)',
-    borderWidth: 1,
-    borderColor: colors.error,
-    borderRadius: radius.md,
-    padding: spacing.md,
-  },
-  errorText: { ...typography.bodySmall, color: colors.error },
 
   switch: { paddingVertical: spacing.sm },
   switchText: {

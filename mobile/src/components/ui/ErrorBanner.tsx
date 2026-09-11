@@ -5,14 +5,12 @@ import { colors, radius, spacing, typography } from '@/lib/theme/designTokens'
 
 export type ErrorBannerType =
   | 'rate_limit_reached'
-  | 'rate_limit_warning'
   | 'error'
   | 'info'
   | 'success'
 
 const TONE: Record<ErrorBannerType, { color: string; icon: keyof typeof Ionicons.glyphMap }> = {
   rate_limit_reached: { color: colors.warning, icon: 'time-outline' },
-  rate_limit_warning: { color: colors.info, icon: 'time-outline' },
   error: { color: colors.error, icon: 'alert-circle-outline' },
   info: { color: colors.info, icon: 'information-circle-outline' },
   success: { color: colors.success, icon: 'checkmark-circle-outline' },

@@ -37,10 +37,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => onAuthUserChanged(setUser), [])
 
   useEffect(() => {
-    // Still waiting on the first auth state — nothing to do yet.
-    if (user === undefined) {
-      return
-    }
+    // undefined = the first auth state has not arrived; null = signed out.
+    // Nothing to fetch either way.
     if (!user) {
       return
     }

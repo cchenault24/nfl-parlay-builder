@@ -1,8 +1,8 @@
-import Ionicons from '@expo/vector-icons/Ionicons'
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { SheetHeader } from '@/components/ui/SheetHeader'
+import { Modal, ScrollView, StyleSheet, Text, View } from 'react-native'
 
-import type { LegalDocument } from '@/lib/legal/content'
-import { colors, HIT_SLOP, radius, spacing, typography } from '@/lib/theme/designTokens'
+import type { LegalDocument } from '@shared/legal/content'
+import { colors, radius, spacing, typography } from '@/lib/theme/designTokens'
 
 interface LegalDocumentSheetProps {
   document: LegalDocument | null
@@ -18,22 +18,11 @@ export function LegalDocumentSheet({ document, onClose }: LegalDocumentSheetProp
       onRequestClose={onClose}
     >
       <View style={styles.sheet}>
-        <View style={styles.header}>
-          <View style={styles.headerText}>
-            <Text style={styles.title} accessibilityRole="header">
-              {document?.title}
-            </Text>
-            <Text style={styles.subtitle}>{document?.subtitle}</Text>
-          </View>
-          <Pressable
-            onPress={onClose}
-            hitSlop={HIT_SLOP}
-            accessibilityRole="button"
-            accessibilityLabel="Close"
-          >
-            <Ionicons name="close" size={24} color={colors.textSecondary} />
-          </Pressable>
-        </View>
+        <SheetHeader
+          title={document?.title ?? ''}
+          subtitle={document?.subtitle}
+          onClose={onClose}
+        />
 
         <ScrollView contentContainerStyle={styles.body}>
           {document?.notice ? (
@@ -67,17 +56,6 @@ export function LegalDocumentSheet({ document, onClose }: LegalDocumentSheetProp
 
 const styles = StyleSheet.create({
   sheet: { flex: 1, backgroundColor: colors.background },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.sm,
-    padding: spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.divider,
-  },
-  headerText: { flex: 1, gap: 2 },
-  title: { ...typography.heading, color: colors.text },
-  subtitle: { ...typography.bodySmall, color: colors.textSecondary },
   body: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xxl },
 
   notice: {

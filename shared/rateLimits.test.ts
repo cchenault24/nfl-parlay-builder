@@ -5,6 +5,8 @@ import {
   allowanceLabel,
   asRateLimitWindows,
   bindingAllowance,
+  quotaRemainingLabel,
+  quotaResetLabel,
   timeUntil,
 } from './rateLimits'
 
@@ -174,5 +176,41 @@ describe('timeUntil', () => {
 
   it.each([undefined, 'not a date'])('has nothing to say for %s', value => {
     expect(timeUntil(value)).toBe('')
+  })
+})
+
+describe('quotaResetLabel', () => {
+  const NOW = Date.parse('2026-09-09T12:00:00.000Z')
+  const inDays = (days: number) =>
+    new Date(NOW + days * 24 * 60 * 60 * 1000).toISOString()
+
+  it('says tomorrow for anything inside a day', () => {
+    expect(quotaResetLabel(inDays(0.5), NOW)).toBe('Resets tomorrow')
+    expect(quotaResetLabel(inDays(1), NOW)).toBe('Resets tomorrow')
+  })
+
+  it('counts whole days up, so a partial day still reads as a day', () => {
+    expect(quotaResetLabel(inDays(1.1), NOW)).toBe('Resets in 2 days')
+    expect(quotaResetLabel(inDays(6), NOW)).toBe('Resets in 6 days')
+  })
+
+  // A reset already behind us is the boundary the client and server disagreed
+  // over; saying "tomorrow" is the safe read either way.
+  it('says tomorrow once the reset has passed', () => {
+    expect(quotaResetLabel(inDays(-1), NOW)).toBe('Resets tomorrow')
+  })
+
+  it('returns nothing for an unparseable date rather than NaN days', () => {
+    expect(quotaResetLabel('not a date', NOW)).toBe('')
+  })
+})
+
+describe('quotaRemainingLabel', () => {
+  it('names the count and the limit', () => {
+    expect(quotaRemainingLabel(1, 2)).toBe('1 of 2 parlays left this week')
+  })
+
+  it('says none left rather than "0 of 2"', () => {
+    expect(quotaRemainingLabel(0, 2)).toBe('No parlays left this week')
   })
 })

@@ -5,10 +5,10 @@ import { StyleSheet, Text, View } from 'react-native'
 
 import { TeamLogo } from '@/components/display/TeamLogo'
 import { Card } from '@/components/ui/Card'
+import { ConfidenceBar } from '@/components/ui/ConfidenceBar'
 import { Chip } from '@/components/ui/Chip'
 import {
   colors,
-  radius,
   semanticColor,
   spacing,
   typography,
@@ -21,7 +21,6 @@ export function ParlayLegView({ leg, index }: { leg: ParlayLeg; index: number })
   const belowImplied = leg.anchored && leg.confidence <= implied
   const betTint = semanticColor[getBetTypeColor(leg.betType)]
   const confTint = semanticColor[getConfidenceColor(leg.confidence)]
-  const confidencePct = Math.round(leg.confidence * 100)
 
   return (
     <Card tone="inset" style={styles.card}>
@@ -40,20 +39,7 @@ export function ParlayLegView({ leg, index }: { leg: ParlayLeg; index: number })
       <Text style={styles.selection}>{leg.selection}</Text>
       <Text style={styles.reasoning}>{leg.reasoning}</Text>
 
-      <View
-        style={styles.confidenceRow}
-        accessibilityRole="progressbar"
-        accessibilityLabel="Model confidence"
-        accessibilityValue={{ min: 0, max: 100, now: confidencePct }}
-      >
-        <Text style={styles.confidenceLabel}>Confidence</Text>
-        <View style={styles.track}>
-          <View
-            style={[styles.fill, { width: `${confidencePct}%`, backgroundColor: confTint }]}
-          />
-        </View>
-        <Text style={styles.confidenceValue}>{confidencePct}%</Text>
-      </View>
+      <ConfidenceBar label="Confidence" value={leg.confidence} tint={confTint} />
       <Text style={styles.implied}>
         Book implies {Math.round(implied * 100)}%
       </Text>
@@ -82,24 +68,8 @@ const styles = StyleSheet.create({
   selection: { ...typography.title, color: colors.text },
   reasoning: { ...typography.bodySmall, color: colors.textSecondary },
 
-  confidenceRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  confidenceLabel: { ...typography.caption, color: colors.textSecondary },
-  track: {
-    flex: 1,
-    height: 6,
-    borderRadius: radius.pill,
-    backgroundColor: colors.surfaceRaised,
-    overflow: 'hidden',
-  },
-  fill: { height: '100%', borderRadius: radius.pill },
-  confidenceValue: {
-    ...typography.numericSmall,
-    color: colors.text,
-    minWidth: 40,
-    textAlign: 'right',
-  },
-  // Its own line now. Sharing the bar's row meant two numbers competing for
-  // the same trailing edge, and the wider one clipped at large text sizes.
+  // Its own line: sharing the bar's row puts two numbers on the same trailing
+  // edge, and the wider one clips at large text sizes.
   implied: { ...typography.caption, color: colors.textSecondary },
   warn: { ...typography.bodySmall, color: colors.warning },
 })

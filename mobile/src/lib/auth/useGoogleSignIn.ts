@@ -1,7 +1,8 @@
 import { GoogleAuthProvider } from '@firebase/auth'
+import type { AuthSessionResult } from 'expo-auth-session'
 import * as Google from 'expo-auth-session/providers/google'
 import * as WebBrowser from 'expo-web-browser'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { signInWithGoogleCredential } from '@/lib/firebase'
 
@@ -19,28 +20,61 @@ const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID
  */
 export const googleSignInConfigured = Boolean(iosClientId)
 
+// A success carrying no id_token is not finished: on native the library sets
+// `response` only once its own code exchange resolves, and this guards the case
+// where it publishes an intermediate value instead.
+function isSettled(result: AuthSessionResult): boolean {
+  return result.type !== 'success' || Boolean(result.params.id_token)
+}
+
 /**
  * Google sign-in for iOS. The web app uses signInWithPopup, which has no
  * React Native equivalent, so this opens the system browser via
  * expo-auth-session and trades the returned id_token for a Firebase
  * credential.
+ *
+ * The outcome is taken from the hook's `response`, NOT from the promise
+ * `promptAsync()` returns. On native `useIdTokenAuthRequest` is a PKCE *code*
+ * flow — it asks for an id_token directly only on web — so that promise
+ * resolves with `params.code` and no `id_token` at all. The token appears later
+ * on `response`, once the library's own effect has exchanged the code. Reading
+ * the promise instead makes every sign-in on a real device fail with "Google
+ * did not return an id_token".
+ *
+ * `response` is bridged back to the handler that asked for it rather than
+ * handled in an effect, so the pending flag is set and cleared in one place —
+ * and so the React Compiler's ban on setState inside an effect body is not
+ * something this has to work around.
  */
 export function useGoogleSignIn(onError: (message: string | null) => void) {
   const [pending, setPending] = useState(false)
 
-  const [request, , promptAsync] = Google.useIdTokenAuthRequest({
+  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
     iosClientId,
   })
 
-  // Handled on the promise promptAsync returns rather than on the hook's
-  // `response` state. It is the same result, but it arrives in the handler that
-  // asked for it, so clearing `pending` no longer costs a second render pass
-  // through an effect.
+  const waiting = useRef<((result: AuthSessionResult) => void) | null>(null)
+
+  useEffect(() => {
+    if (response && isSettled(response) && waiting.current) {
+      const resolve = waiting.current
+      waiting.current = null
+      resolve(response)
+    }
+  }, [response])
+
   const signIn = async () => {
     onError(null)
     setPending(true)
     try {
-      const result = await promptAsync()
+      // Armed before the prompt, so a redirect that comes back fast cannot
+      // land before there is anything to receive it.
+      const settled = new Promise<AuthSessionResult>(resolve => {
+        waiting.current = resolve
+      })
+      await promptAsync()
+      const result = await settled
+
       if (result.type === 'error') {
         onError(result.error?.message ?? 'Google sign-in failed')
         return
@@ -49,16 +83,14 @@ export function useGoogleSignIn(onError: (message: string | null) => void) {
         // dismiss / cancel — not an error worth showing.
         return
       }
-      const idToken = result.params.id_token
-      if (!idToken) {
-        onError('Google did not return an id_token')
-        return
-      }
-      await signInWithGoogleCredential(GoogleAuthProvider.credential(idToken))
+      await signInWithGoogleCredential(
+        GoogleAuthProvider.credential(result.params.id_token)
+      )
     } catch (err: unknown) {
       // No auto-retry: the failure is surfaced and the user decides.
       onError(err instanceof Error ? err.message : 'Google sign-in failed')
     } finally {
+      waiting.current = null
       setPending(false)
     }
   }

@@ -1,4 +1,4 @@
-import Ionicons from '@expo/vector-icons/Ionicons'
+import { EmptyState, ScreenLoading } from '@/components/ui/ScreenState'
 import { requestGrading } from '@shared/api/GradingService'
 import { getBetTypeColor } from '@shared/betColors'
 import { useEntitlements } from '@shared/hooks/useEntitlements'
@@ -6,7 +6,6 @@ import { formatOdds } from '@shared/odds'
 import type { GeneratedParlay, LegOutcome, ParlayOutcome } from '@shared/types'
 import { useEffect, useState } from 'react'
 import {
-  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -15,8 +14,8 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
-import { ErrorBanner } from '@/components/ErrorBanner'
-import UpgradeSheet from '@/components/UpgradeSheet'
+import { ErrorBanner } from '@/components/ui/ErrorBanner'
+import { UpgradeSheet } from '@/components/UpgradeSheet'
 import { Card } from '@/components/ui/Card'
 import { Chip } from '@/components/ui/Chip'
 import { useAuth } from '@/lib/auth/useAuth'
@@ -51,15 +50,28 @@ function OutcomeChip({ parlay }: { parlay: GeneratedParlay }) {
 
 export default function HistoryScreen() {
   const { user } = useAuth()
-  const { capabilities, entitlements, isLoading, refetch } = useEntitlements()
+  const {
+    capabilities,
+    entitlements,
+    isLoading,
+    error: entitlementsError,
+    refetch,
+  } = useEntitlements()
   const [loaded, setLoaded] = useState<GeneratedParlay[] | null>(null)
   const [error, setError] = useState('')
   const [upgradeVisible, setUpgradeVisible] = useState(false)
 
-  // Undefined while entitlements load, and if they fail outright. Showing a
-  // user more of their own saved parlays costs nothing, whereas failing closed
-  // would hide data they saved, so this one restriction fails open.
-  const depth = capabilities?.historyDepth ?? null
+  // How much history this plan shows; null is unbounded. Undefined means the
+  // answer has not arrived, which is NOT the same as unbounded — defaulting it
+  // to null meant a failed /entitlements call silently lifted a free user's cap
+  // to their entire archive. The query below simply waits instead.
+  //
+  // Worth being clear about what this is: a view restriction, not a boundary.
+  // firestore.rules lets a user read every parlay they saved, and getUserParlays
+  // fetches them all and slices here, so this shapes the product rather than
+  // guarding anything. Making it a real limit would need a server-side query.
+  const depth = capabilities?.historyDepth
+  const depthKnown = capabilities !== undefined
 
   // Derived rather than cleared in the effect: the tabs unmount on sign-out
   // (app/_layout.tsx guards them), so this only has to cover the frame between
@@ -67,7 +79,7 @@ export default function HistoryScreen() {
   const parlays = user ? loaded : null
 
   useEffect(() => {
-    if (!user) {
+    if (!user || !depthKnown) {
       return
     }
     // Both writes live in the listener's callbacks. Clearing the error on a
@@ -83,10 +95,10 @@ export default function HistoryScreen() {
         setError(message)
         setLoaded([])
       },
-      depth
+      depth ?? null
     )
     return unsubscribe
-  }, [user, depth])
+  }, [user, depth, depthKnown])
 
   useEffect(() => {
     if (!user) {
@@ -111,18 +123,24 @@ export default function HistoryScreen() {
           <ErrorBanner type="error" title="Couldn't load history" message={error} />
         ) : null}
 
-        {parlays === null || isLoading ? (
-          <View style={styles.centre}>
-            <ActivityIndicator color={colors.primaryBright} />
-          </View>
+        {/* Surfaced rather than worked around: without the plan there is no
+            honest amount of history to show. */}
+        {entitlementsError && !isLoading ? (
+          <ErrorBanner
+            type="error"
+            title="Couldn't load your plan"
+            message={entitlementsError}
+          />
+        ) : null}
+
+        {parlays === null || isLoading || !depthKnown ? (
+          <ScreenLoading />
         ) : parlays.length === 0 && !error ? (
-          <View style={styles.centre}>
-            <Ionicons name="bookmark-outline" size={44} color={colors.textDisabled} />
-            <Text style={styles.emptyTitle}>No saved parlays yet</Text>
-            <Text style={styles.emptyBody}>
-              Build a parlay and tap Save, and it will show up here.
-            </Text>
-          </View>
+          <EmptyState
+            icon="bookmark-outline"
+            title="No saved parlays yet"
+            body="Build a parlay and tap Save, and it will show up here."
+          />
         ) : (
           parlays.map(parlay => (
             <Card key={parlay.parlayId} style={styles.card}>
@@ -138,6 +156,15 @@ export default function HistoryScreen() {
                 />
               </View>
 
+              {/* A compact row rather than ParlayLegView: that component is a
+                  detail card carrying reasoning, a confidence bar and the
+                  implied probability, and a list of saved parlays would be
+                  unreadable with one per leg. What it must not lose is meaning
+                  — the odds are tinted like ParlayLegView's, the bet type is a
+                  chip rather than the thing carrying the colour, and an
+                  estimated price is marked. Without that marker a saved parlay
+                  priced by the model was indistinguishable from one priced
+                  against a real book. */}
               {parlay.legs.map((leg, i) => {
                 const legOutcome = parlay.grading?.legOutcomes?.[i]
                 const tint = semanticColor[getBetTypeColor(leg.betType)]
@@ -147,12 +174,15 @@ export default function HistoryScreen() {
                       <Text style={styles.legSelection} numberOfLines={2}>
                         {leg.selection}
                       </Text>
-                      <Text style={[styles.legOdds, { color: tint }]}>
+                      <Text style={[styles.legOdds, { color: colors.primaryBright }]}>
                         {formatOdds(leg.odds)}
                       </Text>
                     </View>
                     <View style={styles.legMeta}>
-                      <Text style={styles.legType}>{leg.betType.replace(/_/g, ' ')}</Text>
+                      <Chip label={leg.betType.replace(/_/g, ' ')} tint={tint} />
+                      {leg.anchored === false ? (
+                        <Chip label="Estimate" tint={colors.warning} />
+                      ) : null}
                       {legOutcome ? (
                         <Text style={[styles.legResult, { color: LEG_OUTCOME[legOutcome].color }]}>
                           {LEG_OUTCOME[legOutcome].label}
@@ -166,7 +196,7 @@ export default function HistoryScreen() {
           ))
         )}
 
-        {depth !== null && parlays !== null && parlays.length === depth ? (
+        {depth != null && parlays !== null && parlays.length === depth ? (
           <Pressable onPress={() => setUpgradeVisible(true)}>
             <Text style={styles.depthNote}>
               Showing your last {depth}.{' '}
@@ -191,9 +221,6 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   body: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xxl },
   screenTitle: { ...typography.heading, color: colors.text },
-  centre: { alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xxl },
-  emptyTitle: { ...typography.title, color: colors.textSecondary },
-  emptyBody: { ...typography.bodySmall, color: colors.textDisabled, textAlign: 'center' },
   depthNote: {
     ...typography.caption,
     color: colors.textSecondary,
@@ -216,6 +243,5 @@ const styles = StyleSheet.create({
   legSelection: { ...typography.bodySmall, color: colors.text, flex: 1 },
   legOdds: { ...typography.numericSmall },
   legMeta: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  legType: { ...typography.caption, color: colors.textSecondary, flex: 1 },
-  legResult: { ...typography.micro },
+  legResult: { ...typography.micro, marginLeft: 'auto' },
 })

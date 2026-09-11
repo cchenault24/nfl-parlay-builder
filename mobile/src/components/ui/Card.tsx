@@ -38,12 +38,29 @@ export function Card({
   )
 }
 
+const BASE = {
+  borderRadius: radius.lg,
+  borderWidth: StyleSheet.hairlineWidth,
+  borderColor: colors.divider,
+} as const
+
+/**
+ * The `raised` card treatment as a plain style object, for the rows that ARE
+ * the pressable rather than containing one.
+ *
+ * Exported rather than duplicated: the Build list's two row components had this
+ * written out property for property, so an elevation or a contrast fix to Card
+ * would have left the two most-seen surfaces in the app looking different from
+ * every other card in the same scroll view.
+ */
+export const raisedSurface = {
+  ...BASE,
+  backgroundColor: colors.surface,
+  padding: spacing.md,
+} as const
+
 const styles = StyleSheet.create({
-  base: {
-    borderRadius: radius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.divider,
-  },
+  base: BASE,
   padded: { padding: spacing.md },
   raised: { backgroundColor: colors.surface },
   inset: { backgroundColor: colors.background, borderRadius: radius.md },

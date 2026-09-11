@@ -1,3 +1,7 @@
+import {
+  quotaRemainingLabel,
+  quotaResetLabel,
+} from '@shared/rateLimits'
 import type { QuotaState } from '@shared/tiering'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 
@@ -14,15 +18,10 @@ interface QuotaIndicatorProps {
   onUpgrade: () => void
 }
 
-function resetLabel(resetsAt: string): string {
-  const days = Math.ceil((Date.parse(resetsAt) - Date.now()) / (24 * 60 * 60 * 1000))
-  return days <= 1 ? 'Resets tomorrow' : `Resets in ${days} days`
-}
-
 // Pro's allowance is uncapped and its fair-use valve is deliberately never
 // surfaced, so a Pro user sees nothing here — rendering "unlimited" on every
 // screen would just be noise.
-export default function QuotaIndicator({ quota, onUpgrade }: QuotaIndicatorProps) {
+export function QuotaIndicator({ quota, onUpgrade }: QuotaIndicatorProps) {
   if (quota.limit === null || quota.remaining === null) {
     return null
   }
@@ -33,11 +32,9 @@ export default function QuotaIndicator({ quota, onUpgrade }: QuotaIndicatorProps
     <View style={styles.row}>
       <View style={styles.text}>
         <Text style={[styles.count, exhausted && styles.countExhausted]}>
-          {exhausted
-            ? 'No parlays left this week'
-            : `${quota.remaining} of ${quota.limit} parlays left this week`}
+          {quotaRemainingLabel(quota.remaining, quota.limit)}
         </Text>
-        <Text style={styles.reset}>{resetLabel(quota.resetsAt)}</Text>
+        <Text style={styles.reset}>{quotaResetLabel(quota.resetsAt)}</Text>
       </View>
       <Pressable
         onPress={onUpgrade}

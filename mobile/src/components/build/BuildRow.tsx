@@ -1,12 +1,13 @@
+import { raisedSurface } from '@/components/ui/Card'
+import { SECOND_TICK, useNow } from '@/lib/useNow'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { formatOdds } from '@shared/odds'
-import { useEffect, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 
 import { TeamLogo } from '@/components/display/TeamLogo'
 import { Chip } from '@/components/ui/Chip'
 import type { BuildRow as Row } from '@/lib/build/rowState'
-import { currentStepLabel, formatElapsed, stepFraction } from '@/lib/build/steps'
+import { currentStepLabel, formatElapsed, stepFraction } from '@shared/agentSteps'
 import {
   colors,
   HIT_SLOP,
@@ -39,21 +40,14 @@ interface BuildRowProps {
 // `now`, not the elapsed value: elapsed is derived during render, so changing
 // which run is being timed needs no setState from inside the effect.
 function useElapsed(since: number | undefined): number {
-  const [now, setNow] = useState(() => Date.now())
-  useEffect(() => {
-    if (since === undefined) {
-      return
-    }
-    const id = setInterval(() => setNow(Date.now()), 500)
-    return () => clearInterval(id)
-  }, [since])
+  const now = useNow(SECOND_TICK, since !== undefined)
   return since === undefined ? 0 : Math.max(0, now - since)
 }
 
 /**
- * One game, carrying its parlay's state. This row is the redesign in miniature:
- * it is what makes a week shoppable, because the thing you are deciding about
- * and the thing you already spent are in the same place (DESIGN §4.2).
+ * One game, carrying its parlay's state. What makes a week shoppable: the
+ * thing you are deciding about and the thing you already spent are in the same
+ * place (DESIGN §4.2).
  */
 export function BuildRow({
   row,
@@ -190,11 +184,7 @@ export function BuildRow({
 
 const styles = StyleSheet.create({
   row: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.divider,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
-    padding: spacing.md,
+    ...raisedSurface,
     gap: spacing.xs,
     minHeight: MIN_TARGET,
   },

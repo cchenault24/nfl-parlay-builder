@@ -1,6 +1,6 @@
 import { StyleSheet, Text } from 'react-native'
 
-import { MINIMUM_AGE } from '@/lib/legal/content'
+import { MINIMUM_AGE } from '@shared/legal/content'
 import { colors, typography } from '@/lib/theme/designTokens'
 
 // The web client's `inline` variant, shown alongside every generated parlay.

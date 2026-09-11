@@ -1,21 +1,21 @@
+import { LegalDocumentSheet } from '@/components/legal/LegalDocumentSheet'
+import {
+  privacyPolicy,
+  termsOfService,
+  type LegalDocument,
+} from '@shared/legal/content'
+import { ErrorBanner } from '@/components/ui/ErrorBanner'
 import Ionicons from '@expo/vector-icons/Ionicons'
-import { useState } from 'react'
+import { useEntitlements } from '@shared/hooks/useEntitlements'
+import { proFeatures } from '@shared/proFeatures'
+import { useEffect, useState } from 'react'
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { Button } from '@/components/ui/Button'
-import { purchasePro } from '@/lib/billing/iap'
+import { useAuth } from '@/lib/auth/useAuth'
+import { proPrice, purchasePro, reconcilePurchases } from '@/lib/billing/iap'
 import { colors, HIT_SLOP, radius, spacing, typography } from '@/lib/theme/designTokens'
-
-// Written as what Pro does, not as a feature matrix. Order is deliberate: the
-// weekly limit is what most people hit first, and props are the strongest hook.
-const PRO_FEATURES = [
-  'Unlimited parlays — no weekly limit',
-  'Player props, on top of the game markets',
-  'Conservative, moderate and aggressive risk levels',
-  'Parlays from 2 to 6 legs',
-  'Price every leg on your own sportsbook',
-  'Your full history, every season, with win rate and ROI',
-]
 
 interface UpgradeSheetProps {
   visible: boolean
@@ -30,7 +30,7 @@ interface UpgradeSheetProps {
   reason?: string
 }
 
-export default function UpgradeSheet({
+export function UpgradeSheet({
   visible,
   onClose,
   onPurchased,
@@ -38,13 +38,62 @@ export default function UpgradeSheet({
   reason,
 }: UpgradeSheetProps) {
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [restoring, setRestoring] = useState(false)
+  const [price, setPrice] = useState<string | null>(null)
+  const { entitlements } = useEntitlements()
+  const { user } = useAuth()
+  const insets = useSafeAreaInsets()
+  const [document, setDocument] = useState<LegalDocument | null>(null)
+
+  // Written from the capabilities the server sends, not from sentences with the
+  // numbers spelled into them — widening a limit server-side used to leave a
+  // paid feature unadvertised on both clients.
+  // Optional-chained because the clients and the API deploy separately: a build
+  // that ships before the server sends proCapabilities would otherwise throw
+  // here rather than simply showing no feature list.
+  const features = entitlements?.proCapabilities
+    ? proFeatures(entitlements.proCapabilities, entitlements.capabilities)
+    : []
+
+  useEffect(() => {
+    if (!visible || !canPurchase) {
+      return
+    }
+    let active = true
+    // StoreKit's own localized price. A hardcoded one quotes dollars to a
+    // storefront that will charge pounds.
+    proPrice().then(
+      value => {
+        if (active) {
+          setPrice(value)
+        }
+      },
+      () => {}
+    )
+    return () => {
+      active = false
+    }
+  }, [visible, canPurchase])
 
   const buy = async () => {
     setBusy(true)
     setError(null)
+    setNotice(null)
     try {
-      await purchasePro()
+      const outcome = await purchasePro(user?.uid)
+      if (outcome.status === 'cancelled') {
+        // Their own deliberate dismissal. Saying anything about it would tell
+        // them something went wrong when nothing did.
+        return
+      }
+      if (outcome.status === 'pending') {
+        setNotice(
+          'Waiting for approval. Pro unlocks as soon as the purchase is approved.'
+        )
+        return
+      }
       onPurchased()
       onClose()
     } catch (e) {
@@ -55,15 +104,58 @@ export default function UpgradeSheet({
     }
   }
 
+  // Required for an auto-renewable subscription (Guideline 3.1.1), and the way
+  // back for anyone whose entitlement never landed — a reinstall, a second
+  // device, or a purchase whose server redemption failed after they were
+  // charged.
+  const restore = async () => {
+    setRestoring(true)
+    setError(null)
+    setNotice(null)
+    try {
+      const redeemed = await reconcilePurchases()
+      if (redeemed > 0) {
+        onPurchased()
+        onClose()
+        return
+      }
+      setNotice('No previous purchase found on this Apple ID.')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not restore your purchases.')
+    } finally {
+      setRestoring(false)
+    }
+  }
+
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={styles.backdrop}>
-        <View style={styles.sheet}>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent
+      onRequestClose={onClose}
+      statusBarTranslucent
+    >
+      {/* Tappable, like ui/Sheet's. A scrim that only dims is a dead end for
+          anyone who reaches for the obvious way out. */}
+      <Pressable
+        style={styles.backdrop}
+        onPress={onClose}
+        accessibilityRole="button"
+        accessibilityLabel="Close ParlAId Pro"
+      />
+      <View style={styles.dock} pointerEvents="box-none">
+        <View
+          style={[styles.sheet, { paddingBottom: insets.bottom + spacing.lg }]}
+        >
           <View style={styles.header}>
             <View>
               <Text style={styles.title}>ParlAId Pro</Text>
               <Text style={styles.price}>
-                {canPurchase ? '$9.99 a month. Cancel any time.' : 'Not on sale yet.'}
+                {!canPurchase
+                  ? 'Not on sale yet.'
+                  : price
+                    ? `${price} a month. Cancel any time.`
+                    : 'Monthly subscription. Cancel any time.'}
               </Text>
             </View>
             <Pressable
@@ -79,45 +171,96 @@ export default function UpgradeSheet({
           <ScrollView style={styles.body}>
             {reason ? <Text style={styles.reason}>{reason}</Text> : null}
 
-            {PRO_FEATURES.map(feature => (
+            {features.map(feature => (
               <View key={feature} style={styles.featureRow}>
                 <Ionicons name="checkmark" size={16} color={colors.primaryBright} />
                 <Text style={styles.featureText}>{feature}</Text>
               </View>
             ))}
 
-            {error ? <Text style={styles.error}>{error}</Text> : null}
+            {error ? (
+              <View style={styles.banner}>
+                <ErrorBanner type="error" message={error} />
+              </View>
+            ) : null}
+            {notice ? (
+              <View style={styles.banner}>
+                <ErrorBanner type="info" message={notice} />
+              </View>
+            ) : null}
 
+            {/* Guideline 3.1.2 wants the subscription length and working links
+                to the EULA and the privacy policy on the purchase surface
+                itself, not only in Settings. */}
             <Text style={styles.legal}>
-              For entertainment only. No wagers are placed through ParlAId.
+              For entertainment only. No wagers are placed through ParlAId. Pro
+              renews monthly until cancelled, and can be cancelled any time in
+              Settings &gt; your name &gt; Subscriptions.
             </Text>
+            <View style={styles.legalLinks}>
+              <Pressable
+                onPress={() => setDocument(termsOfService)}
+                accessibilityRole="button"
+                hitSlop={HIT_SLOP}
+              >
+                <Text style={styles.legalLink}>Terms of Use</Text>
+              </Pressable>
+              <Text style={styles.legal}>·</Text>
+              <Pressable
+                onPress={() => setDocument(privacyPolicy)}
+                accessibilityRole="button"
+                hitSlop={HIT_SLOP}
+              >
+                <Text style={styles.legalLink}>Privacy Policy</Text>
+              </Pressable>
+            </View>
           </ScrollView>
 
           {canPurchase ? (
-            <Button
-              label={busy ? 'Contacting the App Store…' : 'Upgrade'}
-              onPress={buy}
-              disabled={busy}
-            />
+            <View style={styles.actions}>
+              <Button
+                label={busy ? 'Contacting the App Store…' : 'Upgrade'}
+                onPress={buy}
+                disabled={busy || restoring}
+              />
+              {/* Guideline 3.1.1 wants this reachable from the purchase
+                  surface, not only buried in settings. */}
+              <Button
+                variant="neutral"
+                label="Restore purchases"
+                loading={restoring}
+                disabled={busy}
+                onPress={restore}
+              />
+            </View>
           ) : null}
         </View>
       </View>
+
+      <LegalDocumentSheet document={document} onClose={() => setDocument(null)} />
     </Modal>
   )
 }
 
 const styles = StyleSheet.create({
   backdrop: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: colors.scrim,
   },
+  dock: { flex: 1, justifyContent: 'flex-end' },
   sheet: {
     backgroundColor: colors.surface,
-    borderTopLeftRadius: radius.md * 2,
-    borderTopRightRadius: radius.md * 2,
-    padding: spacing.lg,
-    maxHeight: '85%',
+    borderTopLeftRadius: radius.lg,
+    borderTopRightRadius: radius.lg,
+    paddingTop: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    // Matches ui/Sheet: never taller than most of the screen, so the scrim
+    // stays a visible way out.
+    maxHeight: '86%',
     borderTopWidth: StyleSheet.hairlineWidth,
     borderColor: colors.divider,
   },
@@ -140,6 +283,14 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   featureText: { ...typography.body, color: colors.text, flex: 1 },
-  error: { ...typography.bodySmall, color: colors.error, marginTop: spacing.md },
+  actions: { gap: spacing.sm },
+  banner: { marginTop: spacing.md },
   legal: { ...typography.micro, color: colors.textSecondary, marginTop: spacing.md },
+  legalLinks: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+  },
+  legalLink: { ...typography.micro, color: colors.primaryBright },
 })

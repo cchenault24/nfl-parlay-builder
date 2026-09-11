@@ -1,3 +1,10 @@
+import {
+  parlayDocument,
+  sortedParlays,
+  toUserProfile,
+  userProfileDocument,
+  type TimestampedParlay,
+} from '@shared/firestoreDocs'
 import { initializeApp } from 'firebase/app'
 import {
   connectAuthEmulator,
@@ -24,7 +31,6 @@ import {
   Timestamp,
   where,
 } from 'firebase/firestore'
-import { normalizeStoredParlay, type StoredParlay } from '@shared/parlays'
 import type { GeneratedParlay, UserProfile } from '../types'
 import { isLocalDevelopment } from './api'
 
@@ -63,68 +69,32 @@ export const logOut = () => signOut(auth)
 export const onAuthUserChanged = (callback: (user: User | null) => void) =>
   onAuthStateChanged(auth, callback)
 
+// Thin SDK plumbing. The document shape and the profile validation live in
+// shared/firestoreDocs.ts, so both clients write and read `users/{uid}` the
+// same way by construction rather than by two matching copies.
 export const createUserProfile = async (user: User) => {
   const userRef = doc(db, 'users', user.uid)
   const userSnap = await getDoc(userRef)
   if (!userSnap.exists()) {
-    const { displayName, email, photoURL } = user
-    await setDoc(userRef, {
-      displayName: displayName || email?.split('@')[0] || 'User',
-      email,
-      // Null rather than a generated avatar URL. The previous fallback embedded
-      // the user's email address in a query string to api.dicebear.com, so every
-      // email/password signup shipped their email to a third party on each
-      // avatar render, and the URL was stored in Firestore permanently. Both
-      // clients already fall back locally — a person icon on iOS, the first
-      // initial on web — so the remote call bought nothing.
-      photoURL: photoURL ?? null,
-      createdAt: Timestamp.now(),
-    })
+    await setDoc(userRef, userProfileDocument(user, Timestamp.now()))
   }
   return userRef
 }
 
 export const getUserProfile = async (userId: string): Promise<UserProfile | null> => {
   const snap = await getDoc(doc(db, 'users', userId))
-  if (!snap.exists()) {
-    return null
-  }
-  const data = snap.data()
-  if (!data.displayName || !data.email || !data.createdAt) {
-    return null
-  }
-  return {
-    uid: userId,
-    displayName: data.displayName,
-    email: data.email,
-    photoURL: data.photoURL || undefined,
-    createdAt: data.createdAt,
-    savedParlays: data.savedParlays || [],
-  }
+  return toUserProfile<Timestamp>(userId, snap.data())
 }
 
-// Firestore rules require userId, gameIds, legs and a server-set createdAt.
 export const saveParlayToUser = async (userId: string, parlay: GeneratedParlay) => {
-  const ref = await addDoc(collection(db, 'parlays'), {
-    ...parlay,
-    userId,
-    createdAt: serverTimestamp(),
-  })
+  const ref = await addDoc(
+    collection(db, 'parlays'),
+    parlayDocument(userId, parlay, serverTimestamp())
+  )
   return ref.id
 }
 
-// Firestore may return a doc with either timestamp field, and neither is part
-// of the domain type — the sort below is the only thing that reads them.
-type TimestampedParlay = StoredParlay & {
-  createdAt?: Timestamp
-  savedAt?: Timestamp
-}
-
-// `depth` is the tier's history depth, newest first; null means unbounded. It
-// is applied after the sort rather than as a Firestore limit() because the
-// ordering key is derived from two possible fields, and because this is a view
-// restriction rather than a boundary — firestore.rules lets a user read every
-// parlay they saved, and nothing here pretends otherwise.
+// `depth` is the tier's history depth, newest first; null means unbounded.
 export const getUserParlays = (
   userId: string,
   callback: (parlays: GeneratedParlay[]) => void,
@@ -133,15 +103,19 @@ export const getUserParlays = (
   onSnapshot(
     query(collection(db, 'parlays'), where('userId', '==', userId)),
     snapshot => {
-      const savedAtMs = (d: TimestampedParlay) =>
-        (d.createdAt ?? d.savedAt)?.toMillis?.() ?? 0
-      const parlays = snapshot.docs
-        .map(docSnap => ({ data: docSnap.data() as TimestampedParlay, id: docSnap.id }))
-        .sort((a, b) => savedAtMs(b.data) - savedAtMs(a.data))
-        .map(({ data, id }) => normalizeStoredParlay(data, id))
-      callback(depth === null ? parlays : parlays.slice(0, depth))
+      callback(
+        sortedParlays(
+          snapshot.docs.map(docSnap => ({
+            id: docSnap.id,
+            data: docSnap.data() as TimestampedParlay,
+          })),
+          depth
+        )
+      )
     },
     error => {
+      // iOS surfaces this to the user instead. Returning an empty list here is
+      // indistinguishable from "no saved parlays" and predates that.
       console.error('Error fetching user parlays:', error)
       callback([])
     }

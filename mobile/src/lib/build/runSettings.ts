@@ -1,4 +1,4 @@
-import type { Sportsbook, TierCapabilities } from '@shared/tiering'
+import { normalizeRunSettings, type Sportsbook, type TierCapabilities } from '@shared/tiering'
 import type { BookLines, RiskLevel } from '@shared/types'
 
 // The run-settings sheet, decided in one place. Which books are offered, which
@@ -65,10 +65,14 @@ export function bookOptions(params: {
   }))
 }
 
-// The book the sheet should show as selected. Free is pinned. Pro gets its
-// choice when that book has posted this game, and otherwise falls to the next
-// one in priority order that has — mirroring what the server would do, so the
-// sheet never shows a selection the run will not honour (DESIGN #21).
+// The book the sheet should show as selected, and the only place the rule is
+// written. Free is pinned. Pro gets its choice when that book has posted this
+// game, and otherwise falls to the next one in priority order that has —
+// mirroring what the server would do, so the sheet never shows a selection the
+// run will not honour (DESIGN #21).
+//
+// It resolves over the server's own `sportsbooks` order rather than over the
+// lines, which is what lets it answer before the week's lines have loaded.
 export function effectiveBookKey(params: {
   sportsbooks: Sportsbook[]
   capabilities: TierCapabilities | undefined
@@ -84,24 +88,6 @@ export function effectiveBookKey(params: {
     return chosen
   }
   return sportsbooks.find(b => posted(b.key))?.key
-}
-
-/**
- * What to put in the request's `bookmaker` field.
- *
- * Free must send **nothing**. `agent.ts` answers 403 `sportsbook_locked` to a
- * requested book when `chooseSportsbook` is false, so sending `draftkings` to
- * match the label the sheet shows would break every free run. The server's own
- * priority already starts there: the UI names the book, the server picks it.
- */
-export function bookmakerForRequest(
-  capabilities: TierCapabilities | undefined,
-  chosen: string | undefined
-): string | undefined {
-  if (!(capabilities?.chooseSportsbook ?? false)) {
-    return undefined
-  }
-  return chosen || undefined
 }
 
 export function riskOptions(
@@ -121,13 +107,25 @@ export function riskOptions(
 // Every leg count the product offers, with the ones this plan cannot reach
 // marked. Locked options stay visible: the conversion moment is a control the
 // user already wants, not an empty state (DESIGN #8).
+//
+// The widest range is Pro's, and it comes from the server — `/entitlements`
+// sends `proCapabilities` for exactly this. It used to default to a hardcoded
+// { min: 2, max: 6 }, so widening Pro's range server-side left the extra chips
+// unrendered: a paid feature that existed, was unreachable, and was unadvertised
+// on both clients.
 export function legCountOptions(
   capabilities: TierCapabilities | undefined,
-  widest: { min: number; max: number } = { min: 2, max: 6 }
+  widest: { min: number; max: number } | undefined
 ): ChoiceOption<number>[] {
   const allowed = capabilities?.legCount
+  // Nothing known yet — render only what this plan permits rather than invent a
+  // range, matching the fail-closed default the other option lists use.
+  const range = widest ?? allowed
+  if (!range) {
+    return []
+  }
   const counts: number[] = []
-  for (let n = widest.min; n <= widest.max; n++) {
+  for (let n = range.min; n <= range.max; n++) {
     counts.push(n)
   }
   return counts.map(value => ({
@@ -149,16 +147,20 @@ export function settingsSummary(params: {
     .join(' · ')
 }
 
+// The number the button and the settings row show. It delegates to the same
+// clamp the request path uses (`normalizeRunSettings`) rather than repeating it,
+// because a label that disagrees with what is sent is the whole failure mode:
+// the screen names one leg count and the server refuses the other.
 export function effectiveLegCount(
   capabilities: TierCapabilities | undefined,
   chosen: number | undefined
 ): number {
-  const allowed = capabilities?.legCount
-  if (!allowed) {
-    return chosen ?? 3
-  }
-  if (chosen === undefined) {
-    return allowed.default
-  }
-  return Math.min(Math.max(chosen, allowed.min), allowed.max)
+  const { legCount } = normalizeRunSettings(capabilities, {
+    riskLevel: 'moderate',
+    legCount: chosen,
+    bookmaker: undefined,
+  })
+  // Only reachable before entitlements land, when nothing is known about the
+  // allowed range and there is no limit to render.
+  return legCount ?? chosen ?? 3
 }

@@ -46,7 +46,7 @@ export function RunSettingsSheet({
   const setBookmaker = useParlayStore(state => state.setBookmaker)
   const { capabilities, entitlements } = useEntitlements()
 
-  const sportsbooks = [...(entitlements?.sportsbooks ?? [])]
+  const sportsbooks = entitlements?.sportsbooks ?? []
   const canChooseBook = capabilities?.chooseSportsbook ?? false
   const books = bookOptions({ sportsbooks, capabilities, chosen: bookmaker, lines })
   const selectedBook = effectiveBookKey({
@@ -58,7 +58,11 @@ export function RunSettingsSheet({
   const unavailableCount = books.filter(b => b.disabled).length
 
   const riskChoices: SegmentedOption<RiskLevel>[] = riskOptions(capabilities)
-  const legChoices: StripOption<number>[] = legCountOptions(capabilities).map(option => ({
+  const proLegCount = entitlements?.proCapabilities?.legCount
+  const legChoices: StripOption<number>[] = legCountOptions(
+    capabilities,
+    proLegCount
+  ).map(option => ({
     value: option.value,
     label: option.label,
     locked: option.locked,
@@ -100,9 +104,13 @@ export function RunSettingsSheet({
           accessibilityLabel="Leg count"
           chipWidth={LEG_CHIP_WIDTH}
         />
-        {capabilities && capabilities.legCount.min === capabilities.legCount.max ? (
+        {/* The Pro range is the server's, not a sentence restating it. */}
+        {capabilities &&
+        proLegCount &&
+        capabilities.legCount.min === capabilities.legCount.max ? (
           <Text style={styles.hint}>
-            Parlays are {capabilities.legCount.min} legs on your plan — 2–6 with Pro.
+            Parlays are {capabilities.legCount.min} legs on your plan — {proLegCount.min}–
+            {proLegCount.max} with Pro.
           </Text>
         ) : null}
       </View>

@@ -23,8 +23,6 @@ export type ButtonVariant =
   | 'outline'
   // Bordered, neutral — present but not competing (Sign out).
   | 'neutral'
-  // Borderless, low weight.
-  | 'ghost'
   // Borderless red. Destructive actions are marked by colour, not by weight:
   // an outlined red button pulls more attention than the safe action beside
   // it, which is exactly backwards for something irreversible.
@@ -48,7 +46,6 @@ const TINT: Record<ButtonVariant, string> = {
   primary: colors.text,
   outline: colors.primaryBright,
   neutral: colors.text,
-  ghost: colors.textSecondary,
   danger: colors.error,
 }
 
@@ -79,7 +76,7 @@ export function Button({
         styles.base,
         iconOnly && styles.iconOnly,
         styles[variant],
-        inert && styles[`${variant}Disabled` as const],
+        inert && styles[`${variant}Disabled`],
         pressed && !inert && styles.pressed,
         style,
       ]}
@@ -124,9 +121,9 @@ const styles = StyleSheet.create({
   neutral: { borderWidth: 1, borderColor: colors.border },
   neutralDisabled: { borderWidth: 1, borderColor: colors.divider },
 
-  ghost: {},
-  ghostDisabled: {},
-
+  // Empty on purpose, and required: `danger` is borderless by design — marked
+  // by colour through TINT rather than by weight — but the lookup below indexes
+  // styles by variant, so every variant needs an entry.
   danger: {},
   dangerDisabled: {},
 })

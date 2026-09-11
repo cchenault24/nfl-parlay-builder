@@ -1,3 +1,5 @@
+import { EmptyState, ScreenLoading } from '@/components/ui/ScreenState'
+import { SECOND_TICK, useNow } from '@/lib/useNow'
 import { useDerivedCurrentWeek } from '@shared/hooks/useDerivedCurrentWeek'
 import { useEntitlements } from '@shared/hooks/useEntitlements'
 import {
@@ -15,11 +17,11 @@ import useParlayStore, { parlayKey, type ParlayEntry } from '@shared/store/parla
 import type { Game } from '@shared/types'
 import { router, useNavigation } from 'expo-router'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { ScrollView, StyleSheet, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
-import { ErrorBanner } from '@/components/ErrorBanner'
-import UpgradeSheet from '@/components/UpgradeSheet'
+import { ErrorBanner } from '@/components/ui/ErrorBanner'
+import { UpgradeSheet } from '@/components/UpgradeSheet'
 import { BatchBar } from '@/components/build/BatchBar'
 import { TAB_BAR_HIDDEN, TAB_BAR_STYLE } from '@/components/ui/tabBarStyle'
 import { BuildRow } from '@/components/build/BuildRow'
@@ -30,10 +32,9 @@ import { getParlayService } from '@/lib/api/parlayService'
 import { batchGroups, runBatch, type BatchMode } from '@/lib/build/batch'
 import { buildRowFor } from '@/lib/build/rowState'
 import { useParlayPersistence } from '@/lib/build/useParlayPersistence'
-import { colors, spacing, typography } from '@/lib/theme/designTokens'
+import { colors, spacing } from '@/lib/theme/designTokens'
 
 // Room for the batch bar, which replaces the tab bar rather than stacking on it.
-const BATCH_BAR_SPACE = 200
 
 export default function BuildScreen() {
   const { currentWeek } = useDerivedCurrentWeek()
@@ -65,11 +66,13 @@ export default function BuildScreen() {
   const [mode, setMode] = useState<BatchMode>('separate')
   const [batchRunning, setBatchRunning] = useState(false)
   const [batchNotice, setBatchNotice] = useState<string | null>(null)
+  // Measured rather than guessed, like the two pushed screens: the bar reports
+  // its own height so the list reserves exactly that.
+  const [batchBarHeight, setBatchBarHeight] = useState(0)
   const [upgradeReason, setUpgradeReason] = useState<string | null>(null)
 
-  // The batch bar *replaces* the tab bar rather than stacking above it: two
-  // bottom bars eat ~150pt and read as clutter, and select mode is modal by
-  // nature — Done is the way out (DESIGN #11).
+  // Hides the tab bar in select mode, because BatchBar takes its place rather
+  // than stacking above it — see BatchBar for why.
   const navigation = useNavigation()
   useEffect(() => {
     const tabs = navigation.getParent()
@@ -152,6 +155,20 @@ export default function BuildScreen() {
       )
       return
     }
+    // A partially failed batch is a normal outcome, and the count is the only
+    // way the user learns it happened: the successful rows appear and the failed
+    // ones simply are not there. `outcome.failed` was accumulated on every
+    // failure and read by nobody.
+    if (outcome.failed.length > 0) {
+      const failed = outcome.failed.length
+      // Stays in select mode with the selection intact, exactly as the
+      // rate-limited branch does, so Run can be pressed again — and because
+      // exitSelectMode() clears the notice this is about to set.
+      setBatchNotice(
+        `${outcome.succeeded.length} built, ${failed} failed. Run again to retry — a run that does not come back with live book prices is not charged.`
+      )
+      return
+    }
     if (mode === 'cross' && outcome.succeeded.length === 1) {
       const entry = useParlayStore.getState().entries[parlayKey(activeWeek, selected)]
       exitSelectMode()
@@ -169,6 +186,10 @@ export default function BuildScreen() {
   // Names the window that actually ran out. Weekly exhaustion is the quota
   // strip's job, not a countdown's.
   const exhausted = allowanceExhaustedCopy(allowance)
+  // Ticks only while there is a countdown on screen. Without it, timeUntil was
+  // evaluated once per render and the banner showed a stopped clock — a user
+  // watching "12m 30s" had no way to tell when the limit actually cleared.
+  const countdownNow = useNow(SECOND_TICK, Boolean(exhausted))
   const maxGamesPerRun = capabilities?.maxGamesPerRun ?? 1
 
   return (
@@ -190,14 +211,11 @@ export default function BuildScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.body,
-          selectMode && { paddingBottom: BATCH_BAR_SPACE },
+          selectMode && { paddingBottom: batchBarHeight + spacing.md },
         ]}
       >
         {isLoading && !games ? (
-          <View style={styles.loading}>
-            <ActivityIndicator color={colors.primaryBright} />
-            <Text style={styles.loadingText}>Loading Week {activeWeek} games…</Text>
-          </View>
+          <ScreenLoading label={`Loading Week ${activeWeek} games…`} />
         ) : error ? (
           <ErrorBanner
             type="error"
@@ -205,7 +223,10 @@ export default function BuildScreen() {
             message={`${error.message}. Try again or pick a different week.`}
           />
         ) : rows.length === 0 ? (
-          <Text style={styles.empty}>No games found for Week {activeWeek}.</Text>
+          <EmptyState
+            icon="calendar-outline"
+            title={`No games found for Week ${activeWeek}.`}
+          />
         ) : (
           <>
             {batchNotice ? (
@@ -223,7 +244,7 @@ export default function BuildScreen() {
                 type="rate_limit_reached"
                 title={exhausted.title}
                 message={exhausted.message}
-                countdown={timeUntil(allowance?.resetsAt)}
+                countdown={timeUntil(allowance?.resetsAt, countdownNow)}
               />
             ) : null}
 
@@ -254,11 +275,11 @@ export default function BuildScreen() {
 
       {selectMode ? (
         <BatchBar
+          onLayout={e => setBatchBarHeight(e.nativeEvent.layout.height)}
           mode={mode}
           onModeChange={setMode}
           gameCount={selected.length}
           allowance={allowance}
-          crossGameLocked={maxGamesPerRun < 2}
           maxGamesPerRun={maxGamesPerRun}
           running={batchRunning}
           onRun={() => void runBatchNow()}
@@ -291,16 +312,4 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   headerWrap: { paddingHorizontal: spacing.md, paddingTop: spacing.sm },
   body: { padding: spacing.md, paddingTop: spacing.sm, gap: spacing.sm },
-  loading: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.sm,
-  },
-  loadingText: { ...typography.body, color: colors.textSecondary },
-  empty: {
-    ...typography.body,
-    color: colors.textSecondary,
-    paddingVertical: spacing.sm,
-  },
 })

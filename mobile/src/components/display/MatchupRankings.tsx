@@ -1,9 +1,10 @@
+import { Card } from '@/components/ui/Card'
 import type { Game, RankedStat, TeamStats } from '@shared/types'
 import { StyleSheet, Text, View } from 'react-native'
 
 import { MatchupRow } from '@/components/display/MatchupRow'
 import { TeamLogo } from '@/components/display/TeamLogo'
-import { colors, radius, spacing, typography } from '@/lib/theme/designTokens'
+import { colors, spacing, typography } from '@/lib/theme/designTokens'
 
 type StatPick = (s: TeamStats) => RankedStat
 
@@ -37,7 +38,7 @@ export function MatchupRankings({ game, homeStats, awayStats }: MatchupRankingsP
   const priorSeason = statsSeason !== undefined && statsSeason < game.season
 
   return (
-    <View style={styles.panel}>
+    <Card tone="inset" style={styles.panel}>
       <View style={styles.header}>
         <Text style={styles.title} accessibilityRole="header">
           Matchup rankings
@@ -79,19 +80,13 @@ export function MatchupRankings({ game, homeStats, awayStats }: MatchupRankingsP
           index={i + 1}
         />
       ))}
-    </View>
+    </Card>
   )
 }
 
 const styles = StyleSheet.create({
-  panel: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.divider,
-    borderRadius: radius.md,
-    backgroundColor: colors.background,
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
+  // Geometry and fill come from Card tone="inset"; only the gap is ours.
+  panel: { gap: spacing.sm },
   header: {
     flexDirection: 'row',
     alignItems: 'baseline',
