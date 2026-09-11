@@ -1,9 +1,7 @@
 import { EmptyState } from '@/components/ui/ScreenState'
-import { ConfidenceBar } from '@/components/ui/ConfidenceBar'
 import { PinnedActions } from '@/components/ui/PinnedActions'
 import { useDerivedCurrentWeek } from '@shared/hooks/useDerivedCurrentWeek'
 import { useEntitlements } from '@shared/hooks/useEntitlements'
-import { formatOdds } from '@shared/odds'
 import useParlayStore, {
   parlayKey,
   SAVE_PARLAY_ERROR,
@@ -17,9 +15,7 @@ import { ErrorBanner } from '@/components/ui/ErrorBanner'
 import { KeepAwake } from '@/components/ui/KeepAwake'
 import { AgentProgress } from '@/components/display/AgentProgress'
 import { DraftPreviewView } from '@/components/display/DraftPreviewView'
-import { GameSummaryView } from '@/components/display/GameSummaryView'
-import { ParlayDisplayFooter } from '@/components/display/ParlayDisplayFooter'
-import { ParlayLegView } from '@/components/display/ParlayLegView'
+import { ParlayView } from '@/components/display/ParlayView'
 import { Button } from '@/components/ui/Button'
 import { useAuth } from '@/lib/auth/useAuth'
 import { unbilledNotice } from '@/lib/build/quotaCopy'
@@ -110,12 +106,7 @@ export default function ParlayDetailScreen() {
 
   const parlay = entry.parlay
   const alreadySaved = savedId === parlay.parlayId || isParlaySaved(parlay.parlayId)
-  const hasEstimate = parlay.legs.some(leg => !leg.anchored)
   const unbilled = unbilledNotice(entry.games, quota)
-  const contextFor = (gameId: string) => {
-    const game = entry.games?.find(g => g.game.gameId === gameId)?.game
-    return game ? `${game.away.name} @ ${game.home.name} — Week ${game.week}` : parlay.gameContext
-  }
 
   const discard = () => {
     router.back()
@@ -164,83 +155,18 @@ export default function ParlayDetailScreen() {
           { paddingBottom: actionsHeight + spacing.md },
         ]}
       >
-        <View style={styles.header}>
-          <View style={styles.headerText}>
-            {/* The book the anchored prices came from sits in the headline:
-                the settings row names it before the run, and nothing on this
-                screen did after. */}
-            <Text style={styles.headline} accessibilityRole="header">
-              {parlay.legs.length}-leg parlay
-              {parlay.bookmaker ? (
-                <Text style={styles.headlineBook}> · {parlay.bookmaker}</Text>
-              ) : null}
-            </Text>
-            <Text style={styles.context}>{parlay.gameContext}</Text>
-          </View>
-          <Text style={styles.odds}>{formatOdds(parlay.combinedOdds)}</Text>
-        </View>
-
-        <ConfidenceBar label="Overall confidence" value={parlay.parlayConfidence} />
-
-        {/* Two independent facts, and they do not always travel together. The
-            banner used to render only on `hasEstimate` (an unanchored leg) with
-            the refund line nested inside it — but billing keys off the odds
-            source, so a run where every leg anchored yet a game's odds degraded
-            was never billed and never said so. */}
-        {hasEstimate || unbilled ? (
-          <ErrorBanner
-            type="rate_limit_reached"
-            title={hasEstimate ? 'Contains estimated prices' : 'This one was free'}
-            message={[
-              hasEstimate
-                ? 'One or more legs are marked “Estimate” — the book hadn’t posted a line for that market, so the price is an AI estimate rather than a real one.'
-                : null,
-              unbilled,
-            ]
-              .filter(Boolean)
-              .join(' ')}
-          />
-        ) : null}
-
-        {parlay.gameSummary.slateSummary ? (
-          <ErrorBanner
-            type="info"
-            title="Across these games"
-            message={parlay.gameSummary.slateSummary}
-          />
-        ) : null}
-
-        {parlay.gameSummary.games.map(analysis => (
-          <GameSummaryView
-            key={analysis.gameId}
-            analysis={analysis}
-            gameContext={contextFor(analysis.gameId)}
-            collapsedByDefault
-          />
-        ))}
-
-        <View style={styles.legs}>
-          {parlay.legs.map((leg, index) => (
-            <ParlayLegView
-              key={`${parlay.parlayId}-${leg.betType}-${leg.selection}`}
-              leg={leg}
-              index={index}
+        <ParlayView parlay={parlay} games={entry.games} notice={unbilled}>
+          {saveError ? (
+            <ErrorBanner type="error" title="Failed to save parlay" message={saveError} />
+          ) : null}
+          {alreadySaved ? (
+            <ErrorBanner
+              type="success"
+              title="Parlay saved"
+              message="Find it under the History tab."
             />
-          ))}
-        </View>
-
-        {saveError ? (
-          <ErrorBanner type="error" title="Failed to save parlay" message={saveError} />
-        ) : null}
-        {alreadySaved ? (
-          <ErrorBanner
-            type="success"
-            title="Parlay saved"
-            message="Find it under the History tab."
-          />
-        ) : null}
-
-        <ParlayDisplayFooter parlay={parlay} />
+          ) : null}
+        </ParlayView>
       </ScrollView>
 
       <PinnedActions
@@ -282,17 +208,6 @@ const styles = StyleSheet.create({
   body: { padding: spacing.md, gap: spacing.md },
   muted: { ...typography.bodySmall, color: colors.textSecondary },
 
-  header: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
-  headerText: { flex: 1, gap: spacing.xxs },
-  headline: { ...typography.title, color: colors.text },
-  headlineBook: { color: colors.textSecondary, fontFamily: typography.body.fontFamily },
-  context: { ...typography.caption, color: colors.textSecondary },
-  // The number people came for, at display size and anchored to the trailing
-  // edge where the eye lands last.
-  odds: { ...typography.display, color: colors.primaryBright, fontVariant: ['tabular-nums'] },
-
-
-  legs: { gap: spacing.sm },
   actionRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   saveAction: { flex: 1 },
   // Neutral container, red glyph. The border is what makes it read as a button

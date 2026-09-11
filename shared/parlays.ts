@@ -118,3 +118,33 @@ export function normalizeStoredParlay(
     shareId: data.shareId,
   }
 }
+
+// What a saved parlay's status chip says. "Pending" was the grading status
+// verbatim, and it meant nothing to a reader: before kickoff the parlay is
+// simply upcoming, and after it the sweep either graded it or could not.
+export type ParlayStatus =
+  | { label: 'Won' | 'Lost' | 'Push' | 'Partial'; tone: 'success' | 'error' | 'muted' | 'warning' }
+  | { label: 'Upcoming'; tone: 'info' }
+  | { label: 'Not graded'; tone: 'muted' }
+
+const OUTCOME_LABEL = {
+  won: { label: 'Won', tone: 'success' },
+  lost: { label: 'Lost', tone: 'error' },
+  push: { label: 'Push', tone: 'muted' },
+  partial: { label: 'Partial', tone: 'warning' },
+} as const
+
+export function parlayStatus(
+  parlay: Pick<GeneratedParlay, 'grading' | 'gameDateTime'>,
+  now: number = Date.now()
+): ParlayStatus {
+  const outcome = parlay.grading?.status === 'graded' ? parlay.grading.parlayOutcome : undefined
+  if (outcome) {
+    return OUTCOME_LABEL[outcome]
+  }
+  const kickoff = Date.parse(parlay.gameDateTime)
+  if (!Number.isNaN(kickoff) && kickoff > now) {
+    return { label: 'Upcoming', tone: 'info' }
+  }
+  return { label: 'Not graded', tone: 'muted' }
+}

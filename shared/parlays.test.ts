@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeStoredParlay, type StoredParlay } from './parlays'
+import { normalizeStoredParlay, parlayStatus, type StoredParlay } from './parlays'
 
 // Saved parlays outlive every shape change the app makes, so this is the one
 // place a document written by an older client becomes a current one. Getting it
@@ -104,5 +104,31 @@ describe('normalizeStoredParlay', () => {
     )
     expect(parlay.combinedOdds).toBe(250)
     expect(parlay.legs[0]).toMatchObject({ betType: 'spread', selection: 'Ravens -3.5' })
+  })
+})
+
+describe('parlayStatus', () => {
+  const now = Date.parse('2026-09-13T17:00:00Z')
+
+  it('names the graded outcome', () => {
+    expect(
+      parlayStatus(
+        { gameDateTime: '2026-09-13T17:00:00Z', grading: { status: 'graded', parlayOutcome: 'won' } },
+        now
+      )
+    ).toEqual({ label: 'Won', tone: 'success' })
+  })
+
+  it('is upcoming before kickoff, whatever the sweep has recorded', () => {
+    expect(
+      parlayStatus({ gameDateTime: '2026-09-14T17:00:00Z', grading: { status: 'pending' } }, now)
+    ).toEqual({ label: 'Upcoming', tone: 'info' })
+  })
+
+  it('is not graded once the game has started and no outcome exists', () => {
+    expect(parlayStatus({ gameDateTime: '2026-09-13T16:00:00Z' }, now)).toEqual({
+      label: 'Not graded',
+      tone: 'muted',
+    })
   })
 })
