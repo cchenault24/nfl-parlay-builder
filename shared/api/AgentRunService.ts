@@ -22,6 +22,23 @@ export type RunStreamEvent =
   | { type: 'final'; data: AgentResult }
   | { type: 'error'; data: RunError }
 
+// The server's own error code, carried through rather than flattened into a
+// sentence. A caller that has to *decide* something — a batch that must stop
+// rather than fire five more refusals at a rate limit — cannot do it by
+// matching on prose.
+export interface RunRequestError extends Error {
+  code: string
+  status: number
+}
+
+export function runError(code: string, status: number, message: string): RunRequestError {
+  return Object.assign(new Error(message), { code, status })
+}
+
+export function runErrorCode(error: unknown): string | undefined {
+  return (error as Partial<RunRequestError> | null)?.code
+}
+
 export class AgentRunService {
   private async request<T>(
     path: string,
@@ -38,17 +55,28 @@ export class AgentRunService {
     })
     if (!res.ok) {
       const body = (await res.json().catch(() => null)) as {
+        code?: string
         message?: string
       } | null
       if (res.status === 429) {
-        throw new Error(
-          'Rate limit exceeded. You have used all your parlay generations for this hour.'
+        throw runError(
+          'rate_limited',
+          429,
+          'You have used all your parlay generations for now. Try again shortly.'
         )
       }
       if (res.status === 401) {
-        throw new Error('Authentication failed. Please sign in again.')
+        throw runError(
+          'unauthorized',
+          401,
+          'Authentication failed. Please sign in again.'
+        )
       }
-      throw new Error(body?.message ?? `Request failed (${res.status})`)
+      throw runError(
+        body?.code ?? 'request_failed',
+        res.status,
+        body?.message ?? `Request failed (${res.status})`
+      )
     }
     return res.json() as Promise<T>
   }
