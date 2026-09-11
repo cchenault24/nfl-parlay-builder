@@ -6,7 +6,7 @@ import {
   RESPONSIBLE_PRACTICES,
   WARNING_SIGNS,
   type Helpline,
-} from '@/lib/legal/content'
+} from '@shared/legal/content'
 import { Card } from '@/components/ui/Card'
 import {
   colors,

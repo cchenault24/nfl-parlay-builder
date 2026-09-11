@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
-import { HELPLINE, MINIMUM_AGE } from '@/lib/legal/content'
+import { HELPLINE, MINIMUM_AGE } from '@shared/legal/content'
 import {
   colors,
   PRESSED_OPACITY,

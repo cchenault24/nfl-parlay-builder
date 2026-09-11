@@ -30,7 +30,7 @@ import {
   privacyPolicy,
   termsOfService,
   type LegalDocument,
-} from '@/lib/legal/content'
+} from '@shared/legal/content'
 import {
   colors,
   PRESSED_OPACITY,

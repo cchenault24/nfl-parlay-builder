@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 
-import type { LegalDocument } from '@/lib/legal/content'
+import type { LegalDocument } from '@shared/legal/content'
 import { colors, HIT_SLOP, radius, spacing, typography } from '@/lib/theme/designTokens'
 
 interface LegalDocumentSheetProps {

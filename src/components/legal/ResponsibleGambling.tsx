@@ -23,6 +23,11 @@ import {
   ListItemText,
   Typography,
 } from '@mui/material'
+import {
+  HELPLINES,
+  RESPONSIBLE_PRACTICES,
+  WARNING_SIGNS,
+} from '@shared/legal/content'
 import React from 'react'
 
 interface ResponsibleGamblingProps {
@@ -32,54 +37,11 @@ interface ResponsibleGamblingProps {
 export const ResponsibleGambling: React.FC<ResponsibleGamblingProps> = ({
   onBack,
 }) => {
-  const helplines = [
-    {
-      name: 'National Problem Gambling Helpline',
-      phone: '1-800-522-4700',
-      website: 'ncpgambling.org',
-      description: '24/7 confidential support for problem gambling',
-    },
-    {
-      name: 'Gamblers Anonymous',
-      phone: 'Local chapter meetings',
-      website: 'gamblersanonymous.org',
-      description: 'Peer support groups and recovery programs',
-    },
-    {
-      name: 'National Suicide Prevention Lifeline',
-      phone: '988',
-      website: 'suicidepreventionlifeline.org',
-      description: 'Crisis support and mental health resources',
-    },
-    {
-      name: 'Crisis Text Line',
-      phone: 'Text HOME to 741741',
-      website: 'crisistextline.org',
-      description: 'Free, 24/7 crisis support via text message',
-    },
-  ]
-
-  const warningSignsData = [
-    'Spending more money on betting than you can afford to lose',
-    'Chasing losses with bigger or more frequent bets',
-    'Lying to family and friends about gambling activities',
-    'Neglecting work, school, or family responsibilities to gamble',
-    'Feeling anxious, depressed, or irritable when not gambling',
-    'Borrowing money or selling possessions to fund gambling',
-    'Unable to cut back or stop gambling despite wanting to',
-    'Gambling to escape problems or negative emotions',
-  ]
-
-  const responsiblePractices = [
-    'Set strict limits on time and money spent gambling',
-    'Never gamble money you cannot afford to lose',
-    'View gambling as entertainment, not a way to make money',
-    'Take regular breaks and avoid gambling when emotional',
-    'Keep track of time and money spent gambling',
-    'Do not chase losses with bigger bets',
-    'Seek help if gambling becomes a problem',
-    'Use self-exclusion tools when available',
-  ]
+  // Text comes from shared/legal/content.ts. It is the same copy the iOS app
+  // shows, and it used to be a second hand-kept transcription of it.
+  const helplines = HELPLINES
+  const warningSignsData = WARNING_SIGNS
+  const responsiblePractices = RESPONSIBLE_PRACTICES
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
