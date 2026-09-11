@@ -50,7 +50,10 @@ export interface Entitlements {
   // What Pro grants, whatever tier this user is on — so a locked control and
   // the upgrade sheet can say what upgrading actually buys without the client
   // restating a limit the server owns.
-  proCapabilities: TierCapabilities
+  //
+  // Optional because the clients and the API deploy separately: a build that
+  // ships ahead of the server has to render without it rather than throw.
+  proCapabilities?: TierCapabilities
   quota: QuotaState
   // The books a Pro user may price against. Served by the API so adding one
   // does not need an app release on two platforms.

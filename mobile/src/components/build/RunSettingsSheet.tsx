@@ -58,7 +58,7 @@ export function RunSettingsSheet({
   const unavailableCount = books.filter(b => b.disabled).length
 
   const riskChoices: SegmentedOption<RiskLevel>[] = riskOptions(capabilities)
-  const proLegCount = entitlements?.proCapabilities.legCount
+  const proLegCount = entitlements?.proCapabilities?.legCount
   const legChoices: StripOption<number>[] = legCountOptions(
     capabilities,
     proLegCount

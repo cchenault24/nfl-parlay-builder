@@ -46,7 +46,10 @@ const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
   const [error, setError] = useState<string | null>(null)
   const [starting, setStarting] = useState(false)
   const { entitlements } = useEntitlements()
-  const features = entitlements
+  // Optional-chained because the clients and the API deploy separately: a build
+  // that ships before the server sends proCapabilities would otherwise throw
+  // here rather than simply showing no feature list.
+  const features = entitlements?.proCapabilities
     ? proFeatures(entitlements.proCapabilities, entitlements.capabilities)
     : []
 
