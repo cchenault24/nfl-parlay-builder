@@ -86,6 +86,34 @@ export type ProcessedLeg = AILeg & { anchored: boolean }
 
 // Everything gathered for one of a run's games. A single-game run carries one
 // of these; nothing reads `games[0]` as a special case.
+// The draft as far as the model has written it: a prefix of a JSON document
+// being generated, so every field is optional and any string can be half a
+// sentence. Never validated and never persisted — it exists only so the
+// timeline can show the drafting rather than spin through it. Mirrored in
+// shared/types.ts for the clients, the same way AgentStep is.
+export interface DraftPreview {
+  analysisSummary?: {
+    games?: {
+      matchupSummary?: string
+      keyFactors?: string[]
+      gamePrediction?: {
+        winner?: string
+        projectedScore?: { home?: number; away?: number }
+        winProbability?: number
+      }
+    }[]
+    slateSummary?: string | null
+  }
+  legs?: {
+    betType?: string
+    team?: string
+    selection?: string
+    odds?: number
+    confidence?: number
+    reasoning?: string
+  }[]
+}
+
 export interface AgentGameResult {
   game: ScheduleGame
   homeStats: TeamStats | null

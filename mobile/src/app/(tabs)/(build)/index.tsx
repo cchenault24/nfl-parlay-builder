@@ -1,4 +1,3 @@
-import { PINNED_ACTIONS_SPACE } from '@/components/ui/PinnedActions'
 import { EmptyState, ScreenLoading } from '@/components/ui/ScreenState'
 import { SECOND_TICK, useNow } from '@/lib/useNow'
 import { useDerivedCurrentWeek } from '@shared/hooks/useDerivedCurrentWeek'
@@ -67,6 +66,9 @@ export default function BuildScreen() {
   const [mode, setMode] = useState<BatchMode>('separate')
   const [batchRunning, setBatchRunning] = useState(false)
   const [batchNotice, setBatchNotice] = useState<string | null>(null)
+  // Measured rather than guessed, like the two pushed screens: the bar reports
+  // its own height so the list reserves exactly that.
+  const [batchBarHeight, setBatchBarHeight] = useState(0)
   const [upgradeReason, setUpgradeReason] = useState<string | null>(null)
 
   // Hides the tab bar in select mode, because BatchBar takes its place rather
@@ -209,7 +211,7 @@ export default function BuildScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.body,
-          selectMode && { paddingBottom: PINNED_ACTIONS_SPACE },
+          selectMode && { paddingBottom: batchBarHeight + spacing.md },
         ]}
       >
         {isLoading && !games ? (
@@ -273,6 +275,7 @@ export default function BuildScreen() {
 
       {selectMode ? (
         <BatchBar
+          onLayout={e => setBatchBarHeight(e.nativeEvent.layout.height)}
           mode={mode}
           onModeChange={setMode}
           gameCount={selected.length}

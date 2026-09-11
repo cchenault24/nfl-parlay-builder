@@ -1,4 +1,4 @@
-import { StyleSheet, Text } from 'react-native'
+import { StyleSheet, Text, type LayoutChangeEvent } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { Button } from '@/components/ui/Button'
@@ -24,6 +24,8 @@ interface BatchBarProps {
   running: boolean
   onRun: () => void
   onLockedMode: () => void
+  // Reports the bar's measured height, so the list can reserve exactly that.
+  onLayout?: (event: LayoutChangeEvent) => void
 }
 
 /**
@@ -42,6 +44,7 @@ export function BatchBar({
   allowance,
   maxGamesPerRun,
   running,
+  onLayout,
   onRun,
   onLockedMode,
 }: BatchBarProps) {

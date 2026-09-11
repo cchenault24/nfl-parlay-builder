@@ -38,6 +38,13 @@ vi.mock('expo-iap', () => ({
   },
 }))
 
+// accountToken pulls in expo-crypto, which reaches react-native — unparseable
+// in this node environment. The UUID derivation is covered on its own in
+// accountToken.test.ts; what matters here is only that a token is passed along.
+vi.mock('./accountToken', () => ({
+  appAccountTokenFor: async (uid: string) => `token-for-${uid}`,
+}))
+
 const redeemAppleTransaction = vi.fn()
 vi.mock('@shared/api/EntitlementsService', () => ({
   EntitlementsService: class {
@@ -267,6 +274,33 @@ describe('purchasePro', () => {
     await emitUpdate(purchase())
     await pending
 
+    expect(requestPurchase).toHaveBeenCalledWith({
+      request: { apple: { sku: PRO_PRODUCT_ID } },
+      type: 'subs',
+    })
+  })
+
+  // Apple echoes appAccountToken back on every later transaction and server
+  // notification, so it is the fallback attribution path when the
+  // originalTransactionId index cannot answer.
+  it('sends an appAccountToken when the caller knows the uid', async () => {
+    const pending = purchasePro('uid-1')
+    await emitUpdate(purchase())
+    await pending
+
+    expect(requestPurchase).toHaveBeenCalledWith({
+      request: { apple: { sku: PRO_PRODUCT_ID, appAccountToken: 'token-for-uid-1' } },
+      type: 'subs',
+    })
+  })
+
+  // A purchase without it still works; it just loses the fallback path, so a
+  // missing uid must not block buying.
+  it('still purchases when there is no uid to derive one from', async () => {
+    const pending = purchasePro(undefined)
+    await emitUpdate(purchase())
+
+    await expect(pending).resolves.toEqual({ status: 'purchased' })
     expect(requestPurchase).toHaveBeenCalledWith({
       request: { apple: { sku: PRO_PRODUCT_ID } },
       type: 'subs',

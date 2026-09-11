@@ -29,6 +29,7 @@ export const useParlayGenerator = (service: BaseParlayService) => {
   const legCount = useParlayStore(state => state.legCount)
   const startRun = useParlayStore(state => state.startRun)
   const upsertStep = useParlayStore(state => state.upsertStep)
+  const setDraft = useParlayStore(state => state.setDraft)
   const setResult = useParlayStore(state => state.setResult)
   const failRun = useParlayStore(state => state.failRun)
   const { updateFromResponse } = useRateLimit()
@@ -51,6 +52,7 @@ export const useParlayGenerator = (service: BaseParlayService) => {
         return await service.generateParlay(games, {
           ...settings,
           onStep: step => upsertStep(key, step),
+          onDraft: draft => setDraft(key, draft),
           signal: controller.signal,
         })
       } finally {

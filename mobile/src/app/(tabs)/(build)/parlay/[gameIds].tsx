@@ -1,9 +1,6 @@
 import { EmptyState } from '@/components/ui/ScreenState'
 import { ConfidenceBar } from '@/components/ui/ConfidenceBar'
-import {
-  PinnedActions,
-  PINNED_ACTIONS_SPACE,
-} from '@/components/ui/PinnedActions'
+import { PinnedActions } from '@/components/ui/PinnedActions'
 import { useDerivedCurrentWeek } from '@shared/hooks/useDerivedCurrentWeek'
 import { useEntitlements } from '@shared/hooks/useEntitlements'
 import { formatOdds } from '@shared/odds'
@@ -12,12 +9,13 @@ import useParlayStore, {
   SAVE_PARLAY_ERROR,
 } from '@shared/store/parlayStore'
 import { cancelParlayRun } from '@shared/hooks/useParlayGenerator'
-import { Stack, useLocalSearchParams } from 'expo-router'
+import { Stack, router, useLocalSearchParams } from 'expo-router'
 import { useState } from 'react'
-import { ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Alert, InteractionManager, ScrollView, StyleSheet, Text, View } from 'react-native'
 
 import { ErrorBanner } from '@/components/ui/ErrorBanner'
 import { AgentProgress } from '@/components/display/AgentProgress'
+import { DraftPreviewView } from '@/components/display/DraftPreviewView'
 import { GameSummaryView } from '@/components/display/GameSummaryView'
 import { ParlayDisplayFooter } from '@/components/display/ParlayDisplayFooter'
 import { ParlayLegView } from '@/components/display/ParlayLegView'
@@ -42,7 +40,12 @@ export default function ParlayDetailScreen() {
   const ids = (gameIds ?? '').split('+').filter(Boolean)
   const key = parlayKey(activeWeek, ids)
   const entry = useParlayStore(state => state.entries[key])
+  const clearRun = useParlayStore(state => state.clearRun)
 
+  // The pinned bar floats over the scroll view, so the content has to reserve
+  // its real height rather than a guess — a guess leaves either dead space
+  // under the last line or a footer you cannot scroll clear of.
+  const [actionsHeight, setActionsHeight] = useState(0)
   const [saving, setSaving] = useState(false)
   const [savedId, setSavedId] = useState<string | null>(null)
   const [saveError, setSaveError] = useState('')
@@ -75,6 +78,7 @@ export default function ParlayDetailScreen() {
             // not have to be the one that cancels it.
             onCancel={() => cancelParlayRun(key)}
           />
+          {entry.draft ? <DraftPreviewView preview={entry.draft} /> : null}
         </ScrollView>
       </View>
     )
@@ -111,6 +115,27 @@ export default function ParlayDetailScreen() {
     return game ? `${game.away.name} @ ${game.home.name} — Week ${game.week}` : parlay.gameContext
   }
 
+  const discard = () => {
+    router.back()
+    // Removing the entry takes this screen's subject away, so do it once the
+    // pop has finished — clearing it first re-renders the screen into the
+    // "no longer in this week's working set" message while it slides away.
+    InteractionManager.runAfterInteractions(() => clearRun(key))
+  }
+
+  const confirmDiscard = () => {
+    Alert.alert(
+      'Discard this parlay?',
+      alreadySaved
+        ? 'It stays under History. This only clears it from this week\u2019s board.'
+        : 'It was never saved to History, so it is gone. Building it again spends another generation.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Discard', style: 'destructive', onPress: discard },
+      ]
+    )
+  }
+
   const save = async () => {
     if (!user) {
       return
@@ -131,7 +156,12 @@ export default function ParlayDetailScreen() {
     <View style={styles.screen}>
       <Stack.Screen options={{ title }} />
 
-      <ScrollView contentContainerStyle={styles.body}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.body,
+          { paddingBottom: actionsHeight + spacing.md },
+        ]}
+      >
         <View style={styles.header}>
           <View style={styles.headerText}>
             <Text style={styles.headline} accessibilityRole="header">
@@ -205,15 +235,28 @@ export default function ParlayDetailScreen() {
         <ParlayDisplayFooter parlay={parlay} />
       </ScrollView>
 
-      <PinnedActions>
-        <Button
-          variant="outline"
-          label={alreadySaved ? 'Saved to History' : 'Save to History'}
-          icon={alreadySaved ? 'checkmark' : 'bookmark-outline'}
-          loading={saving}
-          disabled={alreadySaved}
-          onPress={save}
-        />
+      <PinnedActions
+        onLayout={e => setActionsHeight(e.nativeEvent.layout.height)}
+      >
+        <View style={styles.actionRow}>
+          <Button
+            variant="outline"
+            label={alreadySaved ? 'Saved to History' : 'Save to History'}
+            icon={alreadySaved ? 'checkmark' : 'bookmark-outline'}
+            loading={saving}
+            disabled={alreadySaved}
+            onPress={save}
+            style={styles.saveAction}
+          />
+          <Button
+            variant="danger"
+            iconOnly
+            icon="trash-outline"
+            label="Discard parlay"
+            onPress={confirmDiscard}
+            style={styles.discardAction}
+          />
+        </View>
       </PinnedActions>
     </View>
   )
@@ -228,7 +271,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     padding: spacing.lg,
   },
-  body: { padding: spacing.md, gap: spacing.md, paddingBottom: PINNED_ACTIONS_SPACE },
+  body: { padding: spacing.md, gap: spacing.md },
   muted: { ...typography.bodySmall, color: colors.textSecondary },
 
   header: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
@@ -241,4 +284,10 @@ const styles = StyleSheet.create({
 
 
   legs: { gap: spacing.sm },
+  actionRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  saveAction: { flex: 1 },
+  // Neutral container, red glyph. The border is what makes it read as a button
+  // beside the bordered Save; keeping it neutral is what keeps it from
+  // outweighing the safe action next to it.
+  discardAction: { borderWidth: 1, borderColor: colors.border },
 })

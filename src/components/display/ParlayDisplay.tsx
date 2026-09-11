@@ -15,8 +15,10 @@ import {
   Typography,
 } from '@mui/material'
 import React, { useState } from 'react'
-import useParlayStore, { type ParlayEntry } from '@shared/store/parlayStore'
-import { SAVE_PARLAY_ERROR } from '@shared/store/parlayStore'
+import useParlayStore, {
+  SAVE_PARLAY_ERROR,
+  type ParlayEntry,
+} from '@shared/store/parlayStore'
 import { saveParlayToUser } from '../../config/firebase'
 import { useAuth } from '../../hooks/useAuth'
 import useModalStore from '../../store/modalStore'

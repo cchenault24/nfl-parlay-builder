@@ -56,12 +56,15 @@ export function serializeEntries(entries: Record<string, ParlayEntry>): string {
 // A run that was mid-flight cannot be resumed either; restoring it would show a
 // spinner for a run nobody is driving.
 //
-// Unparseable storage is treated as empty rather than thrown. Losing the cache
-// is a smaller failure than a Build tab that cannot open.
+// Unparseable storage never throws — a Build tab that cannot open is a worse
+// failure than a cold cache. It returns null rather than `{}` so the caller can
+// tell "nothing stored" from "stored something I could not read": the first is
+// safe to mirror back, the second must not be, because writing `{}` over a blob
+// we merely failed to parse turns one bad read into permanent loss.
 export function parseEntries(
   raw: string | null,
   minWeek: number
-): Record<string, ParlayEntry> {
+): Record<string, ParlayEntry> | null {
   if (!raw) {
     return {}
   }
@@ -69,10 +72,10 @@ export function parseEntries(
   try {
     parsed = JSON.parse(raw)
   } catch {
-    return {}
+    return null
   }
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    return {}
+    return null
   }
   return Object.fromEntries(
     Object.entries(parsed as Record<string, unknown>).filter(
@@ -86,11 +89,11 @@ export async function loadEntries(
   storage: EntryStorage,
   uid: string,
   minWeek: number
-): Promise<Record<string, ParlayEntry>> {
+): Promise<Record<string, ParlayEntry> | null> {
   try {
     return parseEntries(await storage.getItem(parlayStorageKey(uid)), minWeek)
   } catch {
-    return {}
+    return null
   }
 }
 

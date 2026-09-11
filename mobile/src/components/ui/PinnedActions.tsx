@@ -1,5 +1,10 @@
 import type { ReactNode } from 'react'
-import { StyleProp, StyleSheet, ViewStyle } from 'react-native'
+import {
+  StyleProp,
+  StyleSheet,
+  ViewStyle,
+  type LayoutChangeEvent,
+} from 'react-native'
 
 import { GlassSurface } from '@/components/ui/GlassSurface'
 import { colors, spacing } from '@/lib/theme/designTokens'
@@ -8,11 +13,15 @@ import { colors, spacing } from '@/lib/theme/designTokens'
  * The bar pinned to the bottom of a Build-stack screen, and the space a scroll
  * view has to leave for it.
  *
- * Both used to be written out at each site: the same absolutely-positioned
- * GlassSurface on three screens, and the room to clear it expressed three
- * different ways — `spacing.xxl * 3` twice and a bare `200` once. Three numbers
- * for one measurement, none of them derived from the bar, so a bar that grew a
- * second line hid the last card on whichever screens nobody thought to check.
+ * The bar itself was written out at each site: the same absolutely-positioned
+ * GlassSurface on three screens, with the same four-line comment above it.
+ *
+ * The space is not a constant. It was guessed three different ways — 144pt
+ * twice and 200 once, for a bar that measures about 84 — which showed as dead
+ * space under the last card and would have hidden it outright the moment the
+ * bar grew a line. `onLayout` reports the real height, so the reserve is exact
+ * and survives the bar changing; the parlay screen's has since gained a second
+ * button.
  *
  * No safe-area inset. This sits inside the tab navigator, so the tab bar is
  * already between it and the home indicator and has already absorbed that inset
@@ -21,17 +30,19 @@ import { colors, spacing } from '@/lib/theme/designTokens'
 export function PinnedActions({
   children,
   style,
+  onLayout,
 }: {
   children: ReactNode
   style?: StyleProp<ViewStyle>
+  // Reports the bar's measured height, for the scroll view that has to clear it.
+  onLayout?: (event: LayoutChangeEvent) => void
 }) {
-  return <GlassSurface style={[styles.bar, style]}>{children}</GlassSurface>
+  return (
+    <GlassSurface style={[styles.bar, style]} onLayout={onLayout}>
+      {children}
+    </GlassSurface>
+  )
 }
-
-// What a scroll view must reserve so its last item clears the bar. Generous on
-// purpose: the bar's height depends on how many controls it carries, and the
-// cost of over-reserving is a little empty space rather than hidden content.
-export const PINNED_ACTIONS_SPACE = spacing.xxl * 3
 
 const styles = StyleSheet.create({
   bar: {
