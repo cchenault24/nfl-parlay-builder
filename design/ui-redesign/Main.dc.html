@@ -1,0 +1,169 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <style>
+    body { margin: 0; font-family: Inter, -apple-system, system-ui, sans-serif; }
+    a { color: #4caf50; } a:hover { color: #66bb6a; }
+    * { box-sizing: border-box; }
+  </style>
+</helmet>
+
+<div style="width: 393px; height: 852px; background: #121212; display: flex; flex-direction: column; overflow: hidden;">
+
+  <!-- top safe area: intentionally empty, the real status bar paints here -->
+  <div style="height: 59px; flex-shrink: 0;"></div>
+
+  <!-- Header -->
+  <div style="padding: 8px 16px 12px 16px; display: flex; flex-direction: column; gap: 8px; flex-shrink: 0;">
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <div style="display: flex; align-items: baseline; gap: 6px; flex-grow: 1;">
+        <span style="font-size: 30px; line-height: 34px; font-weight: 700; letter-spacing: -0.6px; color: #ffffff;">Week 3</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.72)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 2px;"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </div>
+      <div style="min-height: 44px; display: flex; align-items: center; padding: 0 4px;">
+        <span style="font-size: 16px; line-height: 20px; font-weight: 600; letter-spacing: 0.2px; color: #4caf50;">Select</span>
+      </div>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <span style="font-size: 13px; line-height: 16px; font-weight: 500; color: #ffffff; font-variant-numeric: tabular-nums; flex-grow: 1;">14 games · 1 parlay built</span>
+    </div>
+
+    <!-- Quota strip: free tier, honest about what a generation costs -->
+    <div style="display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: #0c0c0e; border: 1px solid rgba(255,255,255,0.14); border-radius: 10px;">
+      <div style="display: flex; flex-direction: column; gap: 2px; flex-grow: 1;">
+        <span style="font-size: 13px; line-height: 16px; font-weight: 500; color: #ffffff; font-variant-numeric: tabular-nums;">1 of 2 parlays left this week</span>
+        <span style="font-size: 12px; line-height: 16px; color: rgba(255,255,255,0.72);">Resets in 4 days</span>
+      </div>
+      <div style="min-height: 44px; display: flex; align-items: center; padding: 0 4px;"><span style="font-size: 13px; line-height: 16px; font-weight: 500; color: #ff9800;">Go unlimited</span></div>
+    </div>
+  </div>
+
+  <!-- Scrolling slate -->
+  <div style="flex-grow: 1; overflow: hidden; padding: 0 16px; display: flex; flex-direction: column; gap: 8px;">
+
+    <!-- READY: parlay already built for this game -->
+    <div style="background: #26262b; border: 1px solid #4caf50; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 4px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <div style="width: 24px; height: 24px; background: #26262b; border: 1px solid rgba(255,255,255,0.14); border-radius: 6px; display: flex; align-items: center; justify-content: center;"><span style="font-size: 7.2px; font-weight: 700; color: rgba(255,255,255,0.72);">CIN</span></div>
+        <span style="font-size: 18px; line-height: 24px; font-weight: 600; letter-spacing: -0.1px; color: #ffffff;">CIN</span>
+        <span style="font-size: 12px; line-height: 16px; color: rgba(255,255,255,0.72);">at</span>
+        <span style="font-size: 18px; line-height: 24px; font-weight: 600; letter-spacing: -0.1px; color: #ffffff;">BAL</span>
+        <div style="width: 24px; height: 24px; background: #26262b; border: 1px solid rgba(255,255,255,0.14); border-radius: 6px; display: flex; align-items: center; justify-content: center;"><span style="font-size: 7.2px; font-weight: 700; color: rgba(255,255,255,0.72);">BAL</span></div>
+        <div style="flex-grow: 1;"></div>
+        <div style="border: 1px solid #4caf50; border-radius: 6px; padding: 4px 8px;"><span style="font-size: 11px; line-height: 14px; font-weight: 500; color: #4caf50; font-variant-numeric: tabular-nums;">+412</span></div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+      </div>
+      <div style="display: flex; align-items: center; gap: 6px;">
+        <span style="font-size: 12px; line-height: 16px; color: rgba(255,255,255,0.72);">Sun, Sep 21, 1:00 PM</span>
+        <span style="font-size: 12px; line-height: 16px; color: rgba(255,255,255,0.5);">·</span>
+        <span style="font-size: 12px; line-height: 16px; color: #4caf50;">3-leg parlay ready</span>
+      </div>
+    </div>
+
+    <!-- RUNNING: a batch run in flight, progress lives on the row -->
+    <div style="background: #1c1c20; border: 1px solid rgba(255,255,255,0.14); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 8px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <div style="width: 24px; height: 24px; background: #26262b; border: 1px solid rgba(255,255,255,0.14); border-radius: 6px; display: flex; align-items: center; justify-content: center;"><span style="font-size: 7.2px; font-weight: 700; color: rgba(255,255,255,0.72);">GB</span></div>
+        <span style="font-size: 18px; line-height: 24px; font-weight: 600; letter-spacing: -0.1px; color: #ffffff;">GB</span>
+        <span style="font-size: 12px; line-height: 16px; color: rgba(255,255,255,0.72);">at</span>
+        <span style="font-size: 18px; line-height: 24px; font-weight: 600; letter-spacing: -0.1px; color: #ffffff;">DET</span>
+        <div style="width: 24px; height: 24px; background: #26262b; border: 1px solid rgba(255,255,255,0.14); border-radius: 6px; display: flex; align-items: center; justify-content: center;"><span style="font-size: 7.2px; font-weight: 700; color: rgba(255,255,255,0.72);">DET</span></div>
+        <div style="flex-grow: 1;"></div>
+        <span style="font-size: 11px; line-height: 14px; font-weight: 500; color: rgba(255,255,255,0.72); font-variant-numeric: tabular-nums;">0:24</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 12px; line-height: 16px; color: rgba(255,255,255,0.72); flex-grow: 1;">Checking legs against the lines · 6 of 8</span>
+        <div style="min-height: 44px; display: flex; align-items: center; padding: 0 8px; margin: -12px -8px -12px 0;"><span style="font-size: 11px; line-height: 14px; font-weight: 500; color: rgba(255,255,255,0.72);">Cancel</span></div>
+      </div>
+      <div style="height: 3px; background: #0c0c0e; border-radius: 999px; overflow: hidden;">
+        <div style="width: 75%; height: 100%; background: #4caf50; border-radius: 999px;"></div>
+      </div>
+    </div>
+
+    <!-- FAILED: one run in a batch failed, the others stand. No auto-retry. -->
+    <div style="background: #1c1c20; border: 1px solid rgba(255,255,255,0.14); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 4px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <div style="width: 24px; height: 24px; background: #26262b; border: 1px solid rgba(255,255,255,0.14); border-radius: 6px; display: flex; align-items: center; justify-content: center;"><span style="font-size: 7.2px; font-weight: 700; color: rgba(255,255,255,0.72);">KC</span></div>
+        <span style="font-size: 18px; line-height: 24px; font-weight: 600; letter-spacing: -0.1px; color: #ffffff;">KC</span>
+        <span style="font-size: 12px; line-height: 16px; color: rgba(255,255,255,0.72);">at</span>
+        <span style="font-size: 18px; line-height: 24px; font-weight: 600; letter-spacing: -0.1px; color: #ffffff;">NYG</span>
+        <div style="width: 24px; height: 24px; background: #26262b; border: 1px solid rgba(255,255,255,0.14); border-radius: 6px; display: flex; align-items: center; justify-content: center;"><span style="font-size: 7.2px; font-weight: 700; color: rgba(255,255,255,0.72);">NYG</span></div>
+        <div style="flex-grow: 1;"></div>
+        <div style="min-height: 44px; display: flex; align-items: center; margin: -10px 0;"><div style="border: 1px solid #ffa726; border-radius: 6px; padding: 4px 8px;"><span style="font-size: 11px; line-height: 14px; font-weight: 500; color: #ffa726;">Retry</span></div></div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 6px;">
+        <span style="font-size: 12px; line-height: 16px; color: rgba(255,255,255,0.72);">Thu, Sep 25, 8:15 PM</span>
+        <span style="font-size: 12px; line-height: 16px; color: rgba(255,255,255,0.5);">·</span>
+        <span style="font-size: 12px; line-height: 16px; color: #ffa726;">Run failed — quota not spent</span>
+      </div>
+    </div>
+
+    <!-- DEFAULT: nothing built yet -->
+    <div style="background: #1c1c20; border: 1px solid rgba(255,255,255,0.14); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 4px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <div style="width: 24px; height: 24px; background: #26262b; border: 1px solid rgba(255,255,255,0.14); border-radius: 6px; display: flex; align-items: center; justify-content: center;"><span style="font-size: 7.2px; font-weight: 700; color: rgba(255,255,255,0.72);">SF</span></div>
+        <span style="font-size: 18px; line-height: 24px; font-weight: 600; letter-spacing: -0.1px; color: #ffffff;">SF</span>
+        <span style="font-size: 12px; line-height: 16px; color: rgba(255,255,255,0.72);">at</span>
+        <span style="font-size: 18px; line-height: 24px; font-weight: 600; letter-spacing: -0.1px; color: #ffffff;">SEA</span>
+        <div style="width: 24px; height: 24px; background: #26262b; border: 1px solid rgba(255,255,255,0.14); border-radius: 6px; display: flex; align-items: center; justify-content: center;"><span style="font-size: 7.2px; font-weight: 700; color: rgba(255,255,255,0.72);">SEA</span></div>
+        <div style="flex-grow: 1;"></div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+      </div>
+      <span style="font-size: 12px; line-height: 16px; color: rgba(255,255,255,0.72);">Sun, Sep 21, 4:25 PM</span>
+    </div>
+
+    <div style="background: #1c1c20; border: 1px solid rgba(255,255,255,0.14); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 4px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <div style="width: 24px; height: 24px; background: #26262b; border: 1px solid rgba(255,255,255,0.14); border-radius: 6px; display: flex; align-items: center; justify-content: center;"><span style="font-size: 7.2px; font-weight: 700; color: rgba(255,255,255,0.72);">DAL</span></div>
+        <span style="font-size: 18px; line-height: 24px; font-weight: 600; letter-spacing: -0.1px; color: #ffffff;">DAL</span>
+        <span style="font-size: 12px; line-height: 16px; color: rgba(255,255,255,0.72);">at</span>
+        <span style="font-size: 18px; line-height: 24px; font-weight: 600; letter-spacing: -0.1px; color: #ffffff;">PHI</span>
+        <div style="width: 24px; height: 24px; background: #26262b; border: 1px solid rgba(255,255,255,0.14); border-radius: 6px; display: flex; align-items: center; justify-content: center;"><span style="font-size: 7.2px; font-weight: 700; color: rgba(255,255,255,0.72);">PHI</span></div>
+        <div style="flex-grow: 1;"></div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+      </div>
+      <span style="font-size: 12px; line-height: 16px; color: rgba(255,255,255,0.72);">Sun, Sep 21, 8:20 PM</span>
+    </div>
+
+    <!-- CLOSED: kicked off, not selectable. 0.45 opacity, as today. -->
+    <div style="background: #1c1c20; border: 1px solid rgba(255,255,255,0.14); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 4px; opacity: 0.45;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <div style="width: 24px; height: 24px; background: #26262b; border: 1px solid rgba(255,255,255,0.14); border-radius: 6px; display: flex; align-items: center; justify-content: center;"><span style="font-size: 7.2px; font-weight: 700; color: rgba(255,255,255,0.72);">NYJ</span></div>
+        <span style="font-size: 18px; line-height: 24px; font-weight: 600; letter-spacing: -0.1px; color: #ffffff;">NYJ</span>
+        <span style="font-size: 12px; line-height: 16px; color: rgba(255,255,255,0.72);">at</span>
+        <span style="font-size: 18px; line-height: 24px; font-weight: 600; letter-spacing: -0.1px; color: #ffffff;">BUF</span>
+        <div style="width: 24px; height: 24px; background: #26262b; border: 1px solid rgba(255,255,255,0.14); border-radius: 6px; display: flex; align-items: center; justify-content: center;"><span style="font-size: 7.2px; font-weight: 700; color: rgba(255,255,255,0.72);">BUF</span></div>
+      </div>
+      <span style="font-size: 12px; line-height: 16px; color: rgba(255,255,255,0.72);">Thu, Sep 18, 8:15 PM · in progress</span>
+    </div>
+
+  </div>
+
+  <!-- Tab bar. Glass on iOS 26, flat #1c1c20 fallback below it. -->
+  <div style="flex-shrink: 0; height: 83px; background: rgba(28,28,32,0.82); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border-top: 1px solid rgba(255,255,255,0.14); display: flex; padding-bottom: 34px;">
+    <div style="flex-grow: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4caf50" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="12" rx="9.5" ry="6" transform="rotate(-45 12 12)"></ellipse><line x1="9" y1="15" x2="15" y2="9"></line><line x1="10.5" y1="13" x2="12" y2="14.5"></line><line x1="13" y1="10.5" x2="14.5" y2="12"></line></svg>
+      <span style="font-size: 11px; line-height: 14px; font-weight: 500; color: #4caf50;">Build</span>
+    </div>
+    <div style="flex-grow: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.72)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"></circle><polyline points="12 6.5 12 12 15.5 14"></polyline></svg>
+      <span style="font-size: 11px; line-height: 14px; font-weight: 500; color: rgba(255,255,255,0.72);">History</span>
+    </div>
+    <div style="flex-grow: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.72)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M4.5 20c0-4.1 3.4-6.5 7.5-6.5s7.5 2.4 7.5 6.5"></path></svg>
+      <span style="font-size: 11px; line-height: 14px; font-weight: 500; color: rgba(255,255,255,0.72);">Account</span>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

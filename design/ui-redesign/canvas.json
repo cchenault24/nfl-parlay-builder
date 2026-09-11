@@ -1,0 +1,122 @@
+{
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "title": "Build",
+      "x": 0,
+      "y": 0,
+      "w": 393,
+      "h": 852
+    },
+    {
+      "file": "GameDetail.dc.html",
+      "title": "Game detail",
+      "x": 493,
+      "y": 0,
+      "w": 393,
+      "h": 852
+    },
+    {
+      "file": "ParlayDetail.dc.html",
+      "title": "Parlay detail",
+      "x": 986,
+      "y": 0,
+      "w": 393,
+      "h": 852
+    },
+    {
+      "file": "Batch.dc.html",
+      "title": "Build — select mode (Pro)",
+      "x": 0,
+      "y": 1200,
+      "w": 393,
+      "h": 852
+    },
+    {
+      "file": "RunSettings.dc.html",
+      "title": "Run settings sheet (free)",
+      "x": 493,
+      "y": 1200,
+      "w": 393,
+      "h": 852
+    },
+    {
+      "file": "Flow.dc.html",
+      "title": "Interactive flow",
+      "x": 986,
+      "y": 1200,
+      "w": 393,
+      "h": 852,
+      "is_interactive": true
+    },
+    {
+      "file": "RunSettingsPro.dc.html",
+      "title": "Run settings sheet (Pro)",
+      "x": 1479,
+      "y": 1200,
+      "w": 393,
+      "h": 852
+    }
+  ],
+  "annotations": [
+    {
+      "id": "overview",
+      "x": 0,
+      "y": -520,
+      "w": 1379,
+      "text": "ParlAId iOS — Build tab restructure\n\nThe Build tab is one ScrollView holding the whole input surface and then the whole output surface: week picker, ~16 game cards, risk, sportsbook, quota, CTA, game data, AI analysis, parlay, footer. Roughly 3–4 viewport heights, with the CTA below a ~1,200pt list and its result below everything you used to reach it.\n\nThis splits that into three screens. Palette, type ramp, spacing and radii are lifted from mobile/src/lib/theme/designTokens.ts unchanged."
+    },
+    {
+      "id": "note-slate",
+      "x": 0,
+      "y": -280,
+      "w": 393,
+      "text": "BUILD — rows carry their own parlay state: ready (green border + odds), running (inline progress, tap to watch), failed (retry, quota not spent), default, closed. Week is a header control; quota is stated before you spend it.\n\nReady row taps to the parlay. Unbuilt row taps to game detail."
+    },
+    {
+      "id": "note-game",
+      "x": 493,
+      "y": -280,
+      "w": 393,
+      "text": "GAME DETAIL — the deciding surface, reachable before spending a generation. Lines, matchup rankings, venue and forecast cost no quota.\n\nThe CTA is pinned, so it is never below the fold. Risk/legs/sportsbook collapse to one summary row that opens the sheet."
+    },
+    {
+      "id": "note-parlay",
+      "x": 986,
+      "y": -280,
+      "w": 393,
+      "text": "PARLAY DETAIL — the result gets the full viewport. Combined odds at the top, legs next, AI analysis collapsed as evidence rather than preamble.\n\nThe amber strip is a real billing rule: finishRun only bills a succeeded run with anchored odds, so an estimated parlay costs nothing."
+    },
+    {
+      "id": "note-batch",
+      "x": 0,
+      "y": 920,
+      "w": 393,
+      "text": "SELECT MODE (Pro) — the batch bar replaces the tab bar rather than stacking on it. Already-built games are excluded and spend nothing.\n\nShown as Pro because free is 2 generations a week: a free user entering select mode gets the CTA capped at what remains.\n\nThe mode switch separates the two multi-game meanings: N parlays (client fan-out, one run each) vs one cross-game parlay (one run total).\n\nPRO_RUNS_PER_DAY = 10, so a six-game batch spends 60% of a Pro day and a six-game cross-game parlay spends 10%. The bar states that before the tap."
+    },
+    {
+      "id": "note-settings",
+      "x": 493,
+      "y": 920,
+      "w": 393,
+      "text": "RUN SETTINGS, FREE — risk locked to Moderate, legs locked to 3, sportsbook pinned to DraftKings.\n\nThe fallback caption is free-only: a free user never chose, so naming the swap is the whole disclosure. Pro chose explicitly and is told up front instead.\n\nLocked controls stay legible rather than hidden, as Segmented.tsx already does."
+    },
+    {
+      "id": "note-flow",
+      "x": 986,
+      "y": 920,
+      "w": 393,
+      "text": "INTERACTIVE — tap a game row, then Create. The step timeline runs in place, so AgentProgress is relocated rather than deleted, and the row comes back marked ready.\n\nCIN@BAL starts built: tap it for the ready-row path. Build two and the CTA locks — that is the free ceiling."
+    },
+    {
+      "id": "note-settings-pro",
+      "x": 1479,
+      "y": 920,
+      "w": 393,
+      "text": "RUN SETTINGS, PRO — every control open, and sportsbook availability is per game: a book that hasn't posted this matchup is disabled and says so, rather than being silently swapped underneath a deliberate choice.\n\nNeeds per-game book availability BEFORE a run. The public API exposes only /season and /games today — no odds — so this depends on a new pre-run endpoint, which the game-detail lines panel needs anyway."
+    }
+  ],
+  "launch": {
+    "view": "canvas"
+  }
+}
