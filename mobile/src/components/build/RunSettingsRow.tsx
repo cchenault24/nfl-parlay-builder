@@ -1,6 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons'
-import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { Pressable, StyleSheet, Text } from 'react-native'
 
+import { ProBadge } from '@/components/ui/ProBadge'
 import {
   colors,
   MIN_TARGET,
@@ -32,11 +33,7 @@ export function RunSettingsRow({ summary, gated, onPress }: RunSettingsRowProps)
       <Text style={styles.summary} numberOfLines={1}>
         {summary}
       </Text>
-      {gated ? (
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>PRO</Text>
-        </View>
-      ) : null}
+      {gated ? <ProBadge /> : null}
       <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
     </Pressable>
   )
@@ -57,16 +54,4 @@ const styles = StyleSheet.create({
   },
   summary: { ...typography.label, color: colors.text, flex: 1 },
   pressed: { opacity: PRESSED_OPACITY },
-  badge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.sm,
-    backgroundColor: colors.secondary,
-  },
-  badgeText: {
-    ...typography.micro,
-    fontSize: 10,
-    letterSpacing: 0.4,
-    color: colors.background,
-  },
 })

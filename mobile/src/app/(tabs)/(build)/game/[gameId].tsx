@@ -7,7 +7,6 @@ import useParlayStore from '@shared/store/parlayStore'
 import { router, Stack, useLocalSearchParams } from 'expo-router'
 import { useState } from 'react'
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { ErrorBanner } from '@/components/ErrorBanner'
 import UpgradeSheet from '@/components/UpgradeSheet'
@@ -34,7 +33,6 @@ import { colors, spacing, typography } from '@/lib/theme/designTokens'
  */
 export default function GameDetailScreen() {
   const { gameId } = useLocalSearchParams<{ gameId: string }>()
-  const insets = useSafeAreaInsets()
   const { currentWeek } = useDerivedCurrentWeek()
   // The week the list is browsing, which is not always the live one.
   const activeWeek = useParlayStore(state => state.activeWeek) ?? currentWeek
@@ -118,7 +116,7 @@ export default function GameDetailScreen() {
 
       {/* Pinned, so the button that acts on this game is never below a
           screenful of the data you used to decide (DESIGN fault 1). */}
-      <GlassSurface style={[styles.actions, { paddingBottom: insets.bottom + spacing.md }]}>
+      <GlassSurface style={styles.actions}>
         <RunSettingsRow
           summary={settingsSummary({
             riskLevel,
@@ -181,6 +179,10 @@ const styles = StyleSheet.create({
   },
   body: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xxl * 3 },
   muted: { ...typography.body, color: colors.textSecondary, textAlign: 'center' },
+  // No safe-area inset here. This bar is pinned to the bottom of a screen
+  // inside the tab navigator, so the tab bar already sits between it and the
+  // home indicator and has already absorbed that inset — adding it again pads
+  // for a gap something else is filling.
   actions: {
     position: 'absolute',
     left: 0,

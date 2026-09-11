@@ -3,8 +3,8 @@ import useParlayStore from '@shared/store/parlayStore'
 import type { BookLines, RiskLevel } from '@shared/types'
 import { StyleSheet, Text, View } from 'react-native'
 
-import ProGate from '@/components/ProGate'
 import { ChipStrip, type StripOption } from '@/components/ui/ChipStrip'
+import { ProBadge } from '@/components/ui/ProBadge'
 import { Segmented, type SegmentedOption } from '@/components/ui/Segmented'
 import { Sheet } from '@/components/ui/Sheet'
 import {
@@ -69,10 +69,9 @@ export function RunSettingsSheet({
     label: book.title,
     caption: book.caption,
     captionTone: 'muted' as const,
-    // Only "this book has not posted this game" dims a chip. A *locked* chip is
-    // already dimmed by the ProGate wrapping the whole strip, and dimming it
-    // twice takes it to 20% opacity — below the contrast a locked control is
-    // meant to keep.
+    // "Not available" means this book has not posted this game: inert, nothing
+    // to offer. A *locked* book is a live target that opens the upsell, so it
+    // is deliberately not disabled.
     disabled: book.disabled,
     locked: book.locked,
   }))
@@ -110,21 +109,24 @@ export function RunSettingsSheet({
 
       {sportsbooks.length > 0 ? (
         <View style={styles.field}>
-          <Text style={styles.label}>Sportsbook</Text>
-          <ProGate
-            locked={!canChooseBook}
-            label="your own sportsbook"
-            onUpgrade={() =>
+          <View style={styles.labelRow}>
+            <Text style={styles.label}>Sportsbook</Text>
+            {canChooseBook ? null : <ProBadge />}
+          </View>
+
+          {/* Not wrapped in a blanket overlay: the strip scrolls past four
+              books, and blocking touches to catch the upsell tap also blocked
+              the scroll — locking a control should not stop you looking at the
+              rest of it. Each locked chip offers Pro on its own. */}
+          <ChipStrip
+            options={bookChoices}
+            value={selectedBook ?? ''}
+            onChange={key => setBookmaker(key || undefined)}
+            onLockedPress={() =>
               onUpgrade('Pricing every leg on your own sportsbook is part of Pro.')
             }
-          >
-            <ChipStrip
-              options={bookChoices}
-              value={selectedBook ?? ''}
-              onChange={key => setBookmaker(key || undefined)}
-              accessibilityLabel="Sportsbook"
-            />
-          </ProGate>
+            accessibilityLabel="Sportsbook"
+          />
 
           {/* Disclosure splits by tier (DESIGN #20). A free user never chose a
               book, so naming the swap after the fact is the whole disclosure. A
@@ -151,6 +153,7 @@ export function RunSettingsSheet({
 
 const styles = StyleSheet.create({
   field: { gap: spacing.sm },
+  labelRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   label: { ...typography.label, color: colors.text },
   hint: { ...typography.caption, color: colors.textSecondary },
 })

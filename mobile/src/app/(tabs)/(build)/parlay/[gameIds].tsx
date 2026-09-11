@@ -6,7 +6,6 @@ import { cancelParlayRun } from '@shared/hooks/useParlayGenerator'
 import { Stack, useLocalSearchParams } from 'expo-router'
 import { useState } from 'react'
 import { ScrollView, StyleSheet, Text, View } from 'react-native'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { ErrorBanner } from '@/components/ErrorBanner'
 import { AgentProgress } from '@/components/display/AgentProgress'
@@ -29,7 +28,6 @@ export default function ParlayDetailScreen() {
   const { gameIds } = useLocalSearchParams<{ gameIds: string }>()
   const { currentWeek } = useDerivedCurrentWeek()
   const activeWeek = useParlayStore(state => state.activeWeek) ?? currentWeek
-  const insets = useSafeAreaInsets()
   const { user } = useAuth()
   const { quota } = useEntitlements()
 
@@ -200,7 +198,7 @@ export default function ParlayDetailScreen() {
         <ParlayDisplayFooter parlay={parlay} />
       </ScrollView>
 
-      <GlassSurface style={[styles.actions, { paddingBottom: insets.bottom + spacing.md }]}>
+      <GlassSurface style={styles.actions}>
         <Button
           variant="outline"
           label={alreadySaved ? 'Saved to History' : 'Save to History'}
@@ -252,6 +250,10 @@ const styles = StyleSheet.create({
   },
 
   legs: { gap: spacing.sm },
+  // No safe-area inset here. This bar is pinned to the bottom of a screen
+  // inside the tab navigator, so the tab bar already sits between it and the
+  // home indicator and has already absorbed that inset — adding it again pads
+  // for a gap something else is filling.
   actions: {
     position: 'absolute',
     left: 0,

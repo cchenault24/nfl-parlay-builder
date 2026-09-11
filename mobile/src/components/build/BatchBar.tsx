@@ -1,5 +1,4 @@
 import { StyleSheet, Text } from 'react-native'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { Button } from '@/components/ui/Button'
 import { GlassSurface } from '@/components/ui/GlassSurface'
@@ -43,7 +42,6 @@ export function BatchBar({
   onRun,
   onLockedMode,
 }: BatchBarProps) {
-  const insets = useSafeAreaInsets()
   const overCap = mode === 'cross' && gameCount > maxGamesPerRun
   const overAllowance = batchExceedsAllowance({ mode, gameCount, allowance })
 
@@ -60,7 +58,7 @@ export function BatchBar({
     : batchCostLine({ mode, gameCount, allowance })
 
   return (
-    <GlassSurface style={[styles.bar, { paddingBottom: insets.bottom + spacing.sm }]}>
+    <GlassSurface style={styles.bar}>
       <Segmented
         options={modes}
         value={mode}
@@ -88,6 +86,10 @@ export function BatchBar({
 }
 
 const styles = StyleSheet.create({
+  // No safe-area inset here. This bar is pinned to the bottom of a screen
+  // inside the tab navigator, so the tab bar already sits between it and the
+  // home indicator and has already absorbed that inset — adding it again pads
+  // for a gap something else is filling.
   bar: {
     position: 'absolute',
     left: 0,
