@@ -1,4 +1,5 @@
 import { Box, Card, CardContent, Chip, Grid, LinearProgress, Tooltip, Typography } from '@mui/material'
+import { betTypeLabel } from '@shared/betColors'
 import React from 'react'
 import type { ParlayLeg } from '../../types'
 import { formatOdds, getBetTypeColor, getConfidenceColor, impliedProbability } from '../../utils'
@@ -37,7 +38,7 @@ const ParlayLegView: React.FC<ParlayLegViewProps> = ({ leg, index }) => {
               </Tooltip>
             )}
             <Chip
-              label={leg.betType.replace(/_/g, ' ')}
+              label={betTypeLabel(leg.betType)}
               color={getBetTypeColor(leg.betType)}
               size="small"
               sx={{ ml: 'auto', textTransform: 'capitalize' }}

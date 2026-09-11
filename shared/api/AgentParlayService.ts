@@ -6,7 +6,7 @@ import type {
   ParlayGenerationResult,
 } from '../types'
 import { AgentRunService, type RunStreamEvent } from './AgentRunService'
-import { BaseParlayService } from './BaseParlayService'
+import { BaseParlayService, bookmakerFor } from './BaseParlayService'
 
 // The Cloud Function's own timeout: nothing can still be running past it.
 export const STREAM_DEADLINE_MS = 300_000
@@ -43,7 +43,8 @@ export class AgentParlayService extends BaseParlayService {
         runId,
         result.games.map(g => g.game),
         result.parlay,
-        result.model
+        result.model,
+        bookmakerFor(result.games)
       ),
       games: result.games,
       ...(rateLimit ? { rateLimit } : {}),

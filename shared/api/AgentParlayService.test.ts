@@ -323,6 +323,27 @@ describe('awaitResult — deadline', () => {
   })
 })
 
+describe('bookmaker', () => {
+  it('names the book the run priced at, or nothing when no game had odds', async () => {
+    const priced = {
+      ...agentResult,
+      games: [
+        { ...agentResult.games[0], odds: { bookmaker: 'DraftKings', bookmakerKey: 'draftkings' } },
+        { ...agentResult.games[0], odds: { bookmaker: 'DraftKings', bookmakerKey: 'draftkings' } },
+      ],
+    }
+    const pending = generate()
+    await drain()
+    emit({ type: 'final', data: priced })
+    expect((await pending).parlay.bookmaker).toBe('DraftKings')
+
+    const unpriced = generate()
+    await drain()
+    emit({ type: 'final', data: { ...agentResult, games: [{ ...agentResult.games[0], odds: null }] } })
+    expect((await unpriced).parlay.bookmaker).toBeNull()
+  })
+})
+
 describe('createRun', () => {
   it('passes the slate and settings through', async () => {
     const pending = generate({ bookmaker: 'fanduel', legCount: 4 })

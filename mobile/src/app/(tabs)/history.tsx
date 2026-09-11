@@ -1,6 +1,6 @@
 import { EmptyState, ScreenLoading } from '@/components/ui/ScreenState'
 import { requestGrading } from '@shared/api/GradingService'
-import { getBetTypeColor } from '@shared/betColors'
+import { betTypeLabel, getBetTypeColor } from '@shared/betColors'
 import { useEntitlements } from '@shared/hooks/useEntitlements'
 import { formatOdds } from '@shared/odds'
 import type { GeneratedParlay, LegOutcome, ParlayOutcome } from '@shared/types'
@@ -149,9 +149,14 @@ export default function HistoryScreen() {
           parlays.map(parlay => (
             <Card key={parlay.parlayId} style={styles.card}>
               <View style={styles.cardHeader}>
-                <Text style={styles.context} numberOfLines={2}>
-                  {parlay.gameContext || 'NFL parlay'}
-                </Text>
+                <View style={styles.cardTitle}>
+                  <Text style={styles.context} numberOfLines={2}>
+                    {parlay.gameContext || 'NFL parlay'}
+                  </Text>
+                  {parlay.bookmaker ? (
+                    <Text style={styles.book}>Lines from {parlay.bookmaker}</Text>
+                  ) : null}
+                </View>
                 <OutcomeChip parlay={parlay} />
                 <Chip
                   label={formatOdds(parlay.combinedOdds)}
@@ -183,7 +188,7 @@ export default function HistoryScreen() {
                       </Text>
                     </View>
                     <View style={styles.legMeta}>
-                      <Chip label={leg.betType.replace(/_/g, ' ')} tint={tint} />
+                      <Chip label={betTypeLabel(leg.betType)} tint={tint} />
                       {leg.anchored === false ? (
                         <Chip label="Estimate" tint={colors.warning} />
                       ) : null}
@@ -234,7 +239,9 @@ const styles = StyleSheet.create({
 
   card: { gap: spacing.sm },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  context: { ...typography.label, color: colors.text, flex: 1 },
+  cardTitle: { flex: 1, gap: spacing.xxs },
+  context: { ...typography.label, color: colors.text },
+  book: { ...typography.caption, color: colors.textSecondary },
 
   leg: {
     borderTopWidth: StyleSheet.hairlineWidth,

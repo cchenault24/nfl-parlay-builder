@@ -1,3 +1,4 @@
+import { betTypeLabel } from '@shared/betColors'
 import {
   Casino as CasinoIcon,
   Close as CloseIcon,
@@ -159,7 +160,7 @@ export const ParlayHistory: React.FC<ParlayHistoryProps> = ({ open, onClose }) =
                       }}
                     >
                       <Chip
-                        label={leg.betType.replace(/_/g, ' ')}
+                        label={betTypeLabel(leg.betType)}
                         color={getBetTypeColor(leg.betType)}
                         size="small"
                         variant="outlined"

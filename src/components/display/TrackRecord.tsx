@@ -1,4 +1,5 @@
 import LockIcon from '@mui/icons-material/Lock'
+import { betTypeLabel } from '@shared/betColors'
 import { Box, Button, Card, CardContent, Chip, Divider, Typography } from '@mui/material'
 import React from 'react'
 import type { GeneratedParlay } from '../../types'
@@ -220,7 +221,7 @@ export const TrackRecord: React.FC<TrackRecordProps> = ({
             {t.byBetType.map(b => (
               <Row
                 key={b.betType}
-                label={b.betType.replace(/_/g, ' ')}
+                label={betTypeLabel(b.betType)}
                 claimed={record(b)}
                 actual={pct(b.winRate)}
                 count={b.settled}

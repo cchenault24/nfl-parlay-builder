@@ -18,7 +18,8 @@ export abstract class BaseParlayService {
     parlayId: string,
     games: Game[],
     result: AgentResult['parlay'],
-    model: string
+    model: string,
+    bookmaker: string | null = null
   ): GeneratedParlay {
     const [first] = games
     return {
@@ -35,8 +36,17 @@ export abstract class BaseParlayService {
       parlayConfidence: result.parlayConfidence,
       gameSummary: result.gameSummary,
       model,
+      bookmaker,
     }
   }
+}
+
+// The book(s) a run priced at, from its per-game odds snapshots. One book is
+// the normal case; a cross-game run whose games posted at different books
+// names each once.
+export function bookmakerFor(games: { odds: { bookmaker: string } | null }[]): string | null {
+  const titles = [...new Set(games.map(g => g.odds?.bookmaker).filter((t): t is string => !!t))]
+  return titles.length > 0 ? titles.join(', ') : null
 }
 
 // One game reads as the matchup; several read as the list of matchups, which is

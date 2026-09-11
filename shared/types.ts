@@ -278,6 +278,11 @@ export interface GeneratedParlay {
   parlayConfidence: number
   gameSummary: GameSummary
   model: string
+  // The book whose posted prices the anchored legs were taken from, by title
+  // ("DraftKings"). Null when no game in the run had odds; absent on documents
+  // saved before this field existed. A cross-game run priced at more than one
+  // book lists them.
+  bookmaker?: string | null
   // Absent = never checked. Populated by POST /parlays/grade.
   grading?: ParlayGrading
   // Absent until the pre-kickoff capture runs; absent forever for parlays

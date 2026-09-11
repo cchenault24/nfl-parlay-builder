@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Chip } from '@/components/ui/Chip'
 import { LinkButton } from '@/components/ui/LinkButton'
+import { UpgradeSheet } from '@/components/UpgradeSheet'
 import { AccountService } from '@shared/api/AccountService'
 import { useEntitlements } from '@shared/hooks/useEntitlements'
 import { sharedRuntime } from '@shared/runtime'
@@ -75,7 +76,8 @@ export default function AccountScreen() {
   const [document, setDocument] = useState<LegalDocument | null>(null)
   const [helpOpen, setHelpOpen] = useState(false)
   const [restoring, setRestoring] = useState(false)
-  const { isPro, refetch: refetchEntitlements } = useEntitlements()
+  const [upgradeOpen, setUpgradeOpen] = useState(false)
+  const { isPro, entitlements, refetch: refetchEntitlements } = useEntitlements()
 
   const displayName =
     userProfile?.displayName ?? user?.displayName ?? user?.email ?? 'Signed in'
@@ -194,6 +196,44 @@ export default function AccountScreen() {
           occurs.
         </Text>
 
+        {/* The plan, on the one screen about the account. Without it a Pro
+            user had nowhere to see that they were Pro or to reach the
+            subscription, and a free user had no upgrade path here. */}
+        {entitlements ? (
+          <Card style={styles.plan}>
+            <View style={styles.planRow}>
+              <Text style={styles.planTitle}>{isPro ? 'Pro plan' : 'Free plan'}</Text>
+              {isPro ? <Chip label="PRO" tint={colors.secondary} /> : null}
+            </View>
+            {isPro ? (
+              <>
+                <Text style={styles.planBody}>
+                  {entitlements.accessEndsAt
+                    ? `Access ends ${new Date(entitlements.accessEndsAt).toLocaleDateString()}.`
+                    : 'Every risk level, leg count and sportsbook, with no weekly limit.'}
+                </Text>
+                {/* Apple's page, because that is where an App Store
+                    subscription is cancelled; a web subscription is managed
+                    from the site, and the entitlement does not say which. */}
+                <LinkButton
+                  label="Manage subscription"
+                  icon="open-outline"
+                  onPress={() => Linking.openURL('https://apps.apple.com/account/subscriptions')}
+                  style={styles.planLink}
+                />
+              </>
+            ) : (
+              <>
+                <Text style={styles.planBody}>
+                  Pro removes the weekly limit and unlocks every risk level, leg
+                  count and sportsbook.
+                </Text>
+                <Button label="Upgrade to Pro" onPress={() => setUpgradeOpen(true)} />
+              </>
+            )}
+          </Card>
+        ) : null}
+
         <Card padded={false} style={styles.group}>
           <Row
             icon="document-text-outline"
@@ -264,6 +304,12 @@ export default function AccountScreen() {
       </ScrollView>
 
       <LegalDocumentSheet document={document} onClose={() => setDocument(null)} />
+      <UpgradeSheet
+        visible={upgradeOpen}
+        onClose={() => setUpgradeOpen(false)}
+        onPurchased={refetchEntitlements}
+        canPurchase={entitlements?.billingAvailable.apple ?? false}
+      />
       <ResponsibleGambling visible={helpOpen} onClose={() => setHelpOpen(false)} />
     </SafeAreaView>
   )
@@ -288,6 +334,11 @@ const styles = StyleSheet.create({
   badges: { flexDirection: 'row', gap: spacing.sm },
   badgeCaption: { ...typography.caption, color: colors.textSecondary },
 
+  plan: { gap: spacing.sm },
+  planRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  planTitle: { ...typography.title, color: colors.text, flex: 1 },
+  planBody: { ...typography.bodySmall, color: colors.textSecondary },
+  planLink: { alignSelf: 'flex-start' },
   group: { overflow: 'hidden' },
   row: {
     flexDirection: 'row',

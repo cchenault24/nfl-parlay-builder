@@ -26,6 +26,11 @@ interface LinkButtonProps {
   role?: 'link' | 'button'
   textStyle?: StyleProp<TextStyle>
   style?: StyleProp<ViewStyle>
+  // A link inside running text takes the line's height, not a 44pt box — a
+  // box that tall pushes the surrounding lines apart. The tap area comes from
+  // hit slop instead, which is the allowance both WCAG and the HIG make for
+  // inline links.
+  inline?: boolean
 }
 
 // Inline text that acts. Each site used to wrap its own Text in its own
@@ -38,13 +43,18 @@ export function LinkButton({
   role = 'link',
   textStyle,
   style,
+  inline = false,
 }: LinkButtonProps) {
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole={role}
-      hitSlop={HIT_SLOP}
-      style={({ pressed }) => [styles.base, pressed && styles.pressed, style]}
+      hitSlop={inline ? INLINE_HIT_SLOP : HIT_SLOP}
+      style={({ pressed }) => [
+        inline ? styles.inline : styles.base,
+        pressed && styles.pressed,
+        style,
+      ]}
     >
       {icon ? <Ionicons name={icon} size={16} color={tint} /> : null}
       <Text style={[styles.label, { color: tint }, textStyle]}>{label}</Text>
@@ -52,7 +62,11 @@ export function LinkButton({
   )
 }
 
+// Enough above and below a 13pt line to reach the 44pt target without a box.
+const INLINE_HIT_SLOP = { top: 14, bottom: 14, left: 6, right: 6 } as const
+
 const styles = StyleSheet.create({
+  inline: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   base: {
     flexDirection: 'row',
     alignItems: 'center',

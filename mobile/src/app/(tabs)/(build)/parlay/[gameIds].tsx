@@ -170,6 +170,11 @@ export default function ParlayDetailScreen() {
               {parlay.legs.length}-leg parlay
             </Text>
             <Text style={styles.context}>{parlay.gameContext}</Text>
+            {/* Which book the anchored prices came from. The settings row
+                names it before the run; nothing on this screen did after. */}
+            {parlay.bookmaker ? (
+              <Text style={styles.context}>Lines from {parlay.bookmaker}</Text>
+            ) : null}
           </View>
           <Text style={styles.odds}>{formatOdds(parlay.combinedOdds)}</Text>
         </View>

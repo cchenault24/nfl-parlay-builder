@@ -15,6 +15,7 @@ function ExternalLink({ label, url }: { label: string; url: string }) {
       onPress={() => Linking.openURL(url)}
       tint={colors.textSecondary}
       textStyle={styles.link}
+      inline
     />
   )
 }
