@@ -4,8 +4,16 @@
 Sell Pro on web and iOS, then build out the whole `docs/TIERING.md` §5 order so every
 row of the tier table is real and enforced from `/entitlements`.
 
-Status at 2026-09-11: v1 task 1 is done, task 4 is done bar the submission itself,
-and tasks 2, 3 and 5 are waiting on decisions and credentials only Christian has.
+Status at 2026-09-11: tasks 1 and 2 are done. Task 4 is staged — the App Store
+listing is filled in and saved, waiting only on a build, the Content Rights
+answer and the submission itself. Tasks 3 and 5 are deliberately parked: billing
+stays off until just before launch, and the iOS purchase path is gated on
+Apple's answer.
+
+A visual redesign is planned. Submission goes ahead anyway: release is set to
+manual, so an approval does not ship anything, and Apple reviews function and
+compliance rather than aesthetics. The 5.3 answer is the only thing here with
+external latency and the only one that can invalidate the whole iOS half.
 
 ## Tasks
 
@@ -14,14 +22,19 @@ and tasks 2, 3 and 5 are waiting on decisions and credentials only Christian has
   clients, `performanceRecord` locks `TrackRecord`, and `exportResultCard` is deleted —
   sharing is free on both tiers → Verified in the emulator against 12 seeded parlays: free
   saw 10 and a locked record, Pro saw all 12 unlocked
-- [ ] 2. Amend `docs/TIERING.md` — **half done**
-  - [x] sharing moved to Both in §2 with a §8 decision row, and §9's stuck-`running` item
-    closed (#81 had already fixed it)
-  - [ ] read the real `gpt-5.6-terra` rate into §4 — **Christian only**, it is on his OpenAI
-    dashboard
-  - [ ] settle $4.99 vs $9.99 — **Christian only**, and it gates task 3: changing the price
-    after a Stripe product exists means a new price object and a migration
-- [ ] 3. Turn Stripe on: create the recurring price, set `STRIPE_SECRET_KEY` / `STRIPE_PRICE_ID` /
+- [x] 2. Amend `docs/TIERING.md`, and answer the two decisions it was waiting on
+  - [x] sharing moved to Both in §2 with a §8 decision row; §9's stuck-`running` item closed
+  - [x] `gpt-5.6-terra` confirmed at **$2/Mtok in, $12/Mtok out** and written into §4 —
+    which reversed §4's conclusion, because the token counts it was computed from were
+    measured while the odds tool was silently broken (#102)
+  - [x] price settled at **$9.99** (#104). At $4.99 Pro went underwater above ~159 runs/mo;
+    at $9.99 break-even is ~319 and the spec's heavy user returns a $2.77 margin
+  - [x] the fair-use valve became a real limit: `PRO_RUNS_PER_DAY` is 10, the only cap that
+    stays profitable at its own ceiling. The old 20/hr valve permitted 14,400 runs/mo
+- [ ] 3. Turn Stripe on — **parked by decision until just before launch.** The Stripe
+  account will be Christian's personal one, kept separate from DebugDad, and does not
+  exist yet. Billing therefore ships off: no secrets, nothing bound, `/billing/*`
+  answering 503, both clients reading "Not on sale yet." Create the recurring price, set `STRIPE_SECRET_KEY` / `STRIPE_PRICE_ID` /
   `STRIPE_WEBHOOK_SECRET`, add the webhook endpoint, and bind all three in
   `functions/src/index.ts` **in the same change** → Verify: `/entitlements` reports
   `billingAvailable.stripe: true`, a live checkout flips the account to Pro via
@@ -37,8 +50,20 @@ and tasks 2, 3 and 5 are waiting on decisions and credentials only Christian has
     against the deployed API
   - [x] five 1320×2868 screenshots captured from the shipped design with real anchored
     DraftKings prices
-  - [ ] upload screenshots + metadata, answer **Content Rights** (NFL marks — a licensing
-    question, Christian's call), submit with the drafted review notes
+  - [x] listing filled and saved: promotional text, description, keywords, support and
+    marketing URLs, copyright, demo account, contact details, and review notes that
+    state the 5.3 argument and explain that the locked Pro controls are inert with no
+    IAP declared in this version
+  - [x] five screenshots uploaded to the 6.9" slot (1320x2868), ordered deliberately —
+    only the first three appear on install sheets, so the order is parlay result, game
+    list, per-leg reasoning, live timeline, landing
+  - [x] release set to **manual**, not the default automatic. An approval must not ship
+    the app before billing is on and before the redesign lands
+  - [ ] upload a build (`eas build --platform ios --profile production --auto-submit`)
+    and select it on the version page — nothing is attached yet
+  - [ ] answer **Content Rights** (NFL marks and posted book lines — a licensing
+    question, Christian's call)
+  - [ ] press Add for Review
   - [ ] Apple's answer on the age rating / guideline 5.3 question
 - [ ] 5. Ship iOS purchases: `APPLE_BUNDLE_ID` / `APPLE_APP_APPLE_ID` / `APPLE_ROOT_CA_G3` set and
   bound, the `com.debugdad.parlaid.pro.monthly` subscription created, Server Notification v2 URLs
@@ -73,6 +98,23 @@ and tasks 2, 3 and 5 are waiting on decisions and credentials only Christian has
   kickoff-reminder removal — then a sweep beside `captureClosingLines` comparing each saved
   parlay's anchored price to the current one, gated on `capabilities.lineMoveAlerts` → Verify: a
   seeded line move alerts one Pro user exactly once and never a free one
+
+## Also landed 2026-09-11
+- **The model economics were wrong, and the reason was the odds bug** (#102). §4 was
+  computed from token counts measured while every run was unanchored. Re-measured after
+  the fix, input is up 47% and output up 148% — the model writes to real numbers. Cost
+  per run went from $0.0118 to $0.0266 and break-even from ~359 runs/mo to ~159, which
+  reversed "uncapped Pro is safe" into a loss above ~159 runs.
+- **$9.99 and a daily cap** (#104), with the reasoning-effort experiment reverted.
+- **Two model evaluations, both recorded in §8 rather than left as folklore.** `gpt-5.6-luna`
+  is a tenth the price and passed validation 1/5, failing on one conditional rule the
+  prompt already states; hardening it reached 2/5. A full provider sweep (Sonnet 5 -14%,
+  Haiku 4.5 -57%, grok-4.3 -73%, gemini-3.7-flash -68%, deepseek-v4-flash -94%) is priced
+  but untested — terra is the only model benchmarked against the real prompt and the real
+  validation gate. Revisit `claude-sonnet-5` first if the margin ever tightens.
+- **`odds: 0` and the shared error string** (#100). The missing-lines prompt branch never
+  asked the model to price its legs, and three distinct faults reached users as the same
+  eleven words.
 
 ## Landed 2026-09-10/11, unplanned
 Found while doing tasks 1 and 4. Each was a submission blocker or a live production fault.
@@ -128,4 +170,13 @@ Found while doing tasks 1 and 4. Each was a submission blocker or a live product
 - History depth is a view restriction, not a boundary: `firestore.rules` lets a user read all their
   own parlays, so the `limit()` is honest UI, not enforcement.
 - No mobile release pipeline: builds are manual `eas build` invocations, and CI only lints and
-  type-checks `mobile/`.
+  type-checks `mobile/`. `--auto-submit` covers the upload half.
+- **Measure on the real prompt, not a reconstruction.** A benchmark rebuilt from a stored run
+  lacks EPA, recent form, rest, injuries and league averages, so it is ~370 tokens smaller and
+  flattered a reasoning-effort change by 3x (32% on the bench, ~10% in production). Anything
+  claimed from a rebuilt prompt needs confirming against production before it is believed.
+- **Push before the merge, or the commit is lost.** Two commits went missing this way —
+  `c5d0e5b` stranded off `fix/billing-optional`, and the luna decision pushed to #102 after it
+  had already merged. Both were recoverable; neither announced itself.
+- §7's 13% failure rate still needs re-measuring on healthy runs, and the token counts there
+  are superseded by §4's.
