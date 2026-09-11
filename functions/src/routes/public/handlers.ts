@@ -1,6 +1,7 @@
 import express from 'express'
 import { log } from '../../observability/logger'
 import { getSeasonSchedule } from '../../providers/espn/client'
+import { getWeekOdds } from '../../providers/odds/client'
 import { errorResponse } from '../../utils/errors'
 import { REGULAR_SEASON_WEEKS, getCurrentSeason } from '../../utils/season'
 
@@ -96,6 +97,49 @@ export const getGamesForWeekHandler = async (
       502,
       'schedule_unavailable',
       'Failed to fetch games for week',
+      correlationId
+    )
+  }
+}
+
+// Per-book lines for every game in a week, including the books that have posted
+// nothing. Two things in the redesign need it, and neither can wait for a run
+// to finish: the book-lines panel on game detail, and disabling a sportsbook a
+// Pro user cannot actually price this game against.
+//
+// It costs no extra Odds API credits. The provider fetches the whole NFL slate
+// in a single request and caches it, so this is a read of a response the app
+// was already paying for.
+export const getWeekOddsHandler = async (
+  req: express.Request,
+  res: express.Response
+) => {
+  const { correlationId } = req as CorrelatedRequest
+  const week = Number(req.params.week)
+  if (!Number.isInteger(week) || week < 1 || week > REGULAR_SEASON_WEEKS) {
+    return errorResponse(
+      res,
+      400,
+      'validation_error',
+      `week must be an integer 1-${REGULAR_SEASON_WEEKS}`,
+      correlationId
+    )
+  }
+  try {
+    const schedule = await getSeasonSchedule(getCurrentSeason())
+    res.json(await getWeekOdds(schedule.filter(g => g.week === week)))
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    log.error('api.odds.week.error', {
+      correlationId,
+      week,
+      error: { code: 'odds_unavailable', message },
+    })
+    return errorResponse(
+      res,
+      502,
+      'odds_unavailable',
+      'Failed to fetch book lines for this week',
       correlationId
     )
   }

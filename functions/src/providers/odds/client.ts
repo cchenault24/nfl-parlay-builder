@@ -20,6 +20,33 @@ export interface Moneyline {
   away: number
 }
 
+// What one book is showing for one game, including "nothing at all". The Pro
+// run-settings sheet needs the negative case as much as the positive one: a
+// book that has not posted a game is offered as disabled with a reason rather
+// than hidden, so the list does not change shape game to game.
+export interface BookLines {
+  key: string
+  title: string
+  posted: boolean
+  lastUpdate: string | null
+  spread: SpreadLine | null
+  total: TotalLine | null
+  moneyline: Moneyline | null
+}
+
+export interface GameBookLines {
+  gameId: string
+  books: BookLines[]
+}
+
+export interface WeekOdds {
+  // When the underlying slate was actually fetched, not when this response was
+  // assembled — the fetch is cached for a minute and saying "now" would
+  // overstate how fresh the numbers are.
+  fetchedAt: string
+  games: GameBookLines[]
+}
+
 export interface OddsSnapshot {
   eventId: string
   bookmaker: string
@@ -72,8 +99,10 @@ function oddsError(code: string, message: string): Error {
   return Object.assign(new Error(message), { code })
 }
 
+type OddsSlate = { fetchedAt: string; events: OddsEvent[] }
+
 // One call covers every NFL game; cached so a burst of runs costs one credit per market.
-async function fetchNflOdds(): Promise<OddsEvent[]> {
+async function fetchNflOdds(): Promise<OddsSlate> {
   // Trimmed, because a secret set from a shell pipeline keeps whatever newline
   // the shell fed it, and Secret Manager stores the value byte for byte. The
   // stored ODDS_API_KEY carried a trailing \n, which the URL encodes as %0A —
@@ -85,7 +114,7 @@ async function fetchNflOdds(): Promise<OddsEvent[]> {
   if (!apiKey) {
     throw oddsError('odds_not_configured', 'ODDS_API_KEY is not configured')
   }
-  return cache.getOrSet(
+  return cache.getOrSet<OddsSlate>(
     'odds_nfl',
     {},
     async () => {
@@ -110,24 +139,100 @@ async function fetchNflOdds(): Promise<OddsEvent[]> {
       log.info('odds.fetched', {
         requestsRemaining: res.headers.get('x-requests-remaining'),
       })
-      return (await res.json()) as OddsEvent[]
+      return {
+        fetchedAt: new Date().toISOString(),
+        events: (await res.json()) as OddsEvent[],
+      }
     },
-    { ttlMs: CACHE_TTL_MS, skipFirestore: true }
+    // Firestore-backed rather than memory-only. Game detail reads this on every
+    // matchup someone opens, which is a far higher call rate than runs produce,
+    // and a per-instance cache would spend a credit per cold instance for the
+    // same sixty seconds of data.
+    { ttlMs: CACHE_TTL_MS }
   )
+}
+
+function findEvent(events: OddsEvent[], game: ScheduleGame): OddsEvent | undefined {
+  const kickoff = Date.parse(game.dateTime)
+  return events.find(
+    e =>
+      e.home_team === game.home.name &&
+      e.away_team === game.away.name &&
+      Math.abs(Date.parse(e.commence_time) - kickoff) <= KICKOFF_TOLERANCE_MS
+  )
+}
+
+// The three markets this app prices, read out of one book's entry for one game.
+function readMarkets(
+  book: Bookmaker,
+  game: ScheduleGame
+): Pick<OddsSnapshot, 'spread' | 'total' | 'moneyline'> {
+  const market = (key: string) => book.markets.find(m => m.key === key)
+  const outcome = (m: Market | undefined, name: string) =>
+    m?.outcomes.find(o => o.name === name)
+
+  const spreadHome = outcome(market('spreads'), game.home.name)
+  const spreadAway = outcome(market('spreads'), game.away.name)
+  const over = outcome(market('totals'), 'Over')
+  const under = outcome(market('totals'), 'Under')
+  const mlHome = outcome(market('h2h'), game.home.name)
+  const mlAway = outcome(market('h2h'), game.away.name)
+
+  return {
+    spread:
+      spreadHome?.point !== undefined && spreadAway
+        ? {
+            line: spreadHome.point,
+            homePrice: spreadHome.price,
+            awayPrice: spreadAway.price,
+          }
+        : null,
+    total:
+      over?.point !== undefined && under
+        ? { line: over.point, overPrice: over.price, underPrice: under.price }
+        : null,
+    moneyline: mlHome && mlAway ? { home: mlHome.price, away: mlAway.price } : null,
+  }
+}
+
+// Every supported book's state for every given game, including the books that
+// have posted nothing. Costs no extra credits: the slate fetch above already
+// contains all four books, so this is a read of a response the app was fetching
+// anyway.
+export async function getWeekOdds(games: ScheduleGame[]): Promise<WeekOdds> {
+  const { fetchedAt, events } = await fetchNflOdds()
+  return {
+    fetchedAt,
+    games: games.map(game => {
+      const event = findEvent(events, game)
+      return {
+        gameId: game.gameId,
+        books: SUPPORTED_BOOKMAKERS.map(({ key, title }) => {
+          const book = event?.bookmakers.find(b => b.key === key)
+          const markets = book
+            ? readMarkets(book, game)
+            : { spread: null, total: null, moneyline: null }
+          return {
+            key,
+            title,
+            // Present in the response is not the same as having posted this
+            // game: a book can appear with no market this app prices.
+            posted: !!(markets.spread || markets.total || markets.moneyline),
+            lastUpdate: book?.last_update ?? null,
+            ...markets,
+          }
+        }),
+      }
+    }),
+  }
 }
 
 export async function getOddsForGame(
   game: ScheduleGame,
   preferredBookmaker?: string
 ): Promise<OddsSnapshot> {
-  const events = await fetchNflOdds()
-  const kickoff = Date.parse(game.dateTime)
-  const event = events.find(
-    e =>
-      e.home_team === game.home.name &&
-      e.away_team === game.away.name &&
-      Math.abs(Date.parse(e.commence_time) - kickoff) <= KICKOFF_TOLERANCE_MS
-  )
+  const { events } = await fetchNflOdds()
+  const event = findEvent(events, game)
   if (!event) {
     throw oddsError(
       'odds_not_found',
@@ -151,35 +256,12 @@ export async function getOddsForGame(
   }
   const fellBack = !!preferredBookmaker && book.key !== preferredBookmaker
 
-  const market = (key: string) => book.markets.find(m => m.key === key)
-  const outcome = (m: Market | undefined, name: string) =>
-    m?.outcomes.find(o => o.name === name)
-
-  const spreadHome = outcome(market('spreads'), game.home.name)
-  const spreadAway = outcome(market('spreads'), game.away.name)
-  const over = outcome(market('totals'), 'Over')
-  const under = outcome(market('totals'), 'Under')
-  const mlHome = outcome(market('h2h'), game.home.name)
-  const mlAway = outcome(market('h2h'), game.away.name)
-
   return {
     eventId: event.id,
     bookmaker: book.title,
     bookmakerKey: book.key,
     lastUpdate: book.last_update,
     ...(fellBack ? { requestedBookmakerKey: preferredBookmaker } : {}),
-    spread:
-      spreadHome?.point !== undefined && spreadAway
-        ? {
-            line: spreadHome.point,
-            homePrice: spreadHome.price,
-            awayPrice: spreadAway.price,
-          }
-        : null,
-    total:
-      over?.point !== undefined && under
-        ? { line: over.point, overPrice: over.price, underPrice: under.price }
-        : null,
-    moneyline: mlHome && mlAway ? { home: mlHome.price, away: mlAway.price } : null,
+    ...readMarkets(book, game),
   }
 }
