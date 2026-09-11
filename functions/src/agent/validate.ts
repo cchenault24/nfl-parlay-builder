@@ -19,6 +19,18 @@ export interface DraftConstraints {
   playerProps: boolean
 }
 
+// A team plays once a week, so a leg's `team` uniquely identifies which of the
+// run's games it belongs to. The model is deliberately not asked to emit a
+// gameId per leg — it would invent them.
+export function teamToGame(games: ScheduleGame[]): Map<string, ScheduleGame> {
+  const map = new Map<string, ScheduleGame>()
+  for (const game of games) {
+    map.set(game.home.name, game)
+    map.set(game.away.name, game)
+  }
+  return map
+}
+
 // Numbers are no longer checked against the book here — the orchestrator
 // snaps a spread/total/moneyline leg's line and price to the book before
 // this runs, so they're correct by construction whenever `anchored` is true.
@@ -26,11 +38,12 @@ export interface DraftConstraints {
 // follow the player-name rule needed to grade the leg later.
 export function validateDraft(
   draft: ValidatableDraft,
-  game: ScheduleGame,
+  games: ScheduleGame[],
   constraints: DraftConstraints
 ): string[] {
   const issues: string[] = []
-  const teams = [game.home.name, game.away.name]
+  const byTeam = teamToGame(games)
+  const teams = [...byTeam.keys()]
 
   if (draft.legs.length !== constraints.legCount) {
     issues.push(`expected ${constraints.legCount} legs, got ${draft.legs.length}`)
@@ -73,10 +86,21 @@ export function validateDraft(
     }
   })
 
-  for (const market of ['spread', 'moneyline', 'total'] as const) {
-    const count = draft.legs.filter(l => l.betType === market).length
-    if (count > 1) {
-      issues.push(`${count} ${market} legs; at most one allowed`)
+  // Scoped per game, not draft-wide. Two spread legs in one game still
+  // contradict each other; a spread in each of two games is the whole point of
+  // a cross-game parlay. Legs whose team matched no game are already reported
+  // above and are left out rather than counted against an arbitrary group.
+  for (const game of games) {
+    const inGame = draft.legs.filter(l => byTeam.get(l.team)?.gameId === game.gameId)
+    for (const market of ['spread', 'moneyline', 'total'] as const) {
+      const count = inGame.filter(l => l.betType === market).length
+      if (count > 1) {
+        issues.push(
+          games.length === 1
+            ? `${count} ${market} legs; at most one allowed`
+            : `${count} ${market} legs for ${game.away.abbrev} @ ${game.home.abbrev}; at most one allowed`
+        )
+      }
     }
   }
 

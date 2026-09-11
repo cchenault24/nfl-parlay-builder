@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { makeAnalysis, makeGame, makeLeg } from '../testing/fixtures'
+import { makeAnalysis, makeGame, makeLeg, makeSecondGame } from '../testing/fixtures'
 import { validateDraft, validationSummary, type DraftConstraints } from './validate'
 
 // Characterization tests: one per rule the validator enforces today, written
@@ -10,7 +10,7 @@ const GAME = makeGame()
 const CONSTRAINTS: DraftConstraints = { legCount: 3, playerProps: true }
 
 function run(legs: ReturnType<typeof makeLeg>[], constraints = CONSTRAINTS) {
-  return validateDraft({ legs, analysisSummary: makeAnalysis() }, GAME, constraints)
+  return validateDraft({ legs, analysisSummary: makeAnalysis() }, [GAME], constraints)
 }
 
 // Three legs, one per market, none of them anchored — the shape every test
@@ -193,7 +193,7 @@ describe('validateDraft', () => {
             },
           }),
         },
-        GAME,
+        [GAME],
         CONSTRAINTS
       )
       expect(issues).toContain('predicted winner "Kansas City Chiefs" is not in this game')
@@ -214,11 +214,72 @@ describe('validateDraft', () => {
             },
           }),
         },
-        GAME,
+        [GAME],
         CONSTRAINTS
       )
       expect(issues).toContain('projected score cannot be negative')
     })
+  })
+})
+
+describe('validateDraft across games', () => {
+  const OTHER = makeSecondGame()
+  const TWO = { legCount: 2, playerProps: false }
+
+  const spread = (team: string) => makeLeg({ betType: 'spread', team })
+
+  it('accepts one spread in each of two games', () => {
+    const issues = validateDraft(
+      {
+        legs: [spread('Baltimore Ravens'), spread('Kansas City Chiefs')],
+        analysisSummary: makeAnalysis(),
+      },
+      [GAME, OTHER],
+      TWO
+    )
+    expect(issues).toEqual([])
+  })
+
+  it('still rejects two spreads inside one game', () => {
+    const issues = validateDraft(
+      {
+        legs: [spread('Baltimore Ravens'), spread('Cincinnati Bengals')],
+        analysisSummary: makeAnalysis(),
+      },
+      [GAME, OTHER],
+      TWO
+    )
+    expect(issues).toContain('2 spread legs for CIN @ BAL; at most one allowed')
+  })
+
+  it('accepts a winner from either game', () => {
+    const issues = validateDraft(
+      {
+        legs: [spread('Baltimore Ravens'), spread('Kansas City Chiefs')],
+        analysisSummary: makeAnalysis({
+          gamePrediction: {
+            winner: 'Denver Broncos',
+            projectedScore: { home: 24, away: 21 },
+            winProbability: 0.55,
+          },
+        }),
+      },
+      [GAME, OTHER],
+      TWO
+    )
+    expect(issues).toEqual([])
+  })
+
+  it('rejects a leg for a team in neither game', () => {
+    const issues = validateDraft(
+      {
+        legs: [spread('Baltimore Ravens'), spread('Chicago Bears')],
+        analysisSummary: makeAnalysis(),
+      },
+      [GAME, OTHER],
+      TWO
+    )
+    expect(issues).toContain('leg 2: team "Chicago Bears" is not in this game')
   })
 })
 

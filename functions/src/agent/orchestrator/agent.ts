@@ -305,7 +305,7 @@ export async function runAgent(
     const validation = await step('validate', async () => {
       validationIssues = validateDraft(
         { legs: snappedLegs, analysisSummary: draft.analysisSummary },
-        game,
+        [game],
         // The same constraints the prompt was built from, so the model is never
         // judged against a shape it was not asked for.
         constraints
