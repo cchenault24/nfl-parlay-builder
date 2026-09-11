@@ -7,7 +7,7 @@ Last updated: 2026-09-10.
 
 ## 1. Understanding
 
-- **What:** A two-tier model for ParlAId — Free ($0) and Pro ($4.99/mo).
+- **What:** A two-tier model for ParlAId — Free ($0) and Pro ($9.99/mo).
 - **Why:** Real revenue, not cost recovery. Every generation costs an OpenAI
   `gpt-5.6-terra` call plus Odds API credits, so volume must be metered somewhere.
 - **Lever:** Volume *and* depth. Free is a genuine taste of the product; Pro adds
@@ -24,7 +24,7 @@ Last updated: 2026-09-10.
 
 Free ships only legs anchored to a posted book line — no AI-invented numbers
 anywhere. The longshots, the risk dial, the props, and your own sportsbook all
-live behind $4.99.
+live behind $9.99.
 
 Because Free's parlay is close to deterministic (see §6), the free experience must
 lead with the **analysis** — matchup summary, key factors, projected score, win
@@ -35,7 +35,7 @@ Pro is then "act on this however you want," not merely "more legs."
 
 ## 2. Tier table
 
-**Free $0 · Pro $4.99/mo**
+**Free $0 · Pro $9.99/mo**
 
 | Feature | Free | Pro | Tier |
 |---|---|---|---|
@@ -130,8 +130,8 @@ Net revenue per Pro user:
 
 | Channel | Gross | Net |
 |---|---|---|
-| Stripe (web) | $4.99 | ~$4.55 |
-| Apple IAP @ 15% | $4.99 | ~$4.24 |
+| Stripe (web) | $9.99 | ~$9.40 |
+| Apple IAP @ 15% | $9.99 | ~$8.49 |
 
 Measured token usage per run (§7): **~2,017 input / 1,881 output** (mean), from
 runs made after the odds tool was repaired. The earlier 1,371 / 757 figures were
@@ -147,13 +147,16 @@ and should not be used for pricing.
 | **Measured now** | **2,017 / 1,881** | **$0.0266** | **~159** |
 | Worst run observed | 2,024 / 2,392 | $0.0328 | ~129 |
 
-**Conclusion: uncapped Pro is NOT safe at $4.99.** This reverses §4's earlier
-finding, which was computed on the degraded token counts above. The spec's own
-heavy user — 50 runs/week, 215/mo — costs **$5.72/mo against $4.24 net**, a loss
-of $1.48 before a single full-slate run. Break-even is ~159 runs/mo on Apple and
-~171 on Stripe, roughly five or six generations a day: high, but reachable by an
-engaged user during the season, and not the "nobody watches 300 timelines a
-month" case the earlier text dismissed.
+**Conclusion: at $9.99 with a real daily cap, Pro is bounded.** At $4.99 this
+was loss-making above ~159 runs/mo and the spec's own heavy user lost $1.48/mo.
+At $9.99, break-even is **~319 runs/mo on Apple** and ~353 on Stripe, and that
+same heavy user (215/mo, $5.72) now returns a $2.77 margin.
+
+The cap is what makes the ceiling safe rather than merely distant. `PRO_RUNS_PER_DAY`
+is 10: 300 runs a month, $7.98, still inside $8.49 net **at the absolute maximum**.
+15/day would lose $3.48 there, 20/day $7.47. The old 20/hr valve permitted 14,400
+runs a month — about $383 — so it bounded nothing; it is kept as a burst limit
+only.
 
 Latency still helps — a draft takes 19s (p50) to 39s (p95) — but it is no longer
 sufficient on its own.
@@ -205,7 +208,7 @@ best answer. Re-running the same game would produce roughly the same three legs.
 Mitigation is the positioning in §1: Free's value is the analysis, not parlay
 variety. "2 per week" should be read as "2 games per week," not "2 tries."
 
-**The free-to-Pro gap is large for $4.99.** Pro carries unlimited generation, the
+**The free-to-Pro gap is large — which is why the price moved to $9.99.** Pro carries unlimited generation, the
 whole props system, all risk levels, 2–6 legs, book choice, full history, and
 analytics. Comparable sports-analytics subscriptions run $10–30/mo. See §8.
 
@@ -276,7 +279,7 @@ Reproduce: query `agentRuns/{id}/steps` for `type == 'draft'`, read
 |---|---|---|
 | Two tiers, Free + Pro | Trial-only; usage credits | A free floor is required for discovery; credits add billing complexity for a $5 product |
 | Volume + depth gating | Volume only; depth only | Depth-only leaves OpenAI spend unbounded; volume-only makes Pro a meter rather than a better product |
-| $4.99/mo | $9.99/mo; season pass; both | Impulse price for an entertainment app; thinner margin accepted |
+| **$9.99/mo** (was $4.99) | $4.99; season pass; both | Raised 2026-09-11 once the model rate was confirmed. At $2/$12 and the measured 2,017/1,881 tokens a run, $4.99 went underwater above ~159 runs/mo — the spec's own heavy user lost $1.48/mo. $9.99 puts break-even at ~319 runs/mo, and §6's standing complaint that the free-to-Pro gap was too wide for $4.99 argues the same way |
 | Free = 2/week, Tuesday reset, no re-rolls | 3/week; 1/week; rolling window | A demo, not a product; Tuesday aligns the bucket to the NFL week |
 | Free = moderate risk only | All risk levels free | Two runs cannot explore a three-way axis; zero marginal cost to gate; leg count partly substitutes |
 | Free = no player props | Props with AI-estimated lines free | Forces 3 anchored legs by construction; removes AI-invented numbers from Free entirely; sharpens Pro's best hook |
@@ -295,7 +298,6 @@ Reproduce: query `agentRuns/{id}/steps` for `type == 'draft'`, read
 
 | Item | Owner action | Blocks |
 |---|---|---|
-| **Uncapped Pro at $4.99 is loss-making above ~159 runs/mo** | Pick one: raise the price, cap reasoning length (85% of cost), or turn the 20/hr valve into a real limit | v1 billing |
-| Re-decide price against the final tier gap | $4.99 vs $9.99 — now also an economics question, not only a positioning one | v1 billing |
 | Validate App Store approval for AI betting picks | Ask Apple before building | v1 iOS billing |
-| Steer web signups to Stripe over IAP | ~$0.30/user/mo | — |
+| Steer web signups to Stripe over IAP | ~$0.91/user/mo at $9.99 | — |
+| Stripe account is not set up | Christian's personal Stripe, kept separate from DebugDad. Billing stays off until then | Selling anything |

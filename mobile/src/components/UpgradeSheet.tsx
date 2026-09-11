@@ -63,7 +63,7 @@ export default function UpgradeSheet({
             <View>
               <Text style={styles.title}>ParlAId Pro</Text>
               <Text style={styles.price}>
-                {canPurchase ? '$4.99 a month. Cancel any time.' : 'Not on sale yet.'}
+                {canPurchase ? '$9.99 a month. Cancel any time.' : 'Not on sale yet.'}
               </Text>
             </View>
             <Pressable

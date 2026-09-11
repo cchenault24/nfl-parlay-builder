@@ -55,10 +55,20 @@ export function capabilitiesFor(tier: Tier): TierCapabilities {
   return tier === 'pro' ? PRO : FREE
 }
 
-// Pro's "unlimited" is bounded by a silent fair-use valve that is deliberately
-// never surfaced as a quota. This is the existing per-user hourly limit on run
-// creation; naming it here keeps the number in one place.
+// Pro's "unlimited" is bounded by silent fair-use valves that are deliberately
+// never surfaced as a quota. Naming them here keeps the numbers in one place.
+//
+// The hourly figure bounds a burst. It does not bound a month: 20/hr permits
+// 14,400 runs, about $383 of model spend against $8.49 of net revenue, so on
+// its own it bounded nothing at all.
+//
+// The daily figure is what actually holds. At the measured $0.0266 a run, 10/day
+// is 300 runs a month costing $7.98 — still inside $8.49 net on Apple at the
+// absolute ceiling. 15/day would lose $3.48 there. Nobody watching a 19-39s
+// timeline reaches ten in a day, so this should never be felt; it exists so the
+// worst case is bounded rather than trusted.
 export const PRO_RUNS_PER_HOUR = 20
+export const PRO_RUNS_PER_DAY = 10
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
