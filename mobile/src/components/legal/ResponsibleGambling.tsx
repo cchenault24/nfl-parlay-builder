@@ -1,3 +1,4 @@
+import { SheetHeader } from '@/components/ui/SheetHeader'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 
@@ -10,7 +11,6 @@ import {
 import { Card } from '@/components/ui/Card'
 import {
   colors,
-  HIT_SLOP,
   PRESSED_OPACITY,
   spacing,
   typography,
@@ -63,19 +63,7 @@ export function ResponsibleGambling({
       onRequestClose={onClose}
     >
       <View style={styles.sheet}>
-        <View style={styles.header}>
-          <Text style={styles.title} accessibilityRole="header">
-            Responsible gambling
-          </Text>
-          <Pressable
-            onPress={onClose}
-            hitSlop={HIT_SLOP}
-            accessibilityRole="button"
-            accessibilityLabel="Close"
-          >
-            <Ionicons name="close" size={24} color={colors.textSecondary} />
-          </Pressable>
-        </View>
+        <SheetHeader title="Responsible gambling" onClose={onClose} />
 
         <ScrollView contentContainerStyle={styles.body}>
           <Text style={styles.lede}>
@@ -120,15 +108,6 @@ export function ResponsibleGambling({
 
 const styles = StyleSheet.create({
   sheet: { flex: 1, backgroundColor: colors.background },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.divider,
-  },
-  title: { ...typography.heading, color: colors.text },
   body: { padding: spacing.md, gap: spacing.sm, paddingBottom: spacing.xxl },
   lede: { ...typography.body, color: colors.textSecondary },
   section: { ...typography.title, color: colors.text, marginTop: spacing.md },

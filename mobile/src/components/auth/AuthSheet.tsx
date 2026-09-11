@@ -1,5 +1,5 @@
+import { SheetHeader } from '@/components/ui/SheetHeader'
 import { ErrorBanner } from '@/components/ui/ErrorBanner'
-import Ionicons from '@expo/vector-icons/Ionicons'
 import { useState } from 'react'
 import {
   KeyboardAvoidingView,
@@ -92,19 +92,10 @@ export function AuthSheet({ visible, startOnSignUp, onClose }: AuthSheetProps) {
         style={styles.sheet}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.header}>
-          <Text style={styles.title} accessibilityRole="header">
-            {isSignUp ? 'Create account' : 'Sign in'}
-          </Text>
-          <Pressable
-            onPress={onClose}
-            hitSlop={HIT_SLOP}
-            accessibilityRole="button"
-            accessibilityLabel="Close"
-          >
-            <Ionicons name="close" size={24} color={colors.textSecondary} />
-          </Pressable>
-        </View>
+        <SheetHeader
+          title={isSignUp ? 'Create account' : 'Sign in'}
+          onClose={onClose}
+        />
 
         <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
           {error ? (
@@ -199,15 +190,6 @@ export function AuthSheet({ visible, startOnSignUp, onClose }: AuthSheetProps) {
 
 const styles = StyleSheet.create({
   sheet: { flex: 1, backgroundColor: colors.background },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.divider,
-  },
-  title: { ...typography.heading, color: colors.text },
   body: { padding: spacing.md, gap: spacing.md },
 
   field: { gap: spacing.xs },
