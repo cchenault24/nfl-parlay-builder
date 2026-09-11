@@ -21,14 +21,16 @@ export interface MatchupRowProps {
   awayRank?: number | null
   homeValue?: number | null
   awayValue?: number | null
-  // Appended to each value — "yards", "points". Omitted for plain counts.
-  unit?: string
+  // Sits between the two values, under the label — "per game", "season". The
+  // label already names the unit, so repeating "yards" on both sides said
+  // nothing; what was missing is what the number is measured *over*, which is
+  // the context the team stat cards used to carry.
+  qualifier?: string
   index?: number
 }
 
-function formatValue(value: number, unit?: string): string {
-  const number = Number.isInteger(value) ? String(value) : value.toFixed(1)
-  return unit ? `${number} ${unit}` : number
+function formatValue(value: number): string {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1)
 }
 
 export function MatchupRow({
@@ -37,7 +39,7 @@ export function MatchupRow({
   awayRank,
   homeValue,
   awayValue,
-  unit,
+  qualifier,
   index = 0,
 }: MatchupRowProps) {
   const [open, setOpen] = useState(false)
@@ -61,12 +63,19 @@ export function MatchupRow({
 
       {open ? (
         <View style={styles.values}>
-          <Text style={[styles.value, styles.valueLeft]}>
-            {awayValue != null ? formatValue(awayValue, unit) : '—'}
+          <View style={styles.side}>
+            <Text style={styles.value}>
+              {awayValue != null ? formatValue(awayValue) : '—'}
+            </Text>
+          </View>
+          <Text style={styles.qualifier} numberOfLines={1}>
+            {qualifier ?? ''}
           </Text>
-          <Text style={[styles.value, styles.valueRight]}>
-            {homeValue != null ? formatValue(homeValue, unit) : '—'}
-          </Text>
+          <View style={[styles.side, styles.right]}>
+            <Text style={styles.value}>
+              {homeValue != null ? formatValue(homeValue) : '—'}
+            </Text>
+          </View>
         </View>
       ) : null}
     </>
@@ -124,14 +133,25 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'center',
   },
-  // Each value sits under its own team's chip, so which is which needs no
-  // explaining.
+  // Mirrors the rank row's three columns exactly, so each value lands under
+  // its own team's chip and the qualifier under the label. The hairline ties
+  // the two lines into one row rather than leaving a second line floating.
   values: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    alignItems: 'center',
     marginTop: spacing.xs,
+    paddingTop: spacing.xs,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.divider,
   },
-  value: { ...typography.numericSmall, color: colors.text },
-  valueLeft: { textAlign: 'left' },
-  valueRight: { textAlign: 'right' },
+  // `textSecondary`, matching every other numeric detail line in the app
+  // (BookLinesPanel, ParlayLegView). At full white the supporting number was
+  // the loudest thing in the row, above the ranks it exists to explain.
+  value: { ...typography.numericSmall, color: colors.textSecondary },
+  qualifier: {
+    ...typography.micro,
+    color: colors.textDisabled,
+    flex: 1,
+    textAlign: 'center',
+  },
 })

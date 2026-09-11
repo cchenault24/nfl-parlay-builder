@@ -11,15 +11,18 @@ type StatPick = (s: TeamStats) => RankedStat
 // team. Shown in full: this is the comparison the screen exists for, and it is
 // seven rows — not enough to be worth hiding behind a disclosure. Each row
 // opens to the per-game numbers behind its ranks.
-const MATCHUP_ROWS: { label: string; unit?: string; pick: StatPick }[] = [
-  { label: 'Total yards', unit: 'yards', pick: s => s.offense.totalYardsPerGame },
-  { label: 'Passing yards', unit: 'yards', pick: s => s.offense.passingYardsPerGame },
-  { label: 'Rushing yards', unit: 'yards', pick: s => s.offense.rushingYardsPerGame },
-  { label: 'Points scored', unit: 'points', pick: s => s.offense.pointsPerGame },
-  { label: 'Yards allowed', unit: 'yards', pick: s => s.defense.yardsAllowedPerGame },
-  { label: 'Points allowed', unit: 'points', pick: s => s.defense.pointsAllowedPerGame },
-  // A season total, not a per-game rate, so it carries no unit.
-  { label: 'Takeaways', pick: s => s.defense.takeaways },
+const PER_GAME = 'per game'
+
+const MATCHUP_ROWS: { label: string; qualifier: string; pick: StatPick }[] = [
+  { label: 'Total yards', qualifier: PER_GAME, pick: s => s.offense.totalYardsPerGame },
+  { label: 'Passing yards', qualifier: PER_GAME, pick: s => s.offense.passingYardsPerGame },
+  { label: 'Rushing yards', qualifier: PER_GAME, pick: s => s.offense.rushingYardsPerGame },
+  { label: 'Points scored', qualifier: PER_GAME, pick: s => s.offense.pointsPerGame },
+  { label: 'Yards allowed', qualifier: PER_GAME, pick: s => s.defense.yardsAllowedPerGame },
+  { label: 'Points allowed', qualifier: PER_GAME, pick: s => s.defense.pointsAllowedPerGame },
+  // A season total, not a rate — which is exactly why the qualifier is worth
+  // showing at all.
+  { label: 'Takeaways', qualifier: 'season', pick: s => s.defense.takeaways },
 ]
 
 interface MatchupRankingsProps {
@@ -68,7 +71,7 @@ export function MatchupRankings({ game, homeStats, awayStats }: MatchupRankingsP
         <MatchupRow
           key={row.label}
           label={row.label}
-          unit={row.unit}
+          qualifier={row.qualifier}
           homeRank={homeStats ? row.pick(homeStats).rank : undefined}
           awayRank={awayStats ? row.pick(awayStats).rank : undefined}
           homeValue={homeStats ? row.pick(homeStats).value : undefined}
