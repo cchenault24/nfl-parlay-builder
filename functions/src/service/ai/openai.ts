@@ -1,5 +1,6 @@
 import OpenAI from 'openai'
 import { zodTextFormat } from 'openai/helpers/zod'
+import { parsePartialJson } from './partialJson'
 import { buildGenerateResponseSchema, type AIGenerateResponse } from './schemas'
 
 export const PARLAY_MODEL = 'gpt-5.6-terra'
@@ -15,6 +16,12 @@ const SYSTEM_PROMPT =
 // `ai_incomplete` having spent the tokens anyway.
 const BASE_OUTPUT_TOKENS = 4000
 const OUTPUT_TOKENS_PER_EXTRA_GAME = 1200
+
+// How often the draft-so-far is worth sending. Deltas arrive many times a
+// second and the document grows to several KB, so forwarding every one would
+// push hundreds of KB down the stream to redraw text that a reader cannot
+// follow that fast anyway. Four frames a second reads as continuous typing.
+const PREVIEW_INTERVAL_MS = 250
 
 export function getOpenAI(): OpenAI | null {
   const key = process.env.OPENAI_API_KEY
@@ -46,16 +53,24 @@ export interface DraftOptions {
   // of the budget.
   timeoutMs: number
   signal?: AbortSignal
+  // Called with the draft as far as the model has written it, whenever that
+  // changes shape. The value is a partial of `AIGenerateResponse` and is for
+  // display only — the validator and the pricing only ever see the parsed final
+  // response.
+  onPartial?: (partial: unknown) => void
 }
 
 export async function draftParlay(
   client: OpenAI,
   prompt: string,
-  { legCount, gameCount, timeoutMs, signal }: DraftOptions
+  { legCount, gameCount, timeoutMs, signal, onPartial }: DraftOptions
 ): Promise<DraftResult> {
   let response
+  // Set when our own deadline aborts the stream, which is what tells the abort
+  // below apart from the caller cancelling the run.
+  let timedOut = false
   try {
-    response = await client.responses.parse(
+    const stream = client.responses.stream(
       {
         model: PARLAY_MODEL,
         input: [
@@ -84,7 +99,50 @@ export async function draftParlay(
       },
       { signal, timeout: timeoutMs }
     )
+    // `timeout` on a streaming request bounds getting the response started, not
+    // reading it to the end — a stream that stalls mid-draft would otherwise run
+    // past the whole run budget and have the instance killed mid-write, which is
+    // the exact failure `timeoutMs` exists to prevent. So the deadline is held
+    // here and enforced by aborting the stream.
+    const deadline = setTimeout(() => {
+      timedOut = true
+      stream.abort()
+    }, timeoutMs)
+    if (onPartial) {
+      // `snapshot` is every character of this content part so far, so there is
+      // nothing to accumulate here. The rate check comes before the parse
+      // because the parse is the expensive half at several KB a go.
+      let lastSentAt = 0
+      let last = ''
+      stream.on('response.output_text.delta', event => {
+        const now = Date.now()
+        if (now - lastSentAt < PREVIEW_INTERVAL_MS) {
+          return
+        }
+        const partial = parsePartialJson(event.snapshot)
+        if (partial === null) {
+          return
+        }
+        // A prefix that ends mid-token parses to the same thing as the one
+        // before it; there is no point redrawing for that.
+        const json = JSON.stringify(partial)
+        if (json === last) {
+          return
+        }
+        lastSentAt = now
+        last = json
+        onPartial(partial)
+      })
+    }
+    try {
+      response = await stream.finalResponse()
+    } finally {
+      clearTimeout(deadline)
+    }
   } catch (err) {
+    if (timedOut) {
+      throw aiError('ai_timeout', `Draft exceeded its ${timeoutMs}ms budget`)
+    }
     // The SDK's own timeout, as distinct from `signal` firing — that arrives
     // as APIUserAbortError and has to stay a cancellation. Neither sets a
     // `.code` and both inherit `.name` as plain "Error", so `instanceof` is

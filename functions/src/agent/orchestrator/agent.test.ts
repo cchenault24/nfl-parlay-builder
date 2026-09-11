@@ -331,6 +331,43 @@ describe('runAgent', () => {
     }
   })
 
+  it('forwards the draft as it is written, and only while it is', async () => {
+    const seen: unknown[] = []
+    ai.draftParlay.mockImplementation(
+      async (
+        _client: unknown,
+        _prompt: string,
+        opts: { onPartial?: (p: unknown) => void }
+      ) => {
+        opts.onPartial?.({ analysisSummary: { games: [{ matchupSummary: 'Cin' }] } })
+        opts.onPartial?.({
+          analysisSummary: { games: [{ matchupSummary: 'Cincinnati at home' }] },
+        })
+        return draftFor(1)
+      }
+    )
+    const persist = persistSpy()
+    openGate()
+    await runAgent(run(), persist, { onDraft: preview => seen.push(preview) })
+
+    expect(seen).toHaveLength(2)
+    expect(seen[1]).toEqual({
+      analysisSummary: { games: [{ matchupSummary: 'Cincinnati at home' }] },
+    })
+    // Previews are a live-stream nicety, not part of the record.
+    const written = persist.upsertStep.mock.calls.map(([, step]) => step)
+    expect(written.some(step => 'draft' in (step as object))).toBe(false)
+  })
+
+  it('does not ask the model to stream when no one is listening', async () => {
+    const persist = persistSpy()
+    openGate()
+    await runAgent(run(), persist)
+
+    const opts = ai.draftParlay.mock.calls[0][2] as { onPartial?: unknown }
+    expect(opts.onPartial).toBeUndefined()
+  })
+
   it('asks the model for a schema sized to the run', async () => {
     ai.draftParlay.mockImplementation(async () => draftFor(2))
     const persist = persistSpy()

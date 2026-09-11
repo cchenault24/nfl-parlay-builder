@@ -9,6 +9,7 @@ import { Alert, InteractionManager, ScrollView, StyleSheet, Text, View } from 'r
 
 import { ErrorBanner } from '@/components/ErrorBanner'
 import { AgentProgress } from '@/components/display/AgentProgress'
+import { DraftPreviewView } from '@/components/display/DraftPreviewView'
 import { GameSummaryView } from '@/components/display/GameSummaryView'
 import { ParlayDisplayFooter } from '@/components/display/ParlayDisplayFooter'
 import { ParlayLegView } from '@/components/display/ParlayLegView'
@@ -72,6 +73,7 @@ export default function ParlayDetailScreen() {
             // not have to be the one that cancels it.
             onCancel={() => cancelParlayRun(key)}
           />
+          {entry.draft ? <DraftPreviewView preview={entry.draft} /> : null}
         </ScrollView>
       </View>
     )

@@ -328,6 +328,39 @@ export interface AgentStep {
   error?: { code: string; message: string }
 }
 
+// The draft as far as the model has written it. Every field is optional and
+// every one can be half a sentence: this is a prefix of a JSON document being
+// generated, not a validated result. It exists so the ~25 seconds the model
+// spends drafting shows its work instead of a spinner, and nothing downstream
+// of the timeline ever reads it — the parlay the user keeps comes from the
+// parsed final response.
+export interface DraftPreviewLeg {
+  betType?: string
+  team?: string
+  selection?: string
+  odds?: number
+  confidence?: number
+  reasoning?: string
+}
+
+export interface DraftPreviewGame {
+  matchupSummary?: string
+  keyFactors?: string[]
+  gamePrediction?: {
+    winner?: string
+    projectedScore?: { home?: number; away?: number }
+    winProbability?: number
+  }
+}
+
+export interface DraftPreview {
+  analysisSummary?: {
+    games?: DraftPreviewGame[]
+    slateSummary?: string | null
+  }
+  legs?: DraftPreviewLeg[]
+}
+
 // Everything gathered for one of a run's games.
 export interface AgentGameResult {
   game: Game
@@ -384,5 +417,8 @@ export interface ParlayGenerationOptions {
   // guessing at it.
   legCount?: number
   onStep?: (step: AgentStep) => void
+  // The draft as it is written. Fires many times per run and only while the
+  // stream is live.
+  onDraft?: (preview: DraftPreview) => void
   signal?: AbortSignal
 }

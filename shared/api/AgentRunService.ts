@@ -2,6 +2,7 @@ import { sharedRuntime } from '../runtime'
 import type {
   AgentResult,
   AgentStep,
+  DraftPreview,
   RateLimitWindows,
   RiskLevel,
   RunError,
@@ -19,6 +20,7 @@ export interface AgentRunRecord {
 
 export type RunStreamEvent =
   | { type: 'step'; data: AgentStep }
+  | { type: 'draft'; data: DraftPreview }
   | { type: 'status'; data: { status: RunStatus } }
   | { type: 'final'; data: AgentResult }
   | { type: 'error'; data: RunError }
