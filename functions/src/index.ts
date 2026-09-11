@@ -94,6 +94,11 @@ app.use('/api', apiRouter)
 
 const OPENAI_API_KEY = defineSecret('OPENAI_API_KEY')
 const ODDS_API_KEY = defineSecret('ODDS_API_KEY')
+// Apple billing only. Stripe's three stay unbound until that account exists:
+// a bound secret with no value aborts the whole deploy (see billing/config.ts).
+const APPLE_BUNDLE_ID = defineSecret('APPLE_BUNDLE_ID')
+const APPLE_APP_APPLE_ID = defineSecret('APPLE_APP_APPLE_ID')
+const APPLE_ROOT_CA_G3 = defineSecret('APPLE_ROOT_CA_G3')
 
 export const api = onRequest(
   {
@@ -102,7 +107,7 @@ export const api = onRequest(
     // every bound secret before it deploys anything, so one missing value
     // aborts functions and hosting together — which is precisely what happened
     // when tiering merged. See billing/config.ts for how to turn billing on.
-    secrets: [OPENAI_API_KEY, ODDS_API_KEY],
+    secrets: [OPENAI_API_KEY, ODDS_API_KEY, APPLE_BUNDLE_ID, APPLE_APP_APPLE_ID, APPLE_ROOT_CA_G3],
     // The streaming route holds this request open for the whole agent run, so
     // this ceiling is the run's real ceiling. A cross-game run is budgeted at
     // 90s + 20s per extra game (agent/shared/schemas.ts), which reaches 190s at
