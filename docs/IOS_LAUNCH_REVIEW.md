@@ -173,7 +173,12 @@ Save, History, Account. Two generations were spent. What it turned up, all fixed
   stack and the whole card opens the parlay, rendered by a `ParlayView` shared with the build flow
   so the two cannot drift. "Pending" (the grading status verbatim) became "Upcoming" before
   kickoff, "Not graded" after it, and Won/Lost/Push/Partial once the sweep records an outcome.
-  The book shows on cards that carry it; parlays saved before today have nothing to show.
+  The book shows on cards that carry it; parlays saved before today have nothing to show. The
+  saved screen has a confirmed "Delete from History" action; deleting also un-marks the run's Save
+  button so the parlay can be saved again before kickoff.
+- The six legacy September-2025 parlay documents (no week, no kickoff, all Christian's) were
+  deleted from production Firestore at his request, after a JSON backup to the session
+  scratchpad. One document remains, the parlay saved during this walkthrough.
 - Seen, not changed: older saved parlays show "Pending" on games long finished (legacy documents
   the grading sweep cannot match); the dev-client gear overlaps "Select" on the Build header (dev
   builds only); the estimated-prices banner reuses the rate-limit banner's clock icon.
