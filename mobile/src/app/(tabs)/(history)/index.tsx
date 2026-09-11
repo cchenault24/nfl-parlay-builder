@@ -5,7 +5,6 @@ import { useEntitlements } from '@shared/hooks/useEntitlements'
 import { formatOdds } from '@shared/odds'
 import { parlayStatus } from '@shared/parlays'
 import type { GeneratedParlay, LegOutcome } from '@shared/types'
-import Ionicons from '@expo/vector-icons/Ionicons'
 import { router } from 'expo-router'
 import { useEffect, useState } from 'react'
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
@@ -160,7 +159,6 @@ export default function HistoryScreen() {
                     />
                     <ParlayStatusChip status={parlayStatus(parlay)} />
                   </View>
-                  <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
                 </View>
 
               {/* A compact row rather than ParlayLegView: that component is a
