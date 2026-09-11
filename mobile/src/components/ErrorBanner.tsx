@@ -28,12 +28,19 @@ interface ErrorBannerProps {
 export function ErrorBanner({ type, title, message, countdown }: ErrorBannerProps) {
   const tone = TONE[type]
   return (
-    <View style={[styles.banner, { borderColor: tone.color }]}>
+    <View
+      style={[styles.banner, { borderColor: tone.color }]}
+      // Announced when it appears rather than waiting to be swiped onto.
+      accessibilityRole="alert"
+      accessibilityLiveRegion="polite"
+    >
       <Ionicons name={tone.icon} size={18} color={tone.color} style={styles.icon} />
       <View style={styles.text}>
         {title ? <Text style={[styles.title, { color: tone.color }]}>{title}</Text> : null}
         <Text style={styles.message}>{message}</Text>
-        {countdown ? <Text style={[styles.countdown, { color: tone.color }]}>{countdown}</Text> : null}
+        {countdown ? (
+          <Text style={[styles.countdown, { color: tone.color }]}>{countdown}</Text>
+        ) : null}
       </View>
     </View>
   )
@@ -46,11 +53,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: radius.md,
     padding: spacing.md,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.sunken,
   },
   icon: { marginTop: 1 },
   text: { flex: 1, gap: spacing.xs },
   title: { ...typography.label },
   message: { ...typography.bodySmall, color: colors.textSecondary },
-  countdown: { ...typography.numeric, fontSize: 13 },
+  countdown: { ...typography.numericSmall },
 })

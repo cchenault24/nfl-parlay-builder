@@ -2,7 +2,14 @@ import Ionicons from '@expo/vector-icons/Ionicons'
 import { Pressable, StyleSheet, Text } from 'react-native'
 
 import { useGoogleSignIn } from '@/lib/auth/useGoogleSignIn'
-import { colors, radius, spacing, typography } from '@/lib/theme/designTokens'
+import {
+  colors,
+  MIN_TARGET,
+  PRESSED_OPACITY,
+  radius,
+  spacing,
+  typography,
+} from '@/lib/theme/designTokens'
 
 // Only mount this when googleSignInConfigured is true — the auth-session hook
 // inside useGoogleSignIn throws during render without an iOS client id.
@@ -21,6 +28,8 @@ export function GoogleSignInButton({
       ]}
       onPress={google.signIn}
       disabled={google.disabled}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: google.disabled }}
     >
       <Ionicons name="logo-google" size={20} color={colors.text} />
       <Text style={styles.text}>Continue with Google</Text>
@@ -34,12 +43,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
-    paddingVertical: spacing.md,
+    minHeight: MIN_TARGET + 8,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: colors.border,
     backgroundColor: colors.surface,
   },
   text: { ...typography.button, color: colors.text },
-  pressed: { opacity: 0.75 },
+  pressed: { opacity: PRESSED_OPACITY },
 })

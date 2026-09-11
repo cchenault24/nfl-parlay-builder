@@ -4,6 +4,8 @@ import type { ParlayLeg } from '@shared/types'
 import { StyleSheet, Text, View } from 'react-native'
 
 import { TeamLogo } from '@/components/display/TeamLogo'
+import { Card } from '@/components/ui/Card'
+import { Chip } from '@/components/ui/Chip'
 import {
   colors,
   radius,
@@ -19,79 +21,69 @@ export function ParlayLegView({ leg, index }: { leg: ParlayLeg; index: number })
   const belowImplied = leg.anchored && leg.confidence <= implied
   const betTint = semanticColor[getBetTypeColor(leg.betType)]
   const confTint = semanticColor[getConfidenceColor(leg.confidence)]
+  const confidencePct = Math.round(leg.confidence * 100)
 
   return (
-    <View style={styles.card}>
+    <Card tone="inset" style={styles.card}>
       <View style={styles.header}>
         <TeamLogo teamName={leg.team} size="small" />
         <Text style={styles.legNo}>Leg {index + 1}</Text>
-        <View style={[styles.chip, { borderColor: colors.primary }]}>
-          <Text style={[styles.chipText, { color: colors.primary }]}>
-            {formatOdds(leg.odds)}
-          </Text>
-        </View>
-        {!leg.anchored ? (
-          <View style={[styles.chip, { borderColor: colors.warning }]}>
-            <Text style={[styles.chipText, { color: colors.warning }]}>Estimate</Text>
-          </View>
-        ) : null}
-        <View style={[styles.chip, styles.betChip, { borderColor: betTint }]}>
-          <Text style={[styles.chipText, { color: betTint }]} numberOfLines={1}>
-            {leg.betType.replace(/_/g, ' ')}
-          </Text>
-        </View>
+        <Chip label={formatOdds(leg.odds)} tint={colors.primaryBright} numeric />
+        {!leg.anchored ? <Chip label="Estimate" tint={colors.warning} /> : null}
+        <Chip
+          label={leg.betType.replace(/_/g, ' ')}
+          tint={betTint}
+          style={styles.betChip}
+        />
       </View>
 
       <Text style={styles.selection}>{leg.selection}</Text>
       <Text style={styles.reasoning}>{leg.reasoning}</Text>
 
-      <View style={styles.confidenceRow}>
+      <View
+        style={styles.confidenceRow}
+        accessibilityRole="progressbar"
+        accessibilityLabel="Model confidence"
+        accessibilityValue={{ min: 0, max: 100, now: confidencePct }}
+      >
         <Text style={styles.confidenceLabel}>Confidence</Text>
         <View style={styles.track}>
           <View
-            style={[
-              styles.fill,
-              { width: `${Math.round(leg.confidence * 100)}%`, backgroundColor: confTint },
-            ]}
+            style={[styles.fill, { width: `${confidencePct}%`, backgroundColor: confTint }]}
           />
         </View>
-        <Text style={styles.confidenceValue}>{Math.round(leg.confidence * 100)}%</Text>
-        <Text style={styles.implied}>Implied {Math.round(implied * 100)}%</Text>
+        <Text style={styles.confidenceValue}>{confidencePct}%</Text>
       </View>
+      <Text style={styles.implied}>
+        Book implies {Math.round(implied * 100)}%
+      </Text>
 
       {belowImplied ? (
         <Text style={styles.warn}>
           Model confidence is at or below the book&apos;s implied probability.
         </Text>
       ) : null}
-    </View>
+    </Card>
   )
 }
 
 const styles = StyleSheet.create({
-  card: {
-    borderWidth: 1,
-    borderColor: colors.divider,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
-    padding: spacing.md,
+  card: { gap: spacing.sm },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.sm,
+    flexWrap: 'wrap',
   },
-  header: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' },
   legNo: { ...typography.label, color: colors.textSecondary },
-  chip: {
-    borderWidth: 1,
-    borderRadius: radius.sm,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  betChip: { marginLeft: 'auto', maxWidth: 140 },
-  chipText: { ...typography.numeric, fontSize: 12 },
+  // Pushed to the trailing edge so the bet type reads as the row's category
+  // rather than another value in the sequence.
+  betChip: { marginLeft: 'auto', maxWidth: 150 },
   selection: { ...typography.title, color: colors.text },
   reasoning: { ...typography.bodySmall, color: colors.textSecondary },
 
   confidenceRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  confidenceLabel: { ...typography.bodySmall, color: colors.textSecondary },
+  confidenceLabel: { ...typography.caption, color: colors.textSecondary },
   track: {
     flex: 1,
     height: 6,
@@ -100,7 +92,14 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   fill: { height: '100%', borderRadius: radius.pill },
-  confidenceValue: { ...typography.numeric, fontSize: 13, color: colors.text, minWidth: 36, textAlign: 'right' },
-  implied: { ...typography.numeric, fontSize: 12, color: colors.textSecondary, minWidth: 86, textAlign: 'right' },
+  confidenceValue: {
+    ...typography.numericSmall,
+    color: colors.text,
+    minWidth: 40,
+    textAlign: 'right',
+  },
+  // Its own line now. Sharing the bar's row meant two numbers competing for
+  // the same trailing edge, and the wider one clipped at large text sizes.
+  implied: { ...typography.caption, color: colors.textSecondary },
   warn: { ...typography.bodySmall, color: colors.warning },
 })

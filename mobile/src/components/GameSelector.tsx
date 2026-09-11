@@ -12,8 +12,17 @@ import ProGate from '@/components/ProGate'
 import QuotaIndicator from '@/components/QuotaIndicator'
 import UpgradeSheet from '@/components/UpgradeSheet'
 import { TeamLogo } from '@/components/display/TeamLogo'
+import { Button } from '@/components/ui/Button'
+import { ChipStrip, type StripOption } from '@/components/ui/ChipStrip'
+import { Segmented, type SegmentedOption } from '@/components/ui/Segmented'
 import { WeekSelector } from '@/components/WeekSelector'
-import { colors, radius, spacing, typography } from '@/lib/theme/designTokens'
+import {
+  colors,
+  PRESSED_OPACITY,
+  radius,
+  spacing,
+  typography,
+} from '@/lib/theme/designTokens'
 
 const RISK_LEVELS: { value: RiskLevel; label: string }[] = [
   { value: 'conservative', label: 'Conservative' },
@@ -68,6 +77,19 @@ export function GameSelector({
   const sportsbooks = entitlements?.sportsbooks ?? []
   const quotaExhausted = quota?.remaining === 0
 
+  const riskOptions: SegmentedOption<RiskLevel>[] = RISK_LEVELS.map(r => ({
+    value: r.value,
+    label: r.label,
+    locked: !allowedRisks.includes(r.value),
+  }))
+
+  // "Best available" is a real choice, not a placeholder: it means whichever
+  // book has posted this game.
+  const bookOptions: StripOption<string>[] = [
+    { value: '', label: 'Best available' },
+    ...sportsbooks.map(book => ({ value: book.key, label: book.title })),
+  ]
+
   const atLimit = isAtLimit()
   useEffect(() => {
     if (!atLimit) {
@@ -94,8 +116,10 @@ export function GameSelector({
   }, [selectedGame, games, currentWeek, onGameChange])
 
   return (
-    <View style={styles.card}>
-      <Text style={styles.heading}>Select a game</Text>
+    <View style={styles.section}>
+      <Text style={styles.heading} accessibilityRole="header">
+        Select a game
+      </Text>
 
       <WeekSelector
         currentWeek={currentWeek}
@@ -105,7 +129,7 @@ export function GameSelector({
 
       {isLoading && !games ? (
         <View style={styles.loading}>
-          <ActivityIndicator color={colors.primary} />
+          <ActivityIndicator color={colors.primaryBright} />
           <Text style={styles.loadingText}>Loading Week {currentWeek} games…</Text>
         </View>
       ) : error ? (
@@ -133,6 +157,7 @@ export function GameSelector({
                   onPress={() => onGameChange(game)}
                   accessibilityRole="button"
                   accessibilityState={{ selected, disabled: closed }}
+                  accessibilityLabel={`${game.away.abbrev} at ${game.home.abbrev}, ${formatKickoff(game.dateTime)}`}
                   style={({ pressed }) => [
                     styles.game,
                     selected && styles.gameSelected,
@@ -149,8 +174,8 @@ export function GameSelector({
                     {selected ? (
                       <Ionicons
                         name="checkmark-circle"
-                        size={18}
-                        color={colors.primary}
+                        size={20}
+                        color={colors.primaryBright}
                         style={styles.check}
                       />
                     ) : null}
@@ -164,49 +189,23 @@ export function GameSelector({
             })}
           </View>
 
-          <View style={styles.riskBlock}>
+          <View style={styles.field}>
             <Text style={styles.label}>Risk</Text>
-            <View style={styles.segmented}>
-              {RISK_LEVELS.map(r => {
-                const active = riskLevel === r.value
-                const pill = (
-                  <Pressable
-                    onPress={() => setRiskLevel(r.value)}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: active }}
-                    style={({ pressed }) => [
-                      styles.segment,
-                      active && styles.segmentActive,
-                      pressed && styles.pressed,
-                    ]}
-                  >
-                    <Text style={[styles.segmentText, active && styles.segmentTextActive]}>
-                      {r.label}
-                    </Text>
-                  </Pressable>
+            <Segmented
+              options={riskOptions}
+              value={riskLevel}
+              onChange={setRiskLevel}
+              accessibilityLabel="Risk level"
+              onLockedPress={option =>
+                setUpgradeReason(
+                  `The ${option.label.toLowerCase()} risk level is part of Pro.`
                 )
-                return allowedRisks.includes(r.value) ? (
-                  <View key={r.value}>{pill}</View>
-                ) : (
-                  <ProGate
-                    key={r.value}
-                    locked
-                    label={`the ${r.label.toLowerCase()} risk level`}
-                    onUpgrade={() =>
-                      setUpgradeReason(
-                        `The ${r.label.toLowerCase()} risk level is part of Pro.`
-                      )
-                    }
-                  >
-                    {pill}
-                  </ProGate>
-                )
-              })}
-            </View>
+              }
+            />
           </View>
 
           {sportsbooks.length > 0 ? (
-            <View style={styles.riskBlock}>
+            <View style={styles.field}>
               <Text style={styles.label}>Sportsbook</Text>
               <ProGate
                 locked={!canChooseBook}
@@ -217,49 +216,30 @@ export function GameSelector({
                   )
                 }
               >
-                <View style={styles.segmented}>
-                  {/* "Best available" is a real choice, not a placeholder: it
-                      means whichever book has posted this game. */}
-                  {[{ key: '', title: 'Best available' }, ...sportsbooks].map(book => {
-                    const active = canChooseBook && (bookmaker ?? '') === book.key
-                    return (
-                      <Pressable
-                        key={book.key || 'best'}
-                        onPress={() => setBookmaker(book.key || undefined)}
-                        accessibilityRole="button"
-                        accessibilityState={{ selected: active }}
-                        style={({ pressed }) => [
-                          styles.segment,
-                          active && styles.segmentActive,
-                          pressed && styles.pressed,
-                        ]}
-                      >
-                        <Text
-                          style={[styles.segmentText, active && styles.segmentTextActive]}
-                        >
-                          {book.title}
-                        </Text>
-                      </Pressable>
-                    )
-                  })}
-                </View>
+                <ChipStrip
+                  options={bookOptions}
+                  value={canChooseBook ? (bookmaker ?? '') : ''}
+                  onChange={key => setBookmaker(key || undefined)}
+                  accessibilityLabel="Sportsbook"
+                />
               </ProGate>
             </View>
           ) : null}
 
-          {quota ? (
-            <View style={styles.quotaBlock}>
-              <QuotaIndicator
-                quota={quota}
-                onUpgrade={() =>
-                  setUpgradeReason(
-                    quota.remaining === 0
-                      ? 'You have used this week\u2019s parlays. Pro removes the limit.'
-                      : 'Pro removes the weekly limit.'
-                  )
-                }
-              />
-            </View>
+          {/* Rendered only when the indicator has something to say. Pro users
+              get null back, and the wrapper used to leave its margin behind as
+              a gap in the middle of the card. */}
+          {quota && quota.limit !== null ? (
+            <QuotaIndicator
+              quota={quota}
+              onUpgrade={() =>
+                setUpgradeReason(
+                  quota.remaining === 0
+                    ? 'You have used this week’s parlays. Pro removes the limit.'
+                    : 'Pro removes the weekly limit.'
+                )
+              }
+            />
           ) : null}
 
           {/* An exhausted weekly quota is not the hourly rate limit: waiting
@@ -289,33 +269,23 @@ export function GameSelector({
             />
           ) : null}
 
-          <Pressable
+          <Button
+            label={
+              quotaExhausted
+                ? 'Upgrade for unlimited parlays'
+                : `Create ${capabilities?.legCount.default ?? 3}-leg parlay`
+            }
+            icon={atLimit ? 'time-outline' : 'dice-outline'}
+            disabled={!canGenerate || atLimit}
             onPress={
               quotaExhausted
                 ? () =>
                     setUpgradeReason(
-                      'You have used this week\u2019s parlays. Pro removes the limit.'
+                      'You have used this week’s parlays. Pro removes the limit.'
                     )
                 : onGenerateParlay
             }
-            disabled={!canGenerate || atLimit}
-            style={({ pressed }) => [
-              styles.generate,
-              (!canGenerate || atLimit) && styles.generateDisabled,
-              pressed && canGenerate && !atLimit && styles.pressed,
-            ]}
-          >
-            <Ionicons
-              name={atLimit ? 'time-outline' : 'dice-outline'}
-              size={20}
-              color={colors.text}
-            />
-            <Text style={styles.generateText}>
-              {quotaExhausted
-                ? 'Upgrade for unlimited parlays'
-                : `Create ${capabilities?.legCount.default ?? 3}-leg parlay`}
-            </Text>
-          </Pressable>
+          />
         </>
       )}
 
@@ -331,66 +301,49 @@ export function GameSelector({
 }
 
 const styles = StyleSheet.create({
-  quotaBlock: {
-    marginBottom: spacing.md,
-  },
-  card: {
-    borderWidth: 1,
-    borderColor: colors.divider,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
-    padding: spacing.md,
-    gap: spacing.md,
-  },
-  heading: { ...typography.title, color: colors.text },
+  section: { gap: spacing.md },
+  // The screen's own title now that the tab header is gone — matches the
+  // History and Account headings.
+  heading: { ...typography.heading, color: colors.text },
   label: { ...typography.label, color: colors.text },
-  count: { ...typography.bodySmall, color: colors.textSecondary },
+  count: { ...typography.caption, color: colors.textSecondary },
 
-  loading: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm },
+  loading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
   loadingText: { ...typography.body, color: colors.textSecondary },
-  emptyText: { ...typography.body, color: colors.textSecondary, paddingVertical: spacing.sm },
+  emptyText: {
+    ...typography.body,
+    color: colors.textSecondary,
+    paddingVertical: spacing.sm,
+  },
 
   list: { gap: spacing.sm },
+  // Full content width: these sit directly on the page now, so they carry the
+  // card surface themselves rather than borrowing it from a wrapper.
   game: {
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.divider,
-    borderRadius: radius.md,
-    backgroundColor: colors.background,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surface,
     padding: spacing.md,
     gap: spacing.xs,
   },
-  gameSelected: { borderColor: colors.primary, backgroundColor: colors.surfaceRaised },
+  gameSelected: {
+    borderColor: colors.primaryBright,
+    borderWidth: 1,
+    backgroundColor: colors.surfaceRaised,
+  },
   gameClosed: { opacity: 0.45 },
   matchup: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  abbrev: { ...typography.title, fontSize: 16, color: colors.text },
-  at: { ...typography.bodySmall, color: colors.textSecondary },
+  abbrev: { ...typography.title, color: colors.text },
+  at: { ...typography.caption, color: colors.textSecondary },
   check: { marginLeft: 'auto' },
-  kickoff: { ...typography.bodySmall, fontSize: 12, color: colors.textSecondary },
+  kickoff: { ...typography.caption, color: colors.textSecondary },
 
-  riskBlock: { gap: spacing.sm },
-  segmented: {
-    flexDirection: 'row',
-    borderWidth: 1,
-    borderColor: colors.divider,
-    borderRadius: radius.md,
-    overflow: 'hidden',
-  },
-  segment: { flex: 1, paddingVertical: spacing.sm, alignItems: 'center' },
-  segmentActive: { backgroundColor: colors.primary },
-  segmentText: { ...typography.label, fontSize: 12, color: colors.textSecondary },
-  segmentTextActive: { color: colors.text },
-
-  generate: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    paddingVertical: spacing.md,
-    minHeight: 52,
-  },
-  generateDisabled: { backgroundColor: colors.surfaceRaised },
-  generateText: { ...typography.button, color: colors.text },
-  pressed: { opacity: 0.75 },
+  field: { gap: spacing.sm },
+  pressed: { opacity: PRESSED_OPACITY },
 })

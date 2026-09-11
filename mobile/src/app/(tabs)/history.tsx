@@ -17,16 +17,12 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { ErrorBanner } from '@/components/ErrorBanner'
 import UpgradeSheet from '@/components/UpgradeSheet'
+import { Card } from '@/components/ui/Card'
+import { Chip } from '@/components/ui/Chip'
 import { useAuth } from '@/lib/auth/useAuth'
 import { auth } from '@/lib/firebase'
 import { getUserParlays } from '@/lib/parlays'
-import {
-  colors,
-  radius,
-  semanticColor,
-  spacing,
-  typography,
-} from '@/lib/theme/designTokens'
+import { colors, semanticColor, spacing, typography } from '@/lib/theme/designTokens'
 
 const OUTCOME: Record<ParlayOutcome | 'pending', { label: string; color: string }> = {
   won: { label: 'Won', color: colors.success },
@@ -50,11 +46,7 @@ function OutcomeChip({ parlay }: { parlay: GeneratedParlay }) {
     return null
   }
   const style = OUTCOME[outcome]
-  return (
-    <View style={[styles.chip, { borderColor: style.color }]}>
-      <Text style={[styles.chipText, { color: style.color }]}>{style.label}</Text>
-    </View>
-  )
+  return <Chip label={style.label} tint={style.color} />
 }
 
 export default function HistoryScreen() {
@@ -111,13 +103,17 @@ export default function HistoryScreen() {
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
       <ScrollView contentContainerStyle={styles.body}>
+        <Text style={styles.screenTitle} accessibilityRole="header">
+          History
+        </Text>
+
         {error ? (
           <ErrorBanner type="error" title="Couldn't load history" message={error} />
         ) : null}
 
         {parlays === null || isLoading ? (
           <View style={styles.centre}>
-            <ActivityIndicator color={colors.primary} />
+            <ActivityIndicator color={colors.primaryBright} />
           </View>
         ) : parlays.length === 0 && !error ? (
           <View style={styles.centre}>
@@ -129,17 +125,17 @@ export default function HistoryScreen() {
           </View>
         ) : (
           parlays.map(parlay => (
-            <View key={parlay.parlayId} style={styles.card}>
+            <Card key={parlay.parlayId} style={styles.card}>
               <View style={styles.cardHeader}>
                 <Text style={styles.context} numberOfLines={2}>
                   {parlay.gameContext || 'NFL parlay'}
                 </Text>
                 <OutcomeChip parlay={parlay} />
-                <View style={[styles.chip, { borderColor: colors.primary }]}>
-                  <Text style={[styles.chipText, { color: colors.primary }]}>
-                    {formatOdds(parlay.combinedOdds)}
-                  </Text>
-                </View>
+                <Chip
+                  label={formatOdds(parlay.combinedOdds)}
+                  tint={colors.primaryBright}
+                  numeric
+                />
               </View>
 
               {parlay.legs.map((leg, i) => {
@@ -166,7 +162,7 @@ export default function HistoryScreen() {
                   </View>
                 )
               })}
-            </View>
+            </Card>
           ))
         )}
 
@@ -193,41 +189,33 @@ export default function HistoryScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
-  body: { padding: spacing.md, gap: spacing.md },
+  body: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xxl },
+  screenTitle: { ...typography.heading, color: colors.text },
   centre: { alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xxl },
   emptyTitle: { ...typography.title, color: colors.textSecondary },
   emptyBody: { ...typography.bodySmall, color: colors.textDisabled, textAlign: 'center' },
   depthNote: {
-    ...typography.bodySmall,
-    fontSize: 12,
+    ...typography.caption,
     color: colors.textSecondary,
     textAlign: 'center',
+    paddingVertical: spacing.sm,
   },
-  depthLink: { color: colors.primary },
+  depthLink: { color: colors.primaryBright },
 
-  card: {
-    borderWidth: 1,
-    borderColor: colors.divider,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
+  card: { gap: spacing.sm },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   context: { ...typography.label, color: colors.text, flex: 1 },
-  chip: { borderWidth: 1, borderRadius: radius.sm, paddingHorizontal: 6, paddingVertical: 2 },
-  chipText: { ...typography.numeric, fontSize: 12 },
 
   leg: {
-    borderTopWidth: 1,
+    borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.divider,
     paddingTop: spacing.sm,
-    gap: 2,
+    gap: spacing.xxs,
   },
   legHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
   legSelection: { ...typography.bodySmall, color: colors.text, flex: 1 },
-  legOdds: { ...typography.numeric, fontSize: 13 },
+  legOdds: { ...typography.numericSmall },
   legMeta: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  legType: { ...typography.bodySmall, fontSize: 12, color: colors.textSecondary, flex: 1 },
-  legResult: { ...typography.label, fontSize: 12 },
+  legType: { ...typography.caption, color: colors.textSecondary, flex: 1 },
+  legResult: { ...typography.micro },
 })

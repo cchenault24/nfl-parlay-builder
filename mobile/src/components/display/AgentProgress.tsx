@@ -3,7 +3,15 @@ import type { AgentStep } from '@shared/types'
 import { useEffect, useState } from 'react'
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
 
-import { colors, radius, spacing, typography } from '@/lib/theme/designTokens'
+import { Card } from '@/components/ui/Card'
+import {
+  colors,
+  HIT_SLOP,
+  PRESSED_OPACITY,
+  radius,
+  spacing,
+  typography,
+} from '@/lib/theme/designTokens'
 
 // Mirrors the web ROWS table. `optional` steps are allowed to fail without
 // failing the run — they render as "unavailable — continuing" rather than as
@@ -29,7 +37,7 @@ function StatusGlyph({ step }: { step?: AgentStep }) {
     return <View style={[styles.glyph, styles.glyphPending]} />
   }
   if (step.status === 'running') {
-    return <ActivityIndicator size="small" color={colors.primary} style={styles.glyph} />
+    return <ActivityIndicator size="small" color={colors.primaryBright} style={styles.glyph} />
   }
   if (step.status === 'failed') {
     return (
@@ -62,10 +70,12 @@ export function AgentProgress({ steps, onCancel }: AgentProgressProps) {
   const byId = new Map(steps.map(s => [s.id, s]))
 
   return (
-    <View style={styles.card}>
+    <Card style={styles.card}>
       <View style={styles.header}>
         <View style={styles.headerText}>
-          <Text style={styles.title}>Building your parlay</Text>
+          <Text style={styles.title} accessibilityRole="header">
+            Building your parlay
+          </Text>
           <Text style={styles.subtitle}>
             Each step reports as it finishes. Runs usually take 20–60 seconds.
           </Text>
@@ -105,23 +115,18 @@ export function AgentProgress({ steps, onCancel }: AgentProgressProps) {
 
       <Pressable
         onPress={onCancel}
+        accessibilityRole="button"
         style={({ pressed }) => [styles.cancel, pressed && styles.pressed]}
-        hitSlop={8}
+        hitSlop={HIT_SLOP}
       >
         <Text style={styles.cancelText}>Cancel</Text>
       </Pressable>
-    </View>
+    </Card>
   )
 }
 
 const styles = StyleSheet.create({
-  card: {
-    borderWidth: 1,
-    borderColor: colors.divider,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
-    padding: spacing.md,
-  },
+  card: {},
   header: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: spacing.md },
   headerText: { flex: 1, gap: spacing.xs },
   title: { ...typography.title, color: colors.text },
@@ -129,7 +134,7 @@ const styles = StyleSheet.create({
   elapsed: { ...typography.numeric, color: colors.textSecondary, marginLeft: spacing.md },
 
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm },
-  rowDivider: { borderTopWidth: 1, borderTopColor: colors.divider },
+  rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider },
   glyph: {
     width: 20,
     height: 20,
@@ -143,10 +148,15 @@ const styles = StyleSheet.create({
   rowLabel: { ...typography.bodySmall, color: colors.text, flex: 1 },
   rowLabelPending: { color: colors.textDisabled },
   rowLabelRunning: { color: colors.text },
-  rowMeta: { ...typography.numeric, fontSize: 12, color: colors.textSecondary, textAlign: 'right' },
+  rowMeta: { ...typography.micro, fontVariant: ['tabular-nums'], color: colors.textSecondary, textAlign: 'right' },
   rowMetaFailed: { color: colors.warning },
 
-  cancel: { alignSelf: 'flex-end', marginTop: spacing.md, padding: spacing.sm },
+  cancel: {
+    alignSelf: 'flex-end',
+    marginTop: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
   cancelText: { ...typography.label, color: colors.textSecondary },
-  pressed: { opacity: 0.6 },
+  pressed: { opacity: PRESSED_OPACITY },
 })

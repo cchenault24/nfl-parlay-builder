@@ -2,7 +2,9 @@ import Ionicons from '@expo/vector-icons/Ionicons'
 import type { GameSummary } from '@shared/types'
 import { StyleSheet, Text, View } from 'react-native'
 
-import { colors, radius, spacing, typography } from '@/lib/theme/designTokens'
+import { Card } from '@/components/ui/Card'
+import { Chip } from '@/components/ui/Chip'
+import { colors, spacing, typography } from '@/lib/theme/designTokens'
 
 function gameFlow(winProbability: number) {
   if (winProbability > 0.7) {
@@ -25,21 +27,21 @@ export function GameSummaryView({ gameSummary, gameContext }: GameSummaryViewPro
   const confidencePct = Math.round(winProbability * 100)
 
   return (
-    <View style={styles.card}>
+    <Card style={styles.card}>
       <View style={styles.header}>
-        <Ionicons name="analytics-outline" size={20} color={colors.primary} />
-        <Text style={styles.title}>AI game analysis</Text>
+        <Ionicons name="analytics-outline" size={20} color={colors.primaryBright} />
+        <Text style={styles.title} accessibilityRole="header">
+          AI game analysis
+        </Text>
       </View>
 
       <View style={styles.chips}>
-        <View style={[styles.chip, { borderColor: flow.color }]}>
-          <Text style={[styles.chipText, { color: flow.color }]}>{flow.label}</Text>
-        </View>
-        <View style={[styles.chip, { borderColor: colors.primary }]}>
-          <Text style={[styles.chipText, { color: colors.primary }]}>
-            {confidencePct}% confidence
-          </Text>
-        </View>
+        <Chip label={flow.label} tint={flow.color} />
+        <Chip
+          label={`${confidencePct}% confidence`}
+          tint={colors.primaryBright}
+          numeric
+        />
       </View>
 
       <Text style={styles.context}>{gameContext}</Text>
@@ -55,7 +57,7 @@ export function GameSummaryView({ gameSummary, gameContext }: GameSummaryViewPro
               <Ionicons
                 name="checkmark-circle-outline"
                 size={16}
-                color={colors.primary}
+                color={colors.primaryBright}
                 style={styles.factorIcon}
               />
               <Text style={styles.body}>{factor}</Text>
@@ -71,24 +73,15 @@ export function GameSummaryView({ gameSummary, gameContext }: GameSummaryViewPro
           confidence)
         </Text>
       </View>
-    </View>
+    </Card>
   )
 }
 
 const styles = StyleSheet.create({
-  card: {
-    borderWidth: 1,
-    borderColor: colors.divider,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
+  card: { gap: spacing.sm },
   header: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   title: { ...typography.title, color: colors.text },
   chips: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' },
-  chip: { borderWidth: 1, borderRadius: radius.sm, paddingHorizontal: 8, paddingVertical: 3 },
-  chipText: { ...typography.label, fontSize: 12 },
   context: { ...typography.bodySmall, color: colors.textSecondary },
   section: { ...typography.label, color: colors.text, marginTop: spacing.sm },
   body: { ...typography.bodySmall, color: colors.textSecondary, flex: 1 },
@@ -96,7 +89,7 @@ const styles = StyleSheet.create({
   factorIcon: { marginTop: 2 },
   prediction: {
     borderLeftWidth: 3,
-    borderLeftColor: colors.primary,
+    borderLeftColor: colors.primaryBright,
     paddingLeft: spacing.md,
     paddingVertical: spacing.xs,
   },

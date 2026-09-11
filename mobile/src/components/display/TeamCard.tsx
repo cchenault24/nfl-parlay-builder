@@ -3,7 +3,8 @@ import { StyleSheet, Text, View } from 'react-native'
 
 import { RankChip } from '@/components/display/RankChip'
 import { TeamLogo } from '@/components/display/TeamLogo'
-import { colors, radius, spacing, typography } from '@/lib/theme/designTokens'
+import { Card } from '@/components/ui/Card'
+import { colors, spacing, typography } from '@/lib/theme/designTokens'
 
 function StatRow({ label, stat }: { label: string; stat?: RankedStat }) {
   return (
@@ -25,7 +26,7 @@ function StatRow({ label, stat }: { label: string; stat?: RankedStat }) {
 
 export function TeamCard({ team, stats }: { team: TeamRef; stats: TeamStats | null }) {
   return (
-    <View style={styles.card}>
+    <Card tone="inset" style={styles.card}>
       <View style={styles.header}>
         <TeamLogo teamName={team.name} size="small" />
         <Text style={styles.name} numberOfLines={1}>
@@ -43,19 +44,12 @@ export function TeamCard({ team, stats }: { team: TeamRef; stats: TeamStats | nu
       <StatRow label="Yards allowed" stat={stats?.defense.yardsAllowedPerGame} />
       <StatRow label="Points allowed" stat={stats?.defense.pointsAllowedPerGame} />
       <StatRow label="Takeaways (season)" stat={stats?.defense.takeaways} />
-    </View>
+    </Card>
   )
 }
 
 const styles = StyleSheet.create({
-  card: {
-    borderWidth: 1,
-    borderColor: colors.divider,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    gap: spacing.xs,
-    backgroundColor: colors.surface,
-  },
+  card: { gap: spacing.xs },
   header: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm },
   name: { ...typography.title, color: colors.text, flex: 1 },
   record: { ...typography.numeric, color: colors.textSecondary },

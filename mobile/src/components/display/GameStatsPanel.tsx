@@ -8,7 +8,8 @@ import { LayoutAnimation, Platform, Pressable, StyleSheet, Text, UIManager, View
 import { MatchupRow } from '@/components/display/MatchupRow'
 import { TeamCard } from '@/components/display/TeamCard'
 import { TeamLogo } from '@/components/display/TeamLogo'
-import { colors, radius, spacing, typography } from '@/lib/theme/designTokens'
+import { Card } from '@/components/ui/Card'
+import { colors, PRESSED_OPACITY, radius, spacing, typography } from '@/lib/theme/designTokens'
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true)
@@ -75,14 +76,16 @@ export function GameStatsPanel() {
   }
 
   return (
-    <View style={styles.card}>
+    <Card padded={false} style={styles.card}>
       <Pressable
         onPress={toggle}
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
         style={({ pressed }) => [styles.summary, pressed && styles.pressed]}
       >
-        <Text style={styles.title}>Game data</Text>
+        <Text style={styles.title} accessibilityRole="header">
+          Game data
+        </Text>
         <Ionicons
           name={open ? 'chevron-up' : 'chevron-down'}
           size={18}
@@ -199,18 +202,12 @@ export function GameStatsPanel() {
           <TeamCard team={home} stats={homeStats} />
         </View>
       ) : null}
-    </View>
+    </Card>
   )
 }
 
 const styles = StyleSheet.create({
-  card: {
-    borderWidth: 1,
-    borderColor: colors.divider,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
-    overflow: 'hidden',
-  },
+  card: { overflow: 'hidden' },
   summary: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -218,7 +215,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
   },
   title: { ...typography.title, color: colors.text },
-  pressed: { opacity: 0.7 },
+  pressed: { opacity: PRESSED_OPACITY },
   details: { padding: spacing.md, paddingTop: 0, gap: spacing.md },
   context: { ...typography.bodySmall, color: colors.textSecondary },
 
@@ -227,17 +224,18 @@ const styles = StyleSheet.create({
   infoText: { ...typography.bodySmall, color: colors.textSecondary, flex: 1 },
 
   panel: {
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.divider,
     borderRadius: radius.md,
+    backgroundColor: colors.background,
     padding: spacing.md,
     gap: spacing.sm,
   },
   panelHeader: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
   panelTitle: { ...typography.label, color: colors.text },
   lines: { gap: spacing.xs },
-  line: { ...typography.numeric, fontSize: 13, color: colors.textSecondary },
-  muted: { ...typography.bodySmall, fontSize: 12, color: colors.textSecondary },
+  line: { ...typography.numericSmall, color: colors.textSecondary },
+  muted: { ...typography.caption, color: colors.textSecondary },
 
   teamsRow: {
     flexDirection: 'row',

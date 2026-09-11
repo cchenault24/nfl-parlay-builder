@@ -1,6 +1,7 @@
-import { StyleSheet, Text, View } from 'react-native'
+import { StyleSheet } from 'react-native'
 
-import { colors, radius, typography } from '@/lib/theme/designTokens'
+import { Chip } from '@/components/ui/Chip'
+import { colors } from '@/lib/theme/designTokens'
 
 function ordinal(n: number): string {
   const j = n % 10
@@ -32,23 +33,12 @@ function tint(rank?: number | null) {
 }
 
 export function RankChip({ rank }: { rank?: number | null }) {
-  const color = tint(rank)
   const label = rank && rank > 0 ? `${rank}${ordinal(rank)}` : 'N/A'
-  return (
-    <View style={[styles.chip, { borderColor: color }]}>
-      <Text style={[styles.label, { color }]}>{label}</Text>
-    </View>
-  )
+  return <Chip label={label} tint={tint(rank)} numeric style={styles.chip} />
 }
 
 const styles = StyleSheet.create({
-  chip: {
-    minWidth: 52,
-    paddingVertical: 2,
-    paddingHorizontal: 6,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    alignItems: 'center',
-  },
-  label: { ...typography.numeric, fontSize: 12 },
+  // Ranks sit in a column, so the chip holds its width rather than hugging
+  // "1st" tighter than "22nd".
+  chip: { minWidth: 54, alignItems: 'center' },
 })

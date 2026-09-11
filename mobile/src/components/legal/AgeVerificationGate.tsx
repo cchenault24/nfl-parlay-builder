@@ -3,8 +3,16 @@ import { useState } from 'react'
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
+import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
 import { HELPLINE, MINIMUM_AGE } from '@/lib/legal/content'
-import { colors, radius, spacing, typography } from '@/lib/theme/designTokens'
+import {
+  colors,
+  PRESSED_OPACITY,
+  radius,
+  spacing,
+  typography,
+} from '@/lib/theme/designTokens'
 
 const REQUIREMENTS = [
   `Must be ${MINIMUM_AGE}+ years old`,
@@ -32,17 +40,19 @@ export function AgeVerificationGate({ onVerified }: { onVerified: () => void }) 
       <SafeAreaView style={styles.screen}>
         <View style={styles.declined}>
           <Ionicons name="shield-outline" size={48} color={colors.textSecondary} />
-          <Text style={styles.declinedTitle}>You must be {MINIMUM_AGE} or older</Text>
+          <Text style={styles.declinedTitle} accessibilityRole="header">
+            You must be {MINIMUM_AGE} or older
+          </Text>
           <Text style={styles.declinedBody}>
             This app contains sports betting content and cannot be used by anyone
             under {MINIMUM_AGE}.
           </Text>
-          <Pressable
+          <Button
+            variant="outline"
+            label="Gambling help resources"
             onPress={() => Linking.openURL('https://www.ncpgambling.org/')}
-            style={({ pressed }) => [styles.outlineBtn, pressed && styles.pressed]}
-          >
-            <Text style={styles.outlineBtnText}>Gambling help resources</Text>
-          </Pressable>
+            style={styles.helpBtn}
+          />
         </View>
       </SafeAreaView>
     )
@@ -54,7 +64,9 @@ export function AgeVerificationGate({ onVerified }: { onVerified: () => void }) 
         <View style={styles.header}>
           <Ionicons name="shield-checkmark" size={28} color={colors.secondary} />
           <View style={styles.headerText}>
-            <Text style={styles.title}>Age verification required</Text>
+            <Text style={styles.title} accessibilityRole="header">
+              Age verification required
+            </Text>
             <Text style={styles.subtitle}>Legal compliance check for adult content</Text>
           </View>
         </View>
@@ -67,7 +79,7 @@ export function AgeVerificationGate({ onVerified }: { onVerified: () => void }) 
           </Text>
         </View>
 
-        <View style={styles.panel}>
+        <Card tone="outline" style={styles.panel}>
           <Text style={styles.panelTitle}>Legal requirements</Text>
           {REQUIREMENTS.map(item => (
             <View key={item} style={styles.requirement}>
@@ -78,7 +90,7 @@ export function AgeVerificationGate({ onVerified }: { onVerified: () => void }) 
           <Text style={styles.helpline}>
             Problem gambling? Call {HELPLINE} or visit gamblersanonymous.org
           </Text>
-        </View>
+        </Card>
 
         <Pressable
           onPress={() => {
@@ -96,7 +108,7 @@ export function AgeVerificationGate({ onVerified }: { onVerified: () => void }) 
           <Ionicons
             name={agreed ? 'checkbox' : 'square-outline'}
             size={22}
-            color={agreed ? colors.primary : colors.textSecondary}
+            color={agreed ? colors.primaryBright : colors.textSecondary}
           />
           <Text style={[styles.checkLabel, agreed && styles.checkLabelOn]}>
             I confirm that I am {MINIMUM_AGE} years of age or older and understand
@@ -106,7 +118,10 @@ export function AgeVerificationGate({ onVerified }: { onVerified: () => void }) 
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <Pressable
+        {/* Stays tappable while unconfirmed rather than going disabled: a
+            dead button tells the user nothing about why. */}
+        <Button
+          label={`Continue (${MINIMUM_AGE}+)`}
           onPress={() => {
             if (!agreed) {
               setError(`You must confirm you are ${MINIMUM_AGE} or older to continue.`)
@@ -114,23 +129,13 @@ export function AgeVerificationGate({ onVerified }: { onVerified: () => void }) 
             }
             onVerified()
           }}
-          style={({ pressed }) => [
-            styles.primaryBtn,
-            !agreed && styles.primaryBtnOff,
-            pressed && agreed && styles.pressed,
-          ]}
-        >
-          <Text style={[styles.primaryBtnText, !agreed && styles.primaryBtnTextOff]}>
-            Continue ({MINIMUM_AGE}+)
-          </Text>
-        </Pressable>
+        />
 
-        <Pressable
+        <Button
+          variant="danger"
+          label={`I am under ${MINIMUM_AGE}`}
           onPress={() => setDeclined(true)}
-          style={({ pressed }) => [styles.declineBtn, pressed && styles.pressed]}
-        >
-          <Text style={styles.declineBtnText}>I am under {MINIMUM_AGE}</Text>
-        </Pressable>
+        />
       </ScrollView>
     </SafeAreaView>
   )
@@ -142,7 +147,7 @@ const styles = StyleSheet.create({
 
   header: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.lg },
   headerText: { flex: 1, gap: 2 },
-  title: { ...typography.h3, color: colors.text },
+  title: { ...typography.heading, color: colors.text },
   subtitle: { ...typography.bodySmall, color: colors.textSecondary },
 
   warning: {
@@ -151,65 +156,37 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.secondary,
     borderRadius: radius.md,
+    backgroundColor: colors.sunken,
     padding: spacing.md,
   },
   warningText: { ...typography.bodySmall, color: colors.text, flex: 1 },
 
-  panel: {
-    borderWidth: 1,
-    borderColor: colors.divider,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
-  panelTitle: { ...typography.label, color: colors.primary },
+  panel: { padding: spacing.md, gap: spacing.sm },
+  panelTitle: { ...typography.label, color: colors.primaryBright },
   requirement: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   dot: { width: 4, height: 4, borderRadius: 2, backgroundColor: colors.primary },
   requirementText: { ...typography.bodySmall, color: colors.textSecondary },
-  helpline: { ...typography.bodySmall, fontSize: 12, color: colors.textDisabled, marginTop: spacing.xs },
+  helpline: { ...typography.caption, color: colors.textDisabled, marginTop: spacing.xs },
 
   checkRow: {
     flexDirection: 'row',
     gap: spacing.sm,
     alignItems: 'flex-start',
     borderWidth: 1,
-    borderColor: colors.divider,
+    borderColor: colors.border,
     borderRadius: radius.md,
     padding: spacing.md,
   },
-  checkRowOn: { borderColor: colors.primary },
+  checkRowOn: { borderColor: colors.primaryBright },
   checkLabel: { ...typography.bodySmall, color: colors.textSecondary, flex: 1 },
   checkLabelOn: { color: colors.text },
   error: { ...typography.bodySmall, color: colors.error },
 
-  primaryBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-    minHeight: 52,
-    justifyContent: 'center',
-  },
-  primaryBtnOff: { backgroundColor: colors.surfaceRaised },
-  primaryBtnText: { ...typography.button, color: colors.text },
-  primaryBtnTextOff: { color: colors.textDisabled },
-
-  declineBtn: { alignItems: 'center', paddingVertical: spacing.md },
-  declineBtnText: { ...typography.button, color: colors.error },
-
-  outlineBtn: {
-    borderWidth: 1,
-    borderColor: colors.primary,
-    borderRadius: radius.md,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    marginTop: spacing.md,
-  },
-  outlineBtnText: { ...typography.button, color: colors.primary },
+  helpBtn: { marginTop: spacing.md, paddingHorizontal: spacing.lg },
 
   declined: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.lg, gap: spacing.sm },
-  declinedTitle: { ...typography.h3, color: colors.text, textAlign: 'center' },
+  declinedTitle: { ...typography.heading, color: colors.text, textAlign: 'center' },
   declinedBody: { ...typography.body, color: colors.textSecondary, textAlign: 'center' },
 
-  pressed: { opacity: 0.75 },
+  pressed: { opacity: PRESSED_OPACITY },
 })
