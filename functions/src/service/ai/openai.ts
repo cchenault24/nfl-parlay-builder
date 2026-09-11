@@ -63,7 +63,10 @@ export async function draftParlay(
           { role: 'user', content: prompt },
         ],
         text: {
-          format: zodTextFormat(buildGenerateResponseSchema(legCount), 'parlay'),
+          format: zodTextFormat(
+            buildGenerateResponseSchema(legCount),
+            'parlay'
+          ),
         },
         // Explicit rather than relying on the default, which is medium today
         // and is not ours to depend on — this app has already been bitten once

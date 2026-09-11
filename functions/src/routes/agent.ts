@@ -74,7 +74,12 @@ function rateLimitFor(uid: string) {
         resetTime: new Date(),
         currentCount: 0,
       })
-    : getUserRateLimitStatus(uid, AGENT_RUNS_ROUTE, RUNS_PER_HOUR, RATE_WINDOW_MS)
+    : getUserRateLimitStatus(
+        uid,
+        AGENT_RUNS_ROUTE,
+        RUNS_PER_HOUR,
+        RATE_WINDOW_MS
+      )
 }
 
 async function ownedRun(req: AuthedRequest, res: express.Response) {
@@ -98,7 +103,13 @@ agentRouter.post(
   route(async (req, res) => {
     const { correlationId, user } = req
     if (!user) {
-      return errorResponse(res, 401, 'unauthorized', 'Missing user', correlationId)
+      return errorResponse(
+        res,
+        401,
+        'unauthorized',
+        'Missing user',
+        correlationId
+      )
     }
     // The schedule is needed to check that every requested game exists and that
     // they share a week. One cached call however many games were asked for.
@@ -156,7 +167,11 @@ agentRouter.post(
       input,
     })
     await createRun(run)
-    log.info('api.agent.create', { correlationId, runId: run.id, userId: user.uid })
+    log.info('api.agent.create', {
+      correlationId,
+      runId: run.id,
+      userId: user.uid,
+    })
     res.json({ runId: run.id, rateLimitInfo: await rateLimitFor(user.uid) })
   })
 )
@@ -256,7 +271,10 @@ agentRouter.get(
       if (finalRun?.status === 'succeeded') {
         send('final', finalRun.result)
       } else {
-        send('error', finalRun?.error ?? { code: 'error', message: 'Run ended' })
+        send(
+          'error',
+          finalRun?.error ?? { code: 'error', message: 'Run ended' }
+        )
       }
       return finish()
     }
@@ -297,7 +315,10 @@ agentRouter.get(
           return finish()
         }
         if (latest.status === 'failed' || latest.status === 'canceled') {
-          send('error', latest.error ?? { code: latest.status, message: 'Run ended' })
+          send(
+            'error',
+            latest.error ?? { code: latest.status, message: 'Run ended' }
+          )
           return finish()
         }
       } catch (e) {
@@ -335,7 +356,13 @@ agentRouter.get(
   route(async (req, res) => {
     const { correlationId, user } = req
     if (!user) {
-      return errorResponse(res, 401, 'unauthorized', 'Missing user', correlationId)
+      return errorResponse(
+        res,
+        401,
+        'unauthorized',
+        'Missing user',
+        correlationId
+      )
     }
     res.json(await rateLimitFor(user.uid))
   })

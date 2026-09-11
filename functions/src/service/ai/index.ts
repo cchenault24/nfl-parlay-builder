@@ -1,4 +1,9 @@
-export { PARLAY_MODEL, draftParlay, getOpenAI, type DraftOptions } from './openai'
+export {
+  PARLAY_MODEL,
+  draftParlay,
+  getOpenAI,
+  type DraftOptions,
+} from './openai'
 export {
   buildParlayPrompt,
   type PromptGame,

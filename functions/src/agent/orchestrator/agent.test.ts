@@ -8,7 +8,12 @@ import {
   makeSecondGameAnalysis,
   makeTeamStats,
 } from '../../testing/fixtures'
-import { budgetForGames, type AgentResult, type AgentRun } from '../shared/schemas'
+import {
+  budgetForGames,
+  type AgentResult,
+  type AgentRun,
+  type AgentStep,
+} from '../shared/schemas'
 
 const GAME = makeGame()
 const OTHER = makeSecondGame()
@@ -71,7 +76,9 @@ function persistSpy() {
   }
 }
 
-function finishedWith(persist: ReturnType<typeof persistSpy>): Partial<AgentRun> {
+function finishedWith(
+  persist: ReturnType<typeof persistSpy>
+): Partial<AgentRun> {
   expect(persist.finishRun).toHaveBeenCalledTimes(1)
   return persist.finishRun.mock.calls[0][1] as Partial<AgentRun>
 }
@@ -127,7 +134,9 @@ beforeEach(() => {
     gated(`pregame:${gameId}`, null)
   )
   espn.getLeagueAverages.mockResolvedValue(null)
-  nflverse.getTeamEpa.mockImplementation((home: string) => gated(`epa:${home}`, null))
+  nflverse.getTeamEpa.mockImplementation((home: string) =>
+    gated(`epa:${home}`, null)
+  )
   odds.getOddsForGame.mockImplementation((game: { gameId: string }) =>
     gated(`odds:${game.gameId}`, makeOdds())
   )
@@ -158,7 +167,10 @@ describe('runAgent', () => {
   it('starts every game’s provider calls before any of them resolves', async () => {
     ai.draftParlay.mockImplementation(async () => draftFor(2))
     const persist = persistSpy()
-    const pending = runAgent(run({ gameIds: [GAME.gameId, OTHER.gameId] }), persist)
+    const pending = runAgent(
+      run({ gameIds: [GAME.gameId, OTHER.gameId] }),
+      persist
+    )
 
     // Let the espn_game step settle, then the four tool phases dispatch.
     for (let i = 0; i < 40; i++) {
@@ -246,6 +258,39 @@ describe('runAgent', () => {
     const updates = finishedWith(persist)
     expect(updates.status).toBe('failed')
     expect(updates.error?.code).toBe('game_not_open')
+  })
+
+  it('reports no step progress on a single-game run', async () => {
+    const persist = persistSpy()
+    openGate()
+    await runAgent(run(), persist)
+
+    const steps = persist.upsertStep.mock.calls.map(
+      ([, step]) => step as AgentStep
+    )
+    expect(steps).not.toHaveLength(0)
+    expect(steps.every(s => s.progress === undefined)).toBe(true)
+  })
+
+  it('counts games through a step on a multi-game run', async () => {
+    ai.draftParlay.mockImplementation(async () => draftFor(2))
+    const persist = persistSpy()
+    openGate()
+    await runAgent(run({ gameIds: [GAME.gameId, OTHER.gameId] }), persist)
+
+    const statsProgress = persist.upsertStep.mock.calls
+      .map(([, step]) => step as AgentStep)
+      .filter(s => s.id === 'step_tool_espn_team_stats' && s.progress)
+      .map(s => s.progress)
+    expect(statsProgress).toContainEqual({ done: 1, total: 2 })
+    expect(statsProgress).toContainEqual({ done: 2, total: 2 })
+
+    // The eight conceptual rows are unchanged — six games must not become
+    // forty-eight steps.
+    const ids = new Set(
+      persist.upsertStep.mock.calls.map(([, step]) => (step as AgentStep).id)
+    )
+    expect(ids.size).toBe(8)
   })
 
   it('asks the model for a schema sized to the run', async () => {

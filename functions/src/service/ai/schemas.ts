@@ -92,7 +92,9 @@ export function buildGenerateResponseSchema(legCount: number) {
   })
 }
 
-export type AIGenerateResponse = z.infer<ReturnType<typeof buildGenerateResponseSchema>>
+export type AIGenerateResponse = z.infer<
+  ReturnType<typeof buildGenerateResponseSchema>
+>
 export type AILeg = z.infer<typeof AILegSchema>
 export type ModelAnalysis = z.infer<typeof ModelAnalysisSchema>
 export type ModelGameAnalysis = z.infer<typeof ModelGameAnalysisSchema>

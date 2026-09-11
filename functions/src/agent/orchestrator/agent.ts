@@ -78,10 +78,19 @@ function snapLegToBook(
 ): ProcessedLeg {
   // The model doesn't reliably emit a literal null here — normalize an
   // empty string to null once, up front.
-  const leg = { ...rawLeg, player: rawLeg.player?.trim() ? rawLeg.player : null }
+  const leg = {
+    ...rawLeg,
+    player: rawLeg.player?.trim() ? rawLeg.player : null,
+  }
   const priced = bookPriceForLeg(leg, game, odds)
   if (priced) {
-    return { ...leg, player: null, line: priced.line, odds: priced.odds, anchored: true }
+    return {
+      ...leg,
+      player: null,
+      line: priced.line,
+      odds: priced.odds,
+      anchored: true,
+    }
   }
   return { ...leg, anchored: false }
 }
@@ -93,9 +102,18 @@ function snapLegToBook(
 // breaker and `nonCircuitErrorCodes` still see the real code.
 async function perGame<T>(
   games: ScheduleGame[],
-  fn: (game: ScheduleGame) => Promise<T>
+  fn: (game: ScheduleGame) => Promise<T>,
+  onProgress?: (done: number, total: number) => void
 ): Promise<(T | null)[]> {
-  const settled = await Promise.allSettled(games.map(fn))
+  let done = 0
+  const settled = await Promise.allSettled(
+    games.map(game =>
+      fn(game).finally(() => {
+        done += 1
+        onProgress?.(done, games.length)
+      })
+    )
+  )
   const firstRejection = settled.find(r => r.status === 'rejected')
   if (firstRejection && settled.every(r => r.status === 'rejected')) {
     throw firstRejection.reason
@@ -142,14 +160,22 @@ export async function runAgent(
   const ctx = { correlationId, runId }
   setActiveRuns(1)
   inc('runs_started')
-  const rootSpan = startSpan('agent.run', { ...ctx, attrs: { userId: run.userId } })
+  const rootSpan = startSpan('agent.run', {
+    ...ctx,
+    attrs: { userId: run.userId },
+  })
   log.info('agent.run.start', { ...ctx, userId: run.userId })
 
   const remainingMs = () => budget.maxRunMs - (Date.now() - startedAt)
 
+  // Handed to every step's body so a step spanning several games can say how
+  // far through it is. Single-game runs never call it, so nothing changes for
+  // them — not the step shape, and not the number of Firestore writes.
+  type StepContext = { progress: (done: number, total: number) => void }
+
   async function step<T>(
     type: AgentStep['type'],
-    fn: () => Promise<T>,
+    fn: (ctx: StepContext) => Promise<T>,
     opts: { tool?: AgentToolName; notes?: string } = {}
   ): Promise<{ data: T | undefined; step: AgentStep }> {
     if (signal?.aborted) {
@@ -163,6 +189,10 @@ export async function runAgent(
       throw new RunError('canceled', 'Run was canceled')
     }
     const t0 = Date.now()
+    // Mutated in place through the step's life. Every handoff below takes a
+    // snapshot, so a consumer that keeps what it was given never sees it change
+    // underneath — the live stream and Firestore must agree on what a step
+    // looked like at the moment it was sent.
     const record: AgentStep = {
       id: `step_${type}${opts.tool ? `_${opts.tool}` : ''}`,
       type,
@@ -171,18 +201,31 @@ export async function runAgent(
       startedAt: new Date(t0).toISOString(),
       notes: opts.notes,
     }
-    await persist.upsertStep(runId, record)
-    onStep?.(record)
-    const span = startSpan(`agent.${record.id}`, { ...ctx, parent: rootSpan.ctx })
+    await persist.upsertStep(runId, { ...record })
+    onStep?.({ ...record })
+    const span = startSpan(`agent.${record.id}`, {
+      ...ctx,
+      parent: rootSpan.ctx,
+    })
+    const stepCtx: StepContext = {
+      progress: (done, total) => {
+        if (record.status !== 'running') {
+          return
+        }
+        record.progress = { done, total }
+        void persist.upsertStep(runId, { ...record })
+        onStep?.({ ...record })
+      },
+    }
     try {
-      const data = await fn()
+      const data = await fn(stepCtx)
       Object.assign(record, {
         status: 'ok',
         finishedAt: new Date().toISOString(),
         durationMs: Date.now() - t0,
       })
-      await persist.upsertStep(runId, record)
-      onStep?.(record)
+      await persist.upsertStep(runId, { ...record })
+      onStep?.({ ...record })
       endSpan(span, ctx)
       return { data, step: record }
     } catch (err) {
@@ -192,23 +235,31 @@ export async function runAgent(
         durationMs: Date.now() - t0,
         error: { code: errorCode(err), message: errorMessage(err) },
       })
-      await persist.upsertStep(runId, record)
-      onStep?.(record)
-      endSpan(span, { ...ctx, status: 'error', errorMessage: errorMessage(err) })
-      log.warn('agent.step.failed', { ...ctx, stepId: record.id, error: record.error })
+      await persist.upsertStep(runId, { ...record })
+      onStep?.({ ...record })
+      endSpan(span, {
+        ...ctx,
+        status: 'error',
+        errorMessage: errorMessage(err),
+      })
+      log.warn('agent.step.failed', {
+        ...ctx,
+        stepId: record.id,
+        error: record.error,
+      })
       return { data: undefined, step: record }
     }
   }
 
   const tool = <T>(
     name: AgentToolName,
-    fn: () => Promise<T>,
+    fn: (ctx: StepContext) => Promise<T>,
     toolOpts: { retries?: number; nonCircuitErrorCodes?: string[] } = {}
   ) =>
     step(
       'tool',
-      () =>
-        withResilience(name, fn, {
+      stepCtx =>
+        withResilience(name, () => fn(stepCtx), {
           timeoutMs: Math.min(remainingMs(), budget.perToolTimeoutMs),
           retries: toolOpts.retries ?? 1,
           nonCircuitErrorCodes: toolOpts.nonCircuitErrorCodes,
@@ -257,47 +308,76 @@ export async function runAgent(
       )
     }
 
+    // A single-game run reports no progress at all: "1 of 1" is noise, and the
+    // row has always rendered without it.
+    const reportFor = (progress: (done: number, total: number) => void) =>
+      games.length > 1 ? progress : undefined
+
     // One step per phase however many games there are — the timeline stays
     // eight rows (CONTRACT §9.3). Inside a phase the games run concurrently,
     // because they are independent and the sequential version alone can exceed
     // the whole run budget at six games.
-    const [statsResult, oddsResult, pregameResult, epaResult] = await Promise.all([
-      tool('espn_team_stats', () =>
-        perGame(games, g =>
-          Promise.all([
-            getTeamStats(g.home.teamId, g.season),
-            getTeamStats(g.away.teamId, g.season),
-          ])
-        )
-      ),
-      // One Odds API credit for the whole run whatever the slate size: the
-      // provider fetches every NFL game in a single cached request, and these
-      // are reads of that one response.
-      tool('odds', () => perGame(games, g => getOddsForGame(g, run.input.bookmaker)), {
-        retries: 0,
-        nonCircuitErrorCodes: [
-          'odds_not_found',
-          'odds_no_bookmaker',
-          'odds_not_configured',
-        ],
-      }),
-      tool('espn_pregame', () =>
-        perGame(games, g => getPregameContext(g.gameId, g.home.teamId, g.away.teamId))
-      ),
-      tool('nflverse_epa', () =>
-        perGame(games, g => getTeamEpa(g.home.abbrev, g.away.abbrev, g.season))
-      ),
-    ])
+    const [statsResult, oddsResult, pregameResult, epaResult] =
+      await Promise.all([
+        tool('espn_team_stats', ({ progress }) =>
+          perGame(
+            games,
+            g =>
+              Promise.all([
+                getTeamStats(g.home.teamId, g.season),
+                getTeamStats(g.away.teamId, g.season),
+              ]),
+            reportFor(progress)
+          )
+        ),
+        // One Odds API credit for the whole run whatever the slate size: the
+        // provider fetches every NFL game in a single cached request, and these
+        // are reads of that one response.
+        tool(
+          'odds',
+          ({ progress }) =>
+            perGame(
+              games,
+              g => getOddsForGame(g, run.input.bookmaker),
+              reportFor(progress)
+            ),
+          {
+            retries: 0,
+            nonCircuitErrorCodes: [
+              'odds_not_found',
+              'odds_no_bookmaker',
+              'odds_not_configured',
+            ],
+          }
+        ),
+        tool('espn_pregame', ({ progress }) =>
+          perGame(
+            games,
+            g => getPregameContext(g.gameId, g.home.teamId, g.away.teamId),
+            reportFor(progress)
+          )
+        ),
+        tool('nflverse_epa', ({ progress }) =>
+          perGame(
+            games,
+            g => getTeamEpa(g.home.abbrev, g.away.abbrev, g.season),
+            reportFor(progress)
+          )
+        ),
+      ])
 
     const nulls = <T>(): (T | null)[] => games.map(() => null)
     const statsPairs = statsResult.data ?? nulls<[TeamStats, TeamStats]>()
-    const oddsByGame: (OddsSnapshot | null)[] = oddsResult.data ?? nulls<OddsSnapshot>()
+    const oddsByGame: (OddsSnapshot | null)[] =
+      oddsResult.data ?? nulls<OddsSnapshot>()
     const pregameByGame = pregameResult.data ?? nulls<PregameContext>()
     const epaByGame = epaResult.data ?? nulls<TeamEpaStats>()
 
     // Supplementary context only, and slate-wide, so a failure here shouldn't be
     // a tracked step or fail the run — worth less than the tool-wrapped calls.
-    const leagueAverages = await getLeagueAverages(games[0].season).catch(() => null)
+    const leagueAverages = await getLeagueAverages(games[0].season).catch(
+      () => null
+    )
 
     const promptGames: PromptGame[] = games.map((game, i) => ({
       game,
@@ -320,7 +400,10 @@ export async function runAgent(
     // way unless the odds came back clean.
     const anchorableMarkets = oddsByGame.reduce(
       (total, odds) =>
-        total + (odds ? [odds.spread, odds.total, odds.moneyline].filter(Boolean).length : 0),
+        total +
+        (odds
+          ? [odds.spread, odds.total, odds.moneyline].filter(Boolean).length
+          : 0),
       0
     )
     const legCount = run.input.playerProps
@@ -364,7 +447,11 @@ export async function runAgent(
       )
     }
     const { draft, tokensInput, tokensOutput } = draftStep.data
-    await persist.upsertStep(runId, { ...draftStep.step, tokensInput, tokensOutput })
+    await persist.upsertStep(runId, {
+      ...draftStep.step,
+      tokensInput,
+      tokensOutput,
+    })
 
     // A leg is priced by the book covering its own game, found the same way the
     // validator finds it: by the team it names.
@@ -428,7 +515,11 @@ export async function runAgent(
           sources: {
             stats: homeStats && awayStats ? 'ok' : 'unavailable',
             odds: oddsByGame[i] ? 'ok' : 'unavailable',
-            weather: game.weather ? 'ok' : game.venue?.indoor ? 'indoor' : 'unavailable',
+            weather: game.weather
+              ? 'ok'
+              : game.venue?.indoor
+                ? 'indoor'
+                : 'unavailable',
           },
         }
       }),

@@ -7,7 +7,9 @@ import type { ProcessedLeg } from '../agent/shared/schemas'
 // different one, and a shared frozen object would have each test reading the
 // fixture file to find out what it was actually asserting against.
 
-function teamRef(overrides: Partial<TeamRef> & Pick<TeamRef, 'name' | 'abbrev'>): TeamRef {
+function teamRef(
+  overrides: Partial<TeamRef> & Pick<TeamRef, 'name' | 'abbrev'>
+): TeamRef {
   return {
     teamId: overrides.abbrev.toLowerCase(),
     record: '3-1',
@@ -27,7 +29,12 @@ export function makeGame(overrides: Partial<ScheduleGame> = {}): ScheduleGame {
     neutralSite: false,
     home: teamRef({ name: 'Baltimore Ravens', abbrev: 'BAL' }),
     away: teamRef({ name: 'Cincinnati Bengals', abbrev: 'CIN' }),
-    venue: { name: 'M&T Bank Stadium', city: 'Baltimore', state: 'MD', indoor: false },
+    venue: {
+      name: 'M&T Bank Stadium',
+      city: 'Baltimore',
+      state: 'MD',
+      indoor: false,
+    },
     weather: { condition: 'Clear', temperatureF: 62 },
     homeScore: null,
     awayScore: null,
@@ -35,7 +42,9 @@ export function makeGame(overrides: Partial<ScheduleGame> = {}): ScheduleGame {
   }
 }
 
-export function makeSecondGame(overrides: Partial<ScheduleGame> = {}): ScheduleGame {
+export function makeSecondGame(
+  overrides: Partial<ScheduleGame> = {}
+): ScheduleGame {
   return makeGame({
     gameId: 'g-kc-den',
     home: teamRef({ name: 'Denver Broncos', abbrev: 'DEN' }),
@@ -56,7 +65,8 @@ export function makeLeg(overrides: Partial<ProcessedLeg> = {}): ProcessedLeg {
     side: null,
     odds: -110,
     confidence: 0.6,
-    reasoning: 'Ravens are 3rd in rushing yards per game against a 28th-ranked run defense.',
+    reasoning:
+      'Ravens are 3rd in rushing yards per game against a 28th-ranked run defense.',
     anchored: false,
     ...overrides,
   }

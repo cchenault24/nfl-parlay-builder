@@ -60,10 +60,15 @@ export function resolveRunInput(params: {
     )
   }
   if (!capabilities.riskLevels.includes(risk.data)) {
-    return refuse(403, 'risk_level_locked', `The ${risk.data} risk level is a Pro feature.`, {
-      tier,
-      allowed: capabilities.riskLevels,
-    })
+    return refuse(
+      403,
+      'risk_level_locked',
+      `The ${risk.data} risk level is a Pro feature.`,
+      {
+        tier,
+        allowed: capabilities.riskLevels,
+      }
+    )
   }
 
   // Two refusals rather than one because they are two different conversations:
@@ -78,10 +83,15 @@ export function resolveRunInput(params: {
     )
   }
   if (gameIds.length > maxGamesPerRun) {
-    return refuse(403, 'too_many_games', `A parlay can span at most ${maxGamesPerRun} games.`, {
-      tier,
-      maxGamesPerRun,
-    })
+    return refuse(
+      403,
+      'too_many_games',
+      `A parlay can span at most ${maxGamesPerRun} games.`,
+      {
+        tier,
+        maxGamesPerRun,
+      }
+    )
   }
 
   // Every id has to name a real game, and they all have to come from one week.
@@ -90,7 +100,11 @@ export function resolveRunInput(params: {
   const byId = new Map(schedule.map(g => [g.gameId, g]))
   const unknownIds = gameIds.filter(id => !byId.has(id))
   if (unknownIds.length > 0) {
-    return refuse(400, 'validation_error', `No game found for ${unknownIds.join(', ')}`)
+    return refuse(
+      400,
+      'validation_error',
+      `No game found for ${unknownIds.join(', ')}`
+    )
   }
   if (new Set(gameIds.map(id => byId.get(id)?.week)).size > 1) {
     return refuse(
@@ -124,11 +138,19 @@ export function resolveRunInput(params: {
   // than being refused for sending a default it never picked.
   const requestedBook = body.bookmaker ? String(body.bookmaker) : undefined
   if (requestedBook && !capabilities.chooseSportsbook) {
-    return refuse(403, 'sportsbook_locked', 'Choosing your sportsbook is a Pro feature.', {
-      tier,
-    })
+    return refuse(
+      403,
+      'sportsbook_locked',
+      'Choosing your sportsbook is a Pro feature.',
+      {
+        tier,
+      }
+    )
   }
-  if (requestedBook && !SUPPORTED_BOOKMAKERS.some(b => b.key === requestedBook)) {
+  if (
+    requestedBook &&
+    !SUPPORTED_BOOKMAKERS.some(b => b.key === requestedBook)
+  ) {
     return refuse(
       400,
       'validation_error',

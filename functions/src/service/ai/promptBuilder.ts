@@ -74,7 +74,10 @@ function venueLine(game: ScheduleGame): string {
     return 'Venue: not available'
   }
   const { name, city, state, indoor } = game.venue
-  const flags = [indoor ? 'indoor' : 'outdoor', game.neutralSite && 'neutral site']
+  const flags = [
+    indoor ? 'indoor' : 'outdoor',
+    game.neutralSite && 'neutral site',
+  ]
     .filter(Boolean)
     .join(', ')
   return `Venue: ${name}, ${city}, ${state} (${flags})`
@@ -120,7 +123,9 @@ function teamStatsBlock(name: string, stats: TeamStats | null): string {
 
 function statsSection(entry: PromptGame): string {
   const { game, homeStats, awayStats } = entry
-  const priorSeason = [homeStats, awayStats].some(s => s && s.season < game.season)
+  const priorSeason = [homeStats, awayStats].some(
+    s => s && s.season < game.season
+  )
   const note = priorSeason
     ? ` Note: ${game.season} games have not been played yet, so prior-season numbers are shown.`
     : ''
@@ -162,7 +167,9 @@ function epaSection(entry: PromptGame): string {
 }
 
 function daysBetween(fromIso: string, toIso: string): number {
-  return Math.round((new Date(toIso).getTime() - new Date(fromIso).getTime()) / 86_400_000)
+  return Math.round(
+    (new Date(toIso).getTime() - new Date(fromIso).getTime()) / 86_400_000
+  )
 }
 
 function recentFormLine(name: string, recentGames: RecentGame[]): string {
@@ -171,7 +178,10 @@ function recentFormLine(name: string, recentGames: RecentGame[]): string {
   }
   const results = recentGames
     .slice(0, 5)
-    .map(g => `${g.result} ${g.pointsFor}-${g.pointsAgainst} vs ${g.opponent} (wk ${g.week})`)
+    .map(
+      g =>
+        `${g.result} ${g.pointsFor}-${g.pointsAgainst} vs ${g.opponent} (wk ${g.week})`
+    )
     .join(', ')
   return `${name}: ${results}`
 }
@@ -188,12 +198,17 @@ function recentFormSection(entry: PromptGame): string {
   )
 }
 
-function restLine(name: string, recentGames: RecentGame[], kickoff: string): string {
+function restLine(
+  name: string,
+  recentGames: RecentGame[],
+  kickoff: string
+): string {
   if (recentGames.length === 0) {
     return `${name}: rest not available`
   }
   const days = daysBetween(recentGames[0].dateTime, kickoff)
-  const note = days >= 9 ? ' (extended rest / bye)' : days <= 4 ? ' (short week)' : ''
+  const note =
+    days >= 9 ? ' (extended rest / bye)' : days <= 4 ? ' (short week)' : ''
   return `${name}: ${days} days rest${note}`
 }
 
@@ -214,7 +229,10 @@ function injuryLine(name: string, injuries: TeamInjury[]): string {
     return `${name}: no notable injuries reported`
   }
   const rows = injuries
-    .map(i => `${i.player} (${i.position}) - ${i.status}${i.detail ? `, ${i.detail}` : ''}`)
+    .map(
+      i =>
+        `${i.player} (${i.position}) - ${i.status}${i.detail ? `, ${i.detail}` : ''}`
+    )
     .join('; ')
   return `${name}: ${rows}`
 }
@@ -237,7 +255,8 @@ function leagueAverageSection(input: PromptInput): string {
     return 'League averages: not available'
   }
   const season = input.games[0].game.season
-  const note = leagueAverages.season !== season ? ` (${leagueAverages.season} season)` : ''
+  const note =
+    leagueAverages.season !== season ? ` (${leagueAverages.season} season)` : ''
   return (
     `League averages${note}: ${leagueAverages.avgPointsPerTeam} points/team/game, ` +
     `${leagueAverages.avgTotalPoints} combined points/game — use this to judge whether ` +
@@ -288,7 +307,11 @@ function linesSection(entry: PromptGame, playerProps: boolean): string {
   return `Betting lines from ${odds.bookmaker} (updated ${odds.lastUpdate}):\n${rows.join('\n')}`
 }
 
-function gameBlock(entry: PromptGame, input: PromptInput, index: number): string {
+function gameBlock(
+  entry: PromptGame,
+  input: PromptInput,
+  index: number
+): string {
   const { game } = entry
   const heading =
     input.games.length === 1
@@ -350,7 +373,7 @@ export function buildParlayPrompt(input: PromptInput): string {
     'Analysis requirements:',
     `- analysisSummary.games: exactly ${games.length} entr${games.length === 1 ? 'y' : 'ies'}, one per game above, in the same order.`,
     `  - matchupSummary: ${multi ? '3-4' : '5-7'} sentences citing that game's data.`,
-    "  - keyFactors: 3-5 short factors driving your read on that game (recent form, injuries, rest, and league-average context are all fair game alongside the season stats).",
+    '  - keyFactors: 3-5 short factors driving your read on that game (recent form, injuries, rest, and league-average context are all fair game alongside the season stats).',
     "  - gamePrediction: winner (exact team name), a projected score, and the winner's win probability — form this read before you pick legs, and keep the legs consistent with it.",
     multi
       ? '- slateSummary: 2-3 sentences on how these games fit together as one parlay, including any correlation between them.'

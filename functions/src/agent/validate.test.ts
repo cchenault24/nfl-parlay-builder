@@ -7,7 +7,11 @@ import {
   makeSecondGame,
   makeSecondGameAnalysis,
 } from '../testing/fixtures'
-import { validateDraft, validationSummary, type DraftConstraints } from './validate'
+import {
+  validateDraft,
+  validationSummary,
+  type DraftConstraints,
+} from './validate'
 
 // Characterization tests: one per rule the validator enforces today, written
 // before task 4 rescopes the market rule per game. Anything that changes here
@@ -17,7 +21,11 @@ const GAME = makeGame()
 const CONSTRAINTS: DraftConstraints = { legCount: 3, playerProps: true }
 
 function run(legs: ReturnType<typeof makeLeg>[], constraints = CONSTRAINTS) {
-  return validateDraft({ legs, analysisSummary: makeAnalysis() }, [GAME], constraints)
+  return validateDraft(
+    { legs, analysisSummary: makeAnalysis() },
+    [GAME],
+    constraints
+  )
 }
 
 // Three legs, one per market, none of them anchored — the shape every test
@@ -53,7 +61,10 @@ describe('validateDraft', () => {
     })
 
     it('rejects more legs than asked for', () => {
-      const legs = [...cleanLegs(), makeLeg({ betType: 'player_anytime_td', player: 'Zay Flowers' })]
+      const legs = [
+        ...cleanLegs(),
+        makeLeg({ betType: 'player_anytime_td', player: 'Zay Flowers' }),
+      ]
       expect(run(legs)).toContain('expected 3 legs, got 4')
     })
   })
@@ -62,7 +73,9 @@ describe('validateDraft', () => {
     it('rejects a leg for a team not in the game', () => {
       const legs = cleanLegs()
       legs[0] = makeLeg({ team: 'Kansas City Chiefs' })
-      expect(run(legs)).toContain('leg 1: team "Kansas City Chiefs" is not in this game')
+      expect(run(legs)).toContain(
+        'leg 1: team "Kansas City Chiefs" is not in this game'
+      )
     })
   })
 
@@ -97,7 +110,11 @@ describe('validateDraft', () => {
   describe('player props', () => {
     it('rejects a prop on a plan without them', () => {
       const legs = cleanLegs()
-      legs[0] = makeLeg({ betType: 'player_rushing_yards', player: 'Derrick Henry', side: 'over' })
+      legs[0] = makeLeg({
+        betType: 'player_rushing_yards',
+        player: 'Derrick Henry',
+        side: 'over',
+      })
       expect(run(legs, { legCount: 3, playerProps: false })).toContain(
         'leg 1: player props are not available on this plan'
       )
@@ -105,14 +122,26 @@ describe('validateDraft', () => {
 
     it('rejects a prop with no player name', () => {
       const legs = cleanLegs()
-      legs[0] = makeLeg({ betType: 'player_rushing_yards', player: null, side: 'over' })
-      expect(run(legs)).toContain('leg 1: player_rushing_yards requires a player name')
+      legs[0] = makeLeg({
+        betType: 'player_rushing_yards',
+        player: null,
+        side: 'over',
+      })
+      expect(run(legs)).toContain(
+        'leg 1: player_rushing_yards requires a player name'
+      )
     })
 
     it('treats a whitespace-only player name as absent', () => {
       const legs = cleanLegs()
-      legs[0] = makeLeg({ betType: 'player_rushing_yards', player: '   ', side: 'over' })
-      expect(run(legs)).toContain('leg 1: player_rushing_yards requires a player name')
+      legs[0] = makeLeg({
+        betType: 'player_rushing_yards',
+        player: '   ',
+        side: 'over',
+      })
+      expect(run(legs)).toContain(
+        'leg 1: player_rushing_yards requires a player name'
+      )
     })
 
     it('rejects a player name on a market leg', () => {
@@ -164,18 +193,24 @@ describe('validateDraft', () => {
   })
 
   describe('one leg per market', () => {
-    it.each(['spread', 'moneyline', 'total'] as const)('rejects two %s legs', market => {
-      const legs = [
-        makeLeg({ betType: market, side: market === 'total' ? 'over' : null }),
-        makeLeg({
-          betType: market,
-          team: 'Cincinnati Bengals',
-          side: market === 'total' ? 'under' : null,
-        }),
-        makeLeg({ betType: 'player_anytime_td', player: 'Zay Flowers' }),
-      ]
-      expect(run(legs)).toContain(`2 ${market} legs; at most one allowed`)
-    })
+    it.each(['spread', 'moneyline', 'total'] as const)(
+      'rejects two %s legs',
+      market => {
+        const legs = [
+          makeLeg({
+            betType: market,
+            side: market === 'total' ? 'over' : null,
+          }),
+          makeLeg({
+            betType: market,
+            team: 'Cincinnati Bengals',
+            side: market === 'total' ? 'under' : null,
+          }),
+          makeLeg({ betType: 'player_anytime_td', player: 'Zay Flowers' }),
+        ]
+        expect(run(legs)).toContain(`2 ${market} legs; at most one allowed`)
+      }
+    )
 
     it('does not restrict repeated player-prop types', () => {
       const legs = [
@@ -208,7 +243,9 @@ describe('validateDraft', () => {
         [GAME],
         CONSTRAINTS
       )
-      expect(issues).toContain('predicted winner "Kansas City Chiefs" is not in this game')
+      expect(issues).toContain(
+        'predicted winner "Kansas City Chiefs" is not in this game'
+      )
     })
 
     it.each([
@@ -336,18 +373,38 @@ describe('validateDraft across games', () => {
 
 describe('validationSummary', () => {
   it.each([
-    ['leg 1: odds 0 outside sane range', 'The model returned a leg without a usable price.'],
+    [
+      'leg 1: odds 0 outside sane range',
+      'The model returned a leg without a usable price.',
+    ],
     ['expected 3 legs, got 2', 'The model returned the wrong number of legs.'],
-    ['leg 1: player_anytime_td requires a player name', 'The model returned a player prop without a player.'],
-    ['leg 1: player must be empty for spread', 'The model returned a player prop without a player.'],
-    ['leg 1: team "X" is not in this game', 'The model returned a leg for the wrong game.'],
-    ['2 spread legs; at most one allowed', 'The model returned two legs for the same market.'],
-    ['leg 1: confidence 0.4 does not clear the implied probability of anchored odds -110', 'The model had no edge over the book on one of its legs.'],
+    [
+      'leg 1: player_anytime_td requires a player name',
+      'The model returned a player prop without a player.',
+    ],
+    [
+      'leg 1: player must be empty for spread',
+      'The model returned a player prop without a player.',
+    ],
+    [
+      'leg 1: team "X" is not in this game',
+      'The model returned a leg for the wrong game.',
+    ],
+    [
+      '2 spread legs; at most one allowed',
+      'The model returned two legs for the same market.',
+    ],
+    [
+      'leg 1: confidence 0.4 does not clear the implied probability of anchored odds -110',
+      'The model had no edge over the book on one of its legs.',
+    ],
   ])('maps %s', (issue, expected) => {
     expect(validationSummary([issue])).toBe(expected)
   })
 
   it('falls back to a generic sentence', () => {
-    expect(validationSummary(['something else'])).toBe('The model produced an invalid parlay.')
+    expect(validationSummary(['something else'])).toBe(
+      'The model produced an invalid parlay.'
+    )
   })
 })

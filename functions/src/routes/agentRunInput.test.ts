@@ -9,7 +9,10 @@ const OTHER = makeSecondGame()
 const NEXT_WEEK = makeGame({ gameId: 'g-next-week', week: 6 })
 const SCHEDULE = [GAME, OTHER, NEXT_WEEK]
 
-function entitlements(tier: 'free' | 'pro', quotaRemaining: number | null = 2): EntitlementView {
+function entitlements(
+  tier: 'free' | 'pro',
+  quotaRemaining: number | null = 2
+): EntitlementView {
   const capabilities = capabilitiesFor(tier)
   return {
     tier,
@@ -41,7 +44,10 @@ describe('resolveRunInput', () => {
   })
 
   it('accepts a cross-game run on Pro', () => {
-    const { input } = resolve({ gameIds: [GAME.gameId, OTHER.gameId], legCount: 4 })
+    const { input } = resolve({
+      gameIds: [GAME.gameId, OTHER.gameId],
+      legCount: 4,
+    })
     expect(input?.gameIds).toEqual([GAME.gameId, OTHER.gameId])
     expect(input?.legCount).toBe(4)
   })
@@ -87,7 +93,10 @@ describe('resolveRunInput', () => {
     })
 
     it('refuses an unsupported bookmaker', () => {
-      const { refusal } = resolve({ gameIds: [GAME.gameId], bookmaker: 'bovada' })
+      const { refusal } = resolve({
+        gameIds: [GAME.gameId],
+        bookmaker: 'bovada',
+      })
       expect(refusal).toMatchObject({ status: 400, code: 'validation_error' })
     })
   })
@@ -99,7 +108,10 @@ describe('resolveRunInput', () => {
         entitlements('free')
       )
       expect(refusal).toMatchObject({ status: 403, code: 'cross_game_locked' })
-      expect(refusal?.details).toMatchObject({ tier: 'free', maxGamesPerRun: 1 })
+      expect(refusal?.details).toMatchObject({
+        tier: 'free',
+        maxGamesPerRun: 1,
+      })
     })
 
     it('refuses more games than Pro allows with too_many_games', () => {
@@ -110,7 +122,10 @@ describe('resolveRunInput', () => {
     })
 
     it('refuses an exhausted quota', () => {
-      const { refusal } = resolve({ gameIds: [GAME.gameId] }, entitlements('free', 0))
+      const { refusal } = resolve(
+        { gameIds: [GAME.gameId] },
+        entitlements('free', 0)
+      )
       expect(refusal).toMatchObject({ status: 403, code: 'quota_exhausted' })
     })
 

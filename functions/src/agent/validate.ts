@@ -64,7 +64,9 @@ export function validateDraft(
   const teams = [...byTeam.keys()]
 
   if (draft.legs.length !== constraints.legCount) {
-    issues.push(`expected ${constraints.legCount} legs, got ${draft.legs.length}`)
+    issues.push(
+      `expected ${constraints.legCount} legs, got ${draft.legs.length}`
+    )
   }
 
   draft.legs.forEach((leg, i) => {
@@ -109,7 +111,9 @@ export function validateDraft(
   // a cross-game parlay. Legs whose team matched no game are already reported
   // above and are left out rather than counted against an arbitrary group.
   for (const game of games) {
-    const inGame = draft.legs.filter(l => byTeam.get(l.team)?.gameId === game.gameId)
+    const inGame = draft.legs.filter(
+      l => byTeam.get(l.team)?.gameId === game.gameId
+    )
     for (const market of ['spread', 'moneyline', 'total'] as const) {
       const count = inGame.filter(l => l.betType === market).length
       if (count > 1) {
@@ -176,7 +180,11 @@ export function validationSummary(issues: string[]): string {
   if (has('at most one allowed')) {
     return 'The model returned two legs for the same market.'
   }
-  if (has('game analyses, got') || has('game analysis, got') || has('two predictions for')) {
+  if (
+    has('game analyses, got') ||
+    has('game analysis, got') ||
+    has('two predictions for')
+  ) {
     return 'The model did not return one read per game.'
   }
   if (has('does not clear the implied probability')) {

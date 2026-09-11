@@ -12,7 +12,9 @@ function stripUndefined<T extends object>(value: T): T {
 }
 
 export async function createRun(run: AgentRun): Promise<void> {
-  await runs().doc(run.id).set(stripUndefined(AgentRunSchema.parse(run)))
+  await runs()
+    .doc(run.id)
+    .set(stripUndefined(AgentRunSchema.parse(run)))
 }
 
 export async function getRun(runId: string): Promise<AgentRun | null> {
@@ -20,7 +22,10 @@ export async function getRun(runId: string): Promise<AgentRun | null> {
   return snap.exists ? AgentRunSchema.parse(snap.data()) : null
 }
 
-export async function upsertStep(runId: string, step: AgentStep): Promise<void> {
+export async function upsertStep(
+  runId: string,
+  step: AgentStep
+): Promise<void> {
   await runs()
     .doc(runId)
     .collection('steps')
@@ -29,7 +34,11 @@ export async function upsertStep(runId: string, step: AgentStep): Promise<void> 
 }
 
 export async function listSteps(runId: string): Promise<AgentStep[]> {
-  const qs = await runs().doc(runId).collection('steps').orderBy('startedAt').get()
+  const qs = await runs()
+    .doc(runId)
+    .collection('steps')
+    .orderBy('startedAt')
+    .get()
   return qs.docs.map(d => d.data() as AgentStep)
 }
 
@@ -92,15 +101,20 @@ export function claimRun(runId: string): Promise<AgentRun | null> {
 // six-game parlay with one estimated leg is no more fully priced than a
 // single-game one with an estimated leg, and charging for it would make the
 // existing promise conditional on slate size.
-export async function finishRun(
-  runId: string,
-  updates: Partial<AgentRun>
-): Promise<boolean> {
-  const billable =
+export function isBillable(updates: Partial<AgentRun>): boolean {
+  return (
     updates.status === 'succeeded' &&
     !!updates.result &&
     updates.result.games.length > 0 &&
     updates.result.games.every(g => g.sources.odds === 'ok')
+  )
+}
+
+export async function finishRun(
+  runId: string,
+  updates: Partial<AgentRun>
+): Promise<boolean> {
+  const billable = isBillable(updates)
   const result = await transitionRun(
     runId,
     ['running'],

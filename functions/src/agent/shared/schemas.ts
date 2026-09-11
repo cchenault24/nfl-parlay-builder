@@ -22,6 +22,16 @@ export const AgentStepSchema = z.object({
   finishedAt: z.string().optional(),
   durationMs: z.number().nonnegative().optional(),
   notes: z.string().optional(),
+  // Set only while a step covers more than one game, so the eight-row timeline
+  // reports "4 of 6" inside a row rather than becoming forty-eight rows
+  // (CONTRACT §9.3). A single-game run leaves it undefined and the row renders
+  // exactly as it always has.
+  progress: z
+    .object({
+      done: z.number().int().nonnegative(),
+      total: z.number().int().positive(),
+    })
+    .optional(),
   tokensInput: z.number().int().nonnegative().optional(),
   tokensOutput: z.number().int().nonnegative().optional(),
   error: z.object({ code: z.string(), message: z.string() }).optional(),
@@ -54,7 +64,11 @@ export const AgentRunStatusSchema = z.enum([
   'failed',
 ])
 
-export const RiskLevelSchema = z.enum(['conservative', 'moderate', 'aggressive'])
+export const RiskLevelSchema = z.enum([
+  'conservative',
+  'moderate',
+  'aggressive',
+])
 
 // The hard ceiling on a cross-game run, above whatever a tier allows. Six is
 // the leg-count maximum, so at this cap every leg can still come from its own

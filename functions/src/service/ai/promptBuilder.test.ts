@@ -19,15 +19,23 @@ function entry(game = makeGame()): PromptGame {
   }
 }
 
-const base = { leagueAverages: null, riskLevel: 'moderate' as const, playerProps: false }
+const base = {
+  leagueAverages: null,
+  riskLevel: 'moderate' as const,
+  playerProps: false,
+}
 
 describe('buildParlayPrompt', () => {
   it('reads as a single-game prompt for one game', () => {
     const prompt = buildParlayPrompt({ ...base, games: [entry()], legCount: 3 })
-    expect(prompt).toContain('Generate a 3-leg NFL parlay for Cincinnati Bengals @ Baltimore Ravens')
+    expect(prompt).toContain(
+      'Generate a 3-leg NFL parlay for Cincinnati Bengals @ Baltimore Ravens'
+    )
     expect(prompt).not.toContain('GAME 1 of')
     expect(prompt).toContain('slateSummary: null')
-    expect(prompt).toContain('at most one spread leg, one total leg, and one moneyline leg')
+    expect(prompt).toContain(
+      'at most one spread leg, one total leg, and one moneyline leg'
+    )
   })
 
   it('numbers the games and relaxes the market rule across them', () => {
@@ -37,7 +45,9 @@ describe('buildParlayPrompt', () => {
       legCount: 4,
     })
     expect(prompt).toContain('ONE 4-leg NFL parlay drawing on 2 games')
-    expect(prompt).toContain('GAME 1 of 2: Cincinnati Bengals @ Baltimore Ravens')
+    expect(prompt).toContain(
+      'GAME 1 of 2: Cincinnati Bengals @ Baltimore Ravens'
+    )
     expect(prompt).toContain('GAME 2 of 2: Kansas City Chiefs @ Denver Broncos')
     expect(prompt).toContain('Across different games these limits do not apply')
     expect(prompt).toContain('exactly 2 entries, one per game above')
@@ -100,6 +110,8 @@ describe('buildGenerateResponseSchema', () => {
       slateSummary: null,
     }
     expect(schema.safeParse({ analysisSummary, legs }).success).toBe(true)
-    expect(schema.safeParse({ analysisSummary, legs: legs.slice(1) }).success).toBe(false)
+    expect(
+      schema.safeParse({ analysisSummary, legs: legs.slice(1) }).success
+    ).toBe(false)
   })
 })
