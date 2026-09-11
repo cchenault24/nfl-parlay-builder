@@ -70,7 +70,13 @@ export const createUserProfile = async (user: User) => {
     await setDoc(userRef, {
       displayName: displayName || email?.split('@')[0] || 'User',
       email,
-      photoURL: photoURL || `https://api.dicebear.com/8.x/initials/svg?seed=${email}`,
+      // Null rather than a generated avatar URL. The previous fallback embedded
+      // the user's email address in a query string to api.dicebear.com, so every
+      // email/password signup shipped their email to a third party on each
+      // avatar render, and the URL was stored in Firestore permanently. Both
+      // clients already fall back locally — a person icon on iOS, the first
+      // initial on web — so the remote call bought nothing.
+      photoURL: photoURL ?? null,
       createdAt: Timestamp.now(),
     })
   }
