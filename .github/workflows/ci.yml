@@ -47,6 +47,7 @@ jobs:
       # Functions were never type-checked on a pull request: the only tsc run
       # was the deploy itself, so a break surfaced after merge.
       - run: npm run build --prefix functions
+      - run: npm test --prefix functions
 
   mobile:
     name: Mobile — lint & types
