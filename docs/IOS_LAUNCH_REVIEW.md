@@ -17,7 +17,7 @@ quota-costing races, all now fixed. What still blocks submission is operational:
 |---|---|---|---|
 | 1 | **Turn Apple billing on, or hide Pro for 1.0** | The deployed function has no Apple secrets bound, so `billingAvailable.apple` is false and the paywall renders "Not on sale yet." with no buy button. A reviewer reads that as unfinished (2.1); an attached IAP they cannot buy is rejected. Docs say the purchase flow has never run against a store. | Either finish `docs/BILLING_SETUP.md` §3–6 and run one sandbox purchase + restore on a device, or do not attach the IAP and hide the three Pro entry points while `billingAvailable.apple` is false. |
 | 2 | **Confirm `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` is unset in the EAS production environment** | Google sign-in with no Sign in with Apple is a 4.8 rejection. The button is already gated on that variable; nothing implements Apple sign-in. | Leave it unset for 1.0 (email/password only is compliant). Add `expo-apple-authentication` before ever enabling Google. Fix `docs/TIERING.md:43`, which advertises Google. |
-| 3 | **Verify the seven `EXPO_PUBLIC_*` variables exist in EAS for `production`** | `firebase.ts` and `api/config.ts` throw at module scope without them; `.env.local` is gitignored and never uploaded. Could not check locally (no `eas` CLI installed). | `eas env:list --environment production` from `mobile/`; smoke-test with the `simulator` profile, which already uses the production environment. |
+| 3 | **Verify the seven `EXPO_PUBLIC_*` variables exist in EAS for `production`, and point the API one at the function's direct URL** | `firebase.ts` and `api/config.ts` throw at module scope without them; `.env.local` is gitignored and never uploaded. Could not check locally (no `eas` CLI installed). And the Hosting rewrite (`…web.app/api`) buffers the run's step stream, so the live timeline is blank until the run ends. | `eas env:list --environment production` from `mobile/`; set `EXPO_PUBLIC_API_BASE_URL=https://api-2fz6nf6s4a-uc.a.run.app`; smoke-test with the `simulator` profile, which already uses the production environment. |
 
 Everything else that was actionable is fixed in this branch. Two things remain open below as
 follow-ups because they are architecture, not fixes.
@@ -146,6 +146,33 @@ labels for VoiceOver; legal rows in sentence case.
    returns a generic 400 and retries every launch; `verifyIdToken` runs without `checkRevoked`;
    the stream route has no rate limit; `sharedParlays` is a point-in-time snapshot (web only).
 
+## Signed-in walkthrough (after the fixes)
+
+Christian signed in on the simulator, which confirmed the Keychain key fix on a device, and every
+authenticated screen was walked: Build list, game detail, run settings, a live run, the parlay,
+Save, History, Account. Two generations were spent. What it turned up, all fixed and pushed:
+
+- **The live timeline was not live.** At 21 s into a run that finished around 40, no step had
+  reported; the screen sat blank and then jumped to the result. The app called the API through
+  the Hosting rewrite (`nfl-parlay-builder.web.app/api`), and the response headers show Fastly's
+  cache in front of the function, which buffers the SSE stream until the response completes.
+  Against the function's own URL (`https://api-2fz6nf6s4a-uc.a.run.app`) six steps were checked
+  off by 13 s with "Draft the parlay" spinning. Christian had noticed the same. The web app uses
+  the same rewrite, so its timeline is buffered too; CORS is already allowlisted, so it can take
+  the same change. `.env.example` now says which URL to use and why.
+- The new `LinkButton`'s 44 pt box pushed the parlay footer's lines apart. Inline links now take
+  the line's height and a larger hit slop (WCAG's inline exception).
+- Bet-type chips rendered the raw enum ("player passing yards"). One `betTypeLabel` replaces
+  five hand-rolled `replace()` calls across both clients.
+- Nothing named the sportsbook the run priced at. The book now travels on the parlay
+  (`bookmaker`, from the run's odds snapshots), sits in the headline ("3-leg parlay ·
+  DraftKings"), and shows on History cards; the share view carries it.
+- The Account tab never said which plan the user was on. A plan card shows Pro with "Manage
+  subscription", or Free with "Upgrade to Pro".
+- Seen, not changed: older saved parlays show "Pending" on games long finished (legacy documents
+  the grading sweep cannot match); the dev-client gear overlaps "Select" on the Build header (dev
+  builds only); the estimated-prices banner reuses the rate-limit banner's clock icon.
+
 ## Design review (measured)
 
 Screens captured: age gate, landing, sign-in sheet. Authenticated screens need your credentials;
@@ -212,5 +239,6 @@ Firebase errors — fixed).
   persists across relaunch; landing and sign-in render with the new copy and the reset link.
   Local gotcha worth knowing: `expo run:ios` skipped `pod install` after the dependency change, so
   the first build lacked `ExpoSecureStore`; a manual `pod install` with a UTF-8 locale fixed it.
-- Not verified: a device sign-in (needs credentials), the authenticated screens on device, EAS
-  environment variables, App Store Connect state, a sandbox purchase.
+- Live, signed in: every authenticated screen, two real generations, one against the Hosting
+  rewrite and one against the function's direct URL (see the walkthrough section).
+- Not verified: EAS environment variables, App Store Connect state, a sandbox purchase.
