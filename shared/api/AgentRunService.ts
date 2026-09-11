@@ -58,19 +58,22 @@ export class AgentRunService {
   }
 
   createRun(params: {
-    gameId: string
+    gameIds: string[]
     riskLevel: RiskLevel
     bookmaker?: string
+    legCount?: number
     token: string
   }): Promise<{ runId: string; rateLimitInfo: RateLimitInfo }> {
     return this.request('/agent/runs', params.token, {
       method: 'POST',
       body: JSON.stringify({
-        gameId: params.gameId,
+        gameIds: params.gameIds,
         riskLevel: params.riskLevel,
         // Omitted rather than sent as null: the server rejects a *choice* from
-        // a plan that cannot choose, and an unset field is not a choice.
+        // a plan that cannot choose, and an unset field is not a choice. The
+        // same goes for leg count, whose default belongs to the tier.
         ...(params.bookmaker ? { bookmaker: params.bookmaker } : {}),
+        ...(params.legCount !== undefined ? { legCount: params.legCount } : {}),
       }),
     })
   }

@@ -15,7 +15,7 @@ import {
   Typography,
 } from '@mui/material'
 import React, { useState } from 'react'
-import useParlayStore from '@shared/store/parlayStore'
+import useParlayStore, { type ParlayEntry } from '@shared/store/parlayStore'
 import { saveParlayToUser } from '../../config/firebase'
 import { useAuth } from '../../hooks/useAuth'
 import useModalStore from '../../store/modalStore'
@@ -28,12 +28,14 @@ import ParlayDisplayFooter from './ParlayDisplayFooter'
 import ParlayLegView from './ParlayLegView'
 
 interface ParlayDisplayProps {
+  entry?: ParlayEntry
   loading: boolean
   isMockMode: boolean
   onCancel: () => void
 }
 
 const ParlayDisplay: React.FC<ParlayDisplayProps> = ({
+  entry,
   loading,
   isMockMode,
   onCancel,
@@ -41,8 +43,14 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({
   const { user } = useAuth()
   const [saving, setSaving] = useState(false)
   const [savedParlayId, setSavedParlayId] = useState<string | null>(null)
-  const parlay = useParlayStore(state => state.parlay)
-  const steps = useParlayStore(state => state.steps)
+  const parlay = entry?.status === 'ready' ? entry.parlay : undefined
+  const steps = entry?.steps ?? []
+  // One matchup label per game, so each analysis card says which game it is
+  // about without the analysis having to carry the team names itself.
+  const contextFor = (gameId: string) => {
+    const game = entry?.games?.find(g => g.game.gameId === gameId)?.game
+    return game ? `${game.away.name} @ ${game.home.name} — Week ${game.week}` : ''
+  }
   const authModalOpen = useModalStore(state => state.authModalOpen)
   const setAuthModalOpen = useModalStore(state => state.setAuthModalOpen)
   const saveParlaySuccess = useParlayStore(state => state.saveParlaySuccess)
@@ -93,14 +101,26 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({
 
   return (
     <>
-      <GameSummaryView gameSummary={parlay.gameSummary} gameContext={parlay.gameContext} />
+      {parlay.gameSummary.slateSummary && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          {parlay.gameSummary.slateSummary}
+        </Alert>
+      )}
+
+      {parlay.gameSummary.games.map(analysis => (
+        <GameSummaryView
+          key={analysis.gameId}
+          analysis={analysis}
+          gameContext={contextFor(analysis.gameId) || parlay.gameContext}
+        />
+      ))}
 
       <Card variant="outlined">
         <CardContent sx={{ p: 3 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
             <PsychologyIcon sx={{ color: 'primary.main' }} />
             <Typography variant="h6" sx={{ fontWeight: 600 }}>
-              3-leg parlay
+              {parlay.legs.length}-leg parlay
             </Typography>
             <Chip
               label={formatOdds(parlay.combinedOdds)}
@@ -156,7 +176,7 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({
           </Box>
 
           <Divider sx={{ my: 2 }} />
-          <ParlayDisplayFooter />
+          <ParlayDisplayFooter parlay={parlay} />
         </CardContent>
       </Card>
 

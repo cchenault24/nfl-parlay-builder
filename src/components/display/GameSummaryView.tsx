@@ -19,15 +19,17 @@ import {
   useTheme,
 } from '@mui/material'
 import React from 'react'
-import type { GameSummary } from '../../types'
+import type { GameAnalysis } from '../../types'
 
 interface GameSummaryViewProps {
-  gameSummary: GameSummary
+  // One game's read. A parlay carries one of these per game it draws on, so the
+  // caller renders one card per entry rather than this component branching.
+  analysis: GameAnalysis
   gameContext: string // e.g., "Chiefs @ Bills - Week 14"
 }
 
 const GameSummaryView: React.FC<GameSummaryViewProps> = ({
-  gameSummary,
+  analysis,
   gameContext,
 }) => {
   const theme = useTheme()
@@ -56,9 +58,7 @@ const GameSummaryView: React.FC<GameSummaryViewProps> = ({
     }
   }
 
-  const gameFlowDisplay = getGameFlowDisplay(
-    gameSummary.gamePrediction.winProbability
-  )
+  const gameFlowDisplay = getGameFlowDisplay(analysis.gamePrediction.winProbability)
 
   // Get confidence color
   const getConfidenceColor = (confidence: number) => {
@@ -75,9 +75,10 @@ const GameSummaryView: React.FC<GameSummaryViewProps> = ({
   }
 
   // Process the data safely
-  const matchupText = gameSummary.matchupSummary
-  const predictionText = `${gameSummary.gamePrediction.winner} wins ${gameSummary.gamePrediction.projectedScore.home}-${gameSummary.gamePrediction.projectedScore.away} (${Math.round(gameSummary.gamePrediction.winProbability * 100)}% confidence)`
-  const keyFactorsList = gameSummary.keyFactors
+  const { gamePrediction } = analysis
+  const matchupText = analysis.matchupSummary
+  const predictionText = `${gamePrediction.winner} wins ${gamePrediction.projectedScore.home}-${gamePrediction.projectedScore.away} (${Math.round(gamePrediction.winProbability * 100)}% confidence)`
+  const keyFactorsList = analysis.keyFactors
 
   return (
     <Card
@@ -139,10 +140,8 @@ const GameSummaryView: React.FC<GameSummaryViewProps> = ({
                 }}
               />
               <Chip
-                label={`${Math.round(gameSummary.gamePrediction.winProbability * 100)}% Confidence`}
-                color={getConfidenceColor(
-                  gameSummary.gamePrediction.winProbability * 10
-                )}
+                label={`${Math.round(gamePrediction.winProbability * 100)}% Confidence`}
+                color={getConfidenceColor(gamePrediction.winProbability * 10)}
                 variant="filled"
                 size="small"
                 sx={{

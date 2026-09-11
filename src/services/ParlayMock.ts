@@ -153,17 +153,23 @@ export class ParlayMock {
         combinedOdds,
         parlayConfidence: Math.min(...legs.map(l => l.confidence)),
         gameSummary: {
-          matchupSummary: `Mock analysis for ${game.away.name} at ${game.home.name} in Week ${game.week}. Numbers here are seeded from the game id and are not real.`,
-          keyFactors: [
-            `${game.home.name} home record ${game.home.homeRecord}`,
-            `${game.away.name} road record ${game.away.roadRecord}`,
-            game.venue?.indoor ? 'Indoor venue' : 'Outdoor venue',
+          games: [
+            {
+              gameId: game.gameId,
+              matchupSummary: `Mock analysis for ${game.away.name} at ${game.home.name} in Week ${game.week}. Numbers here are seeded from the game id and are not real.`,
+              keyFactors: [
+                `${game.home.name} home record ${game.home.homeRecord}`,
+                `${game.away.name} road record ${game.away.roadRecord}`,
+                game.venue?.indoor ? 'Indoor venue' : 'Outdoor venue',
+              ],
+              gamePrediction: {
+                winner: winner.name,
+                projectedScore: { home: homeScore, away: awayScore },
+                winProbability: Math.round(between(r, 0.55, 0.7) * 100) / 100,
+              },
+            },
           ],
-          gamePrediction: {
-            winner: winner.name,
-            projectedScore: { home: homeScore, away: awayScore },
-            winProbability: Math.round(between(r, 0.55, 0.7) * 100) / 100,
-          },
+          slateSummary: null,
         },
       },
       homeStats: teamStats(r, game.home, game.season - 1),

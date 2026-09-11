@@ -88,6 +88,47 @@ export interface TeamStats {
 }
 
 // ===== ODDS (mirrors functions/src/providers/odds/client.ts) =====
+export interface SpreadLine {
+  line: number
+  homePrice: number
+  awayPrice: number
+}
+
+export interface TotalLine {
+  line: number
+  overPrice: number
+  underPrice: number
+}
+
+export interface Moneyline {
+  home: number
+  away: number
+}
+
+// What one book is showing for one game before any run has happened — including
+// "nothing at all", which is the case the run-settings sheet needs: a book that
+// has not posted this game is offered disabled with a reason rather than hidden.
+export interface BookLines {
+  key: string
+  title: string
+  posted: boolean
+  lastUpdate: string | null
+  spread: SpreadLine | null
+  total: TotalLine | null
+  moneyline: Moneyline | null
+}
+
+export interface GameBookLines {
+  gameId: string
+  books: BookLines[]
+}
+
+export interface WeekOdds {
+  // When the slate was fetched upstream, not when this response was assembled.
+  fetchedAt: string
+  games: GameBookLines[]
+}
+
 export interface OddsSnapshot {
   eventId: string
   bookmaker: string
@@ -97,9 +138,9 @@ export interface OddsSnapshot {
   // not the requested book's — so the UI has to say whose it is.
   requestedBookmakerKey?: string
   lastUpdate: string
-  spread: { line: number; homePrice: number; awayPrice: number } | null
-  total: { line: number; overPrice: number; underPrice: number } | null
-  moneyline: { home: number; away: number } | null
+  spread: SpreadLine | null
+  total: TotalLine | null
+  moneyline: Moneyline | null
 }
 
 // ===== PARLAY =====
@@ -183,22 +224,41 @@ export interface ParlayClosingLines {
   averageClvPoints: number | null
 }
 
-export interface GameSummary {
+export interface GamePrediction {
+  winner: string
+  projectedScore: { home: number; away: number }
+  winProbability: number
+}
+
+// The model's read on one game. A parlay always carries one of these per game
+// it draws on, even when that is a single game — nothing varies by run size.
+export interface GameAnalysis {
+  gameId: string
   matchupSummary: string
   keyFactors: string[]
-  gamePrediction: {
-    winner: string
-    projectedScore: { home: number; away: number }
-    winProbability: number
-  }
+  gamePrediction: GamePrediction
+}
+
+export interface GameSummary {
+  games: GameAnalysis[]
+  // Only meaningful across several games; null for a single-game parlay.
+  slateSummary: string | null
 }
 
 export interface GeneratedParlay {
   parlayId: string
+  // Every game this parlay draws on, in the order they were requested.
+  gameIds: string[]
+  // `gameIds[0]`, and the only game for a single-game parlay. Kept as its own
+  // field because firestore.rules requires `gameId` on create, and that rule
+  // cannot be changed without a deploy that would break every client still
+  // running the old bundle. Once every client writes `gameIds`, the rule can
+  // require it and this can go.
   gameId: string
   gameContext: string
-  // Carried from the game so a saved parlay can be sorted/graded later
-  // without needing to look the game back up.
+  // Carried from the games so a saved parlay can be sorted/graded later
+  // without needing to look them back up. `gameDateTime` is the earliest
+  // kickoff among them.
   week: number
   gameDateTime: string
   legs: ParlayLeg[]
@@ -250,7 +310,19 @@ export interface AgentStep {
   notes?: string
   tokensInput?: number
   tokensOutput?: number
+  // Present only while a step covers more than one game, so an eight-row
+  // timeline can say "4 of 6" inside a row instead of growing to forty-eight.
+  progress?: { done: number; total: number }
   error?: { code: string; message: string }
+}
+
+// Everything gathered for one of a run's games.
+export interface AgentGameResult {
+  game: Game
+  homeStats: TeamStats | null
+  awayStats: TeamStats | null
+  odds: OddsSnapshot | null
+  sources: DataSources
 }
 
 export interface AgentResult {
@@ -260,11 +332,7 @@ export interface AgentResult {
     parlayConfidence: number
     gameSummary: GameSummary
   }
-  game: Game
-  homeStats: TeamStats | null
-  awayStats: TeamStats | null
-  odds: OddsSnapshot | null
-  sources: DataSources
+  games: AgentGameResult[]
   model: string
 }
 
@@ -283,11 +351,7 @@ export interface RateLimitInfo {
 
 export interface ParlayGenerationResult {
   parlay: GeneratedParlay
-  game: Game
-  homeStats: TeamStats | null
-  awayStats: TeamStats | null
-  odds: OddsSnapshot | null
-  sources: DataSources
+  games: AgentGameResult[]
   rateLimitInfo?: RateLimitInfo
   runId?: string
   serviceMode: 'mock' | 'agent'
@@ -297,6 +361,9 @@ export interface ParlayGenerationOptions {
   riskLevel: RiskLevel
   // Undefined means no preference; the server picks from its own book priority.
   bookmaker?: string
+  // Undefined lets the server apply the tier's default rather than the client
+  // guessing at it.
+  legCount?: number
   onStep?: (step: AgentStep) => void
   signal?: AbortSignal
 }

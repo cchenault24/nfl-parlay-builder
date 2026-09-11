@@ -5,7 +5,7 @@ import { useCallback, useState } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { useDerivedCurrentWeek } from '@shared/hooks/useDerivedCurrentWeek'
 import { useSeasonSummary } from '@shared/hooks/useSeason'
-import useParlayStore from '@shared/store/parlayStore'
+import useParlayStore, { parlayKey } from '@shared/store/parlayStore'
 import { AuthGate } from './components/auth/AuthGate'
 import { UserMenu } from './components/auth/UserMenu'
 import DevStatus from './components/DevStatus'
@@ -39,7 +39,14 @@ const queryClient = new QueryClient({
 function AppContent() {
   const selectedGame = useParlayStore(state => state.selectedGame)
   const setSelectedGame = useParlayStore(state => state.setSelectedGame)
-  const parlay = useParlayStore(state => state.parlay)
+  // Web keeps one game in view at a time, so its entry is the one for whatever
+  // is selected. Switching games no longer destroys the previous parlay — it is
+  // still in the store under its own key, and comes back when you switch back.
+  const entryKey = selectedGame
+    ? parlayKey(selectedGame.week, [selectedGame.gameId])
+    : null
+  const entry = useParlayStore(state => (entryKey ? state.entries[entryKey] : undefined))
+  const parlay = entry?.status === 'ready' ? entry.parlay : undefined
 
   const { user, loading } = useAuth()
   const [historyOpen, setHistoryOpen] = useState(false)
@@ -53,14 +60,13 @@ function AppContent() {
   const [selectedWeek, setSelectedWeek] = useState<number | null>(null)
   const activeWeek = selectedWeek ?? currentWeek
 
-  const { generate, isPending, error, reset, cancel, usingMock } = useParlayService()
+  const { generate, isPending, error, cancel, usingMock } = useParlayService()
 
   const handleGameChange = useCallback(
     (game: Game | null) => {
       setSelectedGame(game)
-      reset()
     },
-    [setSelectedGame, reset]
+    [setSelectedGame]
   )
 
   const handleWeekChange = (week: number) => {
@@ -70,7 +76,7 @@ function AppContent() {
 
   const handleGenerateParlay = () => {
     if (selectedGame) {
-      generate({ game: selectedGame })
+      generate({ games: [selectedGame] })
     }
   }
 
@@ -127,9 +133,14 @@ function AppContent() {
             parlayError={error}
           />
 
-          {parlay && !isPending && <GameStatsPanel />}
+          {parlay && !isPending && <GameStatsPanel entry={entry} />}
 
-          <ParlayDisplay loading={isPending} isMockMode={usingMock} onCancel={cancel} />
+          <ParlayDisplay
+            entry={entry}
+            loading={isPending}
+            isMockMode={usingMock}
+            onCancel={cancel}
+          />
 
           <ParlayHistory open={historyOpen} onClose={() => setHistoryOpen(false)} />
         </Container>

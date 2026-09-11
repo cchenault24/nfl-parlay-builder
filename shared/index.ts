@@ -1,6 +1,7 @@
 export * from './types'
 export * from './betColors'
 export * from './odds'
+export * from './parlays'
 export * from './teamLogos'
 export * from './tiering'
 export * from './week'

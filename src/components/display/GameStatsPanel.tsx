@@ -13,8 +13,8 @@ import {
   Typography,
 } from '@mui/material'
 import React from 'react'
-import useParlayStore from '@shared/store/parlayStore'
-import type { OddsSnapshot, RankedStat, TeamStats } from '../../types'
+import type { ParlayEntry } from '@shared/store/parlayStore'
+import type { AgentGameResult, OddsSnapshot, RankedStat, TeamStats } from '../../types'
 import { formatOdds } from '../../utils'
 import MatchupRow from './MatchupRow'
 import TeamCard from './TeamCard'
@@ -42,19 +42,34 @@ const MATCHUP_ROWS: Array<{ label: string; pick: StatPick }> = [
   { label: 'Takeaways', pick: s => s.defense.takeaways },
 ]
 
-const GameStatsPanel: React.FC = () => {
-  const game = useParlayStore(state => state.game)
-  const homeStats = useParlayStore(state => state.homeStats)
-  const awayStats = useParlayStore(state => state.awayStats)
-  const odds = useParlayStore(state => state.odds)
-  const parlay = useParlayStore(state => state.parlay)
-
-  if (!game) {
+// One panel per game the parlay draws on. A single-game parlay renders exactly
+// one, which is what this screen has always shown.
+const GameStatsPanel: React.FC<{ entry?: ParlayEntry }> = ({ entry }) => {
+  if (!entry?.games?.length) {
     return null
   }
+  return (
+    <>
+      {entry.games.map(result => (
+        <GamePanel
+          key={result.game.gameId}
+          result={result}
+          context={entry.games!.length > 1 ? undefined : entry.parlay?.gameContext}
+        />
+      ))}
+    </>
+  )
+}
+
+const GamePanel: React.FC<{ result: AgentGameResult; context?: string }> = ({
+  result,
+  context,
+}) => {
+  const { game, homeStats, awayStats, odds } = result
   const { home, away, venue, weather, dateTime } = game
   const statsSeason = homeStats?.season ?? awayStats?.season
   const priorSeason = statsSeason !== undefined && statsSeason < game.season
+  const title = `Game data · ${away.abbrev} @ ${home.abbrev}`
 
   const InfoRow = ({ icon, text }: { icon: React.ReactNode; text: string }) => (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -74,13 +89,13 @@ const GameStatsPanel: React.FC = () => {
     >
       <AccordionSummary expandIcon={<ExpandMoreIcon />}>
         <Typography variant="h6" sx={{ fontWeight: 600 }}>
-          Game data
+          {title}
         </Typography>
       </AccordionSummary>
       <AccordionDetails sx={{ pt: 0 }}>
-        {parlay?.gameContext && (
+        {context && (
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            {parlay.gameContext}
+            {context}
           </Typography>
         )}
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
