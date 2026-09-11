@@ -7,7 +7,11 @@ import {
   type ResponseBodyV2DecodedPayload,
 } from '@apple/app-store-server-library'
 import { log } from '../observability/logger'
-import { findUidByAppleTransaction, setEntitlement } from '../tiering/store'
+import {
+  findUidByAppleAccountToken,
+  findUidByAppleTransaction,
+  setEntitlement,
+} from '../tiering/store'
 import { billingSecret } from './config'
 
 // Production and sandbox transactions are signed by the same root but carry
@@ -184,8 +188,15 @@ export async function handleAppleNotification(signedPayload: string): Promise<vo
   }
 
   // The originalTransactionId was recorded when the app redeemed the purchase,
-  // which is what makes an otherwise anonymous renewal attributable.
-  const uid = await findUidByAppleTransaction(originalTransactionId)
+  // which is what makes an otherwise anonymous renewal attributable. The
+  // appAccountToken the app set on the purchase is the fallback: Apple echoes it
+  // back on every event, so a record whose transaction id was never written — or
+  // was overwritten — is still reachable.
+  const uid =
+    (await findUidByAppleTransaction(originalTransactionId)) ??
+    (transaction.appAccountToken
+      ? await findUidByAppleAccountToken(transaction.appAccountToken)
+      : undefined)
   if (!uid) {
     log.error('billing.apple.unattributed_notification', {
       correlationId: payload.notificationUUID ?? 'unknown',
@@ -208,6 +219,9 @@ export async function handleAppleNotification(signedPayload: string): Promise<vo
     source: 'iap',
     appleOriginalTransactionId: originalTransactionId,
     appleEnvironment: environment,
+    ...(transaction.appAccountToken
+      ? { appleAccountToken: transaction.appAccountToken }
+      : {}),
     accessEndsAt: revoked ? null : grant.accessEndsAt,
   })
 

@@ -23,10 +23,11 @@ export interface EntitlementRecord {
   accessEndsAt?: string
   stripeCustomerId?: string
   stripeSubscriptionId?: string
-  // Apple has no idea what a Firebase uid is. The app generates this UUID once,
-  // passes it as StoreKit's appAccountToken on purchase, and Apple echoes it
-  // back on every transaction and server notification — so it is the only way
-  // to attribute an Apple renewal to a user.
+  // Apple has no idea what a Firebase uid is. The app derives this UUID from the
+  // uid, passes it as StoreKit's appAccountToken on purchase, and Apple echoes
+  // it back on every transaction and server notification — so it is the second
+  // way to attribute a renewal, behind the originalTransactionId index and
+  // reachable when that one cannot answer.
   appleAccountToken?: string
   appleOriginalTransactionId?: string
   // Which App Store environment signed the transaction. A sandbox purchase is
@@ -112,6 +113,22 @@ export async function findUidByAppleTransaction(
   const snap = await db()
     .collection('entitlements')
     .where('appleOriginalTransactionId', '==', originalTransactionId)
+    .limit(1)
+    .get()
+  return snap.empty ? undefined : snap.docs[0].id
+}
+
+// The second way in. The app sets `appAccountToken` on the purchase and Apple
+// echoes it back on every transaction and notification, so an event whose
+// originalTransactionId is missing or was never recorded can still be
+// attributed. Without it, every such event fell into the unknown_subscriber
+// branch with nothing to try next.
+export async function findUidByAppleAccountToken(
+  appleAccountToken: string
+): Promise<string | undefined> {
+  const snap = await db()
+    .collection('entitlements')
+    .where('appleAccountToken', '==', appleAccountToken)
     .limit(1)
     .get()
   return snap.empty ? undefined : snap.docs[0].id

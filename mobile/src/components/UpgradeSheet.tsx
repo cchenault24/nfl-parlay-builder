@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 
 import { Button } from '@/components/ui/Button'
+import { useAuth } from '@/lib/auth/useAuth'
 import { proPrice, purchasePro, reconcilePurchases } from '@/lib/billing/iap'
 import { colors, HIT_SLOP, radius, spacing, typography } from '@/lib/theme/designTokens'
 
@@ -34,6 +35,7 @@ export default function UpgradeSheet({
   const [restoring, setRestoring] = useState(false)
   const [price, setPrice] = useState<string | null>(null)
   const { entitlements } = useEntitlements()
+  const { user } = useAuth()
 
   // Written from the capabilities the server sends, not from sentences with the
   // numbers spelled into them — widening a limit server-side used to leave a
@@ -70,7 +72,7 @@ export default function UpgradeSheet({
     setError(null)
     setNotice(null)
     try {
-      const outcome = await purchasePro()
+      const outcome = await purchasePro(user?.uid)
       if (outcome.status === 'cancelled') {
         // Their own deliberate dismissal. Saying anything about it would tell
         // them something went wrong when nothing did.

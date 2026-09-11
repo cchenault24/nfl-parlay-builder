@@ -102,11 +102,11 @@ export function bindingAllowance(params: {
 
 // "12m 30s" until the given instant, or an empty string when there is nothing
 // to count down to.
-export function timeUntil(resetsAt: string | undefined): string {
+export function timeUntil(resetsAt: string | undefined, now = Date.now()): string {
   if (!resetsAt) {
     return ''
   }
-  const diff = new Date(resetsAt).getTime() - Date.now()
+  const diff = new Date(resetsAt).getTime() - now
   if (Number.isNaN(diff)) {
     return ''
   }

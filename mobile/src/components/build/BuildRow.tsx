@@ -1,6 +1,6 @@
+import { SECOND_TICK, useNow } from '@/lib/useNow'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { formatOdds } from '@shared/odds'
-import { useEffect, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 
 import { TeamLogo } from '@/components/display/TeamLogo'
@@ -39,14 +39,7 @@ interface BuildRowProps {
 // `now`, not the elapsed value: elapsed is derived during render, so changing
 // which run is being timed needs no setState from inside the effect.
 function useElapsed(since: number | undefined): number {
-  const [now, setNow] = useState(() => Date.now())
-  useEffect(() => {
-    if (since === undefined) {
-      return
-    }
-    const id = setInterval(() => setNow(Date.now()), 500)
-    return () => clearInterval(id)
-  }, [since])
+  const now = useNow(SECOND_TICK, since !== undefined)
   return since === undefined ? 0 : Math.max(0, now - since)
 }
 

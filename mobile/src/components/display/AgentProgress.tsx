@@ -1,6 +1,6 @@
+import { SECOND_TICK, useNow } from '@/lib/useNow'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import type { AgentStep } from '@shared/types'
-import { useEffect, useState } from 'react'
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
 
 import { Card } from '@/components/ui/Card'
@@ -55,15 +55,7 @@ export function AgentProgress({
   startedAt,
   onCancel,
 }: AgentProgressProps) {
-  // `now` rather than the elapsed value, so elapsed is derived during render
-  // and a change of run needs no setState from inside the effect.
-  const [now, setNow] = useState(() => Date.now())
-  const elapsed = Math.max(0, now - startedAt)
-
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 250)
-    return () => clearInterval(id)
-  }, [])
+  const elapsed = Math.max(0, useNow(SECOND_TICK) - startedAt)
 
   const byId = new Map(steps.map(s => [s.id, s]))
 

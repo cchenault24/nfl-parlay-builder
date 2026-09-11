@@ -1,3 +1,4 @@
+import { SECOND_TICK, useNow } from '@/lib/useNow'
 import { useDerivedCurrentWeek } from '@shared/hooks/useDerivedCurrentWeek'
 import { useEntitlements } from '@shared/hooks/useEntitlements'
 import {
@@ -169,6 +170,10 @@ export default function BuildScreen() {
   // Names the window that actually ran out. Weekly exhaustion is the quota
   // strip's job, not a countdown's.
   const exhausted = allowanceExhaustedCopy(allowance)
+  // Ticks only while there is a countdown on screen. Without it, timeUntil was
+  // evaluated once per render and the banner showed a stopped clock — a user
+  // watching "12m 30s" had no way to tell when the limit actually cleared.
+  const countdownNow = useNow(SECOND_TICK, Boolean(exhausted))
   const maxGamesPerRun = capabilities?.maxGamesPerRun ?? 1
 
   return (
@@ -223,7 +228,7 @@ export default function BuildScreen() {
                 type="rate_limit_reached"
                 title={exhausted.title}
                 message={exhausted.message}
-                countdown={timeUntil(allowance?.resetsAt)}
+                countdown={timeUntil(allowance?.resetsAt, countdownNow)}
               />
             ) : null}
 

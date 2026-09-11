@@ -97,23 +97,30 @@ function RootNavigator() {
 }
 
 export default function RootLayout() {
-  const [fontsLoaded] = useFonts({
+  // The error matters as much as the flag. `useFonts` resolving to a failure —
+  // low memory during launch, a corrupted asset — used to leave `fontsLoaded`
+  // false forever, so RootLayout returned null forever, neither
+  // SplashScreen.hideAsync() was ever reached, and the app sat on the splash
+  // image with no error and no way forward short of a reinstall. Proceeding
+  // with system fonts turns a hard launch hang into a cosmetic downgrade.
+  const [fontsLoaded, fontError] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
     Inter_600SemiBold,
     Inter_700Bold,
   })
+  const fontsSettled = fontsLoaded || fontError !== null
   const { isVerified, isLoading: ageLoading, setVerified } = useAgeVerification()
 
   useEffect(() => {
     // The age gate owns the splash while it is the thing on screen; the
     // navigator hides it in the verified path.
-    if (fontsLoaded && !ageLoading && !isVerified) {
+    if (fontsSettled && !ageLoading && !isVerified) {
       SplashScreen.hideAsync()
     }
-  }, [fontsLoaded, ageLoading, isVerified])
+  }, [fontsSettled, ageLoading, isVerified])
 
-  if (!fontsLoaded || ageLoading) {
+  if (!fontsSettled || ageLoading) {
     return null
   }
 

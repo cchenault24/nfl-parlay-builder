@@ -74,6 +74,11 @@ export const useParlayGenerator = (service: BaseParlayService) => {
       // A cancel has already cleared the entry; `failRun` is a no-op on a key
       // that is gone, so it does not resurrect one as a failed row.
       failRun(key, error instanceof Error ? error.message : String(error))
+      // Refetched on failure as well as success. A run holds its quota slot from
+      // creation and gives it back when it ends unbilled, so the count on screen
+      // moved either way — and on a dropped stream the client cannot tell which
+      // happened, which is exactly why it has to ask rather than assert.
+      void queryClient.invalidateQueries({ queryKey: [ENTITLEMENTS_QUERY_KEY] })
     },
   })
 

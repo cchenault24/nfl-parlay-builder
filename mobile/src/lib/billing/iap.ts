@@ -1,5 +1,6 @@
 import { EntitlementsService } from '@shared/api/EntitlementsService'
 import { sharedRuntime } from '@shared/runtime'
+import { appAccountTokenFor } from './accountToken'
 import {
   ErrorCode,
   fetchProducts,
@@ -39,6 +40,19 @@ export async function redeemSignedTransaction(signedTransaction: string) {
     throw new Error('Please sign in again to finish your purchase.')
   }
   return service.redeemAppleTransaction(token, signedTransaction)
+}
+
+// Best effort: a purchase without the token still works, it just loses the
+// fallback attribution path, so a hashing failure must not block buying.
+async function accountToken(uid: string | undefined): Promise<string | undefined> {
+  if (!uid) {
+    return undefined
+  }
+  try {
+    return await appAccountTokenFor(uid)
+  } catch {
+    return undefined
+  }
 }
 
 // initConnection resolves false rather than throwing when the device cannot pay
@@ -127,7 +141,7 @@ export async function proPrice(): Promise<string | null> {
 
 // expo-iap delivers the outcome through listeners rather than the requestPurchase
 // return value, so this wraps the event flow into one awaitable call for the UI.
-export async function purchasePro(): Promise<PurchaseOutcome> {
+export async function purchasePro(uid?: string): Promise<PurchaseOutcome> {
   await connect()
 
   return new Promise<PurchaseOutcome>((resolve, reject) => {
@@ -211,13 +225,26 @@ export async function purchasePro(): Promise<PurchaseOutcome> {
 
     // Subscriptions use 'subs'. Rejections here are the store refusing to open
     // the sheet at all, which the listeners never see.
-    requestPurchase({
-      request: { apple: { sku: PRO_PRODUCT_ID } },
-      type: 'subs',
-    }).catch((e: unknown) =>
-      settle(() =>
-        reject(e instanceof Error ? e : new Error('Could not open the App Store.'))
+    //
+    // `appAccountToken` is the one field Apple echoes back on every later
+    // transaction and server notification, so it is the second way a renewal
+    // can be attributed to a user when the originalTransactionId index cannot.
+    // The server documented it as the primary mechanism while nothing set it.
+    accountToken(uid)
+      .then(appAccountToken =>
+        requestPurchase({
+          request: {
+            apple: appAccountToken
+              ? { sku: PRO_PRODUCT_ID, appAccountToken }
+              : { sku: PRO_PRODUCT_ID },
+          },
+          type: 'subs',
+        })
       )
-    )
+      .catch((e: unknown) =>
+        settle(() =>
+          reject(e instanceof Error ? e : new Error('Could not open the App Store.'))
+        )
+      )
   })
 }

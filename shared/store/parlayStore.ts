@@ -161,7 +161,25 @@ const useParlayStore = create<ParlayStore>(set => ({
       ),
     })),
 
-  replaceEntries: entries => set({ entries }),
+  // Loaded entries replace the working set, EXCEPT anything still in flight.
+  //
+  // Re-hydration happens when the live week ticks over mid-session, which can
+  // land while a run is streaming. Storage holds only finished parlays by
+  // design (`persistableEntries`), so a wholesale overwrite deleted the running
+  // entry — `upsertStep`, `setResult` and `failRun` then all no-op on a missing
+  // key, the screen reads "no longer in this week's working set", and the
+  // generation the server is about to bill is unrecoverable.
+  replaceEntries: entries =>
+    set(state => ({
+      entries: {
+        ...entries,
+        ...Object.fromEntries(
+          Object.entries(state.entries).filter(
+            ([, entry]) => entry.status === 'running'
+          )
+        ),
+      },
+    })),
 
   setSaveParlaySuccess: saveParlaySuccess => set({ saveParlaySuccess }),
   setSaveParlayError: saveParlayError => set({ saveParlayError }),

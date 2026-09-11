@@ -39,10 +39,13 @@ vi.mock('./config', () => ({
 
 const setEntitlement = vi.fn()
 const findUidByAppleTransaction = vi.fn()
+const findUidByAppleAccountToken = vi.fn()
 vi.mock('../tiering/store', () => ({
   setEntitlement: (...args: unknown[]) => setEntitlement(...args),
   findUidByAppleTransaction: (...args: unknown[]) =>
     findUidByAppleTransaction(...args),
+  findUidByAppleAccountToken: (...args: unknown[]) =>
+    findUidByAppleAccountToken(...args),
 }))
 
 vi.mock('../observability/logger', () => ({
@@ -66,6 +69,7 @@ function transaction(overrides: Record<string, unknown> = {}) {
 beforeEach(() => {
   vi.clearAllMocks()
   findUidByAppleTransaction.mockResolvedValue(undefined)
+  findUidByAppleAccountToken.mockResolvedValue(undefined)
   setEntitlement.mockResolvedValue(undefined)
 })
 
@@ -294,6 +298,35 @@ describe('handleAppleNotification', () => {
       'uid-1',
       expect.objectContaining({ tier: 'free', accessEndsAt: null })
     )
+  })
+
+  // The second attribution path. Apple echoes the appAccountToken the app set at
+  // purchase back on every event, so a record whose transaction id was never
+  // written is still reachable — before this, every such event fell into the
+  // unknown_subscriber branch with nothing to try next.
+  it('falls back to the appAccountToken when the transaction id finds nobody', async () => {
+    verifyNotification.mockResolvedValue(notification('DID_RENEW'))
+    verifyTransaction.mockResolvedValue(transaction({ appAccountToken: 'tok-9' }))
+    findUidByAppleTransaction.mockResolvedValue(undefined)
+    findUidByAppleAccountToken.mockResolvedValue('uid-1')
+
+    await handleAppleNotification('signed')
+
+    expect(findUidByAppleAccountToken).toHaveBeenCalledWith('tok-9')
+    expect(setEntitlement).toHaveBeenCalledWith(
+      'uid-1',
+      expect.objectContaining({ tier: 'pro', appleAccountToken: 'tok-9' })
+    )
+  })
+
+  it('prefers the transaction id when it does find someone', async () => {
+    verifyNotification.mockResolvedValue(notification('DID_RENEW'))
+    verifyTransaction.mockResolvedValue(transaction({ appAccountToken: 'tok-9' }))
+    findUidByAppleTransaction.mockResolvedValue('uid-1')
+
+    await handleAppleNotification('signed')
+
+    expect(findUidByAppleAccountToken).not.toHaveBeenCalled()
   })
 
   // Apple retries a non-2xx for days, so an event we cannot attribute has to be

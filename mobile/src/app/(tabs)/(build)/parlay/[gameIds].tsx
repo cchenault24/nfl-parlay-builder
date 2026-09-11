@@ -81,9 +81,14 @@ export default function ParlayDetailScreen() {
           title="Parlay generation failed"
           message={entry.error ?? 'The run ended without a parlay.'}
         />
+        {/* Deliberately not "nothing was charged". On a lost connection the
+            client does not know: the server may have finished and billed the
+            run after the stream dropped. Stating the rule is true in every
+            case; asserting the outcome is not. The quota is refetched when a
+            run fails, so the Build tab's count is the answer. */}
         <Text style={styles.muted}>
-          Nothing was charged for this — a run only counts once it comes back with
-          live book prices.
+          A run only counts against your weekly parlays once it comes back with
+          live book prices. Your remaining count is on the Build tab.
         </Text>
       </View>
     )
@@ -144,12 +149,19 @@ export default function ParlayDetailScreen() {
           </Text>
         </View>
 
-        {hasEstimate ? (
+        {/* Two independent facts, and they do not always travel together. The
+            banner used to render only on `hasEstimate` (an unanchored leg) with
+            the refund line nested inside it — but billing keys off the odds
+            source, so a run where every leg anchored yet a game's odds degraded
+            was never billed and never said so. */}
+        {hasEstimate || unbilled ? (
           <ErrorBanner
             type="rate_limit_reached"
-            title="Contains estimated prices"
+            title={hasEstimate ? 'Contains estimated prices' : 'This one was free'}
             message={[
-              'One or more legs are marked “Estimate” — the book hadn’t posted a line for that market, so the price is an AI estimate rather than a real one.',
+              hasEstimate
+                ? 'One or more legs are marked “Estimate” — the book hadn’t posted a line for that market, so the price is an AI estimate rather than a real one.'
+                : null,
               unbilled,
             ]
               .filter(Boolean)
