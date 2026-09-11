@@ -31,7 +31,8 @@
   "submit": {
     "production": {
       "ios": {
-        "bundleIdentifier": "com.debugdad.parlaid"
+        "bundleIdentifier": "com.debugdad.parlaid",
+        "ascAppId": "6810802163"
       }
     }
   }
