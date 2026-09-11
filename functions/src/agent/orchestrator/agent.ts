@@ -28,7 +28,7 @@ import {
   ProcessedLeg,
 } from '../shared/schemas'
 import { withResilience } from '../tools'
-import { validateDraft } from '../validate'
+import { validateDraft, validationSummary } from '../validate'
 import type { AILeg } from '../../service/ai/schemas'
 
 export type Persist = {
@@ -319,7 +319,7 @@ export async function runAgent(
     if (!validation.data) {
       throw new RunError(
         'validation_error',
-        'The model produced an invalid parlay',
+        validationSummary(validationIssues),
         validationIssues
       )
     }

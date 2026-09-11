@@ -90,3 +90,33 @@ export function validateDraft(
 
   return issues
 }
+
+// The issue strings above are developer-facing and go to `details`. This turns
+// them into one sentence a user can act on.
+//
+// Every validation failure used to reach the user as "The model produced an
+// invalid parlay" — the same eleven words for a leg-count mismatch, a leg with
+// no price, and a player prop with no player. Three separate production faults
+// wore that one string, which is why telling them apart took two sessions.
+export function validationSummary(issues: string[]): string {
+  const has = (fragment: string) => issues.some(i => i.includes(fragment))
+  if (has('outside sane range')) {
+    return 'The model returned a leg without a usable price.'
+  }
+  if (has('legs, got')) {
+    return 'The model returned the wrong number of legs.'
+  }
+  if (has('requires a player name') || has('player must be empty')) {
+    return 'The model returned a player prop without a player.'
+  }
+  if (has('is not in this game')) {
+    return 'The model returned a leg for the wrong game.'
+  }
+  if (has('at most one allowed')) {
+    return 'The model returned two legs for the same market.'
+  }
+  if (has('does not clear the implied probability')) {
+    return 'The model had no edge over the book on one of its legs.'
+  }
+  return 'The model produced an invalid parlay.'
+}

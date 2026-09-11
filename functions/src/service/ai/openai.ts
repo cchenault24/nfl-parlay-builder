@@ -5,7 +5,7 @@ import { AIGenerateResponseSchema, type AIGenerateResponse } from './schemas'
 export const PARLAY_MODEL = 'gpt-5.6-terra'
 
 const SYSTEM_PROMPT =
-  'You are an NFL betting analyst. Build exactly three parlay legs grounded strictly in the data provided. ' +
+  'You are an NFL betting analyst. Build exactly the number of parlay legs requested, grounded strictly in the data provided. ' +
   'Never invent betting lines: when book lines are given you must use them exactly. ' +
   'Say when data was unavailable rather than guessing.'
 

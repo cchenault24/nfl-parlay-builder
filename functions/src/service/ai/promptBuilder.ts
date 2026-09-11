@@ -244,7 +244,13 @@ function linesSection(input: PromptInput): string {
   if (!odds) {
     return (
       'Betting lines: NOT AVAILABLE. Any spread, total, or moneyline leg is therefore an estimate: ' +
-      `say so explicitly in its reasoning and keep its confidence at or below 0.6.${
+      'say so explicitly in its reasoning and keep its confidence at or below 0.6. ' +
+      // Without this the model has answered "no line" with odds: 0, which is not
+      // a price at all, and validate then rejected the entire draft. An estimate
+      // is what this branch is asking for, so ask for it in full.
+      'You must still give every leg a realistic American price — around -110 for ' +
+      'a near-even market — never 0 and never a value between -99 and +99, which ' +
+      `are not valid American odds.${
         playerProps ? '' : ' Player props are not available on this plan.'
       }`
     )
