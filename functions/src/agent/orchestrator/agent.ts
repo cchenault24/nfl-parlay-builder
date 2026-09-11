@@ -28,7 +28,7 @@ import {
   ProcessedLeg,
 } from '../shared/schemas'
 import { withResilience } from '../tools'
-import { validateDraft, validationSummary } from '../validate'
+import { attachGameIds, validateDraft, validationSummary } from '../validate'
 import type { AILeg } from '../../service/ai/schemas'
 
 export type Persist = {
@@ -271,13 +271,8 @@ export async function runAgent(
 
     const constraints = { legCount, playerProps: run.input.playerProps }
     const prompt = buildParlayPrompt({
-      game,
-      homeStats,
-      awayStats,
-      odds,
-      pregame,
+      games: [{ game, homeStats, awayStats, odds, pregame, epa }],
       leagueAverages,
-      epa,
       riskLevel: run.input.riskLevel,
       ...constraints,
     })
@@ -286,7 +281,12 @@ export async function runAgent(
       // is otherwise only checked between steps, so an unbounded draft could
       // carry the run past the api function's own timeout and have the
       // instance killed before anything wrote a terminal status.
-      const result = await draftParlay(client, prompt, remainingMs(), signal)
+      const result = await draftParlay(client, prompt, {
+        legCount,
+        gameCount: 1,
+        timeoutMs: remainingMs(),
+        signal,
+      })
       observe('draft_tokens_output', result.tokensOutput)
       return result
     })
@@ -300,11 +300,14 @@ export async function runAgent(
     await persist.upsertStep(runId, { ...draftStep.step, tokensInput, tokensOutput })
 
     const snappedLegs = draft.legs.map(leg => snapLegToBook(leg, game, odds))
+    // Each analysis block is resolved to its game before validation, so the
+    // stored shape and the validated shape are the same one.
+    const analysis = attachGameIds(draft.analysisSummary, [game])
 
     let validationIssues: string[] = []
     const validation = await step('validate', async () => {
       validationIssues = validateDraft(
-        { legs: snappedLegs, analysisSummary: draft.analysisSummary },
+        { legs: snappedLegs, analysisSummary: analysis },
         [game],
         // The same constraints the prompt was built from, so the model is never
         // judged against a shape it was not asked for.
@@ -332,7 +335,7 @@ export async function runAgent(
         legs: snappedLegs,
         combinedOdds: combineAmericanOdds(snappedLegs.map(l => l.odds)),
         parlayConfidence: Math.min(...snappedLegs.map(l => l.confidence)),
-        gameSummary: draft.analysisSummary,
+        gameSummary: analysis,
       },
       game: game satisfies ScheduleGame,
       homeStats,

@@ -1,6 +1,6 @@
 import type { ScheduleGame, TeamRef, TeamStats } from '../providers/espn/types'
 import type { OddsSnapshot } from '../providers/odds/client'
-import type { AIAnalysis } from '../service/ai/schemas'
+import type { AIAnalysis, GameAnalysis } from '../service/ai/schemas'
 import type { ProcessedLeg } from '../agent/shared/schemas'
 
 // Builders, not constants. Every test that needs a game needs a *slightly*
@@ -62,8 +62,11 @@ export function makeLeg(overrides: Partial<ProcessedLeg> = {}): ProcessedLeg {
   }
 }
 
-export function makeAnalysis(overrides: Partial<AIAnalysis> = {}): AIAnalysis {
+export function makeGameAnalysis(
+  overrides: Partial<GameAnalysis> = {}
+): GameAnalysis {
   return {
+    gameId: 'g-bal-cin',
     matchupSummary: 'Baltimore controls the line of scrimmage.',
     keyFactors: ['Rush defense', 'Rest advantage', 'Weather'],
     gamePrediction: {
@@ -73,6 +76,30 @@ export function makeAnalysis(overrides: Partial<AIAnalysis> = {}): AIAnalysis {
     },
     ...overrides,
   }
+}
+
+// Defaults to a one-game slate, which is what a single-game run produces.
+export function makeAnalysis(overrides: Partial<AIAnalysis> = {}): AIAnalysis {
+  return {
+    games: [makeGameAnalysis()],
+    slateSummary: null,
+    ...overrides,
+  }
+}
+
+export function makeSecondGameAnalysis(
+  overrides: Partial<GameAnalysis> = {}
+): GameAnalysis {
+  return makeGameAnalysis({
+    gameId: 'g-kc-den',
+    matchupSummary: 'Kansas City travels well in the division.',
+    gamePrediction: {
+      winner: 'Kansas City Chiefs',
+      projectedScore: { home: 21, away: 27 },
+      winProbability: 0.58,
+    },
+    ...overrides,
+  })
 }
 
 export function makeOdds(overrides: Partial<OddsSnapshot> = {}): OddsSnapshot {

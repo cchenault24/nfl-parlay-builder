@@ -1,5 +1,5 @@
 import type { ScheduleGame } from '../providers/espn/types'
-import type { AIAnalysis } from '../service/ai/schemas'
+import type { AIAnalysis, ModelAnalysis } from '../service/ai/schemas'
 import { impliedProbability } from '../utils/odds'
 import type { ProcessedLeg } from './shared/schemas'
 
@@ -29,6 +29,24 @@ export function teamToGame(games: ScheduleGame[]): Map<string, ScheduleGame> {
     map.set(game.away.name, game)
   }
   return map
+}
+
+// Resolves each analysis block to the game it is about, by the same route the
+// legs take: its predicted winner names a team, and a team plays once a week.
+// An unresolvable block gets an empty gameId rather than being dropped —
+// `validateDraft` is the one place that decides what a bad draft means.
+export function attachGameIds(
+  analysis: ModelAnalysis,
+  games: ScheduleGame[]
+): AIAnalysis {
+  const byTeam = teamToGame(games)
+  return {
+    slateSummary: analysis.slateSummary,
+    games: analysis.games.map(block => ({
+      ...block,
+      gameId: byTeam.get(block.gamePrediction.winner)?.gameId ?? '',
+    })),
+  }
 }
 
 // Numbers are no longer checked against the book here — the orchestrator
@@ -104,12 +122,31 @@ export function validateDraft(
     }
   }
 
-  const { gamePrediction } = draft.analysisSummary
-  if (!teams.includes(gamePrediction.winner)) {
-    issues.push(`predicted winner "${gamePrediction.winner}" is not in this game`)
+  // One analysis block per game, each resolved to a different game. A run that
+  // came back with two reads on the same game and none on another would render
+  // a blank panel on the screen built to show them side by side.
+  const analyses = draft.analysisSummary.games
+  if (analyses.length !== games.length) {
+    issues.push(
+      `expected ${games.length} game ${games.length === 1 ? 'analysis' : 'analyses'}, got ${analyses.length}`
+    )
   }
-  if (gamePrediction.projectedScore.home < 0 || gamePrediction.projectedScore.away < 0) {
-    issues.push('projected score cannot be negative')
+  const covered = new Set<string>()
+  for (const block of analyses) {
+    const { winner, projectedScore } = block.gamePrediction
+    if (!block.gameId) {
+      issues.push(`predicted winner "${winner}" is not in this game`)
+    } else if (covered.has(block.gameId)) {
+      const game = games.find(g => g.gameId === block.gameId)
+      issues.push(
+        `two predictions for ${game ? `${game.away.abbrev} @ ${game.home.abbrev}` : block.gameId}`
+      )
+    } else {
+      covered.add(block.gameId)
+    }
+    if (projectedScore.home < 0 || projectedScore.away < 0) {
+      issues.push('projected score cannot be negative')
+    }
   }
 
   return issues
@@ -138,6 +175,9 @@ export function validationSummary(issues: string[]): string {
   }
   if (has('at most one allowed')) {
     return 'The model returned two legs for the same market.'
+  }
+  if (has('game analyses, got') || has('game analysis, got') || has('two predictions for')) {
+    return 'The model did not return one read per game.'
   }
   if (has('does not clear the implied probability')) {
     return 'The model had no edge over the book on one of its legs.'

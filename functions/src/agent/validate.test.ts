@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { makeAnalysis, makeGame, makeLeg, makeSecondGame } from '../testing/fixtures'
+import {
+  makeAnalysis,
+  makeGame,
+  makeGameAnalysis,
+  makeLeg,
+  makeSecondGame,
+  makeSecondGameAnalysis,
+} from '../testing/fixtures'
 import { validateDraft, validationSummary, type DraftConstraints } from './validate'
 
 // Characterization tests: one per rule the validator enforces today, written
@@ -186,11 +193,16 @@ describe('validateDraft', () => {
         {
           legs: cleanLegs(),
           analysisSummary: makeAnalysis({
-            gamePrediction: {
-              winner: 'Kansas City Chiefs',
-              projectedScore: { home: 27, away: 20 },
-              winProbability: 0.6,
-            },
+            games: [
+              makeGameAnalysis({
+                gameId: '',
+                gamePrediction: {
+                  winner: 'Kansas City Chiefs',
+                  projectedScore: { home: 27, away: 20 },
+                  winProbability: 0.6,
+                },
+              }),
+            ],
           }),
         },
         [GAME],
@@ -207,11 +219,15 @@ describe('validateDraft', () => {
         {
           legs: cleanLegs(),
           analysisSummary: makeAnalysis({
-            gamePrediction: {
-              winner: 'Baltimore Ravens',
-              projectedScore,
-              winProbability: 0.6,
-            },
+            games: [
+              makeGameAnalysis({
+                gamePrediction: {
+                  winner: 'Baltimore Ravens',
+                  projectedScore,
+                  winProbability: 0.6,
+                },
+              }),
+            ],
           }),
         },
         [GAME],
@@ -225,6 +241,10 @@ describe('validateDraft', () => {
 describe('validateDraft across games', () => {
   const OTHER = makeSecondGame()
   const TWO = { legCount: 2, playerProps: false }
+  const SLATE_ANALYSIS = makeAnalysis({
+    games: [makeGameAnalysis(), makeSecondGameAnalysis()],
+    slateSummary: 'Two divisional games with opposite paces.',
+  })
 
   const spread = (team: string) => makeLeg({ betType: 'spread', team })
 
@@ -232,7 +252,7 @@ describe('validateDraft across games', () => {
     const issues = validateDraft(
       {
         legs: [spread('Baltimore Ravens'), spread('Kansas City Chiefs')],
-        analysisSummary: makeAnalysis(),
+        analysisSummary: SLATE_ANALYSIS,
       },
       [GAME, OTHER],
       TWO
@@ -244,7 +264,7 @@ describe('validateDraft across games', () => {
     const issues = validateDraft(
       {
         legs: [spread('Baltimore Ravens'), spread('Cincinnati Bengals')],
-        analysisSummary: makeAnalysis(),
+        analysisSummary: SLATE_ANALYSIS,
       },
       [GAME, OTHER],
       TWO
@@ -252,16 +272,21 @@ describe('validateDraft across games', () => {
     expect(issues).toContain('2 spread legs for CIN @ BAL; at most one allowed')
   })
 
-  it('accepts a winner from either game', () => {
+  it('accepts a winner from either side of either game', () => {
     const issues = validateDraft(
       {
         legs: [spread('Baltimore Ravens'), spread('Kansas City Chiefs')],
         analysisSummary: makeAnalysis({
-          gamePrediction: {
-            winner: 'Denver Broncos',
-            projectedScore: { home: 24, away: 21 },
-            winProbability: 0.55,
-          },
+          games: [
+            makeGameAnalysis(),
+            makeSecondGameAnalysis({
+              gamePrediction: {
+                winner: 'Denver Broncos',
+                projectedScore: { home: 24, away: 21 },
+                winProbability: 0.55,
+              },
+            }),
+          ],
         }),
       },
       [GAME, OTHER],
@@ -270,11 +295,37 @@ describe('validateDraft across games', () => {
     expect(issues).toEqual([])
   })
 
+  it('rejects two reads on the same game', () => {
+    const issues = validateDraft(
+      {
+        legs: [spread('Baltimore Ravens'), spread('Kansas City Chiefs')],
+        analysisSummary: makeAnalysis({
+          games: [makeGameAnalysis(), makeGameAnalysis()],
+        }),
+      },
+      [GAME, OTHER],
+      TWO
+    )
+    expect(issues).toContain('two predictions for CIN @ BAL')
+  })
+
+  it('rejects one read for a two-game run', () => {
+    const issues = validateDraft(
+      {
+        legs: [spread('Baltimore Ravens'), spread('Kansas City Chiefs')],
+        analysisSummary: makeAnalysis(),
+      },
+      [GAME, OTHER],
+      TWO
+    )
+    expect(issues).toContain('expected 2 game analyses, got 1')
+  })
+
   it('rejects a leg for a team in neither game', () => {
     const issues = validateDraft(
       {
         legs: [spread('Baltimore Ravens'), spread('Chicago Bears')],
-        analysisSummary: makeAnalysis(),
+        analysisSummary: SLATE_ANALYSIS,
       },
       [GAME, OTHER],
       TWO
