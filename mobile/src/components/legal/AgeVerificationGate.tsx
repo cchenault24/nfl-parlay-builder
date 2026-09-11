@@ -1,4 +1,4 @@
-import { ErrorBanner } from '@/components/ErrorBanner'
+import { ErrorBanner } from '@/components/ui/ErrorBanner'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { useState } from 'react'
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'

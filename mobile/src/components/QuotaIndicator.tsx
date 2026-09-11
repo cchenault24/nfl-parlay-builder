@@ -21,7 +21,7 @@ interface QuotaIndicatorProps {
 // Pro's allowance is uncapped and its fair-use valve is deliberately never
 // surfaced, so a Pro user sees nothing here — rendering "unlimited" on every
 // screen would just be noise.
-export default function QuotaIndicator({ quota, onUpgrade }: QuotaIndicatorProps) {
+export function QuotaIndicator({ quota, onUpgrade }: QuotaIndicatorProps) {
   if (quota.limit === null || quota.remaining === null) {
     return null
   }

@@ -2,7 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons'
 import type { QuotaState } from '@shared/tiering'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 
-import QuotaIndicator from '@/components/QuotaIndicator'
+import { QuotaIndicator } from '@/components/QuotaIndicator'
 import {
   colors,
   HIT_SLOP,

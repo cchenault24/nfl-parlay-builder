@@ -1,3 +1,5 @@
+import { PINNED_ACTIONS_SPACE } from '@/components/ui/PinnedActions'
+import { EmptyState, ScreenLoading } from '@/components/ui/ScreenState'
 import { SECOND_TICK, useNow } from '@/lib/useNow'
 import { useDerivedCurrentWeek } from '@shared/hooks/useDerivedCurrentWeek'
 import { useEntitlements } from '@shared/hooks/useEntitlements'
@@ -16,11 +18,11 @@ import useParlayStore, { parlayKey, type ParlayEntry } from '@shared/store/parla
 import type { Game } from '@shared/types'
 import { router, useNavigation } from 'expo-router'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { ScrollView, StyleSheet, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
-import { ErrorBanner } from '@/components/ErrorBanner'
-import UpgradeSheet from '@/components/UpgradeSheet'
+import { ErrorBanner } from '@/components/ui/ErrorBanner'
+import { UpgradeSheet } from '@/components/UpgradeSheet'
 import { BatchBar } from '@/components/build/BatchBar'
 import { TAB_BAR_HIDDEN, TAB_BAR_STYLE } from '@/components/ui/tabBarStyle'
 import { BuildRow } from '@/components/build/BuildRow'
@@ -31,10 +33,9 @@ import { getParlayService } from '@/lib/api/parlayService'
 import { batchGroups, runBatch, type BatchMode } from '@/lib/build/batch'
 import { buildRowFor } from '@/lib/build/rowState'
 import { useParlayPersistence } from '@/lib/build/useParlayPersistence'
-import { colors, spacing, typography } from '@/lib/theme/designTokens'
+import { colors, spacing } from '@/lib/theme/designTokens'
 
 // Room for the batch bar, which replaces the tab bar rather than stacking on it.
-const BATCH_BAR_SPACE = 200
 
 export default function BuildScreen() {
   const { currentWeek } = useDerivedCurrentWeek()
@@ -208,14 +209,11 @@ export default function BuildScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.body,
-          selectMode && { paddingBottom: BATCH_BAR_SPACE },
+          selectMode && { paddingBottom: PINNED_ACTIONS_SPACE },
         ]}
       >
         {isLoading && !games ? (
-          <View style={styles.loading}>
-            <ActivityIndicator color={colors.primaryBright} />
-            <Text style={styles.loadingText}>Loading Week {activeWeek} games…</Text>
-          </View>
+          <ScreenLoading label={`Loading Week ${activeWeek} games…`} />
         ) : error ? (
           <ErrorBanner
             type="error"
@@ -223,7 +221,10 @@ export default function BuildScreen() {
             message={`${error.message}. Try again or pick a different week.`}
           />
         ) : rows.length === 0 ? (
-          <Text style={styles.empty}>No games found for Week {activeWeek}.</Text>
+          <EmptyState
+            icon="calendar-outline"
+            title={`No games found for Week ${activeWeek}.`}
+          />
         ) : (
           <>
             {batchNotice ? (
@@ -308,16 +309,4 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   headerWrap: { paddingHorizontal: spacing.md, paddingTop: spacing.sm },
   body: { padding: spacing.md, paddingTop: spacing.sm, gap: spacing.sm },
-  loading: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.sm,
-  },
-  loadingText: { ...typography.body, color: colors.textSecondary },
-  empty: {
-    ...typography.body,
-    color: colors.textSecondary,
-    paddingVertical: spacing.sm,
-  },
 })

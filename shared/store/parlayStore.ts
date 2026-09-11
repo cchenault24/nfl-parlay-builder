@@ -50,6 +50,11 @@ interface ParlayStore {
   // priority. Only a plan that can choose ever sets it.
   bookmaker: string | undefined
   entries: Record<string, ParlayEntry>
+  // Web drives these; iOS keeps the same two facts in component state on the
+  // one screen that can save. Two mechanisms for one kind of state is a real
+  // inconsistency, but consolidating would mean either putting screen-local UI
+  // state in a cross-client store or removing a slice web uses — neither is an
+  // improvement, so what is shared is the copy rather than the mechanism.
   saveParlaySuccess: boolean
   saveParlayError: string
 
@@ -198,3 +203,7 @@ export function persistableEntries(
 
 
 export default useParlayStore
+
+// Said by both clients when a save fails, so the two cannot drift into
+// describing the same failure differently.
+export const SAVE_PARLAY_ERROR = 'Failed to save parlay. Please try again.'

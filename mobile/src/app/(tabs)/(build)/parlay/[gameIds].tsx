@@ -1,3 +1,6 @@
+import { SAVE_PARLAY_ERROR } from '@shared/store/parlayStore'
+import { EmptyState } from '@/components/ui/ScreenState'
+import { ConfidenceBar } from '@/components/ui/ConfidenceBar'
 import {
   PinnedActions,
   PINNED_ACTIONS_SPACE,
@@ -11,7 +14,7 @@ import { Stack, useLocalSearchParams } from 'expo-router'
 import { useState } from 'react'
 import { ScrollView, StyleSheet, Text, View } from 'react-native'
 
-import { ErrorBanner } from '@/components/ErrorBanner'
+import { ErrorBanner } from '@/components/ui/ErrorBanner'
 import { AgentProgress } from '@/components/display/AgentProgress'
 import { GameSummaryView } from '@/components/display/GameSummaryView'
 import { ParlayDisplayFooter } from '@/components/display/ParlayDisplayFooter'
@@ -48,10 +51,10 @@ export default function ParlayDetailScreen() {
     return (
       <View style={styles.centered}>
         <Stack.Screen options={{ title }} />
-        <Text style={styles.muted}>
-          This parlay is no longer in this week&apos;s working set. Saved parlays live
-          under History.
-        </Text>
+        <EmptyState
+          title="No longer in this week's working set"
+          body="Saved parlays live under History."
+        />
       </View>
     )
   }
@@ -116,7 +119,7 @@ export default function ParlayDetailScreen() {
       await saveParlayToUser(user.uid, parlay)
       setSavedId(parlay.parlayId)
     } catch {
-      setSaveError('Failed to save parlay. Please try again.')
+      setSaveError(SAVE_PARLAY_ERROR)
     } finally {
       setSaving(false)
     }
@@ -137,20 +140,7 @@ export default function ParlayDetailScreen() {
           <Text style={styles.odds}>{formatOdds(parlay.combinedOdds)}</Text>
         </View>
 
-        <View style={styles.confidenceRow}>
-          <Text style={styles.confidenceLabel}>Overall confidence</Text>
-          <View style={styles.track}>
-            <View
-              style={[
-                styles.fill,
-                { width: `${Math.round(parlay.parlayConfidence * 100)}%` },
-              ]}
-            />
-          </View>
-          <Text style={styles.confidenceValue}>
-            {Math.round(parlay.parlayConfidence * 100)}%
-          </Text>
-        </View>
+        <ConfidenceBar label="Overall confidence" value={parlay.parlayConfidence} />
 
         {/* Two independent facts, and they do not always travel together. The
             banner used to render only on `hasEstimate` (an unanchored leg) with
@@ -247,22 +237,6 @@ const styles = StyleSheet.create({
   // edge where the eye lands last.
   odds: { ...typography.display, color: colors.primaryBright, fontVariant: ['tabular-nums'] },
 
-  confidenceRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  confidenceLabel: { ...typography.caption, color: colors.textSecondary },
-  track: {
-    flex: 1,
-    height: 6,
-    borderRadius: 999,
-    backgroundColor: colors.surfaceRaised,
-    overflow: 'hidden',
-  },
-  fill: { height: '100%', borderRadius: 999, backgroundColor: colors.primaryBright },
-  confidenceValue: {
-    ...typography.numericSmall,
-    color: colors.text,
-    minWidth: 40,
-    textAlign: 'right',
-  },
 
   legs: { gap: spacing.sm },
 })

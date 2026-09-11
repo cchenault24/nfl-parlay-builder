@@ -1,4 +1,5 @@
-import { ErrorBanner } from '@/components/ErrorBanner'
+import { ScreenLoading } from '@/components/ui/ScreenState'
+import { ErrorBanner } from '@/components/ui/ErrorBanner'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { Image } from 'expo-image'
 import { useState } from 'react'
@@ -67,7 +68,7 @@ function Row({
 const accounts = new AccountService()
 
 export default function AccountScreen() {
-  const { user, userProfile, error } = useAuth()
+  const { user, userProfile, error, loading } = useAuth()
   const [signingOut, setSigningOut] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [document, setDocument] = useState<LegalDocument | null>(null)
@@ -160,6 +161,10 @@ export default function AccountScreen() {
         <Text style={styles.screenTitle} accessibilityRole="header">
           Account
         </Text>
+
+        {/* The screen used to render fully while auth resolved, showing an empty
+            name and no avatar where the account details belong. */}
+        {loading ? <ScreenLoading /> : null}
 
         <View style={styles.identity}>
           {userProfile?.photoURL ? (

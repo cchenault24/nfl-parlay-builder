@@ -1,4 +1,4 @@
-import { ErrorBanner } from '@/components/ErrorBanner'
+import { ErrorBanner } from '@/components/ui/ErrorBanner'
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { useEntitlements } from '@shared/hooks/useEntitlements'
 import { proFeatures } from '@shared/proFeatures'
@@ -24,7 +24,7 @@ interface UpgradeSheetProps {
   reason?: string
 }
 
-export default function UpgradeSheet({
+export function UpgradeSheet({
   visible,
   onClose,
   onPurchased,

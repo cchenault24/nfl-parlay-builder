@@ -1,3 +1,4 @@
+import { EmptyState, ScreenLoading } from '@/components/ui/ScreenState'
 import {
   PinnedActions,
   PINNED_ACTIONS_SPACE,
@@ -10,10 +11,10 @@ import { useDerivedCurrentWeek } from '@shared/hooks/useDerivedCurrentWeek'
 import useParlayStore from '@shared/store/parlayStore'
 import { router, Stack, useLocalSearchParams } from 'expo-router'
 import { useState } from 'react'
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { ScrollView, StyleSheet, Text, View } from 'react-native'
 
-import { ErrorBanner } from '@/components/ErrorBanner'
-import UpgradeSheet from '@/components/UpgradeSheet'
+import { ErrorBanner } from '@/components/ui/ErrorBanner'
+import { UpgradeSheet } from '@/components/UpgradeSheet'
 import { RunSettingsRow } from '@/components/build/RunSettingsRow'
 import { RunSettingsSheet } from '@/components/build/RunSettingsSheet'
 import { BookLinesPanel } from '@/components/display/BookLinesPanel'
@@ -71,9 +72,9 @@ export default function GameDetailScreen() {
       <View style={styles.centered}>
         <Stack.Screen options={{ title: '' }} />
         {isLoading ? (
-          <ActivityIndicator color={colors.primaryBright} />
+          <ScreenLoading />
         ) : (
-          <Text style={styles.muted}>That game is no longer in this week.</Text>
+          <EmptyState title="That game is no longer in this week." />
         )}
       </View>
     )

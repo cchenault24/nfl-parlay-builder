@@ -4,6 +4,12 @@ import { persistableEntries, type ParlayEntry } from '@shared/store/parlayStore'
 // lost to closing the app. History remains the durable, graded record — see
 // DESIGN decisions #5 and #6.
 //
+// Hand-rolled rather than zustand's `persist` middleware, which the rate-limit
+// store uses. `persist` fixes its storage name when the store is created, and
+// this cache is keyed by uid — so sharing that mechanism would mean a store
+// instance per account, which is worse than the twenty lines below. The week
+// pruning has no `persist` equivalent either.
+//
 // Versioned in the key rather than migrated: the entries are a cache of runs the
 // user can re-create, and a shape change is better answered by starting the week
 // again than by carrying a migration for something disposable.

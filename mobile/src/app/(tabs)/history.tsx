@@ -1,4 +1,4 @@
-import Ionicons from '@expo/vector-icons/Ionicons'
+import { EmptyState, ScreenLoading } from '@/components/ui/ScreenState'
 import { requestGrading } from '@shared/api/GradingService'
 import { getBetTypeColor } from '@shared/betColors'
 import { useEntitlements } from '@shared/hooks/useEntitlements'
@@ -6,7 +6,6 @@ import { formatOdds } from '@shared/odds'
 import type { GeneratedParlay, LegOutcome, ParlayOutcome } from '@shared/types'
 import { useEffect, useState } from 'react'
 import {
-  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -15,8 +14,8 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
-import { ErrorBanner } from '@/components/ErrorBanner'
-import UpgradeSheet from '@/components/UpgradeSheet'
+import { ErrorBanner } from '@/components/ui/ErrorBanner'
+import { UpgradeSheet } from '@/components/UpgradeSheet'
 import { Card } from '@/components/ui/Card'
 import { Chip } from '@/components/ui/Chip'
 import { useAuth } from '@/lib/auth/useAuth'
@@ -135,17 +134,13 @@ export default function HistoryScreen() {
         ) : null}
 
         {parlays === null || isLoading || !depthKnown ? (
-          <View style={styles.centre}>
-            <ActivityIndicator color={colors.primaryBright} />
-          </View>
+          <ScreenLoading />
         ) : parlays.length === 0 && !error ? (
-          <View style={styles.centre}>
-            <Ionicons name="bookmark-outline" size={44} color={colors.textDisabled} />
-            <Text style={styles.emptyTitle}>No saved parlays yet</Text>
-            <Text style={styles.emptyBody}>
-              Build a parlay and tap Save, and it will show up here.
-            </Text>
-          </View>
+          <EmptyState
+            icon="bookmark-outline"
+            title="No saved parlays yet"
+            body="Build a parlay and tap Save, and it will show up here."
+          />
         ) : (
           parlays.map(parlay => (
             <Card key={parlay.parlayId} style={styles.card}>
@@ -226,9 +221,6 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   body: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xxl },
   screenTitle: { ...typography.heading, color: colors.text },
-  centre: { alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xxl },
-  emptyTitle: { ...typography.title, color: colors.textSecondary },
-  emptyBody: { ...typography.bodySmall, color: colors.textDisabled, textAlign: 'center' },
   depthNote: {
     ...typography.caption,
     color: colors.textSecondary,

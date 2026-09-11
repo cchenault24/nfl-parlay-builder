@@ -16,6 +16,7 @@ import {
 } from '@mui/material'
 import React, { useState } from 'react'
 import useParlayStore, { type ParlayEntry } from '@shared/store/parlayStore'
+import { SAVE_PARLAY_ERROR } from '@shared/store/parlayStore'
 import { saveParlayToUser } from '../../config/firebase'
 import { useAuth } from '../../hooks/useAuth'
 import useModalStore from '../../store/modalStore'
@@ -75,7 +76,7 @@ const ParlayDisplay: React.FC<ParlayDisplayProps> = ({
       setSaveParlaySuccess(true)
       setTimeout(() => setSaveParlaySuccess(false), 3000)
     } catch {
-      setSaveParlayError('Failed to save parlay. Please try again.')
+      setSaveParlayError(SAVE_PARLAY_ERROR)
     } finally {
       setSaving(false)
     }
