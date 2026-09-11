@@ -2,16 +2,19 @@ import Ionicons from '@expo/vector-icons/Ionicons'
 import { formatOdds } from '@shared/odds'
 import useParlayStore from '@shared/store/parlayStore'
 import { useState } from 'react'
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
+import { StyleSheet, Text, View } from 'react-native'
 
 import { ErrorBanner } from '@/components/ErrorBanner'
 import { AgentProgress } from '@/components/display/AgentProgress'
 import { GameSummaryView } from '@/components/display/GameSummaryView'
 import { ParlayDisplayFooter } from '@/components/display/ParlayDisplayFooter'
 import { ParlayLegView } from '@/components/display/ParlayLegView'
+import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
+import { Chip } from '@/components/ui/Chip'
 import { useAuth } from '@/lib/auth/useAuth'
 import { saveParlayToUser } from '@/lib/parlays'
-import { colors, radius, spacing, typography } from '@/lib/theme/designTokens'
+import { colors, spacing, typography } from '@/lib/theme/designTokens'
 
 export function ParlayDisplay({
   loading,
@@ -33,11 +36,11 @@ export function ParlayDisplay({
 
   if (!parlay) {
     return (
-      <View style={styles.empty}>
+      <Card style={styles.empty}>
         <Text style={styles.emptyText}>
-          Pick a game above, choose a risk level, and create a 3-leg parlay.
+          Pick a game above, choose a risk level, and create your parlay.
         </Text>
-      </View>
+      </Card>
     )
   }
 
@@ -67,13 +70,17 @@ export function ParlayDisplay({
         gameContext={parlay.gameContext}
       />
 
-      <View style={styles.card}>
+      <Card style={styles.card}>
         <View style={styles.header}>
-          <Ionicons name="bulb-outline" size={20} color={colors.primary} />
-          <Text style={styles.title}>3-leg parlay</Text>
-          <View style={styles.oddsChip}>
-            <Text style={styles.oddsText}>{formatOdds(parlay.combinedOdds)}</Text>
-          </View>
+          <Ionicons name="bulb-outline" size={20} color={colors.primaryBright} />
+          <Text style={styles.title} accessibilityRole="header">
+            {parlay.legs.length}-leg parlay
+          </Text>
+          <Chip
+            label={formatOdds(parlay.combinedOdds)}
+            tint={colors.primaryBright}
+            numeric
+          />
         </View>
 
         {hasEstimate ? (
@@ -105,83 +112,32 @@ export function ParlayDisplay({
           />
         ) : null}
 
-        <Pressable
+        <Button
+          variant="outline"
+          label={alreadySaved ? 'Saved' : 'Save parlay'}
+          icon={alreadySaved ? 'checkmark' : 'bookmark-outline'}
+          loading={saving}
+          disabled={alreadySaved}
           onPress={save}
-          disabled={saving || alreadySaved}
-          style={({ pressed }) => [
-            styles.saveBtn,
-            (pressed || saving || alreadySaved) && styles.pressed,
-          ]}
-        >
-          {saving ? (
-            <ActivityIndicator color={colors.primary} />
-          ) : (
-            <>
-              <Ionicons
-                name={alreadySaved ? 'checkmark' : 'bookmark-outline'}
-                size={18}
-                color={colors.primary}
-              />
-              <Text style={styles.saveText}>
-                {alreadySaved ? 'Saved' : 'Save parlay'}
-              </Text>
-            </>
-          )}
-        </Pressable>
+        />
 
         <View style={styles.divider} />
         <ParlayDisplayFooter parlay={parlay} />
-      </View>
+      </Card>
     </View>
   )
 }
 
 const styles = StyleSheet.create({
   wrap: { gap: spacing.md },
-  empty: {
-    borderWidth: 1,
-    borderColor: colors.divider,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
-    padding: spacing.xl,
-    alignItems: 'center',
-  },
+  empty: { paddingVertical: spacing.xl, alignItems: 'center' },
   emptyText: { ...typography.body, color: colors.textSecondary, textAlign: 'center' },
 
-  card: {
-    borderWidth: 1,
-    borderColor: colors.divider,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
-    padding: spacing.md,
-    gap: spacing.md,
-  },
+  card: { gap: spacing.md },
   header: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   title: { ...typography.title, color: colors.text, flex: 1 },
-  oddsChip: {
-    borderWidth: 1,
-    borderColor: colors.primary,
-    borderRadius: radius.sm,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  oddsText: { ...typography.numeric, color: colors.primary },
 
   legs: { gap: spacing.sm },
 
-  saveBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.primary,
-    borderRadius: radius.md,
-    paddingVertical: spacing.md,
-    minHeight: 48,
-  },
-  saveText: { ...typography.button, color: colors.primary },
-  pressed: { opacity: 0.6 },
-
-  divider: { height: 1, backgroundColor: colors.divider },
+  divider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.divider },
 })

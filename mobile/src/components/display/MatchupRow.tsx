@@ -35,7 +35,12 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
   },
   striped: { backgroundColor: colors.surfaceRaised },
-  side: { width: 56 },
+  side: { width: 58 },
   right: { alignItems: 'flex-end' },
-  label: { ...typography.bodySmall, color: colors.textSecondary, flex: 1, textAlign: 'center' },
+  label: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    flex: 1,
+    textAlign: 'center',
+  },
 })

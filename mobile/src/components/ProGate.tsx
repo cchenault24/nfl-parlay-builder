@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 
-import { colors, radius, spacing } from '@/lib/theme/designTokens'
+import { colors, radius, spacing, typography } from '@/lib/theme/designTokens'
 
 interface ProGateProps {
   locked: boolean
@@ -18,7 +18,9 @@ interface ProGateProps {
 //
 // `pointerEvents="none"` on the wrapper is what makes this work — the child
 // controls keep their appearance but stop receiving touches, so the overlay
-// above them gets the tap and can offer the upgrade instead.
+// above them gets the tap and can offer the upgrade instead. The same wrapper
+// is hidden from VoiceOver, or the gated controls stay individually focusable
+// and announce themselves as tappable when they are not.
 export default function ProGate({ locked, label, onUpgrade, children }: ProGateProps) {
   if (!locked) {
     return <>{children}</>
@@ -26,7 +28,12 @@ export default function ProGate({ locked, label, onUpgrade, children }: ProGateP
 
   return (
     <View style={styles.wrap}>
-      <View pointerEvents="none" style={styles.dimmed}>
+      <View
+        pointerEvents="none"
+        style={styles.dimmed}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+      >
         {children}
       </View>
 
@@ -38,8 +45,8 @@ export default function ProGate({ locked, label, onUpgrade, children }: ProGateP
       />
 
       <View pointerEvents="none" style={styles.badge}>
-        <Ionicons name="lock-closed" size={10} color={colors.background} />
-        <Text style={styles.badgeText}>Pro</Text>
+        <Ionicons name="lock-closed" size={9} color={colors.background} />
+        <Text style={styles.badgeText}>PRO</Text>
       </View>
     </View>
   )
@@ -54,19 +61,20 @@ const styles = StyleSheet.create({
   },
   badge: {
     position: 'absolute',
-    top: -8,
-    right: -8,
+    top: -spacing.sm,
+    right: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
-    paddingHorizontal: spacing.xs + 2,
+    gap: spacing.xxs,
+    paddingHorizontal: spacing.xs,
     paddingVertical: 1,
     borderRadius: radius.sm,
     backgroundColor: colors.secondary,
   },
   badgeText: {
-    color: colors.background,
+    ...typography.micro,
     fontSize: 10,
-    fontWeight: '700',
+    letterSpacing: 0.4,
+    color: colors.background,
   },
 })

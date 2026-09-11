@@ -7,11 +7,18 @@ import {
   WARNING_SIGNS,
   type Helpline,
 } from '@/lib/legal/content'
-import { colors, radius, spacing, typography } from '@/lib/theme/designTokens'
+import { Card } from '@/components/ui/Card'
+import {
+  colors,
+  HIT_SLOP,
+  PRESSED_OPACITY,
+  spacing,
+  typography,
+} from '@/lib/theme/designTokens'
 
 function HelplineCard({ helpline }: { helpline: Helpline }) {
   return (
-    <View style={styles.card}>
+    <Card style={styles.card}>
       <Text style={styles.cardTitle}>{helpline.name}</Text>
       <Text style={styles.cardBody}>{helpline.description}</Text>
       <View style={styles.cardActions}>
@@ -20,7 +27,7 @@ function HelplineCard({ helpline }: { helpline: Helpline }) {
             onPress={() => Linking.openURL(`tel:${helpline.dial}`)}
             style={({ pressed }) => [styles.action, pressed && styles.pressed]}
           >
-            <Ionicons name="call-outline" size={16} color={colors.primary} />
+            <Ionicons name="call-outline" size={16} color={colors.primaryBright} />
             <Text style={styles.actionText}>{helpline.phone}</Text>
           </Pressable>
         ) : (
@@ -33,11 +40,11 @@ function HelplineCard({ helpline }: { helpline: Helpline }) {
           onPress={() => Linking.openURL(`https://${helpline.website}`)}
           style={({ pressed }) => [styles.action, pressed && styles.pressed]}
         >
-          <Ionicons name="open-outline" size={16} color={colors.primary} />
+          <Ionicons name="open-outline" size={16} color={colors.primaryBright} />
           <Text style={styles.actionText}>{helpline.website}</Text>
         </Pressable>
       </View>
-    </View>
+    </Card>
   )
 }
 
@@ -57,8 +64,15 @@ export function ResponsibleGambling({
     >
       <View style={styles.sheet}>
         <View style={styles.header}>
-          <Text style={styles.title}>Responsible gambling</Text>
-          <Pressable onPress={onClose} hitSlop={12} accessibilityLabel="Close">
+          <Text style={styles.title} accessibilityRole="header">
+            Responsible gambling
+          </Text>
+          <Pressable
+            onPress={onClose}
+            hitSlop={HIT_SLOP}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+          >
             <Ionicons name="close" size={24} color={colors.textSecondary} />
           </Pressable>
         </View>
@@ -92,7 +106,7 @@ export function ResponsibleGambling({
               <Ionicons
                 name="checkmark-circle-outline"
                 size={16}
-                color={colors.primary}
+                color={colors.primaryBright}
                 style={styles.listIcon}
               />
               <Text style={styles.listText}>{practice}</Text>
@@ -111,32 +125,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: spacing.md,
-    borderBottomWidth: 1,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.divider,
   },
-  title: { ...typography.h3, color: colors.text },
+  title: { ...typography.heading, color: colors.text },
   body: { padding: spacing.md, gap: spacing.sm, paddingBottom: spacing.xxl },
   lede: { ...typography.body, color: colors.textSecondary },
   section: { ...typography.title, color: colors.text, marginTop: spacing.md },
 
-  card: {
-    borderWidth: 1,
-    borderColor: colors.divider,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
-    padding: spacing.md,
-    gap: spacing.xs,
-  },
+  card: { gap: spacing.xs },
   cardTitle: { ...typography.label, color: colors.text },
   cardBody: { ...typography.bodySmall, color: colors.textSecondary },
   cardActions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, marginTop: spacing.xs },
-  action: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  actionText: { ...typography.bodySmall, color: colors.primary },
+  action: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
+  },
+  actionText: { ...typography.bodySmall, color: colors.primaryBright },
   actionMuted: { ...typography.bodySmall, color: colors.textSecondary },
 
   listRow: { flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start' },
   listIcon: { marginTop: 2 },
   listText: { ...typography.bodySmall, color: colors.textSecondary, flex: 1 },
 
-  pressed: { opacity: 0.6 },
+  pressed: { opacity: PRESSED_OPACITY },
 })

@@ -2,7 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons'
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 
 import type { LegalDocument } from '@/lib/legal/content'
-import { colors, radius, spacing, typography } from '@/lib/theme/designTokens'
+import { colors, HIT_SLOP, radius, spacing, typography } from '@/lib/theme/designTokens'
 
 interface LegalDocumentSheetProps {
   document: LegalDocument | null
@@ -20,10 +20,17 @@ export function LegalDocumentSheet({ document, onClose }: LegalDocumentSheetProp
       <View style={styles.sheet}>
         <View style={styles.header}>
           <View style={styles.headerText}>
-            <Text style={styles.title}>{document?.title}</Text>
+            <Text style={styles.title} accessibilityRole="header">
+              {document?.title}
+            </Text>
             <Text style={styles.subtitle}>{document?.subtitle}</Text>
           </View>
-          <Pressable onPress={onClose} hitSlop={12} accessibilityLabel="Close">
+          <Pressable
+            onPress={onClose}
+            hitSlop={HIT_SLOP}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+          >
             <Ionicons name="close" size={24} color={colors.textSecondary} />
           </Pressable>
         </View>
@@ -65,11 +72,11 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: spacing.sm,
     padding: spacing.md,
-    borderBottomWidth: 1,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.divider,
   },
   headerText: { flex: 1, gap: 2 },
-  title: { ...typography.h3, color: colors.text },
+  title: { ...typography.heading, color: colors.text },
   subtitle: { ...typography.bodySmall, color: colors.textSecondary },
   body: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xxl },
 
@@ -77,6 +84,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.secondary,
     borderRadius: radius.md,
+    backgroundColor: colors.sunken,
     padding: spacing.md,
     gap: spacing.xs,
   },
@@ -88,10 +96,10 @@ const styles = StyleSheet.create({
   sectionBody: { ...typography.bodySmall, color: colors.textSecondary },
 
   footer: {
-    borderTopWidth: 1,
+    borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.divider,
     paddingTop: spacing.md,
     gap: spacing.xs,
   },
-  footerTitle: { ...typography.label, color: colors.primary },
+  footerTitle: { ...typography.label, color: colors.primaryBright },
 })

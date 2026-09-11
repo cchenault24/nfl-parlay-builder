@@ -29,7 +29,7 @@ const navigationTheme = {
   ...DarkTheme,
   colors: {
     ...DarkTheme.colors,
-    primary: colors.primary,
+    primary: colors.primaryBright,
     background: colors.background,
     card: colors.surface,
     text: colors.text,

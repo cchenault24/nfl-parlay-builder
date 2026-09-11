@@ -2,7 +2,6 @@ import Ionicons from '@expo/vector-icons/Ionicons'
 import { Image } from 'expo-image'
 import { useState } from 'react'
 import {
-  ActivityIndicator,
   Alert,
   Linking,
   Pressable,
@@ -15,6 +14,9 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { LegalDocumentSheet } from '@/components/legal/LegalDocumentSheet'
 import { ResponsibleGambling } from '@/components/legal/ResponsibleGambling'
+import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
+import { Chip } from '@/components/ui/Chip'
 import { AccountService } from '@shared/api/AccountService'
 import { sharedRuntime } from '@shared/runtime'
 import { useAuth } from '@/lib/auth/useAuth'
@@ -27,22 +29,30 @@ import {
   termsOfService,
   type LegalDocument,
 } from '@/lib/legal/content'
-import { colors, radius, spacing, typography } from '@/lib/theme/designTokens'
+import {
+  colors,
+  PRESSED_OPACITY,
+  radius,
+  spacing,
+  typography,
+} from '@/lib/theme/designTokens'
 
 function Row({
   icon,
   label,
   onPress,
+  last = false,
 }: {
   icon: keyof typeof Ionicons.glyphMap
   label: string
   onPress: () => void
+  last?: boolean
 }) {
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.row, last && styles.rowLast, pressed && styles.pressed]}
     >
       <Ionicons name={icon} size={18} color={colors.textSecondary} />
       <Text style={styles.rowLabel}>{label}</Text>
@@ -99,6 +109,10 @@ export default function AccountScreen() {
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
       <ScrollView contentContainerStyle={styles.body}>
+        <Text style={styles.screenTitle} accessibilityRole="header">
+          Account
+        </Text>
+
         <View style={styles.identity}>
           {userProfile?.photoURL ? (
             <Image source={{ uri: userProfile.photoURL }} style={styles.avatar} />
@@ -120,23 +134,15 @@ export default function AccountScreen() {
         ) : null}
 
         <View style={styles.badges}>
-          <View style={[styles.badge, { borderColor: colors.secondary }]}>
-            <Text style={[styles.badgeText, { color: colors.secondary }]}>
-              ENTERTAINMENT ONLY
-            </Text>
-          </View>
-          <View style={[styles.badge, { borderColor: colors.error }]}>
-            <Text style={[styles.badgeText, { color: colors.error }]}>
-              {MINIMUM_AGE}+
-            </Text>
-          </View>
+          <Chip label="ENTERTAINMENT ONLY" tint={colors.secondary} />
+          <Chip label={`${MINIMUM_AGE}+`} tint={colors.error} />
         </View>
         <Text style={styles.badgeCaption}>
           AI-generated analysis and parlays for entertainment. No actual betting
           occurs.
         </Text>
 
-        <View style={styles.group}>
+        <Card padded={false} style={styles.group}>
           <Row
             icon="document-text-outline"
             label="Terms of Service"
@@ -156,21 +162,24 @@ export default function AccountScreen() {
             icon="heart-outline"
             label="Responsible gambling"
             onPress={() => setHelpOpen(true)}
+            last
           />
-        </View>
+        </Card>
 
         <Pressable
           onPress={() => Linking.openURL('tel:18005224700')}
           style={({ pressed }) => [styles.helpline, pressed && styles.pressed]}
         >
-          <Ionicons name="call-outline" size={16} color={colors.primary} />
+          <Ionicons name="call-outline" size={16} color={colors.primaryBright} />
           <Text style={styles.helplineText}>
             Problem gambling helpline · {HELPLINE}
           </Text>
         </Pressable>
 
-        <Pressable
-          style={({ pressed }) => [styles.signOut, pressed && styles.pressed]}
+        <Button
+          variant="neutral"
+          label="Sign out"
+          loading={signingOut}
           onPress={async () => {
             setSigningOut(true)
             try {
@@ -179,26 +188,18 @@ export default function AccountScreen() {
               setSigningOut(false)
             }
           }}
-          disabled={signingOut}
-        >
-          {signingOut ? (
-            <ActivityIndicator color={colors.error} />
-          ) : (
-            <Text style={styles.signOutText}>Sign out</Text>
-          )}
-        </Pressable>
+        />
 
-        <Pressable
-          style={({ pressed }) => [styles.deleteAccount, pressed && styles.pressed]}
+        {/* Red, but borderless: marked as destructive without out-shouting
+            the safe action above it. */}
+        <Button
+          variant="danger"
+          label="Delete account"
+          loading={deleting}
+          disabled={signingOut}
           onPress={confirmDelete}
-          disabled={deleting || signingOut}
-        >
-          {deleting ? (
-            <ActivityIndicator color={colors.error} />
-          ) : (
-            <Text style={styles.deleteAccountText}>Delete account</Text>
-          )}
-        </Pressable>
+          style={styles.deleteAccount}
+        />
 
         <Text style={styles.copyright}>
           © {new Date().getFullYear()} ParlAId.
@@ -213,9 +214,9 @@ export default function AccountScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
-  deleteAccount: { alignItems: 'center', paddingVertical: spacing.sm },
-  deleteAccountText: { ...typography.bodySmall, color: colors.error },
+  deleteAccount: { minHeight: 0 },
   body: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xxl },
+  screenTitle: { ...typography.heading, color: colors.text },
   identity: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   avatar: { width: 56, height: 56, borderRadius: radius.pill },
   avatarFallback: {
@@ -236,18 +237,10 @@ const styles = StyleSheet.create({
   },
   errorText: { ...typography.bodySmall, color: colors.error },
 
-  badges: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
-  badge: { borderWidth: 1, borderRadius: radius.sm, paddingHorizontal: 8, paddingVertical: 3 },
-  badgeText: { ...typography.label, fontSize: 11 },
-  badgeCaption: { ...typography.bodySmall, fontSize: 12, color: colors.textSecondary },
+  badges: { flexDirection: 'row', gap: spacing.sm },
+  badgeCaption: { ...typography.caption, color: colors.textSecondary },
 
-  group: {
-    borderWidth: 1,
-    borderColor: colors.divider,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
-    overflow: 'hidden',
-  },
+  group: { overflow: 'hidden' },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -257,21 +250,17 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.divider,
   },
+  rowLast: { borderBottomWidth: 0 },
   rowLabel: { ...typography.body, color: colors.text, flex: 1 },
 
-  helpline: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  helplineText: { ...typography.bodySmall, color: colors.primary },
-
-  signOut: {
+  helpline: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: spacing.md,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.error,
-    minHeight: 52,
-    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
   },
-  signOutText: { ...typography.button, color: colors.error },
-  copyright: { ...typography.bodySmall, fontSize: 12, color: colors.textDisabled, textAlign: 'center' },
-  pressed: { opacity: 0.75 },
+  helplineText: { ...typography.bodySmall, color: colors.primaryBright },
+
+  copyright: { ...typography.caption, color: colors.textDisabled, textAlign: 'center' },
+  pressed: { opacity: PRESSED_OPACITY },
 })

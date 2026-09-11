@@ -1,7 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { useState } from 'react'
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -14,9 +13,16 @@ import {
 } from 'react-native'
 
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton'
+import { Button } from '@/components/ui/Button'
 import { googleSignInConfigured } from '@/lib/auth/useGoogleSignIn'
 import { signInWithEmail, signUpWithEmail } from '@/lib/firebase'
-import { colors, radius, spacing, typography } from '@/lib/theme/designTokens'
+import {
+  colors,
+  HIT_SLOP,
+  radius,
+  spacing,
+  typography,
+} from '@/lib/theme/designTokens'
 
 interface FirebaseAuthError {
   code?: string
@@ -101,10 +107,15 @@ export function AuthSheet({ visible, startOnSignUp, onClose }: AuthSheetProps) {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View style={styles.header}>
-          <Text style={styles.title}>
+          <Text style={styles.title} accessibilityRole="header">
             {isSignUp ? 'Create account' : 'Sign in'}
           </Text>
-          <Pressable onPress={onClose} hitSlop={12} accessibilityLabel="Close">
+          <Pressable
+            onPress={onClose}
+            hitSlop={HIT_SLOP}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+          >
             <Ionicons name="close" size={24} color={colors.textSecondary} />
           </Pressable>
         </View>
@@ -116,54 +127,62 @@ export function AuthSheet({ visible, startOnSignUp, onClose }: AuthSheetProps) {
             </View>
           ) : null}
 
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            placeholderTextColor={colors.textDisabled}
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            autoComplete="email"
-            keyboardType="email-address"
-            inputMode="email"
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            placeholderTextColor={colors.textDisabled}
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            autoComplete={isSignUp ? 'new-password' : 'current-password'}
-          />
-          {isSignUp ? (
+          <View style={styles.field}>
+            <Text style={styles.fieldLabel} nativeID="auth-email">
+              Email
+            </Text>
             <TextInput
               style={styles.input}
-              placeholder="Confirm password"
+              accessibilityLabel="Email"
+              accessibilityLabelledBy="auth-email"
+              placeholder="you@example.com"
               placeholderTextColor={colors.textDisabled}
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              secureTextEntry
-              autoComplete="new-password"
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              autoComplete="email"
+              keyboardType="email-address"
+              inputMode="email"
             />
+          </View>
+
+          <View style={styles.field}>
+            <Text style={styles.fieldLabel} nativeID="auth-password">
+              Password
+            </Text>
+            <TextInput
+              style={styles.input}
+              accessibilityLabel="Password"
+              accessibilityLabelledBy="auth-password"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              autoComplete={isSignUp ? 'new-password' : 'current-password'}
+            />
+          </View>
+
+          {isSignUp ? (
+            <View style={styles.field}>
+              <Text style={styles.fieldLabel} nativeID="auth-confirm">
+                Confirm password
+              </Text>
+              <TextInput
+                style={styles.input}
+                accessibilityLabel="Confirm password"
+                accessibilityLabelledBy="auth-confirm"
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry
+                autoComplete="new-password"
+              />
+            </View>
           ) : null}
 
-          <Pressable
-            style={({ pressed }) => [
-              styles.primaryBtn,
-              (pressed || loading) && styles.pressed,
-            ]}
+          <Button
+            label={isSignUp ? 'Create account' : 'Sign in'}
             onPress={submit}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color={colors.text} />
-            ) : (
-              <Text style={styles.primaryBtnText}>
-                {isSignUp ? 'Create account' : 'Sign in'}
-              </Text>
-            )}
-          </Pressable>
+            loading={loading}
+          />
 
           {googleSignInConfigured ? (
             <>
@@ -176,7 +195,12 @@ export function AuthSheet({ visible, startOnSignUp, onClose }: AuthSheetProps) {
             </>
           ) : null}
 
-          <Pressable onPress={() => setIsSignUp(v => !v)} hitSlop={8}>
+          <Pressable
+            onPress={() => setIsSignUp(v => !v)}
+            accessibilityRole="button"
+            hitSlop={HIT_SLOP}
+            style={styles.switch}
+          >
             <Text style={styles.switchText}>
               {isSignUp
                 ? 'Already have an account? Sign in'
@@ -196,33 +220,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: spacing.md,
-    borderBottomWidth: 1,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.divider,
   },
-  title: { ...typography.h3, color: colors.text },
+  title: { ...typography.heading, color: colors.text },
   body: { padding: spacing.md, gap: spacing.md },
 
+  field: { gap: spacing.xs },
+  fieldLabel: { ...typography.label, color: colors.textSecondary },
   input: {
     ...typography.body,
     color: colors.text,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.sunken,
     borderWidth: 1,
-    borderColor: colors.divider,
+    // A form control's boundary has to clear 3:1 on its own — the structural
+    // hairline is invisible at input size.
+    borderColor: colors.border,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
+    minHeight: 48,
   },
-
-  primaryBtn: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primary,
-    paddingVertical: spacing.md,
-    borderRadius: radius.md,
-    minHeight: 52,
-  },
-  primaryBtnText: { ...typography.button, color: colors.text },
-  pressed: { opacity: 0.75 },
 
   dividerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   dividerLine: { flex: 1, height: 1, backgroundColor: colors.divider },
@@ -238,9 +256,10 @@ const styles = StyleSheet.create({
   },
   errorText: { ...typography.bodySmall, color: colors.error },
 
+  switch: { paddingVertical: spacing.sm },
   switchText: {
     ...typography.bodySmall,
-    color: colors.primary,
+    color: colors.primaryBright,
     textAlign: 'center',
   },
 })

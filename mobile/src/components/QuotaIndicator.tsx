@@ -1,7 +1,13 @@
 import type { QuotaState } from '@shared/tiering'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 
-import { colors, spacing } from '@/lib/theme/designTokens'
+import {
+  colors,
+  HIT_SLOP,
+  PRESSED_OPACITY,
+  spacing,
+  typography,
+} from '@/lib/theme/designTokens'
 
 interface QuotaIndicatorProps {
   quota: QuotaState
@@ -25,14 +31,21 @@ export default function QuotaIndicator({ quota, onUpgrade }: QuotaIndicatorProps
 
   return (
     <View style={styles.row}>
-      <Text style={[styles.count, exhausted && styles.countExhausted]}>
-        {exhausted
-          ? 'No parlays left this week'
-          : `${quota.remaining} of ${quota.limit} parlays left this week`}
-      </Text>
-      <Text style={styles.reset}>{resetLabel(quota.resetsAt)}</Text>
-      <Pressable onPress={onUpgrade} accessibilityRole="button">
-        <Text style={styles.link}>Go unlimited</Text>
+      <View style={styles.text}>
+        <Text style={[styles.count, exhausted && styles.countExhausted]}>
+          {exhausted
+            ? 'No parlays left this week'
+            : `${quota.remaining} of ${quota.limit} parlays left this week`}
+        </Text>
+        <Text style={styles.reset}>{resetLabel(quota.resetsAt)}</Text>
+      </View>
+      <Pressable
+        onPress={onUpgrade}
+        accessibilityRole="button"
+        hitSlop={HIT_SLOP}
+        style={({ pressed }) => [styles.link, pressed && styles.pressed]}
+      >
+        <Text style={styles.linkText}>Go unlimited</Text>
       </Pressable>
     </View>
   )
@@ -42,26 +55,18 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexWrap: 'wrap',
     gap: spacing.sm,
   },
+  text: { flex: 1, gap: spacing.xxs },
   count: {
+    ...typography.label,
     color: colors.text,
-    fontSize: 13,
-    fontWeight: '600',
     // Column-aligned digits keep the number from shifting as it counts down.
     fontVariant: ['tabular-nums'],
   },
-  countExhausted: {
-    color: colors.textSecondary,
-  },
-  reset: {
-    color: colors.textSecondary,
-    fontSize: 12,
-  },
-  link: {
-    color: colors.secondary,
-    fontSize: 12,
-    fontWeight: '700',
-  },
+  countExhausted: { color: colors.textSecondary },
+  reset: { ...typography.caption, color: colors.textSecondary },
+  link: { paddingVertical: spacing.xs },
+  linkText: { ...typography.label, color: colors.secondary },
+  pressed: { opacity: PRESSED_OPACITY },
 })
