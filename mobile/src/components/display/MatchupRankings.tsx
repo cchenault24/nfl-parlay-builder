@@ -9,14 +9,16 @@ type StatPick = (s: TeamStats) => RankedStat
 
 // Offense first, then defense, which is how the rest of the app talks about a
 // team. Shown in full: this is the comparison the screen exists for, and it is
-// seven rows — not enough to be worth hiding behind a disclosure.
-const MATCHUP_ROWS: { label: string; pick: StatPick }[] = [
-  { label: 'Total yards', pick: s => s.offense.totalYardsPerGame },
-  { label: 'Passing yards', pick: s => s.offense.passingYardsPerGame },
-  { label: 'Rushing yards', pick: s => s.offense.rushingYardsPerGame },
-  { label: 'Points scored', pick: s => s.offense.pointsPerGame },
-  { label: 'Yards allowed', pick: s => s.defense.yardsAllowedPerGame },
-  { label: 'Points allowed', pick: s => s.defense.pointsAllowedPerGame },
+// seven rows — not enough to be worth hiding behind a disclosure. Each row
+// opens to the per-game numbers behind its ranks.
+const MATCHUP_ROWS: { label: string; unit?: string; pick: StatPick }[] = [
+  { label: 'Total yards', unit: 'yards', pick: s => s.offense.totalYardsPerGame },
+  { label: 'Passing yards', unit: 'yards', pick: s => s.offense.passingYardsPerGame },
+  { label: 'Rushing yards', unit: 'yards', pick: s => s.offense.rushingYardsPerGame },
+  { label: 'Points scored', unit: 'points', pick: s => s.offense.pointsPerGame },
+  { label: 'Yards allowed', unit: 'yards', pick: s => s.defense.yardsAllowedPerGame },
+  { label: 'Points allowed', unit: 'points', pick: s => s.defense.pointsAllowedPerGame },
+  // A season total, not a per-game rate, so it carries no unit.
   { label: 'Takeaways', pick: s => s.defense.takeaways },
 ]
 
@@ -66,8 +68,11 @@ export function MatchupRankings({ game, homeStats, awayStats }: MatchupRankingsP
         <MatchupRow
           key={row.label}
           label={row.label}
+          unit={row.unit}
           homeRank={homeStats ? row.pick(homeStats).rank : undefined}
           awayRank={awayStats ? row.pick(awayStats).rank : undefined}
+          homeValue={homeStats ? row.pick(homeStats).value : undefined}
+          awayValue={awayStats ? row.pick(awayStats).value : undefined}
           index={i + 1}
         />
       ))}
