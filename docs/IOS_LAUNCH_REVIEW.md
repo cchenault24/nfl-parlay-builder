@@ -19,8 +19,28 @@ quota-costing races, all now fixed. What still blocks submission is operational:
 | 2 | **Confirm `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` is unset in the EAS production environment** | Google sign-in with no Sign in with Apple is a 4.8 rejection. The button is already gated on that variable; nothing implements Apple sign-in. | Leave it unset for 1.0 (email/password only is compliant). Add `expo-apple-authentication` before ever enabling Google. Fix `docs/TIERING.md:43`, which advertises Google. |
 | 3 | **Verify the seven `EXPO_PUBLIC_*` variables exist in EAS for `production`, and point the API one at the function's direct URL** | `firebase.ts` and `api/config.ts` throw at module scope without them; `.env.local` is gitignored and never uploaded. Could not check locally (no `eas` CLI installed). And the Hosting rewrite (`…web.app/api`) buffers the run's step stream, so the live timeline is blank until the run ends. | `eas env:list --environment production` from `mobile/`; set `EXPO_PUBLIC_API_BASE_URL=https://api-2fz6nf6s4a-uc.a.run.app`; smoke-test with the `simulator` profile, which already uses the production environment. |
 
-Everything else that was actionable is fixed in this branch. Two things remain open below as
-follow-ups because they are architecture, not fixes.
+**Status after the follow-up session (same day):**
+
+1. **Billing — in progress.** Christian chose to enable Apple billing for 1.0. `APPLE_BUNDLE_ID`
+   and `APPLE_ROOT_CA_G3` exist in Secret Manager (the CA's SHA-256 fingerprint was checked against
+   Apple's published value) and all three Apple secrets are bound in `functions/src/index.ts`.
+   **Do not merge until `APPLE_APP_APPLE_ID` exists** — a bound secret with no value aborts the
+   whole deploy. Still his: the numeric Apple ID from App Store Connect → App Information (then
+   `printf '<id>' | gcloud secrets create APPLE_APP_APPLE_ID --project=nfl-parlay-builder
+   --replication-policy=automatic --data-file=-`), the subscription product
+   `com.debugdad.parlaid.pro.monthly` at $9.99, the Server Notifications V2 URLs, a Sandbox Tester,
+   and one sandbox purchase + restore on a device before submitting.
+2. **Sign in with Apple — done in code.** Christian chose to add it. `expo-apple-authentication`,
+   the entitlement, Apple's own button above Google on the sheet, a hashed nonce checked by
+   Firebase, and the first-sign-in name kept. The Apple provider is enabled on the Firebase
+   project (via the Identity Toolkit API). The Google client id stays unset in EAS, so Google does
+   not ship. EAS syncs the Sign in with Apple capability onto the App ID at the next `eas build`.
+3. **Environment — done.** All seven `EXPO_PUBLIC_*` variables exist in EAS `production` and
+   `preview`; `EXPO_PUBLIC_API_BASE_URL` in both now points at the function's direct URL. The next
+   production build gets a live timeline.
+
+Everything else that was actionable is fixed in this branch. The follow-ups below are
+architecture, not fixes.
 
 ## Fixed in this branch
 
