@@ -23,22 +23,7 @@ import {
   spacing,
   typography,
 } from '@/lib/theme/designTokens'
-
-interface FirebaseAuthError {
-  code?: string
-  message?: string
-}
-
-// Matches the web AuthModal: turn `auth/invalid-credential` into
-// `invalid credential` rather than showing a raw Firebase code.
-function readableAuthError(err: unknown): string {
-  const authError = err as FirebaseAuthError
-  return (
-    authError.code?.replace('auth/', '').replace(/-/g, ' ') ||
-    authError.message ||
-    'Authentication failed'
-  )
-}
+import { readableAuthError } from '@/lib/auth/authErrors'
 
 interface AuthSheetProps {
   visible: boolean
