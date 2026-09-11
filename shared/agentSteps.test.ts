@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import type { AgentStep } from '@shared/types'
+import type { AgentStep } from './types'
 import {
   currentStepLabel,
   formatElapsed,
   stepFraction,
   stepProgressLabel,
   STEP_ROWS,
-} from './steps'
+} from './agentSteps'
 
 const step = (id: string, overrides: Partial<AgentStep> = {}): AgentStep => ({
   id,
@@ -94,5 +94,75 @@ describe('formatElapsed', () => {
 
   it('never renders a negative clock', () => {
     expect(formatElapsed(-500)).toBe('0s')
+  })
+})
+
+// A shipped binary keeps running against a server that moves on, which an App
+// Store release makes routine — so the `?? 'Working'` fallbacks are a real path,
+// not a defensive one. Every other case in this file feeds an id that is in
+// STEP_ROWS, so nothing exercised them.
+describe('an unrecognised step id', () => {
+  it('falls back to Working for a running step', () => {
+    expect(currentStepLabel([step('step_tool_something_new', { status: 'running' })])).toBe(
+      'Working'
+    )
+  })
+
+  it('keeps the progress count alongside the fallback', () => {
+    expect(
+      currentStepLabel([
+        step('step_tool_something_new', {
+          status: 'running',
+          progress: { done: 4, total: 6 },
+        }),
+      ])
+    ).toBe('Working · 4 of 6')
+  })
+
+  it('falls back to Working for the last finished step', () => {
+    expect(currentStepLabel([step('step_tool_something_new', { status: 'ok' })])).toBe(
+      'Working'
+    )
+  })
+
+  it('still counts toward progress', () => {
+    expect(stepFraction([step('step_tool_something_new', { status: 'ok' })])).toBeCloseTo(
+      1 / STEP_ROWS.length
+    )
+  })
+})
+
+// The length assertion elsewhere pins the count but not the ids or the flags,
+// so a rename or a moved `optional` passes it. AgentProgress reads `optional` as
+// the sole input deciding whether a failed step reads "unavailable — continuing"
+// or surfaces the raw error, which is the difference between a degraded run
+// looking fine and a broken one looking benign.
+describe('the step contract itself', () => {
+  it('keeps the ids the server emits, in order', () => {
+    expect(STEP_ROWS.map(row => row.id)).toEqual([
+      'step_plan',
+      'step_tool_espn_game',
+      'step_tool_espn_team_stats',
+      'step_tool_espn_pregame',
+      'step_tool_nflverse_epa',
+      'step_tool_odds',
+      'step_draft',
+      'step_validate',
+    ])
+  })
+
+  it('keeps exactly the tool steps optional', () => {
+    expect(STEP_ROWS.filter(row => row.optional).map(row => row.id)).toEqual([
+      'step_tool_espn_team_stats',
+      'step_tool_espn_pregame',
+      'step_tool_nflverse_epa',
+      'step_tool_odds',
+    ])
+  })
+
+  it('never lets the run’s own steps be optional', () => {
+    for (const id of ['step_plan', 'step_tool_espn_game', 'step_draft', 'step_validate']) {
+      expect(STEP_ROWS.find(row => row.id === id)?.optional).toBeUndefined()
+    }
   })
 })

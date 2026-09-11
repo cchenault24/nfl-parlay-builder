@@ -1,13 +1,25 @@
-import type { AgentStep } from '@shared/types'
+import type { AgentStep } from './types'
 
 // The eight conceptual steps a run reports, in order. Six games must not become
 // forty-eight rows (CONTRACT §9.3) — a multi-game run counts through the games
 // *inside* a row instead.
 //
+// These ids are a server contract, not presentation: `functions/` emits them and
+// both clients match on them. They lived in two hand-kept copies, one per
+// client, so renaming a step server-side silently broke whichever client was not
+// updated — the timeline fell through to a bare "Working" and the progress rule
+// divided by the wrong denominator, with no type error anywhere to catch it.
+//
 // `optional` steps are allowed to fail without failing the run: they render as
 // "unavailable — continuing" rather than as an error, or a degraded run looks
 // broken.
-export const STEP_ROWS: { id: string; label: string; optional?: boolean }[] = [
+export interface StepRow {
+  id: string
+  label: string
+  optional?: boolean
+}
+
+export const STEP_ROWS: StepRow[] = [
   { id: 'step_plan', label: 'Plan the run' },
   { id: 'step_tool_espn_game', label: 'Load game, venue & forecast' },
   { id: 'step_tool_espn_team_stats', label: 'Pull team statistics', optional: true },
@@ -19,6 +31,13 @@ export const STEP_ROWS: { id: string; label: string; optional?: boolean }[] = [
 ]
 
 const LABELS = new Map(STEP_ROWS.map(row => [row.id, row.label]))
+
+// A step id the shipped client does not know about. A binary keeps running
+// against a server that moves on, which is routine for an App Store release, so
+// this is a real path rather than a defensive one.
+export function stepLabel(id: string): string | undefined {
+  return LABELS.get(id)
+}
 
 // "4 of 6", or nothing at all for a single-game run — where `progress` is
 // deliberately undefined and the row reads exactly as it always has.
@@ -36,11 +55,11 @@ export function currentStepLabel(steps: AgentStep[]): string {
   const running = steps.find(s => s.status === 'running')
   if (running) {
     const progress = stepProgressLabel(running)
-    const label = LABELS.get(running.id) ?? 'Working'
+    const label = stepLabel(running.id) ?? 'Working'
     return progress ? `${label} · ${progress}` : label
   }
   const last = steps[steps.length - 1]
-  return last ? (LABELS.get(last.id) ?? 'Working') : 'Starting'
+  return last ? (stepLabel(last.id) ?? 'Working') : 'Starting'
 }
 
 // How far through the eight steps a run is, for the thin rule on a running row.
@@ -53,3 +72,8 @@ export function formatElapsed(ms: number): string {
   const seconds = Math.max(0, Math.floor(ms / 1000))
   return seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}m ${seconds % 60}s`
 }
+
+// One sentence, in one place. The web timeline and the mobile wait estimate both
+// stated this number, so a change to the agent's real duration had to be made
+// twice to stop the two clients disagreeing.
+export const RUN_DURATION_ESTIMATE = 'Runs usually take 20–60 seconds.'

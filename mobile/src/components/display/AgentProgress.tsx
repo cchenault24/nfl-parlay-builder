@@ -5,7 +5,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 
 import { Card } from '@/components/ui/Card'
 import { waitEstimate } from '@/lib/build/quotaCopy'
-import { formatElapsed, STEP_ROWS, stepProgressLabel } from '@/lib/build/steps'
+import { formatElapsed, STEP_ROWS, stepProgressLabel } from '@shared/agentSteps'
 import {
   colors,
   HIT_SLOP,

@@ -1,3 +1,4 @@
+import { RUN_DURATION_ESTIMATE } from '@shared/agentSteps'
 import type { QuotaState } from '@shared/tiering'
 import type { AgentGameResult } from '@shared/types'
 
@@ -43,7 +44,7 @@ export function unbilledNotice(
 // as a run can cover six games (CONTRACT §9.4).
 export function waitEstimate(gameCount: number): string {
   if (gameCount <= 1) {
-    return 'Runs usually take 20–60 seconds.'
+    return RUN_DURATION_ESTIMATE
   }
   const low = 20 + 10 * (gameCount - 1)
   const high = 60 + 20 * (gameCount - 1)

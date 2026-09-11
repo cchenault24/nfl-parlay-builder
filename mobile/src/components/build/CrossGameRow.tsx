@@ -4,7 +4,7 @@ import type { ParlayEntry } from '@shared/store/parlayStore'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 
 import { Chip } from '@/components/ui/Chip'
-import { currentStepLabel } from '@/lib/build/steps'
+import { currentStepLabel } from '@shared/agentSteps'
 import {
   colors,
   MIN_TARGET,

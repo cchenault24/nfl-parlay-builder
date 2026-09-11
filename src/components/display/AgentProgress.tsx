@@ -9,28 +9,19 @@ import {
   Typography,
 } from '@mui/material'
 import React, { useEffect, useState } from 'react'
+import {
+  formatElapsed,
+  RUN_DURATION_ESTIMATE,
+  STEP_ROWS,
+} from '@shared/agentSteps'
 import type { AgentStep } from '../../types'
 
-const ROWS: Array<{ id: string; label: string; optional?: boolean }> = [
-  { id: 'step_plan', label: 'Plan the run' },
-  { id: 'step_tool_espn_game', label: 'Load game, venue & forecast' },
-  { id: 'step_tool_espn_team_stats', label: 'Pull team statistics', optional: true },
-  { id: 'step_tool_espn_pregame', label: 'Check injuries & recent form', optional: true },
-  { id: 'step_tool_nflverse_epa', label: 'Pull EPA efficiency stats', optional: true },
-  { id: 'step_tool_odds', label: 'Fetch book lines', optional: true },
-  { id: 'step_draft', label: 'Draft the parlay' },
-  { id: 'step_validate', label: 'Check legs against the lines' },
-]
+const ROWS = STEP_ROWS
 
 interface AgentProgressProps {
   steps: AgentStep[]
   isMockMode: boolean
   onCancel: () => void
-}
-
-function formatElapsed(ms: number): string {
-  const s = Math.floor(ms / 1000)
-  return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`
 }
 
 function StatusGlyph({ step }: { step?: AgentStep }) {
@@ -93,7 +84,7 @@ const AgentProgress: React.FC<AgentProgressProps> = ({
               {isMockMode ? 'Simulating a parlay' : 'Building your parlay'}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Each step reports as it finishes. Runs usually take 20–60 seconds.
+              Each step reports as it finishes. {RUN_DURATION_ESTIMATE}
             </Typography>
           </Box>
           <Typography

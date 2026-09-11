@@ -6,7 +6,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { TeamLogo } from '@/components/display/TeamLogo'
 import { Chip } from '@/components/ui/Chip'
 import type { BuildRow as Row } from '@/lib/build/rowState'
-import { currentStepLabel, formatElapsed, stepFraction } from '@/lib/build/steps'
+import { currentStepLabel, formatElapsed, stepFraction } from '@shared/agentSteps'
 import {
   colors,
   HIT_SLOP,
