@@ -133,26 +133,37 @@ Net revenue per Pro user:
 | Stripe (web) | $4.99 | ~$4.55 |
 | Apple IAP @ 15% | $4.99 | ~$4.24 |
 
-Measured token usage per run (§7): ~1,371 input / 757 output (mean);
-1,398 / 1,784 at p95.
+Measured token usage per run (§7): **~2,017 input / 1,881 output** (mean), from
+runs made after the odds tool was repaired. The earlier 1,371 / 757 figures were
+taken while odds were silently unavailable, so the prompt carried no book-lines
+block and the model wrote far shorter reasoning — they describe a degraded agent
+and should not be used for pricing.
 
-Cost per run, by model rate — **the actual `gpt-5.6-terra` rate is unconfirmed**:
+`gpt-5.6-terra` rate, **confirmed 2026-09-11: $2 / Mtok input, $12 / Mtok output.**
 
-| $/Mtok (in / out) | Mean run | p95 run | Break-even runs/mo @ $4.24 |
+| | tokens (in / out) | $/run | Break-even runs/mo @ $4.24 |
 |---|---|---|---|
-| $0.15 / $0.60 | $0.0007 | $0.0013 | ~6,000 |
-| $1.25 / $10 | $0.009 | $0.020 | ~470 |
-| $2.50 / $10 | $0.011 | $0.022 | ~385 |
-| $3 / $15 | $0.016 | $0.031 | ~265 |
-| $10 / $30 | $0.036 | $0.068 | ~118 |
+| Old §7 baseline (degraded) | 1,371 / 757 | $0.0118 | ~359 |
+| **Measured now** | **2,017 / 1,881** | **$0.0266** | **~159** |
+| Worst run observed | 2,024 / 2,392 | $0.0328 | ~129 |
 
-**Conclusion: uncapped Pro is safe at any non-premium rate.** A heavy user at
-50 runs/week (215/mo) costs $1.94/mo against $4.24 net at $1.25/$10. Weekly
-full-slate adds only ~69 runs/mo. Uncapped only breaks at premium pricing
-($10/$30) combined with heavy usage.
+**Conclusion: uncapped Pro is NOT safe at $4.99.** This reverses §4's earlier
+finding, which was computed on the degraded token counts above. The spec's own
+heavy user — 50 runs/week, 215/mo — costs **$5.72/mo against $4.24 net**, a loss
+of $1.48 before a single full-slate run. Break-even is ~159 runs/mo on Apple and
+~171 on Stripe, roughly five or six generations a day: high, but reachable by an
+engaged user during the season, and not the "nobody watches 300 timelines a
+month" case the earlier text dismissed.
 
-Latency reinforces this: a draft takes 19s (p50) to 39s (p95), so "unlimited" is
-substantially self-enforcing. Nobody watches 300 timelines a month.
+Latency still helps — a draft takes 19s (p50) to 39s (p95) — but it is no longer
+sufficient on its own.
+
+**Output is 85% of the cost** ($0.0226 of $0.0266), so reasoning length is the
+highest-leverage control available. Capping per-leg reasoning in the prompt would
+cut cost close to proportionally and needs no pricing change.
+
+The silent 20/hr fair-use valve does not bound this: it permits 14,400 runs/mo,
+about $383. Whatever is decided below, that number needs to become a real limit.
 
 Odds API costs amortize well — 23 odds fetches served 83 runs via the existing
 cache and request collapsing.
@@ -225,10 +236,30 @@ output tokens  mean  757  p50  593  p90 1316  p95 1784  max 2250
 draft latency  mean 21.1s p50 19.0s p90 32.7s p95 38.7s max 38.7s
 ```
 
+**These numbers describe a degraded agent and must not be used for pricing.**
+Every run above was made while `ODDS_API_KEY` was rejected by The Odds API, so
+no run ever had a book-lines block in its prompt and every leg was AI-estimated.
+Re-measured from production on 2026-09-11, after the key was repaired:
+
+```
+runs with sources.odds == ok, n=6
+
+input tokens   mean 2017   (+47% — the prompt now carries posted lines)
+output tokens  mean 1881   (+148% — the model writes to real numbers)
+draft latency  mean 27s
+```
+
+Output more than doubled, and output is 85% of the model cost, so §4's original
+"uncapped Pro is safe" conclusion did not survive the fix. The sample is small;
+re-measure once there is real Pro traffic.
+
 Observations:
 - Input is remarkably stable (p50→p95 varies by 9 tokens); output carries all the
   variance, driven by leg count and reasoning length.
 - **13% failure rate** (11 failed + 2 canceled of 83) — drives the §3 quota rule.
+  Also degraded-era. With odds unavailable the observed rate was far worse (3 of 5
+  runs hard-failed on 2026-09-10) because the model answered a missing line with
+  `odds: 0`; that path is closed, and the rate needs re-measuring on healthy runs.
 - **3 runs stuck in `running`** with no terminal state. Fixed in #81 — the
   orchestrator now drives every exit to a terminal status and `reapStaleRuns`
   sweeps anything a crashed instance abandoned, so quota accounting keyed on run
@@ -264,7 +295,7 @@ Reproduce: query `agentRuns/{id}/steps` for `type == 'draft'`, read
 
 | Item | Owner action | Blocks |
 |---|---|---|
-| Confirm `gpt-5.6-terra` rate | Read the OpenAI dashboard, drop it into §4 | Final sign-off on uncapped Pro |
-| Re-decide price against the final tier gap | $4.99 vs $9.99 | v1 billing |
+| **Uncapped Pro at $4.99 is loss-making above ~159 runs/mo** | Pick one: raise the price, cap reasoning length (85% of cost), or turn the 20/hr valve into a real limit | v1 billing |
+| Re-decide price against the final tier gap | $4.99 vs $9.99 — now also an economics question, not only a positioning one | v1 billing |
 | Validate App Store approval for AI betting picks | Ask Apple before building | v1 iOS billing |
 | Steer web signups to Stripe over IAP | ~$0.30/user/mo | — |
