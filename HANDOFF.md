@@ -5,24 +5,19 @@ backend section is complete, the client section is appended as it goes.
 
 ---
 
-## Before this can work in production
+## Deployed
 
-**`timeoutSeconds: 300` needs a deploy.** [`functions/src/index.ts`](functions/src/index.ts)
-raised the `api` function's timeout from 120s. Nothing about it takes effect until
-functions are deployed. A six-game run is budgeted at 190s and will be killed at
-120s — after the model tokens have been spent — on the currently deployed
-function. Deploy before raising anything, or before anyone tries a cross-game
-parlay against production.
+`firebase deploy --only functions,hosting,firestore` ran on 2026-09-11 against
+`nfl-parlay-builder`. Functions, the web client and `firestore.rules` went
+together on purpose: the new API requires `gameIds` and the old web bundle sent
+`gameId`, so shipping functions alone would have broken parlay generation on the
+live site until hosting caught up.
 
-**`firestore.rules` must deploy with the web client.** The parlay-create rule
-now requires a non-empty `gameIds`, and the currently-live web bundle writes
-`gameId`. `firebase deploy` ships hosting and rules together, which closes the
-gap to an already-open browser tab — a refresh fixes that. Do not deploy rules
-on their own. The iOS app is unaffected: it has never shipped.
+Verified after: `/odds/week/:week` and `/games/:gameId/stats` answer 200 where
+they were 404, and the Cloud Run service reports `timeoutSeconds: 300` — which
+is the ceiling a six-game run needs, since execution rides the SSE request.
 
-Everything else on the backend is code-only.
-
----
+Nothing else here needs a deploy.
 
 ## Backend — what landed
 
