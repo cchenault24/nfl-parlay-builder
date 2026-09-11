@@ -25,9 +25,15 @@ quota-costing races, all now fixed. What still blocks submission is operational:
    and `APPLE_ROOT_CA_G3` exist in Secret Manager (the CA's SHA-256 fingerprint was checked against
    Apple's published value) and all three Apple secrets are bound in `functions/src/index.ts`.
    `APPLE_APP_APPLE_ID` was created later the same day with the real value, so the branch is safe
-   to merge and the merge deploys billing. Still his in App Store Connect: the subscription product
-   `com.debugdad.parlaid.pro.monthly` at $9.99, the Server Notifications V2 URLs, a Sandbox Tester,
-   and one sandbox purchase + restore on a device before submitting.
+   to merge and the merge deploys billing. In App Store Connect the subscription now exists:
+   group "ParlAId Pro" (id 22377769), product `com.debugdad.parlaid.pro.monthly` (Apple ID
+   6811151393), 1 month, $9.99 USD with Apple's auto-converted prices in all 175 regions, available
+   everywhere, English (U.S.) localization "Pro" on both the product and the group. Status stays
+   "Prepare for Submission" until the **review screenshot** is uploaded on the product page —
+   capture the paywall on a device once billing is live, since that is the only place StoreKit
+   returns the price. Still his: the Server Notifications V2 URLs, a Sandbox Tester, the
+   screenshot, and one sandbox purchase + restore on a device. The first subscription is submitted
+   together with the 1.0 version ("Add for Review").
 2. **Sign in with Apple — done in code.** Christian chose to add it. `expo-apple-authentication`,
    the entitlement, Apple's own button above Google on the sheet, a hashed nonce checked by
    Firebase, and the first-sign-in name kept. The Apple provider is enabled on the Firebase
