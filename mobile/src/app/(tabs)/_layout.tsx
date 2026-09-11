@@ -27,7 +27,7 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
-        name="index"
+        name="build"
         options={{
           title: 'Build',
           tabBarIcon: ({ color, size }) => (

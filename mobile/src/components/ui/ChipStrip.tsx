@@ -16,6 +16,10 @@ export interface StripOption<T extends string | number> {
   label: string
   // Sits under the label — "now" on the current week.
   caption?: string
+  // `accent` marks something worth looking at ("now"); `muted` explains why a
+  // chip is unavailable, where orange would read as a warning about the game
+  // rather than a statement about the book.
+  captionTone?: 'accent' | 'muted'
   disabled?: boolean
   locked?: boolean
 }
@@ -91,7 +95,14 @@ export function ChipStrip<T extends string | number>({
             {option.locked ? (
               <Ionicons name="lock-closed" size={10} color={colors.textDisabled} />
             ) : option.caption ? (
-              <Text style={styles.caption}>{option.caption}</Text>
+              <Text
+                style={[
+                  styles.caption,
+                  option.captionTone === 'muted' && styles.captionMuted,
+                ]}
+              >
+                {option.caption}
+              </Text>
             ) : null}
           </Pressable>
         )
@@ -122,4 +133,5 @@ const styles = StyleSheet.create({
   label: { ...typography.label, color: colors.textSecondary },
   labelSelected: { color: colors.text, fontFamily: typography.title.fontFamily },
   caption: { ...typography.micro, color: colors.secondary },
+  captionMuted: { color: colors.textDisabled },
 })
