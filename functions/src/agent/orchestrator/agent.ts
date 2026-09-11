@@ -207,14 +207,23 @@ export async function runAgent(
       ...ctx,
       parent: rootSpan.ctx,
     })
+    // Progress writes are not awaited by the caller — a slow write must never
+    // hold up the work it is reporting on. But `upsertStep` is a `set`, so a
+    // progress write that lands after the terminal one replaces a finished
+    // step with a `running` snapshot and strips its `finishedAt`. Chaining
+    // them gives a single handle the terminal path can settle first.
+    let progressWrites: Promise<unknown> = Promise.resolve()
     const stepCtx: StepContext = {
       progress: (done, total) => {
         if (record.status !== 'running') {
           return
         }
         record.progress = { done, total }
-        void persist.upsertStep(runId, { ...record })
-        onStep?.({ ...record })
+        const snapshot = { ...record }
+        progressWrites = progressWrites
+          .then(() => persist.upsertStep(runId, snapshot))
+          .catch(() => undefined)
+        onStep?.(snapshot)
       },
     }
     try {
@@ -224,6 +233,7 @@ export async function runAgent(
         finishedAt: new Date().toISOString(),
         durationMs: Date.now() - t0,
       })
+      await progressWrites
       await persist.upsertStep(runId, { ...record })
       onStep?.({ ...record })
       endSpan(span, ctx)
@@ -235,6 +245,7 @@ export async function runAgent(
         durationMs: Date.now() - t0,
         error: { code: errorCode(err), message: errorMessage(err) },
       })
+      await progressWrites
       await persist.upsertStep(runId, { ...record })
       onStep?.({ ...record })
       endSpan(span, {
