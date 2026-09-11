@@ -293,6 +293,81 @@ describe('runAgent', () => {
     expect(ids.size).toBe(8)
   })
 
+  it('never lets a progress write land after the step that finished', async () => {
+    // `upsertStep` is a `set`, so a slow progress write that settles after the
+    // terminal one puts a finished step back to `running` with no `finishedAt`.
+    // Multi-game runs are the only ones that report progress, which is why
+    // only they were leaving steps stuck mid-flight.
+    const landed: AgentStep[] = []
+    const inFlight: Promise<void>[] = []
+    const persist = {
+      upsertStep: vi.fn((_runId: string, step: AgentStep) => {
+        const write = (async () => {
+          if (step.progress) {
+            await new Promise(resolve => setTimeout(resolve, 5))
+          }
+          landed.push(step)
+        })()
+        inFlight.push(write)
+        return write
+      }),
+      getRun: vi.fn(async () => null),
+      finishRun: vi.fn(async () => true),
+    }
+    ai.draftParlay.mockImplementation(async () => draftFor(2))
+    openGate()
+    await runAgent(run({ gameIds: [GAME.gameId, OTHER.gameId] }), persist)
+    // A write the run never awaited is exactly the one that corrupts the
+    // record, so settle everything before reading the order back.
+    await Promise.all(inFlight)
+
+    const lastPerStep = new Map<string, AgentStep>()
+    for (const step of landed) {
+      lastPerStep.set(step.id, step)
+    }
+    for (const step of lastPerStep.values()) {
+      expect(step.status).not.toBe('running')
+      expect(step.finishedAt).toBeDefined()
+    }
+  })
+
+  it('forwards the draft as it is written, and only while it is', async () => {
+    const seen: unknown[] = []
+    ai.draftParlay.mockImplementation(
+      async (
+        _client: unknown,
+        _prompt: string,
+        opts: { onPartial?: (p: unknown) => void }
+      ) => {
+        opts.onPartial?.({ analysisSummary: { games: [{ matchupSummary: 'Cin' }] } })
+        opts.onPartial?.({
+          analysisSummary: { games: [{ matchupSummary: 'Cincinnati at home' }] },
+        })
+        return draftFor(1)
+      }
+    )
+    const persist = persistSpy()
+    openGate()
+    await runAgent(run(), persist, { onDraft: preview => seen.push(preview) })
+
+    expect(seen).toHaveLength(2)
+    expect(seen[1]).toEqual({
+      analysisSummary: { games: [{ matchupSummary: 'Cincinnati at home' }] },
+    })
+    // Previews are a live-stream nicety, not part of the record.
+    const written = persist.upsertStep.mock.calls.map(([, step]) => step)
+    expect(written.some(step => 'draft' in (step as object))).toBe(false)
+  })
+
+  it('does not ask the model to stream when no one is listening', async () => {
+    const persist = persistSpy()
+    openGate()
+    await runAgent(run(), persist)
+
+    const opts = ai.draftParlay.mock.calls[0][2] as { onPartial?: unknown }
+    expect(opts.onPartial).toBeUndefined()
+  })
+
   it('asks the model for a schema sized to the run', async () => {
     ai.draftParlay.mockImplementation(async () => draftFor(2))
     const persist = persistSpy()

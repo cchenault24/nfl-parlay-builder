@@ -162,15 +162,24 @@ describe('persistence', () => {
       '5:g1': readyEntry('g1', 5),
       '6:g2': readyEntry('g2', 6),
     })
-    expect(Object.keys(await loadEntries(storage, 5)).sort()).toEqual(['5:g1', '6:g2'])
+    const loaded = await loadEntries(storage, 5)
+    expect(Object.keys(loaded ?? {}).sort()).toEqual(['5:g1', '6:g2'])
   })
 
+  it('treats nothing stored as an empty week', () => {
+    expect(parseEntries(null, 5)).toEqual({})
+    expect(parseEntries('', 5)).toEqual({})
+  })
+
+  // Unreadable is not empty. Returning `{}` here would let the caller mirror
+  // that back over the blob it failed to read, turning one bad read into a
+  // week of parlays gone for good.
   it.each([
     ['unparseable storage', '{not json'],
     ['an array', '[]'],
     ['null', 'null'],
-  ])('treats %s as an empty week', (_label, raw) => {
-    expect(parseEntries(raw, 5)).toEqual({})
+  ])('refuses to call %s an empty week', (_label, raw) => {
+    expect(parseEntries(raw, 5)).toBeNull()
   })
 
   it('ignores a stored entry that is missing its parlay', () => {
@@ -190,7 +199,7 @@ describe('persistence', () => {
       },
     }
     await expect(saveEntries(broken, {})).resolves.toBeUndefined()
-    expect(await loadEntries(broken, 5)).toEqual({})
+    expect(await loadEntries(broken, 5)).toBeNull()
   })
 
   it('stores under a versioned key', async () => {

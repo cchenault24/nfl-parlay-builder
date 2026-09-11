@@ -269,6 +269,10 @@ agentRouter.get(
           sentSteps.add(step.id)
           send('step', step)
         },
+        // Live only. The mirroring path below has nothing to replay this from,
+        // which is fine: a reconnecting client wants the finished parlay, not a
+        // rerun of the typing it missed.
+        onDraft: preview => send('draft', preview),
       })
       clearInterval(cancelWatcher)
 

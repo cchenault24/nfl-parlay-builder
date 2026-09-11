@@ -31,6 +31,7 @@ import {
   AgentRun,
   AgentStep,
   AgentToolName,
+  DraftPreview,
   ProcessedLeg,
 } from '../shared/schemas'
 import { withResilience } from '../tools'
@@ -55,6 +56,10 @@ export type RunAgentOptions = {
   // Called whenever a step is written, so a live caller (the SSE stream) can
   // push it straight to the client instead of polling Firestore for it.
   onStep?: (step: AgentStep) => void
+  // Called as the draft is generated, with the partial document so far. Live
+  // callers only: unlike steps this is never persisted, because it is worth
+  // nothing once the real draft exists.
+  onDraft?: (preview: DraftPreview) => void
 }
 
 // Replaces a spread/total/moneyline leg's line and price with the book's
@@ -154,7 +159,7 @@ export async function runAgent(
   persist: Persist,
   opts: RunAgentOptions = {}
 ): Promise<void> {
-  const { signal, onStep } = opts
+  const { signal, onStep, onDraft } = opts
   const startedAt = Date.now()
   const { id: runId, correlationId, budget } = run
   const ctx = { correlationId, runId }
@@ -207,14 +212,23 @@ export async function runAgent(
       ...ctx,
       parent: rootSpan.ctx,
     })
+    // Progress writes are not awaited by the caller — a slow write must never
+    // hold up the work it is reporting on. But `upsertStep` is a `set`, so a
+    // progress write that lands after the terminal one replaces a finished
+    // step with a `running` snapshot and strips its `finishedAt`. Chaining
+    // them gives a single handle the terminal path can settle first.
+    let progressWrites: Promise<unknown> = Promise.resolve()
     const stepCtx: StepContext = {
       progress: (done, total) => {
         if (record.status !== 'running') {
           return
         }
         record.progress = { done, total }
-        void persist.upsertStep(runId, { ...record })
-        onStep?.({ ...record })
+        const snapshot = { ...record }
+        progressWrites = progressWrites
+          .then(() => persist.upsertStep(runId, snapshot))
+          .catch(() => undefined)
+        onStep?.(snapshot)
       },
     }
     try {
@@ -224,6 +238,7 @@ export async function runAgent(
         finishedAt: new Date().toISOString(),
         durationMs: Date.now() - t0,
       })
+      await progressWrites
       await persist.upsertStep(runId, { ...record })
       onStep?.({ ...record })
       endSpan(span, ctx)
@@ -235,6 +250,7 @@ export async function runAgent(
         durationMs: Date.now() - t0,
         error: { code: errorCode(err), message: errorMessage(err) },
       })
+      await progressWrites
       await persist.upsertStep(runId, { ...record })
       onStep?.({ ...record })
       endSpan(span, {
@@ -436,6 +452,9 @@ export async function runAgent(
         gameCount: games.length,
         timeoutMs: remainingMs(),
         signal,
+        onPartial: onDraft
+          ? preview => onDraft(preview as DraftPreview)
+          : undefined,
       })
       observe('draft_tokens_output', result.tokensOutput)
       return result

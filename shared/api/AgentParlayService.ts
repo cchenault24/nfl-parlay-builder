@@ -69,6 +69,8 @@ export class AgentParlayService extends BaseParlayService {
       const onEvent = (evt: RunStreamEvent) => {
         if (evt.type === 'step') {
           options.onStep?.(evt.data)
+        } else if (evt.type === 'draft') {
+          options.onDraft?.(evt.data)
         } else if (evt.type === 'final') {
           settle(() => resolve(evt.data))
         } else if (evt.type === 'error') {

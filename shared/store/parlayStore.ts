@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type {
   AgentGameResult,
   AgentStep,
+  DraftPreview,
   Game,
   GeneratedParlay,
   RiskLevel,
@@ -22,6 +23,9 @@ export interface ParlayEntry {
   // its own step.
   steps: AgentStep[]
   startedAt: number
+  // What the model has written so far, while it is writing it. Dropped the
+  // moment the real parlay lands, and never persisted.
+  draft?: DraftPreview
   parlay?: GeneratedParlay
   games?: AgentGameResult[]
   error?: string
@@ -66,6 +70,7 @@ interface ParlayStore {
     result: { parlay: GeneratedParlay; games: AgentGameResult[] }
   ) => void
   failRun: (key: string, error: string) => void
+  setDraft: (key: string, draft: DraftPreview) => void
   clearRun: (key: string) => void
   // Drops everything from before `week`. Called on hydrate against the *live*
   // week, not the browsed one: a week whose games have kicked off has been
@@ -134,7 +139,16 @@ const useParlayStore = create<ParlayStore>(set => ({
       return {
         entries: {
           ...state.entries,
-          [key]: { ...entry, status: 'ready', error: undefined, ...result },
+          // `draft` goes with it: the preview was a stand-in for this, and
+          // leaving half-written sentences on a finished entry would put them
+          // one render away from being shown beside the real thing.
+          [key]: {
+            ...entry,
+            status: 'ready',
+            error: undefined,
+            draft: undefined,
+            ...result,
+          },
         },
       }
     }),
@@ -146,6 +160,17 @@ const useParlayStore = create<ParlayStore>(set => ({
         return state
       }
       return { entries: { ...state.entries, [key]: { ...entry, status: 'failed', error } } }
+    }),
+
+  setDraft: (key, draft) =>
+    set(state => {
+      const entry = state.entries[key]
+      // A draft that arrives after the run settled (or was cancelled) has
+      // nothing to attach to and must not resurrect the entry.
+      if (!entry || entry.status !== 'running') {
+        return state
+      }
+      return { entries: { ...state.entries, [key]: { ...entry, draft } } }
     }),
 
   clearRun: key =>
