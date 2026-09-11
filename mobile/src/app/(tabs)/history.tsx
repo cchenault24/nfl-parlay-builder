@@ -51,15 +51,28 @@ function OutcomeChip({ parlay }: { parlay: GeneratedParlay }) {
 
 export default function HistoryScreen() {
   const { user } = useAuth()
-  const { capabilities, entitlements, isLoading, refetch } = useEntitlements()
+  const {
+    capabilities,
+    entitlements,
+    isLoading,
+    error: entitlementsError,
+    refetch,
+  } = useEntitlements()
   const [loaded, setLoaded] = useState<GeneratedParlay[] | null>(null)
   const [error, setError] = useState('')
   const [upgradeVisible, setUpgradeVisible] = useState(false)
 
-  // Undefined while entitlements load, and if they fail outright. Showing a
-  // user more of their own saved parlays costs nothing, whereas failing closed
-  // would hide data they saved, so this one restriction fails open.
-  const depth = capabilities?.historyDepth ?? null
+  // How much history this plan shows; null is unbounded. Undefined means the
+  // answer has not arrived, which is NOT the same as unbounded — defaulting it
+  // to null meant a failed /entitlements call silently lifted a free user's cap
+  // to their entire archive. The query below simply waits instead.
+  //
+  // Worth being clear about what this is: a view restriction, not a boundary.
+  // firestore.rules lets a user read every parlay they saved, and getUserParlays
+  // fetches them all and slices here, so this shapes the product rather than
+  // guarding anything. Making it a real limit would need a server-side query.
+  const depth = capabilities?.historyDepth
+  const depthKnown = capabilities !== undefined
 
   // Derived rather than cleared in the effect: the tabs unmount on sign-out
   // (app/_layout.tsx guards them), so this only has to cover the frame between
@@ -67,7 +80,7 @@ export default function HistoryScreen() {
   const parlays = user ? loaded : null
 
   useEffect(() => {
-    if (!user) {
+    if (!user || !depthKnown) {
       return
     }
     // Both writes live in the listener's callbacks. Clearing the error on a
@@ -83,10 +96,10 @@ export default function HistoryScreen() {
         setError(message)
         setLoaded([])
       },
-      depth
+      depth ?? null
     )
     return unsubscribe
-  }, [user, depth])
+  }, [user, depth, depthKnown])
 
   useEffect(() => {
     if (!user) {
@@ -111,7 +124,17 @@ export default function HistoryScreen() {
           <ErrorBanner type="error" title="Couldn't load history" message={error} />
         ) : null}
 
-        {parlays === null || isLoading ? (
+        {/* Surfaced rather than worked around: without the plan there is no
+            honest amount of history to show. */}
+        {entitlementsError && !isLoading ? (
+          <ErrorBanner
+            type="error"
+            title="Couldn't load your plan"
+            message={entitlementsError}
+          />
+        ) : null}
+
+        {parlays === null || isLoading || !depthKnown ? (
           <View style={styles.centre}>
             <ActivityIndicator color={colors.primaryBright} />
           </View>
@@ -166,7 +189,7 @@ export default function HistoryScreen() {
           ))
         )}
 
-        {depth !== null && parlays !== null && parlays.length === depth ? (
+        {depth != null && parlays !== null && parlays.length === depth ? (
           <Pressable onPress={() => setUpgradeVisible(true)}>
             <Text style={styles.depthNote}>
               Showing your last {depth}.{' '}

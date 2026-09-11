@@ -15,17 +15,19 @@ vi.mock('../billing/apple', () => ({
   handleAppleNotification: (...args: unknown[]) => handleAppleNotification(...args),
 }))
 
+const createCheckoutSession = vi.fn()
 vi.mock('../billing/stripe', () => ({
-  createCheckoutSession: vi.fn(),
+  createCheckoutSession: (...args: unknown[]) => createCheckoutSession(...args),
   createPortalSession: vi.fn(),
   handleStripeEvent: vi.fn(),
   verifyStripeEvent: vi.fn(),
 }))
 
 let appleOn = true
+let stripeOn = false
 vi.mock('../billing/config', () => ({
   appleConfigured: () => appleOn,
-  stripeConfigured: () => false,
+  stripeConfigured: () => stripeOn,
 }))
 
 // Bearer "good" is a valid session; anything else is not. That is the whole
@@ -84,6 +86,7 @@ async function redeem(body: unknown, authorization = 'Bearer good') {
 beforeEach(() => {
   vi.clearAllMocks()
   appleOn = true
+  stripeOn = false
 })
 
 describe('POST /billing/apple/redeem', () => {
@@ -228,5 +231,43 @@ describe('POST /billing/webhooks/apple', () => {
     const res = await notify({ signedPayload: 'signed' })
 
     expect(res.status).toBe(200)
+  })
+})
+
+describe('the generic error wrapper', () => {
+  // The underlying text is Stripe API prose, a Firestore index or permission
+  // error, or `APPLE_APP_APPLE_ID is not configured` — which enumerates which
+  // credentials exist. It belongs in the log, joined to the response by the
+  // correlation id, not in the body.
+  it('answers 500 with a fixed message, not the exception text', async () => {
+    stripeOn = true
+    createCheckoutSession.mockRejectedValue(
+      new Error('STRIPE_SECRET_KEY is not configured')
+    )
+
+    const res = await fetch(`http://127.0.0.1:${port}/billing/checkout`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: 'Bearer good' },
+      body: '{}',
+    })
+    const body = await res.json()
+
+    expect(res.status).toBe(500)
+    expect(body.code).toBe('billing_error')
+    expect(body.message).not.toContain('STRIPE_SECRET_KEY')
+    expect(body.message).toBe('Something went wrong on our end. Please try again.')
+  })
+
+  it('still returns the correlation id, so the log line can be found', async () => {
+    stripeOn = true
+    createCheckoutSession.mockRejectedValue(new Error('boom'))
+
+    const res = await fetch(`http://127.0.0.1:${port}/billing/checkout`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: 'Bearer good' },
+      body: '{}',
+    })
+
+    expect((await res.json()).correlationId).toBe('test-correlation')
   })
 })

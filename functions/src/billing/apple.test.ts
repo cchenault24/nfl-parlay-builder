@@ -6,13 +6,31 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const verifyTransaction = vi.fn()
 const verifyNotification = vi.fn()
 
+class FakeVerificationException extends Error {
+  constructor(public status: number) {
+    super(`verification failed (${status})`)
+  }
+}
+
 vi.mock('@apple/app-store-server-library', () => ({
   Environment: { PRODUCTION: 'Production', SANDBOX: 'Sandbox' },
+  // Mirrors the library's own enum; only INVALID_ENVIRONMENT is load-bearing.
+  VerificationStatus: {
+    OK: 0,
+    VERIFICATION_FAILURE: 1,
+    INVALID_APP_IDENTIFIER: 3,
+    INVALID_ENVIRONMENT: 4,
+    INVALID_CERTIFICATE: 6,
+  },
+  VerificationException: FakeVerificationException,
   SignedDataVerifier: class {
     verifyAndDecodeTransaction = verifyTransaction
     verifyAndDecodeNotification = verifyNotification
   },
 }))
+
+const INVALID_ENVIRONMENT = 4
+const INVALID_CERTIFICATE = 6
 
 vi.mock('./config', () => ({
   billingSecret: (name: string) =>
@@ -153,11 +171,11 @@ describe('redeemAppleTransaction', () => {
     expect(setEntitlement).toHaveBeenCalled()
   })
 
-  // Apple reviewers test sandbox purchases against a production build, so a
-  // production-verifier rejection must fall through rather than fail review.
-  it('falls back to the sandbox verifier when production rejects', async () => {
+  // Apple reviewers test sandbox purchases against a production build, so an
+  // environment mismatch must fall through rather than fail review.
+  it('falls back to the sandbox verifier on an environment mismatch', async () => {
     verifyTransaction
-      .mockRejectedValueOnce(new Error('wrong environment'))
+      .mockRejectedValueOnce(new FakeVerificationException(INVALID_ENVIRONMENT))
       .mockResolvedValueOnce(transaction())
 
     const grant = await redeemAppleTransaction('uid-1', 'jws')
@@ -166,12 +184,66 @@ describe('redeemAppleTransaction', () => {
     expect(verifyTransaction).toHaveBeenCalledTimes(2)
   })
 
-  it('propagates a failure when neither environment verifies', async () => {
+  it('records which environment signed a production grant', async () => {
+    verifyTransaction.mockResolvedValue(transaction())
+
+    await redeemAppleTransaction('uid-1', 'jws')
+
+    expect(setEntitlement).toHaveBeenCalledWith(
+      'uid-1',
+      expect.objectContaining({ appleEnvironment: 'Production' })
+    )
+  })
+
+  // A sandbox purchase is free and available to any TestFlight tester, so a
+  // grant from one must not be indistinguishable from a paid production grant.
+  it('records a sandbox grant as sandbox', async () => {
+    verifyTransaction
+      .mockRejectedValueOnce(new FakeVerificationException(INVALID_ENVIRONMENT))
+      .mockResolvedValueOnce(transaction())
+
+    await redeemAppleTransaction('uid-1', 'jws')
+
+    expect(setEntitlement).toHaveBeenCalledWith(
+      'uid-1',
+      expect.objectContaining({ appleEnvironment: 'Sandbox' })
+    )
+  })
+
+  // An unqualified catch retried a bad certificate, a malformed payload and a
+  // wrong bundle id as though each were an environment mismatch, turning every
+  // verification failure into two.
+  it('does not retry a failure that is not an environment mismatch', async () => {
+    verifyTransaction.mockRejectedValue(
+      new FakeVerificationException(INVALID_CERTIFICATE)
+    )
+
+    await expect(redeemAppleTransaction('uid-1', 'jws')).rejects.toThrow(
+      /verification failed/
+    )
+    expect(verifyTransaction).toHaveBeenCalledTimes(1)
+    expect(setEntitlement).not.toHaveBeenCalled()
+  })
+
+  it('does not retry a plain error from the verifier', async () => {
     verifyTransaction.mockRejectedValue(new Error('bad signature'))
 
     await expect(redeemAppleTransaction('uid-1', 'jws')).rejects.toThrow(
       'bad signature'
     )
+    expect(verifyTransaction).toHaveBeenCalledTimes(1)
+    expect(setEntitlement).not.toHaveBeenCalled()
+  })
+
+  it('propagates a failure when neither environment verifies', async () => {
+    verifyTransaction.mockRejectedValue(
+      new FakeVerificationException(INVALID_ENVIRONMENT)
+    )
+
+    await expect(redeemAppleTransaction('uid-1', 'jws')).rejects.toThrow(
+      /verification failed/
+    )
+    expect(verifyTransaction).toHaveBeenCalledTimes(2)
     expect(setEntitlement).not.toHaveBeenCalled()
   })
 })

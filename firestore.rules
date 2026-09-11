@@ -9,20 +9,38 @@ service cloud.firestore {
       allow read, write: if false;
     }
     
-    // User profiles - users can read/write their own profile
+    // User profiles - users can read/write their own profile.
+    //
+    // There is deliberately no second, broader read rule here. One existed for
+    // "social features if needed" and granted every signed-in user read access
+    // to any profile whose keys were a subset of displayName/photoURL/createdAt.
+    // Nothing was exposed only because createUserProfile also writes `email`,
+    // which failed the hasOnly check — so the day someone stopped writing that
+    // field, every profile would have become world-readable to the signed-in
+    // population, with no rules change and nothing to catch it. There are no
+    // social features; add the rule when there are.
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
-      
-      // Allow users to read basic info of other users (for social features if needed)
-      allow read: if request.auth != null 
-        && resource.data.keys().hasAll(['displayName', 'photoURL'])
-        && resource.data.keys().hasOnly(['displayName', 'photoURL', 'createdAt']);
     }
     
     // Parlay history
     match /parlays/{parlayId} {
-      allow read, update, delete: if request.auth != null 
+      allow read, delete: if request.auth != null 
         && resource.data.userId == request.auth.uid;
+      
+      // No client `update`. Neither client calls updateDoc, and the rule that
+      // used to grant it checked only `resource.data.userId` — the document
+      // BEFORE the write — so a user could create their own parlay and then
+      // update it to set `userId` to someone else's. It would pass, and the
+      // attacker-authored document would then match the victim's history query
+      // and render in their app with attacker-controlled selection and
+      // reasoning text. The sweeps would grade it, and /parlays/:id/share would
+      // mint a public link from it.
+      //
+      // If an edit feature ever needs this, the clause must constrain
+      // `request.resource.data` (the document being written) as well, and must
+      // pin `userId`, `createdAt` and the server-written `grading` field against
+      // their existing values.
       
       // `gameIds`, not `gameId`: a parlay can span several games, and the
       // sweeps that grade it and price its close read the list. Documents saved

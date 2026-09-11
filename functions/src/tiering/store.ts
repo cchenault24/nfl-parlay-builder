@@ -29,6 +29,11 @@ export interface EntitlementRecord {
   // to attribute an Apple renewal to a user.
   appleAccountToken?: string
   appleOriginalTransactionId?: string
+  // Which App Store environment signed the transaction. A sandbox purchase is
+  // free and available to any TestFlight tester, so a grant from one must stay
+  // distinguishable from a paid production grant rather than silently looking
+  // identical to it.
+  appleEnvironment?: string
   updatedAt: string
 }
 

@@ -1,6 +1,8 @@
 import {
   Environment,
   SignedDataVerifier,
+  VerificationException,
+  VerificationStatus,
   type JWSTransactionDecodedPayload,
   type ResponseBodyV2DecodedPayload,
 } from '@apple/app-store-server-library'
@@ -26,15 +28,39 @@ function verifierFor(environment: Environment): SignedDataVerifier {
   )
 }
 
-// Tries production first, then sandbox. Apple's own guidance is to treat a
-// production rejection as "might be sandbox" rather than as a forgery.
+// Tries production first, then sandbox, and says which one answered.
+//
+// Apple's guidance is to treat a production rejection as "might be sandbox"
+// rather than as a forgery, and reviewers do test sandbox purchases against a
+// production build — so the fallback has to exist or review fails on a purchase
+// that looks broken. What it must not be is unconditional: an unqualified catch
+// retries a malformed payload, an expired certificate chain and a wrong bundle
+// id as though each were an environment mismatch, turning every verification
+// failure into two. Only INVALID_ENVIRONMENT means "try the other one".
+//
+// The environment is returned rather than discarded because a sandbox purchase
+// is free. Without recording it, a $0 sandbox transaction — available to any
+// TestFlight tester — writes a production entitlement indistinguishable from a
+// paid one, and nothing downstream can tell them apart or sweep them.
 async function verify<T>(
   attempt: (verifier: SignedDataVerifier) => Promise<T>
-): Promise<T> {
+): Promise<{ value: T; environment: Environment }> {
   try {
-    return await attempt(verifierFor(Environment.PRODUCTION))
-  } catch {
-    return await attempt(verifierFor(Environment.SANDBOX))
+    return {
+      value: await attempt(verifierFor(Environment.PRODUCTION)),
+      environment: Environment.PRODUCTION,
+    }
+  } catch (e) {
+    if (
+      !(e instanceof VerificationException) ||
+      e.status !== VerificationStatus.INVALID_ENVIRONMENT
+    ) {
+      throw e
+    }
+    return {
+      value: await attempt(verifierFor(Environment.SANDBOX)),
+      environment: Environment.SANDBOX,
+    }
   }
 }
 
@@ -76,7 +102,9 @@ export async function redeemAppleTransaction(
   uid: string,
   signedTransaction: string
 ): Promise<{ tier: 'pro' | 'free'; accessEndsAt: string | null }> {
-  const payload = await verify(v => v.verifyAndDecodeTransaction(signedTransaction))
+  const { value: payload, environment } = await verify(v =>
+    v.verifyAndDecodeTransaction(signedTransaction)
+  )
 
   // A verified signature proves Apple issued *a* transaction, not that it was
   // for the thing being granted. Without this, any signed auto-renewing
@@ -113,6 +141,10 @@ export async function redeemAppleTransaction(
     // Stored so a later renewal notification, which arrives with no uid, can be
     // attributed back to this user.
     appleOriginalTransactionId: payload.originalTransactionId,
+    // A sandbox grant costs nothing to obtain. Recorded so it can be told apart
+    // from a paid one and swept, rather than sitting in production looking
+    // identical.
+    appleEnvironment: environment,
     ...(payload.appAccountToken ? { appleAccountToken: payload.appAccountToken } : {}),
     accessEndsAt: grant.accessEndsAt,
   })
@@ -130,7 +162,7 @@ export async function redeemAppleTransaction(
 // 2xx; anything else is retried for days, so an event this cannot attribute is
 // logged and accepted rather than failed.
 export async function handleAppleNotification(signedPayload: string): Promise<void> {
-  const payload: ResponseBodyV2DecodedPayload = await verify(v =>
+  const { value: payload } = await verify<ResponseBodyV2DecodedPayload>(v =>
     v.verifyAndDecodeNotification(signedPayload)
   )
 
@@ -143,7 +175,7 @@ export async function handleAppleNotification(signedPayload: string): Promise<vo
     return
   }
 
-  const transaction = await verify(v =>
+  const { value: transaction, environment } = await verify(v =>
     v.verifyAndDecodeTransaction(signedTransaction)
   )
   const originalTransactionId = transaction.originalTransactionId
@@ -175,6 +207,7 @@ export async function handleAppleNotification(signedPayload: string): Promise<vo
     tier: revoked ? 'free' : grant.tier,
     source: 'iap',
     appleOriginalTransactionId: originalTransactionId,
+    appleEnvironment: environment,
     accessEndsAt: revoked ? null : grant.accessEndsAt,
   })
 

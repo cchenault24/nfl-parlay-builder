@@ -58,7 +58,18 @@ const route =
         error: { code: 'billing_error', message },
       })
       if (!res.headersSent) {
-        errorResponse(res, 500, 'billing_error', message, authed.correlationId)
+        // A fixed message, never `message`. The underlying text is Stripe API
+        // prose, a Firestore index or permission error, or `APPLE_APP_APPLE_ID
+        // is not configured` — which maps out the backend and enumerates which
+        // credentials exist. The detail stays in the log line above, and the
+        // correlation id already returned is how the two are joined up.
+        errorResponse(
+          res,
+          500,
+          'billing_error',
+          'Something went wrong on our end. Please try again.',
+          authed.correlationId
+        )
       }
     }
   }

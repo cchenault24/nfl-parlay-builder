@@ -1,9 +1,9 @@
+import { secureAuthStorage } from '@/lib/auth/secureStorage'
 import {
   toUserProfile,
   userProfileDocument,
   type StoredUserProfile,
 } from '@shared/firestoreDocs'
-import AsyncStorage from '@react-native-async-storage/async-storage'
 // Auth is imported from the scoped package, not `firebase/auth`: the umbrella
 // package's exports map has no `react-native` condition, so Metro would hand
 // us the browser build, which has no getReactNativePersistence. Without that,
@@ -69,10 +69,16 @@ const app = initializeApp({
   appId: requireEnv('EXPO_PUBLIC_FIREBASE_APP_ID', process.env.EXPO_PUBLIC_FIREBASE_APP_ID),
 })
 
-// initializeAuth rather than getAuth: getAuth would pick the default
-// in-memory persistence before we get a chance to supply AsyncStorage.
+// initializeAuth rather than getAuth: getAuth would pick the default in-memory
+// persistence before we get a chance to supply our own.
+//
+// The store is the iOS keychain, not AsyncStorage. What Firebase persists here
+// includes a refresh token that mints fresh ID tokens indefinitely and never
+// expires on its own, and AsyncStorage on iOS is a plain file in the app's
+// Documents directory that goes into device backups — so an unencrypted backup
+// or a lost phone was full account takeover with no password.
 export const auth = initializeAuth(app, {
-  persistence: getReactNativePersistence(AsyncStorage),
+  persistence: getReactNativePersistence(secureAuthStorage),
 })
 
 export const db = getFirestore(app)
