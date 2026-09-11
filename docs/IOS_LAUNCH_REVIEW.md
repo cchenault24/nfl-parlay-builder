@@ -169,6 +169,11 @@ Save, History, Account. Two generations were spent. What it turned up, all fixed
   DraftKings"), and shows on History cards; the share view carries it.
 - The Account tab never said which plan the user was on. A plan card shows Pro with "Manage
   subscription", or Free with "Upgrade to Pro".
+- History cards were inert: a saved parlay had no screen to open into. The History tab is now a
+  stack and the whole card opens the parlay, rendered by a `ParlayView` shared with the build flow
+  so the two cannot drift. "Pending" (the grading status verbatim) became "Upcoming" before
+  kickoff, "Not graded" after it, and Won/Lost/Push/Partial once the sweep records an outcome.
+  The book shows on cards that carry it; parlays saved before today have nothing to show.
 - Seen, not changed: older saved parlays show "Pending" on games long finished (legacy documents
   the grading sweep cannot match); the dev-client gear overlaps "Select" on the Build header (dev
   builds only); the estimated-prices banner reuses the rate-limit banner's clock icon.
