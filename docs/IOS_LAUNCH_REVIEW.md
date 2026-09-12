@@ -237,6 +237,13 @@ Firebase errors — fixed).
 
 ## App Store Connect checklist (owner)
 
+Status as of 2026-09-11 evening: version 1.0 has build 3 selected, six 6.9" screenshots
+(landing, build, game, parlay, history, account), the privacy URL, an 18+ age rating, and the
+subscription on sale in the US. Still open before "Add for Review": the App Privacy data types
+(currently "Data Not Collected", which is false), the App Review sign-in password (still the
+old `ParlAid-Review-2025`; the demo account's password was reset), and attaching the
+subscription in the review dialog.
+
 - Age rating: real-money gambling No, simulated gambling None, answers yielding 17+/18+; in-app
   minimum is 18, not 21.
 - Category: Sports, secondary Entertainment. Not Games.
