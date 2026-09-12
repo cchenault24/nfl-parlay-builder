@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 // Stubbing it is what lets those decisions be tested without a signing key.
 const verifyTransaction = vi.fn()
 const verifyNotification = vi.fn()
+const verifyRenewalInfo = vi.fn()
 
 class FakeVerificationException extends Error {
   constructor(public status: number) {
@@ -27,6 +28,7 @@ vi.mock('@apple/app-store-server-library', () => ({
   SignedDataVerifier: class {
     verifyAndDecodeTransaction = verifyTransaction
     verifyAndDecodeNotification = verifyNotification
+    verifyAndDecodeRenewalInfo = verifyRenewalInfo
   },
 }))
 
@@ -259,6 +261,47 @@ describe('handleAppleNotification', () => {
     notificationType: type,
     notificationUUID: 'uuid-1',
     data: { signedTransactionInfo },
+  })
+
+  // The date is recorded on every grant so an elapsed one demotes on read; the
+  // renewal flag is what decides whether the client is told about it.
+  it('marks a fresh purchase as renewing', async () => {
+    verifyTransaction.mockResolvedValue(transaction())
+
+    await redeemAppleTransaction('uid-1', 'signed')
+
+    expect(setEntitlement).toHaveBeenCalledWith(
+      'uid-1',
+      expect.objectContaining({ tier: 'pro', autoRenewing: true })
+    )
+  })
+
+  it('records that renewal was turned off from the renewal info', async () => {
+    verifyNotification.mockResolvedValue({
+      ...notification('DID_CHANGE_RENEWAL_STATUS'),
+      data: { signedTransactionInfo: 'inner-jws', signedRenewalInfo: 'renewal-jws' },
+    })
+    verifyTransaction.mockResolvedValue(transaction())
+    verifyRenewalInfo.mockResolvedValue({ autoRenewStatus: 0 })
+    findUidByAppleTransaction.mockResolvedValue('uid-1')
+
+    await handleAppleNotification('signed')
+
+    expect(setEntitlement).toHaveBeenCalledWith(
+      'uid-1',
+      expect.objectContaining({ tier: 'pro', autoRenewing: false })
+    )
+  })
+
+  it('leaves the renewal flag alone when a notification carries no renewal info', async () => {
+    verifyNotification.mockResolvedValue(notification('DID_RENEW'))
+    verifyTransaction.mockResolvedValue(transaction())
+    findUidByAppleTransaction.mockResolvedValue('uid-1')
+
+    await handleAppleNotification('signed')
+
+    const update = setEntitlement.mock.calls[0][1] as Record<string, unknown>
+    expect('autoRenewing' in update).toBe(false)
   })
 
   it('renews pro on a DID_RENEW notification', async () => {

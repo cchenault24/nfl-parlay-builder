@@ -21,6 +21,11 @@ export interface EntitlementRecord {
   // Set when a subscription is ending; access is restricted at this instant but
   // nothing is ever deleted, so resubscribing restores the full view.
   accessEndsAt?: string
+  // Apple only. A purchase renews until the user turns it off, and Apple says
+  // which in the renewal info that rides along with every notification. Stripe
+  // records carry the same meaning in `accessEndsAt` itself, which is only set
+  // when a cancellation is scheduled.
+  autoRenewing?: boolean
   stripeCustomerId?: string
   stripeSubscriptionId?: string
   // Apple has no idea what a Firebase uid is. The app derives this UUID from the
@@ -196,8 +201,22 @@ export async function getEntitlementView(
       windowStart: quotaWindowStart(now),
       resetsAt: quotaWindowEnd(now),
     },
-    ...(entitlement.accessEndsAt ? { accessEndsAt: entitlement.accessEndsAt } : {}),
+    // The client reads this as "your access is ending", so it is only sent
+    // when that is true. An Apple record always carries the current period's
+    // end for demote-on-read; while the subscription renews, that date is an
+    // implementation detail, not something to warn about.
+    ...(scheduledEnd(entitlement) ? { accessEndsAt: entitlement.accessEndsAt } : {}),
   }
+}
+
+export function scheduledEnd(record: EntitlementRecord): string | undefined {
+  if (!record.accessEndsAt) {
+    return undefined
+  }
+  if (record.source === 'iap' && record.autoRenewing !== false) {
+    return undefined
+  }
+  return record.accessEndsAt
 }
 
 // Takes a slot inside a caller-supplied transaction, refusing when the bucket is

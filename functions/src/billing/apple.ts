@@ -163,6 +163,9 @@ export async function redeemAppleTransaction(
     appleEnvironment: environment,
     ...(payload.appAccountToken ? { appleAccountToken: payload.appAccountToken } : {}),
     accessEndsAt: grant.accessEndsAt,
+    // A transaction says nothing about renewal; a purchase just made renews
+    // until Apple's notifications say otherwise.
+    autoRenewing: true,
   })
 
   log.info('billing.apple.redeemed', {
@@ -226,6 +229,15 @@ export async function handleAppleNotification(signedPayload: string): Promise<vo
   const revoked =
     payload.notificationType === 'REFUND' || payload.notificationType === 'REVOKE'
 
+  // Whether the subscription will renew rides along as separately signed
+  // renewal info. It is what turns "access ends on <date>" from a fact about
+  // every period into a warning the user needs to see.
+  const signedRenewalInfo = payload.data?.signedRenewalInfo
+  const autoRenewing = signedRenewalInfo
+    ? (await verify(v => v.verifyAndDecodeRenewalInfo(signedRenewalInfo))).value
+        .autoRenewStatus === 1
+    : undefined
+
   await setEntitlement(uid, {
     tier: revoked ? 'free' : grant.tier,
     source: 'iap',
@@ -235,6 +247,7 @@ export async function handleAppleNotification(signedPayload: string): Promise<vo
       ? { appleAccountToken: transaction.appAccountToken }
       : {}),
     accessEndsAt: revoked ? null : grant.accessEndsAt,
+    ...(autoRenewing === undefined ? {} : { autoRenewing }),
   })
 
   log.info('billing.apple.notification', {
